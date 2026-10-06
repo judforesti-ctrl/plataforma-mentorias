@@ -38,6 +38,7 @@ img { max-width: 100%; }
 /* Blocos */
 .cartao { background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio); padding: 18px; min-width: 0; }
 .cartao + .cartao { margin-top: 14px; }
+.grade > .cartao, .linha > .cartao { margin-top: 0; }  /* dentro de grades, o espaçamento vem do gap */
 .cartao h3 + *, .cartao h4 + * { margin-top: 10px; }
 .grade { display: grid; gap: 14px; }
 .g2 { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); }
