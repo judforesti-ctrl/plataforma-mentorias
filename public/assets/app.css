@@ -61,7 +61,7 @@ img { max-width: 100%; }
 .campo { display: grid; gap: 5px; min-width: 0; }
 .campo > label, .rotulo { font-family: var(--f-titulo); font-size: 12px; font-weight: 700; }
 .campo small { color: var(--apagado); font-size: 12px; }
-input[type=text], input[type=email], input[type=password], input[type=number], input[type=date], input[type=datetime-local], input[type=url], input[type=tel], select, textarea {
+input[type=text], input[type=email], input[type=password], input[type=number], input[type=date], input[type=datetime-local], input[type=url], input[type=tel], input[type=search], select, textarea {
   width: 100%; border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; background: var(--papel); color: var(--texto); font: inherit; font-size: 15px; }
 textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--verde); box-shadow: 0 0 0 3px rgba(200, 240, 74, .35); }
@@ -118,3 +118,10 @@ tr.clicavel { cursor: pointer; } tr.clicavel:hover td { background: var(--bg); }
 .entrada .caixa { width: 100%; max-width: 380px; display: grid; gap: 14px; }
 @media (max-width: 820px) { .entrada { grid-template-columns: 1fr; } .entrada .lado { padding: 28px 20px; } .entrada .lado h1 { font-size: 28px; margin-top: 20px; } }
 @media (max-width: 640px) { .pagina { padding: 18px 16px 48px; } .item { grid-template-columns: auto 1fr; } .item > :last-child { grid-column: 2; } .quem span { display: none; } }
+
+/* arsenal */
+.ars-filtros { display: grid; grid-template-columns: 1fr 280px; gap: 10px; align-items: center; }
+.ars-filtros input[type=search] { font-size: 16px; padding: 14px 16px; border: 2px solid var(--verde); }
+.ars-filtros select { height: 56px; padding: 0 12px; }
+.chips .btn .n { opacity: .55; font-weight: 500; margin-left: 4px; }
+@media (max-width: 700px) { .ars-filtros { grid-template-columns: 1fr; } }
