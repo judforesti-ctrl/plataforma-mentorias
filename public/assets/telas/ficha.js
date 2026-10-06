@@ -14,6 +14,7 @@ export async function render(ctx, el, [id]) {
     .eq('id', id).maybeSingle();
   if (error) throw error;
   if (!m) { el.innerHTML = '<div class="vazio">Mentorado não encontrado, ou você não tem acesso a esta ficha.</div>'; return; }
+  const { data: enviadas } = await sb.from('ferramentas_enviadas').select('id, enviado_em, ferramenta:ferramentas(nome), por:perfis(nome)').eq('mentorado_id', id).order('enviado_em', { ascending: false });
 
   const sess = (m.sessoes || []).sort((a, b) => a.numero - b.numero);
   const mentores = (m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor).filter(Boolean);
@@ -62,6 +63,9 @@ export async function render(ctx, el, [id]) {
              ['forcas_visao_gestor', 'Forças · visão do gestor'], ['fraquezas_visao_gestor', 'Fraquezas · visão do gestor']]
             .map(([k, r]) => `<div class="campo"><label>${r}</label><textarea data-m="${k}" style="min-height:120px">${esc(m[k] || '')}</textarea></div>`).join('')}
         </div></div>
+      <div class="cartao mt"><div class="linha"><h3 style="flex:1">Ferramentas enviadas</h3><a class="btn peq" href="#/arsenal">Abrir o arsenal</a></div>
+        ${(enviadas || []).length ? `<div class="tabela mt"><table><tr><th>Ferramenta</th><th>Enviada em</th><th>Por</th></tr>${enviadas.map((x) => `<tr><td>${esc(x.ferramenta ? x.ferramenta.nome : '')}</td><td>${dataHoraBR(x.enviado_em)}</td><td>${esc(x.por ? x.por.nome : '')}</td></tr>`).join('')}</table></div>`
+          : '<p class="apagado mt">Nenhuma ferramenta enviada ainda. No arsenal, use o botão "Enviar".</p>'}</div>
       <div class="cartao mt"><h3>SWOT</h3>
         <div class="grade g2 mt">
           ${[['forcas', 'Forças'], ['fraquezas', 'Fraquezas'], ['oportunidades', 'Oportunidades'], ['ameacas', 'Ameaças']]

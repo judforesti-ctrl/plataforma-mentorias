@@ -19,7 +19,7 @@ Site: Netlify (pasta `public`) · Banco, login e fotos: Supabase (projeto `mixnu
 | `public/assets/telas/` | Uma tela por arquivo (painel, equipe, importar, mentorados, ficha, perfil, minha área, primeiro acesso) |
 | `public/privacidade.html` | Política de privacidade (em revisão jurídica) |
 | `netlify/functions/convidar.mjs` | Envia os convites (usa a chave secreta) |
-| `supabase/*.sql` | Rodar no SQL Editor, na ordem 01, 02, 03 |
+| `supabase/*.sql` | Rodar no SQL Editor, na ordem 01, 02, 03, 04 |
 
 ## Variáveis de ambiente na Netlify
 | Nome | Para quê |
@@ -34,5 +34,5 @@ Site: Netlify (pasta `public`) · Banco, login e fotos: Supabase (projeto `mixnu
 ## Etapas
 1. Fase 1 (pronta): login, primeiro acesso, equipe e convites, empresas e programas, mentorados, ficha, importação da planilha.
 2. Fase 2: tela da sessão (resumo por voz, informações delicadas, tarefa, presença, conclusão, resumo automático, WhatsApp).
-3. Fase 3: arsenal com busca e envio, área do mentorado completa.
+3. Fase 3 (arsenal pronto): arsenal com busca, ficha, PDF privado e envio ao mentorado; carregar arsenal (admin). Falta: área do mentorado completa.
 4. Fase 4: painel completo, relatórios por empresa, alertas e exportação.

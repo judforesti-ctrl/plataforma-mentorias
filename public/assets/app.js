@@ -33,6 +33,7 @@ const MENU = [
   ehAdmin && ['#/painel', 'Painel'],
   ehAdmin && ['#/mentorados', 'Mentorados'],
   atende && ['#/meus', 'Meus mentorados'],
+  (ehAdmin || atende) && ['#/arsenal', 'Arsenal'],
   ehAdmin && ['#/equipe', 'Equipe'],
   ehAdmin && ['#/importar', 'Importar planilha'],
   perfil.papel === 'mentorado' && ['#/minha-area', 'Minha mentoria'],
@@ -52,6 +53,8 @@ const ROTAS = {
   mentorado: () => import('./telas/ficha.js'),
   perfil: () => import('./telas/perfil.js'),
   'minha-area': () => import('./telas/minha-area.js'),
+  arsenal: () => import('./telas/arsenal.js'),
+  'carregar-arsenal': () => import('./telas/carregar-arsenal.js'),
 };
 
 function montarTopo(atual) {
@@ -71,7 +74,7 @@ async function abrir() {
   if (precisaPrimeiroAcesso) rota = 'primeiro-acesso';
   if (!rota || !ROTAS[rota]) { location.replace(inicio); return; }
   if (telaAtual && telaAtual.sair) telaAtual.sair();
-  montarTopo(rota === 'mentorado' ? (ehAdmin ? 'mentorados' : 'meus') : rota);
+  montarTopo(rota === 'mentorado' ? (ehAdmin ? 'mentorados' : 'meus') : rota === 'carregar-arsenal' ? 'arsenal' : rota);
   document.getElementById('topo').querySelector('.menu').hidden = precisaPrimeiroAcesso;
   // cada tela nasce num elemento novo, para os cliques de uma tela não se acumularem na outra
   const alvo = document.createElement('div');

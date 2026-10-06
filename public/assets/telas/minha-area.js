@@ -9,6 +9,7 @@ export async function render(ctx, el) {
       mentor:perfis!sessoes_mentor_id_fkey(nome))`)
     .eq('perfil_id', ctx.perfil.id).maybeSingle();
   if (error) throw error;
+  const { data: recebidas } = await sb.from('ferramentas_enviadas').select('id, enviado_em, ferramenta:ferramentas(id, nome, arquivo, dados)').order('enviado_em', { ascending: false });
   if (!m) { el.innerHTML = '<div class="vazio">Seu programa ainda não foi ligado ao seu acesso. Fale com a Mentorei.</div>'; return; }
 
   const sess = (m.sessoes || []).sort((a, b) => a.numero - b.numero);
@@ -55,12 +56,26 @@ export async function render(ctx, el) {
         : '<p class="apagado mt">Os resumos aparecem aqui depois de cada sessão concluída.</p>'}
     </div>
 
+    <div class="cartao"><h3>Ferramentas que você recebeu</h3>
+      ${(recebidas || []).length ? `<div class="lista mt">${recebidas.filter((r) => r.ferramenta).map((r) => `<div class="item" style="grid-template-columns:1fr auto">
+        <div><b>${esc(r.ferramenta.nome)}</b><p class="peq apagado">${esc((r.ferramenta.dados && r.ferramenta.dados.resumo) || '')}</p></div>
+        ${r.ferramenta.arquivo ? `<button class="btn peq pri" data-baixar="${esc(r.ferramenta.arquivo)}">Baixar PDF</button>` : ''}</div>`).join('')}</div>`
+        : '<p class="apagado mt">Quando o seu mentor enviar uma ferramenta, ela aparece aqui.</p>'}</div>
+
     <div class="cartao"><h3>Próximas sessões</h3>
       <div class="tabela mt"><table><tr><th>Nº</th><th>Data</th><th>Mentor</th><th>Tema</th></tr>
         ${sess.filter((s) => !s.concluida_em).map((s) => `<tr><td>${s.numero}</td><td>${dataHoraBR(s.data_hora)}</td><td>${esc(s.mentor ? s.mentor.nome : '—')}</td><td>${esc(s.tema || '—')}</td></tr>`).join('')
           || '<tr><td colspan="4" class="apagado">Nenhuma sessão futura.</td></tr>'}</table></div></div>`;
 
   el.addEventListener('click', async (ev) => {
+    const dl = ev.target.closest('[data-baixar]');
+    if (dl) {
+      const aba = window.open('', '_blank');
+      const { data, error: e } = await sb.storage.from('arsenal').createSignedUrl(dl.dataset.baixar, 120, { download: dl.dataset.baixar });
+      if (e) { if (aba) aba.close(); avisar(explicarErro(e), true); return; }
+      if (aba) aba.location = data.signedUrl; else location.href = data.signedUrl;
+      return;
+    }
     const b = ev.target.closest('[data-feita]'); if (!b) return;
     b.disabled = true;
     const { error: e } = await sb.from('sessoes').update({ tarefa_feita_em: new Date().toISOString() }).eq('id', b.dataset.feita);
