@@ -168,7 +168,7 @@ async function novoMentorado(ctx, el) {
         <div class="campo"><label>Primeira sessão</label><input id="n-data" type="datetime-local"><small>As outras são calculadas pela frequência do programa. Dá para ajustar depois.</small></div>
         <div class="campo"><label>Sala do Meet</label><input id="n-meet" type="url" placeholder="https://meet.google.com/…"></div>
       </div>
-      <label class="check mt"><input type="checkbox" id="n-convite" checked> <span>Enviar o convite de acesso agora (se tiver e-mail)</span></label>
+      <label class="check mt"><input type="checkbox" id="n-convite"> <span>Enviar o convite de acesso agora (se tiver e-mail). Deixe desmarcado para enviar só quando tudo estiver pronto.</span></label>
       <div class="linha mt"><button class="btn pri" id="salvar">Cadastrar e criar as sessões</button><a class="btn" href="#/painel">Cancelar</a></div>
     </div>`;
   el.querySelector('#salvar').addEventListener('click', async (ev) => {

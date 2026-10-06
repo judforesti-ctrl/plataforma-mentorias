@@ -51,7 +51,19 @@ export default async (req) => {
   });
   if (!conv.ok) return resposta('Não foi possível gravar o convite.', 500, { detalhe: conv.dados && conv.dados.message });
 
-  // 4. Envia o e-mail de convite
+  // 4a. Só preparar: cria o acesso sem mandar e-mail (a pessoa ainda não consegue entrar).
+  if (b.sem_email) {
+    const cria = await chamar('/auth/v1/admin/users', {
+      metodo: 'POST', chave: secreta, corpo: { email, email_confirm: true, user_metadata: { nome } },
+    });
+    if (cria.ok) return resposta(`${nome} foi preparado(a). Nenhum e-mail foi enviado.`);
+    if (cria.status === 422 || /already|exists|registered/i.test(JSON.stringify(cria.dados || ''))) {
+      return resposta(`${nome} já estava preparado(a). Nenhum e-mail foi enviado.`);
+    }
+    return resposta('Não foi possível preparar o acesso.', 502, { detalhe: JSON.stringify(cria.dados || '').slice(0, 300) });
+  }
+
+  // 4b. Envia o e-mail de convite
   const site = (env('URL') || new URL(req.url).origin).replace(/\/$/, '');
   const destino = encodeURIComponent(`${site}/definir-senha.html`);
   const inv = await chamar(`/auth/v1/invite?redirect_to=${destino}`, { metodo: 'POST', chave: secreta, corpo: { email, data: { nome } } });
@@ -61,7 +73,7 @@ export default async (req) => {
   if (inv.status === 422 || /already|exists|registered/i.test(motivo)) {
     // A pessoa já tem login: manda um link para criar ou trocar a senha.
     const rec = await chamar(`/auth/v1/recover?redirect_to=${destino}`, { metodo: 'POST', chave: secreta, corpo: { email } });
-    if (rec.ok) return resposta(`${email} já tinha recebido convite. Enviamos um novo link para criar a senha.`);
+    if (rec.ok) return resposta(`Convite enviado para ${email}, com o link para criar a senha.`);
     return resposta('Esta pessoa já tem login, mas o novo link não pôde ser enviado. Tente de novo em alguns minutos.', 502);
   }
   if (inv.status === 429) return resposta('Muitos e-mails em pouco tempo. Espere alguns minutos e tente de novo.', 429);
