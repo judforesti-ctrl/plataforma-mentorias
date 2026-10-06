@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Criar senha · Mentorei Mentorias</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/simbolo-m.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<main class="entrada">
+  <section class="lado">
+    <img src="/assets/logo-clara.png" alt="Mentorei" style="height:22px;width:auto">
+    <div><h1>Crie a sua <em>senha</em></h1><p>Use pelo menos 8 caracteres. Depois disso, você entra direto na plataforma.</p></div>
+    <span></span>
+  </section>
+  <section class="form">
+    <form class="caixa" id="f-senha" novalidate>
+      <h2>Nova senha</h2>
+      <p class="apagado peq" id="quem"></p>
+      <div class="campo"><label for="s1">Senha</label><input id="s1" type="password" autocomplete="new-password" minlength="8" required></div>
+      <div class="campo"><label for="s2">Repita a senha</label><input id="s2" type="password" autocomplete="new-password" minlength="8" required></div>
+      <button class="btn pri" type="submit" style="justify-content:center">Salvar senha e entrar</button>
+      <p class="peq apagado" id="msg" role="status"></p>
+    </form>
+  </section>
+</main>
+<script type="module">
+import { sb, explicarErro } from '/assets/base.js';
+
+const msg = document.getElementById('msg');
+const form = document.getElementById('f-senha');
+
+// O link do e-mail traz a sessão no endereço; o Supabase lê sozinho. Damos um instante para isso.
+async function esperarSessao() {
+  for (let i = 0; i < 20; i++) {
+    const { data } = await sb.auth.getSession();
+    if (data.session) return data.session;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return null;
+}
+const sessao = await esperarSessao();
+if (!sessao) {
+  form.querySelectorAll('input,button').forEach((el) => { el.disabled = true; });
+  msg.textContent = 'Este link expirou ou já foi usado. Volte à tela de entrada e clique em "Esqueci minha senha" para receber outro.';
+} else {
+  document.getElementById('quem').textContent = sessao.user.email;
+}
+
+form.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const a = document.getElementById('s1').value, b = document.getElementById('s2').value;
+  if (a.length < 8) { msg.textContent = 'A senha precisa ter pelo menos 8 caracteres.'; return; }
+  if (a !== b) { msg.textContent = 'As duas senhas não estão iguais.'; return; }
+  msg.textContent = 'Salvando…';
+  const { error } = await sb.auth.updateUser({ password: a });
+  if (error) { msg.textContent = explicarErro(error); return; }
+  location.replace('/app.html');
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar · Mentorei Mentorias</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/simbolo-m.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<main class="entrada">
+  <section class="lado">
+    <img src="/assets/logo-clara.png" alt="Mentorei" style="height:22px;width:auto">
+    <div>
+      <h1>Mentorias <em>individuais</em></h1>
+      <p>O espaço dos mentores e mentorados da Mentorei: fichas, sessões, tarefas e ferramentas num lugar só.</p>
+    </div>
+    <p class="peq" style="color:rgba(255,255,255,.5)">Acesso só por convite da Mentorei.</p>
+  </section>
+  <section class="form">
+    <form class="caixa" id="f-entrar" novalidate>
+      <h2>Entrar</h2>
+      <div class="campo"><label for="email">E-mail</label><input id="email" type="email" autocomplete="email" required></div>
+      <div class="campo"><label for="senha">Senha</label><input id="senha" type="password" autocomplete="current-password" required></div>
+      <button class="btn pri" type="submit" style="justify-content:center">Entrar</button>
+      <button class="btn" type="button" id="esqueci" style="justify-content:center">Esqueci minha senha</button>
+      <p class="peq apagado" id="msg" role="status"></p>
+    </form>
+  </section>
+</main>
+<script type="module">
+import { sb, sessaoAtual, explicarErro } from '/assets/base.js';
+
+const msg = document.getElementById('msg');
+if (await sessaoAtual()) location.replace('/app.html');
+
+document.getElementById('f-entrar').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const senha = document.getElementById('senha').value;
+  if (!email || !senha) { msg.textContent = 'Preencha o e-mail e a senha.'; return; }
+  msg.textContent = 'Entrando…';
+  const { error } = await sb.auth.signInWithPassword({ email, password: senha });
+  if (error) { msg.textContent = explicarErro(error); return; }
+  location.replace('/app.html');
+});
+
+document.getElementById('esqueci').addEventListener('click', async () => {
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  if (!email) { msg.textContent = 'Escreva o seu e-mail no campo acima e clique de novo.'; return; }
+  msg.textContent = 'Enviando…';
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/definir-senha.html` });
+  msg.textContent = error ? explicarErro(error) : 'Se este e-mail tiver convite, você vai receber um link para criar uma nova senha.';
+});
+</script>
+</body>
+</html>
