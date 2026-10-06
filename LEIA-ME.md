@@ -25,7 +25,7 @@ Site: Netlify (pasta `public`) · Banco, login e fotos: Supabase (projeto `mixnu
 | Nome | Para quê |
 |---|---|
 | `SUPABASE_SECRET_KEY` | Chave secreta do Supabase (sb_secret_…), usada só para enviar convites |
-| `ANTHROPIC_API_KEY` | Chave da API do Claude, para os resumos (próxima etapa) |
+| `ANTHROPIC_API_KEY` | Chave da API do Claude, para o resumo da sessão gerado por IA (função /api/resumo) |
 
 ## Configuração do Supabase (uma vez)
 - Authentication → URL Configuration: Site URL = endereço da Netlify; Redirect URLs = `<endereço>/definir-senha.html`.

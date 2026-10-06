@@ -6,7 +6,7 @@ export async function render(ctx, el) {
     programa:programas(nome, empresa:empresas(nome)),
     vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome, foto_url, whatsapp, rede_social, resumo_apresentacao, trajetoria)),
     sessoes(id, numero, data_hora, tema, situacao, concluida_em, resumo_mentorado, tarefa, tarefa_prazo, tarefa_feita_em, tarefa_comentario,
-      mentor:perfis!sessoes_mentor_id_fkey(nome))`)
+      mentor:perfis!sessoes_mentor_id_fkey(nome), avaliacao:avaliacoes_sessao(nota))`)
     .eq('perfil_id', ctx.perfil.id).maybeSingle();
   if (error) throw error;
   const { data: recebidas } = await sb.from('ferramentas_enviadas').select('id, enviado_em, ferramenta:ferramentas(id, nome, arquivo, dados)').order('enviado_em', { ascending: false });
@@ -52,7 +52,9 @@ export async function render(ctx, el) {
     <div class="cartao mt"><h3>Resumo das suas sessões</h3>
       ${resumos.length ? `<div class="lista mt">${resumos.map((s) => `<div class="item" style="grid-template-columns:80px 1fr">
         <div><b>${diaMes(s.data_hora)}</b><br><span class="peq apagado">Sessão ${s.numero}</span></div>
-        <div><p class="peq apagado">${esc(s.tema || '')}${s.mentor ? ` · ${esc(s.mentor.nome)}` : ''}</p><p>${esc(s.resumo_mentorado)}</p></div></div>`).join('')}</div>`
+        <div><p class="peq apagado">${esc(s.tema || '')}${s.mentor ? ` · ${esc(s.mentor.nome)}` : ''}</p><p style="white-space:pre-wrap">${esc(s.resumo_mentorado)}</p>
+          <div class="linha mt" style="gap:8px"><span class="peq apagado">Como foi esta sessão para você?</span>
+            <span class="estrelas" data-avaliar="${s.id}">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-nota="${n}" class="${s.avaliacao && s.avaliacao.nota >= n ? 'on' : ''}" aria-label="Nota ${n} de 5">★</button>`).join('')}</span></div></div></div>`).join('')}</div>`
         : '<p class="apagado mt">Os resumos aparecem aqui depois de cada sessão concluída.</p>'}
     </div>
 
@@ -68,6 +70,15 @@ export async function render(ctx, el) {
           || '<tr><td colspan="4" class="apagado">Nenhuma sessão futura.</td></tr>'}</table></div></div>`;
 
   el.addEventListener('click', async (ev) => {
+    const est = ev.target.closest('[data-nota]');
+    if (est) {
+      const box = est.closest('[data-avaliar]'); const nota = Number(est.dataset.nota);
+      const { error: e } = await sb.from('avaliacoes_sessao').upsert({ sessao_id: box.dataset.avaliar, nota }, { onConflict: 'sessao_id' });
+      if (e) { avisar(explicarErro(e), true); return; }
+      box.querySelectorAll('[data-nota]').forEach((b) => b.classList.toggle('on', Number(b.dataset.nota) <= nota));
+      avisar('Avaliação registrada.');
+      return;
+    }
     const dl = ev.target.closest('[data-baixar]');
     if (dl) {
       const aba = window.open('', '_blank');

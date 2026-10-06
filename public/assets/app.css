@@ -125,3 +125,24 @@ tr.clicavel { cursor: pointer; } tr.clicavel:hover td { background: var(--bg); }
 .ars-filtros select { height: 56px; padding: 0 12px; }
 .chips .btn .n { opacity: .55; font-weight: 500; margin-left: 4px; }
 @media (max-width: 700px) { .ars-filtros { grid-template-columns: 1fr; } }
+
+/* tela da sessão */
+.sessao-grade { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px; align-items: start; }
+.sessao-col { display: grid; gap: 14px; min-width: 0; }
+.sessao-col > .cartao { margin-top: 0; }
+.sessao-grade > .sessao-col:first-child { position: sticky; top: 84px; max-height: calc(100vh - 100px); overflow: auto; }
+@media (max-width: 960px) { .sessao-grade { grid-template-columns: 1fr; } .sessao-grade > .sessao-col:first-child { position: static; max-height: none; } }
+.delicado { background: var(--erro-claro); border-left: 4px solid var(--erro); border-radius: 0 10px 10px 0; padding: 10px 14px; font-size: 14px; }
+.delicado-cartao { border: 2px solid var(--erro); background: linear-gradient(var(--erro-claro), var(--papel) 90px); }
+.sessao-ant { border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; background: var(--papel); }
+.sessao-ant summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 14px; }
+.notas { display: inline-flex; gap: 4px; }
+.nota { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--linha); background: var(--papel); font: inherit; font-weight: 700; cursor: pointer; color: var(--apagado); }
+.nota.on { background: var(--petroleo); color: var(--lima); border-color: var(--petroleo); }
+.nota:disabled { cursor: default; }
+.nota-mini { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--petroleo); color: var(--lima); font-size: 12px; font-weight: 700; }
+.btn.gravando { background: var(--erro); color: #fff; border-color: var(--erro); animation: pulsar 1.2s infinite; }
+@keyframes pulsar { 50% { opacity: .7; } }
+.estrelas { display: inline-flex; gap: 2px; }
+.estrelas button { border: 0; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--linha); padding: 0 2px; }
+.estrelas button.on { color: var(--ocre); }

@@ -20,6 +20,7 @@ export async function render(ctx, el, [id]) {
   const mentores = (m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor).filter(Boolean);
   const p = m.perfil || {};
   const feitas = sess.filter((s) => s.situacao === 'realizada').length;
+  const proxima = sess.find((s) => !s.concluida_em);
   const whats = (p.whatsapp || '').replace(/\D/g, '');
   const swot = m.swot || {};
   let pontos = Array.isArray(m.pontos_desenvolver) ? m.pontos_desenvolver.map((x) => (typeof x === 'string' ? x : x.ponto)).filter(Boolean) : [];
@@ -39,6 +40,7 @@ export async function render(ctx, el, [id]) {
         ${(m.email || p.email) ? `<a class="btn peq" href="mailto:${esc(m.email || p.email)}">E-mail</a>` : ''}
         ${p.rede_social ? `<a class="btn peq" href="${esc(/^https?:/.test(p.rede_social) ? p.rede_social : `https://${p.rede_social}`)}" target="_blank" rel="noopener">Rede social</a>` : ''}
         ${m.sala_meet ? `<a class="btn peq escuro" href="${esc(m.sala_meet)}" target="_blank" rel="noopener">Entrar no Meet</a>` : ''}
+        ${proxima ? `<a class="btn peq pri" href="#/sessao/${proxima.id}">Abrir sessão ${proxima.numero}</a>` : ''}
         <span class="salvo" id="indicador"></span>
       </div>
     </div>
@@ -78,16 +80,16 @@ export async function render(ctx, el, [id]) {
         <div class="linha"><h3>Plano de sessões</h3>
           ${ctx.ehAdmin ? '<button class="btn peq" id="extra" style="margin-left:auto">+ Sessão extra</button>' : ''}</div>
         <div class="tabela mt"><table>
-          <tr><th>Nº</th><th>Data</th><th>Mentor</th><th>Tema</th><th>Tarefa</th><th>Situação</th></tr>
+          <tr><th>Nº</th><th>Data</th><th>Mentor</th><th>Tema</th><th>Tarefa</th><th>Situação</th><th></th></tr>
           ${sess.map((s) => {
             const [rot, cls] = SITUACAO[s.situacao] || [s.situacao, 'neutro'];
             const tarefa = s.tarefa ? (s.tarefa_feita_em ? '<span class="selo">Entregue</span>' : (s.tarefa_prazo && s.tarefa_prazo < hojeISO() ? '<span class="selo alerta">Atrasada</span>' : '<span class="selo neutro">Pendente</span>')) : '';
             return `<tr><td>${s.numero}${s.extra ? ' <span class="selo neutro">extra</span>' : ''}</td><td>${dataHoraBR(s.data_hora)}</td>
               <td>${esc(s.mentor ? s.mentor.nome : '—')}</td><td>${esc(s.tema || '—')}</td><td>${tarefa}</td>
-              <td><span class="selo ${cls}">${rot}</span>${s.concluida_em ? ' <span class="selo neutro">🔒</span>' : ''}</td></tr>`;
-          }).join('') || '<tr><td colspan="6" class="apagado">Nenhuma sessão criada ainda.</td></tr>'}
+              <td><span class="selo ${cls}">${rot}</span>${s.concluida_em ? ' <span class="selo neutro">🔒</span>' : ''}</td>
+              <td><a class="btn peq${s === proxima ? ' pri' : ''}" href="#/sessao/${s.id}">${s.concluida_em ? 'Ver' : 'Abrir'}</a></td></tr>`;
+          }).join('') || '<tr><td colspan="7" class="apagado">Nenhuma sessão criada ainda.</td></tr>'}
         </table></div>
-        <p class="peq apagado mt">A tela de registro da sessão (resumo, voz, informações delicadas e tarefa) chega na próxima etapa da plataforma.</p>
       </div>
     </section>
 
