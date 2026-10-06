@@ -1,5 +1,5 @@
 // Meu perfil (mentor e administração) e Meus dados (mentorado), com salvamento automático.
-import { sb, esc, autoSalvar, lerCampos } from '../base.js';
+import { sb, esc, autoSalvar, lerCampos, avisar, explicarErro, dataBR } from '../base.js';
 import { htmlFoto, ligarFoto, htmlContato, htmlTrajetoria, lerTrajetoria, htmlDadosMentorado, lerDadosMentorado } from './perfil-comum.js';
 import { AUTORIZACOES_MENTORADO } from '../termos.js';
 
@@ -22,8 +22,10 @@ export async function render(ctx, el) {
         ${atende ? `<div class="cartao"><h3>Sua trajetória</h3><div class="mt">${htmlTrajetoria(p)}</div></div>` : ''}
       </div>
       <div>
-        ${atende ? `<div class="cartao" style="border-color:var(--verde)"><h3>Como os mentorados vão te ver</h3>
-          ${p.resumo_apresentacao ? `<p class="mt">${esc(p.resumo_apresentacao)}</p>` : '<p class="apagado mt">O resumo de apresentação é escrito pela plataforma a partir da sua trajetória. Esta parte será ligada na próxima etapa, junto com os resumos de sessão.</p>'}</div>` : ''}
+        ${atende ? `<div class="cartao" style="border-color:var(--verde)"><div class="linha"><h3 style="flex:1">Como os mentorados vão te ver</h3><span id="apres-estado"></span></div>
+          <p class="peq apagado mt">A plataforma escreve este texto a partir da sua trajetória. Você ajusta o que quiser e aprova. Só depois de aprovado ele aparece para os seus mentorados.</p>
+          <textarea id="apres" class="mt" style="min-height:180px" placeholder="Preencha a sua trajetória ao lado e clique em Gerar com IA.">${esc(p.resumo_apresentacao || '')}</textarea>
+          <div class="linha mt"><button type="button" class="btn peq escuro" id="gerar-apres">✨ Gerar com IA</button><button type="button" class="btn peq pri" id="aprovar-apres">Aprovar e publicar</button></div></div>` : ''}
         ${ehMentorado ? `<div class="cartao"><h3>Suas autorizações</h3><div class="lista mt">
           ${AUTORIZACOES_MENTORADO.filter((a) => !a.obrigatoria).map((a) => `<label class="check"><input type="checkbox" data-aut="${a.chave}"${aut[a.chave] ? ' checked' : ''}><span>${a.texto}</span></label>`).join('')}
           </div><p class="peq apagado mt">O termo de consentimento foi aceito em ${p.termo_aceito_em ? new Date(p.termo_aceito_em).toLocaleDateString('pt-BR') : '—'}. Para retirar o consentimento, escreva para contato@mentorei.com.br.</p></div>` : ''}
@@ -48,7 +50,46 @@ export async function render(ctx, el) {
       await ctx.recarregarPerfil();
     },
   });
-  el.querySelectorAll('input, textarea').forEach((c) => c.addEventListener(c.type === 'checkbox' ? 'change' : 'input', salvador.mudou));
+  el.querySelectorAll('input, textarea').forEach((c) => c.id !== 'apres' && c.addEventListener(c.type === 'checkbox' ? 'change' : 'input', salvador.mudou));
   ligarFoto(el, p, (url) => { foto = url; salvador.mudou(); });
+
+  // resumo de apresentação: gerar com IA, ajustar e aprovar
+  const apres = el.querySelector('#apres');
+  let publicado = p;
+  if (apres) {
+    const estado = () => {
+      const atual = publicado;
+      const box = el.querySelector('#apres-estado');
+      if (!apres.value.trim()) box.innerHTML = '<span class="selo neutro">Ainda não publicado</span>';
+      else if (atual.resumo_aprovado_em && apres.value.trim() === (atual.resumo_apresentacao || '').trim()) box.innerHTML = `<span class="selo">Publicado em ${dataBR(atual.resumo_aprovado_em)}</span>`;
+      else box.innerHTML = '<span class="selo alerta">Não publicado</span>';
+    };
+    estado(); apres.addEventListener('input', estado);
+    el.querySelector('#gerar-apres').addEventListener('click', async (ev) => {
+      const btn = ev.currentTarget;
+      if (apres.value.trim() && !window.confirm('Gerar um texto novo no lugar deste?')) return;
+      btn.disabled = true; btn.textContent = 'Escrevendo…';
+      try {
+        salvador.mudou(); await salvador.agora(); // a IA lê a trajetória já salva
+        const { data: { session } } = await sb.auth.getSession();
+        const r = await fetch('/api/apresentacao', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.mensagem || 'Não foi possível gerar o texto.');
+        apres.value = j.texto; estado();
+        avisar('Texto escrito. Leia, ajuste se quiser e clique em "Aprovar e publicar".');
+      } catch (e) { avisar(explicarErro(e), true); }
+      finally { btn.disabled = false; btn.textContent = '✨ Gerar com IA'; }
+    });
+    el.querySelector('#aprovar-apres').addEventListener('click', async (ev) => {
+      const texto = apres.value.trim();
+      if (!texto) { avisar('Gere ou escreva o texto primeiro.', true); return; }
+      const btn = ev.currentTarget; btn.disabled = true;
+      const { error } = await sb.from('perfis').update({ resumo_apresentacao: texto, resumo_aprovado_em: new Date().toISOString() }).eq('id', p.id);
+      btn.disabled = false;
+      if (error) { avisar(explicarErro(error), true); return; }
+      publicado = (await ctx.recarregarPerfil()) || { ...publicado, resumo_apresentacao: texto, resumo_aprovado_em: new Date().toISOString() }; estado();
+      avisar('Publicado. Seus mentorados já veem este texto.');
+    });
+  }
   return { sair: () => { salvador.agora(); salvador.parar(); } };
 }

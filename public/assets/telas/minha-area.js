@@ -4,7 +4,7 @@ import { sb, esc, avatar, dataHoraBR, diaMes, avisar, explicarErro, hojeISO } fr
 export async function render(ctx, el) {
   const { data: m, error } = await sb.from('mentorados').select(`id, nome, sala_meet,
     programa:programas(nome, empresa:empresas(nome)),
-    vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome, foto_url, whatsapp, rede_social, resumo_apresentacao, trajetoria)),
+    vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome, foto_url, whatsapp, rede_social, resumo_apresentacao, resumo_aprovado_em, trajetoria)),
     sessoes(id, numero, data_hora, tema, situacao, concluida_em, resumo_mentorado, tarefa, tarefa_prazo, tarefa_feita_em, tarefa_comentario,
       mentor:perfis!sessoes_mentor_id_fkey(nome), avaliacao:avaliacoes_sessao(nota))`)
     .eq('perfil_id', ctx.perfil.id).maybeSingle();
@@ -44,7 +44,7 @@ export async function render(ctx, el) {
           const t = x.trajetoria || {};
           return `<div><div class="linha" style="align-items:flex-start">${avatar(x)}<div style="flex:1;min-width:0"><b>${esc(x.nome)}</b>
             ${t.cargo_atual ? `<p class="peq" style="color:var(--verde-esc);font-weight:600">${esc(t.cargo_atual)}</p>` : ''}
-            <p class="peq apagado">${esc(x.resumo_apresentacao || '')}</p></div></div>
+            ${x.resumo_aprovado_em && x.resumo_apresentacao ? `<p class="peq mt" style="white-space:pre-wrap">${esc(x.resumo_apresentacao)}</p>` : ''}</div></div>
             <div class="linha mt">${w ? `<a class="btn peq" href="https://wa.me/55${w.replace(/^55/, '')}" target="_blank" rel="noopener">WhatsApp</a>` : ''}</div></div>`;
         }).join('') || '<p class="apagado">Ainda não definidos.</p>'}</div></div>
     </div>
