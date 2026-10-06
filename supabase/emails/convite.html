@@ -3,7 +3,7 @@
     <span style="color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:2px">MENTOREI</span>
   </div>
   <div style="border:1px solid #E0E1E1;border-top:0;padding:26px;border-radius:0 0 12px 12px">
-    <h2 style="margin:0 0 12px">Olá, {{ .Data.nome }}!</h2>
+    <h2 style="margin:0 0 12px">{{ if .Data.nome }}Olá, {{ .Data.nome }}!{{ else }}Olá!{{ end }}</h2>
     <p style="line-height:1.6">Você foi convidado(a) para a plataforma de mentorias da Mentorei. É lá que ficam o seu programa, as sessões, as tarefas e as ferramentas.</p>
     <p style="line-height:1.6">Clique no botão para criar a sua senha. O link vale por 24 horas.</p>
     <p style="margin:24px 0"><a href="{{ .ConfirmationURL }}" style="background:#C8F04A;color:#091216;padding:13px 22px;border-radius:10px;text-decoration:none;font-weight:bold">Criar minha senha</a></p>
