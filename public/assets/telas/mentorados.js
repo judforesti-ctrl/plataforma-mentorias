@@ -1,4 +1,5 @@
 // Lista de mentorados. "#/meus": os do mentor logado. "#/mentorados": todos (administração), com filtro por empresa e programa.
+import { pendencias } from './pendencias.js';
 import { sb, esc, avatar, diaMes, horaBR, hojeISO, mesmoDia } from '../base.js';
 
 const SELECT = `id, nome, cargo, status, sala_meet,
@@ -49,6 +50,7 @@ export async function render(ctx, el) {
       <select id="f-programa" style="width:auto"><option value="">Todos os programas</option>${programas.map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join('')}</select>` : ''}
       <select id="f-status" style="width:auto"><option value="ativo">Ativos</option><option value="">Todos</option><option value="concluido">Concluídos</option></select>
     </div>
+    ${meus ? '<div id="pendencias" style="margin-bottom:18px"></div>' : ''}
     <div class="lista" id="lista"></div>`;
 
   const desenhar = () => {
@@ -71,4 +73,5 @@ export async function render(ctx, el) {
   };
   el.querySelectorAll('#busca, select').forEach((x) => x.addEventListener('input', desenhar));
   desenhar();
+  if (meus) pendencias(el.querySelector('#pendencias'), { mentoradoIds: (data || []).map((m) => m.id), mostrarMentor: false });
 }

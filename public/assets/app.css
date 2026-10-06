@@ -146,3 +146,10 @@ tr.clicavel { cursor: pointer; } tr.clicavel:hover td { background: var(--bg); }
 .estrelas { display: inline-flex; gap: 2px; }
 .estrelas button { border: 0; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--linha); padding: 0 2px; }
 .estrelas button.on { color: var(--ocre); }
+
+/* lembretes */
+.pend-bloco { margin-top: 0; }
+.pend-bloco.urgente { border-color: var(--erro); }
+.pend { display: grid; grid-template-columns: 64px 1fr; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--bg); color: inherit; text-decoration: none; font-size: 14px; }
+.pend:hover { background: var(--verde-claro); }
+.pend b { font-family: var(--f-titulo); font-size: 13px; }

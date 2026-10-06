@@ -34,6 +34,7 @@ const MENU = [
   ehAdmin && ['#/mentorados', 'Mentorados'],
   atende && ['#/meus', 'Meus mentorados'],
   (ehAdmin || atende) && ['#/arsenal', 'Arsenal'],
+  ehAdmin && ['#/relatorios', 'Relatórios'],
   ehAdmin && ['#/equipe', 'Equipe'],
   ehAdmin && ['#/importar', 'Importar planilha'],
   perfil.papel === 'mentorado' && ['#/minha-area', 'Minha mentoria'],
@@ -56,6 +57,7 @@ const ROTAS = {
   arsenal: () => import('./telas/arsenal.js'),
   'carregar-arsenal': () => import('./telas/carregar-arsenal.js'),
   sessao: () => import('./telas/sessao.js'),
+  relatorios: () => import('./telas/relatorios.js'),
 };
 
 function montarTopo(atual) {

@@ -1,4 +1,5 @@
 // Painel da administração: visão geral, empresas e programas, novo programa, novo mentorado e página do programa.
+import { pendencias } from './pendencias.js';
 import { sb, esc, dataBR, dataHoraBR, avisar, explicarErro, localParaISO, hojeISO } from '../base.js';
 
 const FREQ = { semanal: 'Semanal', quinzenal: 'Quinzenal', mensal: 'Mensal' };
@@ -46,6 +47,8 @@ async function visaoGeral(ctx, el) {
       <select id="f-programa" style="width:auto"><option value="">Todos os programas</option>${d.programas.map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join('')}</select>
     </div>
     <div id="numeros"></div>
+    <h2 class="mt2">Para hoje e pendências</h2>
+    <div id="pendencias" class="mt"><p class="carregando">Carregando…</p></div>
     <h2 class="mt2">Empresas e programas</h2>
     <div class="linha mt"><button class="btn peq" id="nova-empresa">+ Nova empresa</button></div>
     <div id="empresas" class="mt"></div>`;
@@ -80,6 +83,7 @@ async function visaoGeral(ctx, el) {
   };
   el.querySelectorAll('select').forEach((s) => s.addEventListener('input', desenhar));
   desenhar();
+  pendencias(el.querySelector('#pendencias'), { mostrarMentor: true });
   el.addEventListener('click', async (ev) => {
     const tr = ev.target.closest('[data-ir]'); if (tr) { location.hash = tr.dataset.ir; return; }
     if (ev.target.id === 'nova-empresa') {
