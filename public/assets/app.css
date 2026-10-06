@@ -21,7 +21,7 @@ img { max-width: 100%; }
 /* Cabeçalho */
 .topo { position: sticky; top: 0; z-index: 20; background: var(--papel); border-bottom: 1px solid var(--linha); }
 .topo-in { max-width: 1180px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
-.topo .logo { height: 18px; display: block; }
+.topo .logo { height: 18px; width: auto; max-width: none; display: block; object-fit: contain; }
 .menu { display: flex; gap: 4px; flex-wrap: wrap; }
 .menu a { padding: 7px 12px; border-radius: 8px; font-size: 14px; color: var(--apagado); text-decoration: none; font-weight: 500; }
 .menu a.atual { background: var(--verde-claro); color: var(--verde-esc); font-weight: 600; }
@@ -110,6 +110,7 @@ tr.clicavel { cursor: pointer; } tr.clicavel:hover td { background: var(--bg); }
 /* Tela de entrada */
 .entrada { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .entrada .lado { background: var(--petroleo); color: #fff; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; }
+.entrada .lado > img { align-self: flex-start; height: 22px; width: auto; max-width: 100%; object-fit: contain; }
 .entrada .lado h1 { color: #fff; font-size: 38px; margin-top: 40px; } .entrada .lado h1 em { font-style: normal; color: var(--lima); }
 .entrada .lado p { color: rgba(255,255,255,.72); margin-top: 14px; max-width: 30em; }
 .entrada .form { display: grid; place-items: center; padding: 40px 20px; }
