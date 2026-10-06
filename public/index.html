@@ -6,6 +6,12 @@
 <title>Entrar · Mentorei Mentorias</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="/assets/simbolo-m.png">
+<script>
+  // Link de convite ou de nova senha que caiu na página inicial: leva para a tela de criar senha.
+  if (/type=(invite|recovery|signup|magiclink)/.test(location.hash) || /[?&](code|token_hash)=/.test(location.search)) {
+    location.replace('/definir-senha.html' + location.search + location.hash);
+  }
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/app.css">
