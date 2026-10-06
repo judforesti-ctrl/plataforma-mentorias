@@ -11,7 +11,7 @@ export async function convidar({ email, nome, papel, tambem_mentor = false, ment
       body: JSON.stringify({ email, nome, papel, tambem_mentor, mentorado_id, sem_email }),
     });
     const j = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(j.mensagem || 'Não foi possível enviar o convite.');
+    if (!r.ok) { if (j.detalhe) console.warn('Detalhe do convite:', j.detalhe); throw new Error(j.mensagem || 'Não foi possível enviar o convite.'); }
     avisar(j.mensagem || 'Convite enviado.');
     return true;
   } catch (e) { avisar(explicarErro(e), true); return false; }

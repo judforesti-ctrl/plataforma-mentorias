@@ -77,5 +77,11 @@ export default async (req) => {
     return resposta('Esta pessoa já tem login, mas o novo link não pôde ser enviado. Tente de novo em alguns minutos.', 502);
   }
   if (inv.status === 429) return resposta('Muitos e-mails em pouco tempo. Espere alguns minutos e tente de novo.', 429);
-  return resposta('O e-mail de convite não pôde ser enviado. Confira a configuração de e-mail do Supabase.', 502, { detalhe: motivo.slice(0, 300) });
+  if (/database error/i.test(motivo)) {
+    return resposta('O banco não deixou criar o login. Rode no Supabase a correção do arquivo 05-ferramentas-online.sql e tente de novo.', 502, { detalhe: motivo.slice(0, 300) });
+  }
+  if (/smtp|sender|mail/i.test(motivo)) {
+    return resposta('O servidor de e-mail recusou o envio. Confira no Brevo se o remetente está verificado.', 502, { detalhe: motivo.slice(0, 300) });
+  }
+  return resposta(`O e-mail de convite não pôde ser enviado (erro ${inv.status}). Tente de novo em alguns minutos.`, 502, { detalhe: motivo.slice(0, 300) });
 };
