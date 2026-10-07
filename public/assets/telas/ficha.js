@@ -37,10 +37,11 @@ export async function render(ctx, el, [id]) {
         <p class="apagado">${esc(m.cargo || 'Cargo a preencher')}${m.programa ? ` · ${esc(m.programa.empresa.nome)} · ${esc(m.programa.nome)}` : ''}</p>
         <div class="linha mt" style="gap:6px"><span class="selo">Sessões feitas: ${feitas} de ${sess.length}</span>
           ${mentores.map((x) => `<span class="selo neutro">${esc(x.nome)}</span>`).join('')}
-          ${!p.id ? '<span class="selo alerta">Ainda não fez o primeiro acesso</span>' : ''}</div>
+          ${!p.termo_aceito_em ? '<span class="selo alerta">Ainda não fez o primeiro acesso</span>' : ''}</div>
       </div>
       <div class="linha">
         ${whats ? `<a class="btn peq" href="https://wa.me/55${whats.replace(/^55/, '')}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
+        ${ctx.ehAdmin && !p.termo_aceito_em ? '<button class="btn peq pri" data-convite-whats>Convite por WhatsApp</button>' : ''}
         ${(m.email || p.email) ? `<a class="btn peq" href="mailto:${esc(m.email || p.email)}">E-mail</a>` : ''}
         ${rede ? `<a class="btn peq" href="${esc(/^https?:/.test(rede) ? rede : `https://${rede}`)}" target="_blank" rel="noopener">Rede social</a>` : ''}
         ${m.sala_meet ? `<a class="btn peq escuro" href="${esc(m.sala_meet)}" target="_blank" rel="noopener">Entrar no Meet</a>` : ''}
@@ -111,13 +112,13 @@ export async function render(ctx, el, [id]) {
           <div class="campo"><label>WhatsApp</label><input type="tel" data-m="whatsapp" placeholder="(54) 99999-0000" value="${esc(p.whatsapp || m.whatsapp || '')}"${travaContato}></div>
           <div class="campo"><label>LinkedIn ou Instagram</label><input type="text" data-m="rede_social" value="${esc(rede)}"${travaContato}></div>
         </div></div>
-      <div class="cartao"><h3>Contato informado pelo mentorado</h3>
-        ${p.id ? `<table class="mt"><tr><td class="apagado">WhatsApp</td><td>${esc(p.whatsapp || '—')}</td></tr>
+      <div class="cartao"><h3>Acesso à plataforma</h3>
+        ${p.termo_aceito_em ? `<table class="mt"><tr><td class="apagado">WhatsApp</td><td>${esc(p.whatsapp || '—')}</td></tr>
           <tr><td class="apagado">Aceita resumo no WhatsApp</td><td>${p.autorizacoes && p.autorizacoes.whatsapp ? 'Sim' : 'Não'}</td></tr>
           <tr><td class="apagado">Rede social</td><td>${esc(p.rede_social || '—')}</td></tr>
           <tr><td class="apagado">Termo aceito em</td><td>${dataHoraBR(p.termo_aceito_em)}</td></tr></table>`
-          : `<p class="apagado mt">Aparece aqui depois do primeiro acesso do mentorado.</p>
-             ${ctx.ehAdmin ? `<div class="linha mt"><button class="btn pri peq" id="convidar-whats">Convite por WhatsApp</button><button class="btn peq" id="convidar">Convite por e-mail</button><span class="peq apagado">O e-mail acima vira o login.</span></div>` : ''}`}
+          : `<p class="apagado mt">${p.id ? 'O convite já foi gerado, mas o mentorado ainda não criou a senha. Se ele não recebeu ou o link expirou, mande de novo.' : 'O mentorado ainda não recebeu o convite.'}</p>
+             ${ctx.ehAdmin ? `<div class="linha mt"><button class="btn pri peq" data-convite-whats>Convite por WhatsApp</button><button class="btn peq" id="convidar">Convite por e-mail</button><span class="peq apagado">O e-mail acima vira o login.</span></div>` : ''}`}
       </div>
     </section>`;
 
@@ -182,7 +183,7 @@ export async function render(ctx, el, [id]) {
   });
 
   // convite do mentorado pelo WhatsApp (administração): gera o link, nenhum e-mail sai
-  el.querySelector('#convidar-whats')?.addEventListener('click', async (ev) => {
+  el.querySelectorAll('[data-convite-whats]').forEach((botao) => botao.addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
     await salvador.agora();
     const email = el.querySelector('[data-m="email"]').value.trim();
@@ -191,7 +192,7 @@ export async function render(ctx, el, [id]) {
     const { conviteWhatsApp } = await import('./equipe.js');
     await conviteWhatsApp({ email, nome: m.nome, papel: 'mentorado', mentorado_id: m.id, whatsapp: el.querySelector('[data-m="whatsapp"]').value.trim(), remetente: ctx.perfil.nome });
     btn.disabled = false;
-  });
+  }));
 
   // convite do mentorado por e-mail (administração)
   el.querySelector('#convidar')?.addEventListener('click', async () => {
