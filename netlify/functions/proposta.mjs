@@ -31,10 +31,11 @@ const ESQUEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['nome', 'perfil_turma', 'participantes_previstos', 'inicio', 'fim_previsto', 'modulos'],
+        required: ['nome', 'perfil_turma', 'metodologia', 'participantes_previstos', 'inicio', 'fim_previsto', 'modulos'],
         properties: {
           nome: texto,
           perfil_turma: texto,
+          metodologia: textoOuNulo,
           participantes_previstos: inteiroOuNulo,
           inicio: textoOuNulo,
           fim_previsto: textoOuNulo,
@@ -64,17 +65,29 @@ const ESQUEMA = {
   },
 };
 
-const INSTRUCOES = `Você organiza propostas comerciais da Mentorei (treinamentos e mentorias de liderança em grupo) para cadastrar turmas numa plataforma interna. Responda em português do Brasil, no formato pedido.
+const INSTRUCOES = `Você organiza propostas comerciais da Mentorei (workshops, treinamentos e mentorias em grupo) para cadastrar turmas numa plataforma interna. Responda em português do Brasil, no formato pedido.
+
+Como as propostas da Mentorei costumam ser:
+- Capa: tipo (ex.: "Proposta de workshop"), nome do programa, subtítulo, a cooperativa ou empresa e o público (ex.: "Sicoob Unic • Gerentes de carteira e relacionamento"), carga horária.
+- "O que entendemos da sua demanda": o contexto e os objetivos da empresa. Vai para o perfil da turma.
+- Páginas institucionais ("Quem desenvolve", "Expertise", "As sócias da Mentorei"): ignore.
+- "O workshop em N pilares" ou "Jornada": a lista de módulos. Cada pilar ou módulo é um módulo da turma.
+- A página de cada pilar ou módulo traz OBJETIVO, ENTREGA PRÁTICA, TÓPICOS ABORDADOS e o período e a duração (ex.: "Manhã • 2 horas").
+- "Uma experiência dinâmica e aplicada" e "Personalização que faz diferença": a metodologia. Vai para "metodologia".
+- "Organização da jornada": a grade com período, duração e foco de cada módulo.
+- "Investimento" e "Próximos passos": ignore (nunca copie preços).
+- O texto vem de um PDF do Canva: palavras às vezes aparecem grudadas ("Fomentara carteira") ou partidas ("Experi ê ncia"). Corrija a separação das palavras, sem mudar o conteúdo.
 
 Regras:
 - Use só o que está na proposta. Nunca invente datas, números, nomes ou temas. O que não estiver no texto fica nulo e entra em "faltando".
 - empresa: o nome da empresa contratante, como aparece na proposta (sem "Proposta", sem o nome da Mentorei).
 - turmas: uma turma por público ou programa distinto. Se a proposta tiver dois públicos (por exemplo, diretores e gerentes), são duas turmas.
 - nome da turma: o nome do programa ou da trilha mais o público, curto (ex.: "Trilha de Desenvolvimento · Gerentes").
-- perfil_turma: quem são os participantes (cargos, nível de liderança), o contexto e o briefing da empresa e os objetivos do programa para esse público, em parágrafos curtos.
+- perfil_turma: quem são os participantes (cargos, nível, público atendido), o contexto e o que a empresa espera ("O que entendemos da sua demanda"), em parágrafos curtos.
+- metodologia: como a aula é conduzida e personalizada (casos, simulações, momentos individuais, ferramentas entregues, personalização), em linhas começando com "• ". Nulo se não houver.
 - participantes_previstos: só se a proposta disser a quantidade.
 - inicio e fim_previsto: datas no formato AAAA-MM-DD, só se a proposta trouxer datas completas.
-- modulos: na ordem da proposta. titulo = nome do módulo, sem "Módulo 1". tematica = objetivo do módulo e temas abordados, como linhas começando com "• ". duracao_min = carga horária em minutos, se houver. formato = online (meet, zoom, teams) ou presencial só se a proposta disser; senão "indefinido". data (AAAA-MM-DD) e hora (HH:MM) só se estiverem escritas. recomendacoes = orientações para quem vai conduzir que a proposta mencionar (metodologia, dinâmicas, ferramentas, cuidados); senão nulo.
+- modulos: na ordem da proposta. titulo = nome do módulo ou pilar, sem o número (ex.: "Leitura do cooperado e da carteira"). tematica = três partes, nesta ordem: "Objetivo: ..." (uma frase), "Entrega prática: ..." (se houver) e os tópicos abordados como linhas começando com "• ". Se a proposta disser o período (manhã, tarde), comece a temática com "Período: Manhã". duracao_min = duração do módulo em minutos (ex.: "2 horas" = 120); se só houver a carga total, deixe nulo. formato = online (meet, zoom, teams) ou presencial só se a proposta disser; senão "indefinido". data (AAAA-MM-DD) e hora (HH:MM) só se estiverem escritas. recomendacoes = orientações para quem vai conduzir que a proposta mencionar (metodologia, dinâmicas, ferramentas, cuidados); senão nulo.
 - individual = true quando o "módulo" for mentoria individual ou sessão um a um (não é aula em grupo).
 - Não inclua preços, valores, investimento, condições de pagamento nem dados bancários.
 - faltando: lista curta, em linguagem simples, do que a coordenação precisa completar à mão (ex.: "Datas e horários dos módulos", "Link da sala", "Quantidade de participantes", "Mentores de cada módulo").`;

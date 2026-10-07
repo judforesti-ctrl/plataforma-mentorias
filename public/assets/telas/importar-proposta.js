@@ -99,6 +99,7 @@ function revisar(ctx, box, r, empresas) {
         <div class="grade g2" style="gap:10px"><div class="campo"><label>Início</label><input type="date" data-c="inicio" value="${esc(t.inicio || '')}"></div>
           <div class="campo"><label>Fim previsto</label><input type="date" data-c="fim_previsto" value="${esc(t.fim_previsto || '')}"></div></div>
         <div class="campo" style="grid-column:1/-1"><label>Perfil da turma</label><textarea data-c="perfil_turma" style="min-height:130px">${esc(t.perfil_turma || '')}</textarea></div>
+        <div class="campo" style="grid-column:1/-1"><label>Metodologia e personalização (os mentores veem)</label><textarea data-c="observacoes" style="min-height:90px">${esc(t.metodologia || '')}</textarea></div>
       </div>
       <h4 class="mt2">Módulos (${(t.modulos || []).length})</h4>
       <div class="lista mt">${(t.modulos || []).map((m, j) => `<div class="cartao" style="background:var(--bg);border:0;margin-top:0" data-mod="${j}">
@@ -133,7 +134,7 @@ function revisar(ctx, box, r, empresas) {
         if (!cx.querySelector('[data-criar]').checked) continue;
         const v = (k) => cx.querySelector(`[data-c="${k}"]`).value.trim();
         if (!v('nome')) throw new Error('Toda turma precisa de um nome.');
-        const { data: t, error } = await sb.from('turmas').insert({ empresa_id: empresaId, nome: v('nome'), perfil_turma: v('perfil_turma') || null,
+        const { data: t, error } = await sb.from('turmas').insert({ empresa_id: empresaId, nome: v('nome'), perfil_turma: v('perfil_turma') || null, observacoes: v('observacoes') || null,
           participantes_previstos: v('participantes_previstos') === '' ? null : Number(v('participantes_previstos')),
           inicio: v('inicio') || null, fim_previsto: v('fim_previsto') || null }).select('id').single();
         if (error) throw error;

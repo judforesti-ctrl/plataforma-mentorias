@@ -110,7 +110,7 @@ async function paginaTurma(ctx, el, id) {
           <div class="campo"><label>Fim previsto</label><input type="date" data-t="fim_previsto" value="${esc(t.fim_previsto || '')}"${dis}></div>
         </div>
         <div class="campo mt"><label>Perfil da turma</label><textarea data-t="perfil_turma" style="min-height:120px" placeholder="Cargos, nível de liderança, principais desafios, o que a empresa espera."${dis}>${esc(t.perfil_turma || '')}</textarea></div>
-        ${adm ? `<div class="campo mt"><label>Observações internas</label><textarea data-t="observacoes" placeholder="Combinados comerciais, contato do RH, cuidados.">${esc(t.observacoes || '')}</textarea></div>` : (t.observacoes ? `<p class="peq mt"><b>Observações:</b> ${esc(t.observacoes)}</p>` : '')}
+        ${adm ? `<div class="campo mt"><label>Metodologia e observações (os mentores veem)</label><textarea data-t="observacoes" style="min-height:100px" placeholder="Como a aula é conduzida, personalização, cuidados com a turma. Não coloque valores nem condições comerciais.">${esc(t.observacoes || '')}</textarea></div>` : (t.observacoes ? `<p class="peq mt"><b>Metodologia e observações</b></p><p class="peq" style="white-space:pre-wrap">${esc(t.observacoes)}</p>` : '')}
       </div>
       <div class="cartao" style="margin-top:0">
         <div class="linha"><h3 style="flex:1">Módulos (${mods.length})</h3>${adm ? '<button class="btn peq escuro" id="novo-mod">+ Novo módulo</button>' : ''}</div>
