@@ -34,7 +34,16 @@ import { sb, explicarErro } from '/assets/base.js';
 const msg = document.getElementById('msg');
 const form = document.getElementById('f-senha');
 
-// O link do e-mail traz a sessão no endereço; o Supabase lê sozinho. Damos um instante para isso.
+// Link novo dos e-mails: plataforma.mentorei.com.br/definir-senha.html?token_hash=...&type=invite|recovery.
+// O código só é usado aqui, quando a pessoa abre a página (os robôs que conferem links nos e-mails não o gastam).
+const q = new URLSearchParams(location.search);
+if (q.get('token_hash')) {
+  const tipo = ['invite', 'recovery', 'email', 'magiclink', 'signup'].includes(q.get('type')) ? q.get('type') : 'invite';
+  await sb.auth.verifyOtp({ token_hash: q.get('token_hash'), type: tipo });
+  history.replaceState(null, '', location.pathname);
+}
+
+// Link antigo: o Supabase devolve a sessão no endereço e lê sozinho. Damos um instante para isso.
 async function esperarSessao() {
   for (let i = 0; i < 20; i++) {
     const { data } = await sb.auth.getSession();
