@@ -20,6 +20,8 @@ const SEL_SESSAO = `id, numero, extra, data_hora, tema, roteiro, situacao, motiv
 export async function render(ctx, el, [id]) {
   const { data: s, error } = await sb.from('sessoes').select(`${SEL_SESSAO},
     mentorado:mentorados(id, nome, cargo, programa_id, objetivo_principal, pontos_desenvolver, sala_meet,
+      tempo_de_casa, pessoas_no_time, gestor_direto, swot,
+      forcas_visao_mentorado, fraquezas_visao_mentorado, forcas_visao_gestor, fraquezas_visao_gestor,
       perfil:perfis!mentorados_perfil_id_fkey(nome, foto_url, whatsapp, autorizacoes, termo_aceito_em))`).eq('id', id).maybeSingle();
   if (error) throw error;
   if (!s) { el.innerHTML = '<div class="vazio">Sessão não encontrada, ou você não tem acesso a ela.</div>'; return; }
@@ -51,6 +53,24 @@ export async function render(ctx, el, [id]) {
     .filter((x) => x.serie.length);
   const estadoTarefa = (x) => (x.tarefa_feita_em ? `<span class="selo">Feita em ${diaMes(x.tarefa_feita_em)}</span>`
     : x.tarefa_prazo && x.tarefa_prazo < hojeISO() ? '<span class="selo alerta">Atrasada</span>' : '<span class="selo neutro">Pendente</span>');
+
+  // ---------- quem é o mentorado (para não precisar voltar à ficha) ----------
+  const sw = m.swot || {};
+  const caixa = (titulo, texto) => (umaLinha(texto) ? `<div class="sobre-caixa"><span class="peq apagado">${titulo}</span><p class="peq" style="white-space:pre-wrap">${esc(texto)}</p></div>` : '');
+  const visoes = [caixa('Forças · visão do mentorado', m.forcas_visao_mentorado), caixa('Fraquezas · visão do mentorado', m.fraquezas_visao_mentorado),
+    caixa('Forças · visão do gestor', m.forcas_visao_gestor), caixa('Fraquezas · visão do gestor', m.fraquezas_visao_gestor)].join('');
+  const swotHtml = [caixa('SWOT · Forças', sw.forcas), caixa('SWOT · Fraquezas', sw.fraquezas), caixa('SWOT · Oportunidades', sw.oportunidades), caixa('SWOT · Ameaças', sw.ameacas)].join('');
+  const trabalho = [m.cargo, m.tempo_de_casa && `${m.tempo_de_casa} de casa`, m.pessoas_no_time != null && `${m.pessoas_no_time} pessoas no time`, m.gestor_direto && `gestor: ${m.gestor_direto}`].filter(Boolean).map(esc).join(' · ');
+  const blocoSobre = `
+    <details class="cartao sobre" open>
+      <summary><h3 style="display:inline">Sobre ${esc(m.nome.split(' ')[0])}</h3></summary>
+      ${trabalho ? `<p class="peq apagado mt">${trabalho}</p>` : ''}
+      <div class="sobre-objetivo mt"><span class="peq">Objetivo da mentoria</span><p>${m.objetivo_principal ? esc(m.objetivo_principal) : '<span class="apagado">Ainda não combinado. Anote na ficha do mentorado.</span>'}</p></div>
+      ${pontos.length ? `<p class="peq mt"><b>Pontos a desenvolver</b></p><div class="chips mt">${pontos.map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div>` : ''}
+      ${visoes ? `<div class="grade g2 mt">${visoes}</div>` : ''}
+      ${swotHtml ? `<details class="mt"><summary class="peq" style="cursor:pointer"><b>Ver SWOT</b></summary><div class="grade g2 mt">${swotHtml}</div></details>` : ''}
+      ${!visoes && !swotHtml ? `<p class="peq apagado mt">Forças, fraquezas e SWOT ainda não foram preenchidas na <a href="#/mentorado/${m.id}">ficha</a>.</p>` : ''}
+    </details>`;
 
   const blocoAnteriores = anteriores.length ? `
     <div class="cartao">
@@ -93,11 +113,10 @@ export async function render(ctx, el, [id]) {
         <p class="peq apagado"><a href="#/mentorado/${m.id}">← Ficha de ${esc(m.nome)}</a></p>
         <h1>Sessão ${s.numero}${total ? ` de ${total}` : ''}${s.extra ? ' <span class="selo neutro">extra</span>' : ''}</h1>
         <p class="apagado">${esc(m.nome)} · ${dataHoraBR(s.data_hora)}${s.mentor ? ` · ${esc(s.mentor.nome)}` : ''}</p>
-        ${m.objetivo_principal ? `<p class="peq mt"><b>Objetivo da mentoria:</b> ${esc(m.objetivo_principal)}</p>` : ''}
       </div>
       <div class="linha">
         ${!concluida ? '<button class="btn" id="remarcar">Remarcar</button>' : ''}
-        ${m.sala_meet ? `<a class="btn escuro" href="${esc(m.sala_meet)}" target="_blank" rel="noopener">Entrar no Meet</a>` : ''}
+        ${m.sala_meet ? `<a class="btn escuro" id="meet" href="${esc(m.sala_meet)}" target="_blank" rel="noopener" title="Abre o Meet numa janela ao lado da plataforma">Entrar no Meet</a>` : ''}
         <span class="salvo" id="indicador"></span>
       </div>
     </div>
@@ -107,6 +126,7 @@ export async function render(ctx, el, [id]) {
 
     <div class="sessao-grade mt2">
       <div class="sessao-col">
+        ${blocoSobre}
         ${blocoAnteriores}
       </div>
 
@@ -181,6 +201,19 @@ export async function render(ctx, el, [id]) {
         </div>
       </div>
     </div>`;
+
+  // ---------- Meet ao lado ----------
+  // O Google não deixa o Meet funcionar dentro de outro site. Então ele abre numa janela própria,
+  // encaixada no lado direito da tela, e a plataforma fica no lado esquerdo.
+  el.querySelector('#meet')?.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    const larg = Math.round(screen.availWidth * 0.42);
+    const esq = (screen.availLeft || 0) + screen.availWidth - larg;
+    const janela = window.open(m.sala_meet, 'meet-mentorei',
+      `popup=yes,width=${larg},height=${screen.availHeight},left=${esq},top=${screen.availTop || 0}`);
+    if (!janela) { window.open(m.sala_meet, '_blank', 'noopener'); return; }
+    avisar('O Meet abriu à direita. Para encaixar a plataforma à esquerda, aperte a tecla Windows + seta para a esquerda.');
+  });
 
   // ---------- motivo da falta ----------
   const sit = el.querySelector('[data-s="situacao"]');
