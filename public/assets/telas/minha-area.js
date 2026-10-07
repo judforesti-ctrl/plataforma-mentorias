@@ -10,7 +10,13 @@ export async function render(ctx, el) {
       mentor:perfis!sessoes_mentor_id_fkey(nome), avaliacao:avaliacoes_sessao(nota))`)
     .eq('perfil_id', ctx.perfil.id).maybeSingle();
   if (error) throw error;
-  const { data: recebidas } = await sb.from('ferramentas_enviadas').select('id, enviado_em, ferramenta:ferramentas(id, nome, arquivo, dados)').order('enviado_em', { ascending: false });
+  // ferramentas recebidas: nome, resumo e PDF vêm do catálogo (a ficha técnica é só da equipe)
+  const [{ data: enviadas }, { data: catalogo }] = await Promise.all([
+    sb.from('ferramentas_enviadas').select('id, enviado_em, ferramenta_id').order('enviado_em', { ascending: false }),
+    sb.rpc('catalogo_ferramentas'),
+  ]);
+  const porId = Object.fromEntries((catalogo || []).map((f) => [f.id, { id: f.id, nome: f.nome, arquivo: f.arquivo, dados: { resumo: f.resumo } }]));
+  const recebidas = (enviadas || []).map((r) => ({ ...r, ferramenta: porId[r.ferramenta_id] || null }));
   const { data: testes } = m ? await sb.from('testes').select('*').eq('mentorado_id', m.id).order('criado_em', { ascending: false }) : { data: [] };
   if (!m) { el.innerHTML = '<div class="vazio">Seu programa ainda não foi ligado ao seu acesso. Fale com a Mentorei.</div>'; return; }
 

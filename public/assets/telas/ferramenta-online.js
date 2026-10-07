@@ -6,7 +6,8 @@ import { ONLINE } from '../ferramentas-online.js';
 export async function render(ctx, el, [id]) {
   const o = ONLINE[id];
   if (!o || !o.interna) { el.innerHTML = '<div class="vazio">Ferramenta não encontrada.</div>'; return; }
-  const { data: f } = await sb.from('ferramentas').select('id, nome').eq('id', id).maybeSingle();
+  const { data: cat } = await sb.rpc('catalogo_ferramentas');
+  const f = (cat || []).find((x) => x.id === id);
   const nome = (f && f.nome) || 'Ferramenta';
   const ehMentorado = ctx.perfil.papel === 'mentorado';
   let m = null;

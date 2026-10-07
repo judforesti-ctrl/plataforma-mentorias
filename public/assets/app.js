@@ -38,6 +38,7 @@ const MENU = [
   ehAdmin && ['#/equipe', 'Equipe'],
   ehAdmin && ['#/importar', 'Importar planilha'],
   perfil.papel === 'mentorado' && ['#/minha-area', 'Minha mentoria'],
+  perfil.papel === 'mentorado' && ['#/biblioteca', 'Ferramentas'],
   ['#/perfil', perfil.papel === 'mentorado' ? 'Meus dados' : 'Meu perfil'],
 ].filter(Boolean);
 
@@ -54,6 +55,7 @@ const ROTAS = {
   mentorado: () => import('./telas/ficha.js'),
   perfil: () => import('./telas/perfil.js'),
   'minha-area': () => import('./telas/minha-area.js'),
+  biblioteca: () => import('./telas/biblioteca.js'),
   arsenal: () => import('./telas/arsenal.js'),
   'carregar-arsenal': () => import('./telas/carregar-arsenal.js'),
   sessao: () => import('./telas/sessao.js'),

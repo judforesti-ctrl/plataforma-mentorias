@@ -3,7 +3,7 @@ import { sb, esc, avisar, explicarErro } from '../base.js';
 import { ONLINE, linkOnline } from '../ferramentas-online.js';
 
 // ---------- busca ----------
-const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[–—-]/g, ' ').replace(/\s+/g, ' ').trim();
+export const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[–—-]/g, ' ').replace(/\s+/g, ' ').trim();
 // as tags vêm sem acento no pacote; aqui elas ganham acento para aparecer certas na tela
 const ACENTOS = { analise: 'análise', autogestao: 'autogestão', decisao: 'decisão', avaliacao: 'avaliação', cenario: 'cenário',
   competencias: 'competências', comunicacao: 'comunicação', lideranca: 'liderança', confianca: 'confiança',
@@ -11,9 +11,9 @@ const ACENTOS = { analise: 'análise', autogestao: 'autogestão', decisao: 'deci
   controlavel: 'controlável', gestao: 'gestão', influencia: 'influência', inteligencia: 'inteligência', papeis: 'papéis',
   lider: 'líder', priorizacao: 'priorização', presenca: 'presença', areas: 'áreas', seguranca: 'segurança', sucessao: 'sucessão',
   transicao: 'transição', visao: 'visão', negocio: 'negócio', sistemica: 'sistêmica', microgestao: 'microgestão' };
-const tagRotulo = (t) => { const s = t.split('-').map((w) => ACENTOS[w] || w).join(' '); return s.charAt(0).toUpperCase() + s.slice(1); };
+export const tagRotulo = (t) => { const s = t.split('-').map((w) => ACENTOS[w] || w).join(' '); return s.charAt(0).toUpperCase() + s.slice(1); };
 // "Transversal (abertura da mentoria)" vira "Abertura da mentoria"
-const nivelRotulo = (n) => n.replace(/^Transversal \((.+)\)$/, (_, x) => x.charAt(0).toUpperCase() + x.slice(1));
+export const nivelRotulo = (n) => n.replace(/^Transversal \((.+)\)$/, (_, x) => x.charAt(0).toUpperCase() + x.slice(1));
 const CAMPOS = [['nome', 'no nome', 6], ['tambem_conhecida_como', 'em outro nome da ferramenta', 6], ['tags', 'na tag', 5],
   ['palavras_chave', 'nas palavras-chave', 4], ['linguagem_dia_a_dia', 'na linguagem do dia a dia', 4], ['sinais', 'nos sinais do mentorado', 3],
   ['tagdesc', 'no uso indicado da tag', 3], ['resumo', 'no resumo', 1], ['momento_trilha', 'no momento da trilha', 1]];
