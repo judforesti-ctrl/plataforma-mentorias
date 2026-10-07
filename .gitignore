@@ -3,3 +3,4 @@ node_modules/
 *.xlsx
 .env
 supabase/equipe_inicial.json
+supabase/08-feedback-*.sql
