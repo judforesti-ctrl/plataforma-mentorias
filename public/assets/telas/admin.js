@@ -280,7 +280,8 @@ async function paginaPrograma(ctx, el, id) {
       b.disabled = false;
       return;
     }
-    const quem = `Aqui é ${ctx.perfil.nome.split(' ')[0]}, da Mentorei.`;
+    const { REMETENTE } = await import('../config.js');
+    const quem = `Aqui é ${REMETENTE}, da Mentorei.`;
     janelaWhatsApp({ titulo: `Aviso de trilha · ${x.nome}`, whatsapp: x.whatsapp || '',
       nota: 'Esta pessoa já usa a plataforma: a mensagem só avisa da trilha nova, sem link de senha.',
       texto: `Olá, ${x.nome.split(' ')[0]}! ${quem} ${contexto}\n\nOs mentorados já estão na sua área da plataforma, em "Meus mentorados":\n${location.origin}/app.html#/meus` });

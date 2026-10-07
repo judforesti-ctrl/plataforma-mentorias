@@ -65,7 +65,8 @@ export async function abrirRemarcar(ctx, sessaoId, aoSalvar = () => {}) {
       : `<div class="aviso erro">${esc(ag.mensagem || 'A agenda não foi atualizada.')}</div>`;
 
     // 3. mensagens de WhatsApp
-    const eu = ctx.perfil.nome.split(' ')[0];
+    const { REMETENTE } = await import('../config.js');
+    const eu = REMETENTE;
     const meet = m.sala_meet ? `\n\nA sala do Google Meet continua a mesma:\n${m.sala_meet}` : '';
     const antes = s.data_hora ? `\nAntes: ${quando(s.data_hora)}` : '';
     const txtMentorado = `Olá, ${String(m.nome || '').split(' ')[0]}! Aqui é ${eu}, da Mentorei. A sua sessão ${s.numero} de mentoria foi remarcada.\n${antes}\nAgora: ${quando(novo)}${meet}${convite ? '\n\nO convite da agenda com o novo horário foi enviado para o seu e-mail.' : ''}\n\nQualquer dúvida, é só responder aqui.`;

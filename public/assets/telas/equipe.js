@@ -1,5 +1,6 @@
 // Equipe (administração): mentores e administradores, convites pendentes e envio de convites.
 import { sb, esc, avatar, dataHoraBR, avisar, explicarErro } from '../base.js';
+import { REMETENTE } from '../config.js';
 
 // Envia o convite pelo servidor (a chave secreta do Supabase fica só lá).
 export async function convidar({ email, nome, papel, tambem_mentor = false, mentorado_id = null, sem_email = false }) {
@@ -59,7 +60,7 @@ export async function conviteWhatsApp({ email, nome, papel, tambem_mentor = fals
   } catch (e) { avisar(explicarErro(e), true); return false; }
 
   const primeiro = String(nome || '').split(' ')[0];
-  const quem = remetente ? `Aqui é ${remetente.split(' ')[0]}, da Mentorei.` : 'Aqui é da Mentorei.';
+  const quem = `Aqui é ${(REMETENTE || remetente || '').split(' ')[0] || 'a equipe'}, da Mentorei.`;
   const texto = `Olá, ${primeiro}! ${quem} Seu acesso à plataforma de mentorias está pronto.${contexto ? `\n\n${contexto}` : ''}\n\nPara entrar, crie sua senha neste link:\n${j.link}\n\nSeu login é este e-mail: ${email}\n\nO link vale por tempo limitado. Se expirar, me avise que eu mando outro.`;
   janelaWhatsApp({ titulo: `Convite por WhatsApp · ${nome}`, nota: 'O link foi gerado e nenhum e-mail foi enviado. Confira a mensagem e mande pelo seu WhatsApp.', whatsapp, texto });
   return true;
