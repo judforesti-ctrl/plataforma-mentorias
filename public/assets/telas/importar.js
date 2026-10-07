@@ -69,6 +69,9 @@ export async function render(ctx, el) {
   const { data: empresas } = await sb.from('empresas').select('id, nome').order('nome');
   el.innerHTML = `
     <div class="cab"><div><h1>Importar planilha</h1><p class="sub">Traz para a plataforma a planilha de mentorias no formato atual: aba "Cronograma Geral" e uma aba por mentorado.</p></div></div>
+    <div class="cartao" style="border-color:var(--verde)"><div class="linha"><div style="flex:1"><h3>Mentoria em grupo: importar proposta em PDF</h3>
+      <p class="peq apagado">Cria a turma com a empresa, o perfil e os módulos a partir da proposta comercial.</p></div>
+      <a class="btn pri" href="#/importar-proposta">Importar proposta</a></div></div>
     ${(equipe || []).length ? '' : '<div class="aviso">Antes de importar, convide os mentores em "Equipe". A importação liga cada sessão ao mentor pelo nome.</div>'}
     <div class="cartao"><h3>1. Escolha o arquivo</h3>
       <p class="apagado peq mt">No Google Planilhas: Arquivo → Fazer download → Microsoft Excel (.xlsx).</p>

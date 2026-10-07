@@ -3,7 +3,7 @@
 // "#/turma/<id>": dados da turma e módulos. "#/modulo/<id>": tudo o que o mentor precisa para a aula.
 import { sb, esc, avatar, dataBR, dataHoraBR, diaMes, horaBR, autoSalvar, avisar, explicarErro, localParaISO, isoParaLocal } from '../base.js';
 
-const FORMATO = { meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro' };
+const FORMATO = { meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro', indefinido: 'Local a definir' };
 const STATUS = { planejada: ['Planejada', 'neutro'], em_andamento: ['Em andamento', ''], concluida: ['Concluída', 'neutro'], pausada: ['Pausada', 'alerta'] };
 const SEL_MODULO = 'id, numero, titulo, data_hora, formato, link, local, percepcoes_em, mentores:modulo_mentores(mentor:perfis(id, nome, foto_url))';
 const agora = () => Date.now();
@@ -33,7 +33,7 @@ async function lista(ctx, el) {
 
   el.innerHTML = `
     <div class="cab"><div><h1>${ctx.ehAdmin ? 'Turmas' : 'Minhas turmas'}</h1><p class="sub">Mentoria em grupo: módulos, slides, recomendações e percepções de cada aula.</p></div>
-      ${ctx.ehAdmin ? '<div class="acoes"><button class="btn escuro" id="nova">+ Nova turma</button></div>' : ''}</div>
+      ${ctx.ehAdmin ? '<div class="acoes"><a class="btn" href="#/importar-proposta">Importar proposta (PDF)</a><button class="btn escuro" id="nova">+ Nova turma</button></div>' : ''}</div>
     ${ctx.ehAdmin ? `<div class="cartao" id="form-nova" hidden><h3>Nova turma</h3>
       <form class="grade g2 mt" id="f-turma">
         <div class="campo"><label for="t-empresa">Empresa contratante</label><select id="t-empresa" required><option value="">Escolha…</option>${(empresas || []).map((e) => `<option value="${e.id}">${esc(e.nome)}</option>`).join('')}<option value="nova">+ Outra empresa…</option></select></div>
