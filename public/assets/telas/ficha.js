@@ -113,7 +113,7 @@ export async function render(ctx, el, [id]) {
           <tr><td class="apagado">Rede social</td><td>${esc(p.rede_social || '—')}</td></tr>
           <tr><td class="apagado">Termo aceito em</td><td>${dataHoraBR(p.termo_aceito_em)}</td></tr></table>`
           : `<p class="apagado mt">Aparece aqui depois do primeiro acesso do mentorado.</p>
-             ${ctx.ehAdmin ? `<div class="linha mt"><button class="btn pri peq" id="convidar">Enviar convite de acesso</button><span class="peq apagado">Usa o e-mail acima.</span></div>` : ''}`}
+             ${ctx.ehAdmin ? `<div class="linha mt"><button class="btn pri peq" id="convidar-whats">Convite por WhatsApp</button><button class="btn peq" id="convidar">Convite por e-mail</button><span class="peq apagado">O e-mail acima vira o login.</span></div>` : ''}`}
       </div>
     </section>`;
 
@@ -168,7 +168,19 @@ export async function render(ctx, el, [id]) {
     avisar('Sessão extra criada.'); ctx.irPara(`#/mentorado/${m.id}`);
   });
 
-  // convite do mentorado (administração)
+  // convite do mentorado pelo WhatsApp (administração): gera o link, nenhum e-mail sai
+  el.querySelector('#convidar-whats')?.addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget;
+    await salvador.agora();
+    const email = el.querySelector('[data-m="email"]').value.trim();
+    if (!email) { avisar('Preencha o e-mail do mentorado: ele vira o login.', true); return; }
+    btn.disabled = true;
+    const { conviteWhatsApp } = await import('./equipe.js');
+    await conviteWhatsApp({ email, nome: m.nome, papel: 'mentorado', mentorado_id: m.id, whatsapp: p.whatsapp || '', remetente: ctx.perfil.nome });
+    btn.disabled = false;
+  });
+
+  // convite do mentorado por e-mail (administração)
   el.querySelector('#convidar')?.addEventListener('click', async () => {
     await salvador.agora();
     const email = el.querySelector('[data-m="email"]').value.trim();

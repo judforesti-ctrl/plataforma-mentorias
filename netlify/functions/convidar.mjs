@@ -51,7 +51,22 @@ export default async (req) => {
   });
   if (!conv.ok) return resposta('Não foi possível gravar o convite.', 500, { detalhe: conv.dados && conv.dados.message });
 
-  // 4a. Só preparar: cria o acesso sem mandar e-mail (a pessoa ainda não consegue entrar).
+  // 4a. Link para mandar por WhatsApp: garante o login (sem e-mail) e gera um link de criar senha.
+  if (b.canal === 'link') {
+    const cria = await chamar('/auth/v1/admin/users', {
+      metodo: 'POST', chave: secreta, corpo: { email, email_confirm: true, user_metadata: { nome } },
+    });
+    if (!cria.ok && !(cria.status === 422 || /already|exists|registered/i.test(JSON.stringify(cria.dados || '')))) {
+      return resposta('Não foi possível preparar o acesso.', 502, { detalhe: JSON.stringify(cria.dados || '').slice(0, 300) });
+    }
+    const gl = await chamar('/auth/v1/admin/generate_link', { metodo: 'POST', chave: secreta, corpo: { type: 'recovery', email } });
+    const hash = gl.dados && (gl.dados.hashed_token || (gl.dados.properties && gl.dados.properties.hashed_token));
+    if (!gl.ok || !hash) return resposta('Não foi possível gerar o link de acesso.', 502, { detalhe: JSON.stringify(gl.dados || '').slice(0, 300) });
+    const origem = new URL(req.url).origin;
+    return resposta('Link de acesso gerado. Nenhum e-mail foi enviado.', 200, { link: `${origem}/definir-senha.html?token_hash=${encodeURIComponent(hash)}&type=recovery` });
+  }
+
+  // 4b. Só preparar: cria o acesso sem mandar e-mail (a pessoa ainda não consegue entrar).
   if (b.sem_email) {
     const cria = await chamar('/auth/v1/admin/users', {
       metodo: 'POST', chave: secreta, corpo: { email, email_confirm: true, user_metadata: { nome } },
@@ -63,7 +78,7 @@ export default async (req) => {
     return resposta('Não foi possível preparar o acesso.', 502, { detalhe: JSON.stringify(cria.dados || '').slice(0, 300) });
   }
 
-  // 4b. Envia o e-mail de convite
+  // 4c. Envia o e-mail de convite
   const site = (env('URL') || new URL(req.url).origin).replace(/\/$/, '');
   const destino = encodeURIComponent(`${site}/definir-senha.html`);
   const inv = await chamar(`/auth/v1/invite?redirect_to=${destino}`, { metodo: 'POST', chave: secreta, corpo: { email, data: { nome } } });

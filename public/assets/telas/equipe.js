@@ -17,6 +17,49 @@ export async function convidar({ email, nome, papel, tambem_mentor = false, ment
   } catch (e) { avisar(explicarErro(e), true); return false; }
 }
 
+// Convite pelo WhatsApp: a plataforma gera o link de criar senha (nenhum e-mail sai)
+// e abre uma janela com a mensagem pronta para mandar do seu WhatsApp.
+export async function conviteWhatsApp({ email, nome, papel, tambem_mentor = false, mentorado_id = null, whatsapp = '', remetente = '' }) {
+  const { data } = await sb.auth.getSession();
+  let j;
+  try {
+    const r = await fetch('/api/convidar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
+      body: JSON.stringify({ email, nome, papel, tambem_mentor, mentorado_id, canal: 'link' }),
+    });
+    j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.link) { if (j.detalhe) console.warn('Detalhe do convite:', j.detalhe); throw new Error(j.mensagem || 'Não foi possível gerar o link.'); }
+  } catch (e) { avisar(explicarErro(e), true); return false; }
+
+  const primeiro = String(nome || '').split(' ')[0];
+  const quem = remetente ? `Aqui é ${remetente.split(' ')[0]}, da Mentorei.` : 'Aqui é da Mentorei.';
+  const texto = `Olá, ${primeiro}! ${quem} Seu acesso à plataforma de mentorias está pronto.\n\nPara entrar, crie sua senha neste link:\n${j.link}\n\nSeu login é este e-mail: ${email}\n\nO link vale por tempo limitado. Se expirar, me avise que eu mando outro.`;
+  const fundo = document.createElement('div');
+  fundo.style.cssText = 'position:fixed;inset:0;background:rgba(9,18,22,.55);z-index:40;display:grid;place-items:center;padding:16px';
+  fundo.innerHTML = `<div class="cartao" role="dialog" aria-modal="true" aria-label="Convite por WhatsApp" style="width:100%;max-width:560px;max-height:90vh;overflow:auto">
+    <div class="linha"><h3 style="flex:1">Convite por WhatsApp · ${esc(nome)}</h3><button class="btn peq" data-fechar>Fechar</button></div>
+    <p class="peq apagado mt">O link foi gerado e nenhum e-mail foi enviado. Confira a mensagem e mande pelo seu WhatsApp.</p>
+    <div class="campo mt"><label for="w-num">WhatsApp da pessoa (com DDD)</label><input id="w-num" type="tel" placeholder="Em branco: você escolhe o contato no WhatsApp" value="${esc(whatsapp || '')}"></div>
+    <div class="campo mt"><label for="w-txt">Mensagem</label><textarea id="w-txt" style="min-height:190px">${esc(texto)}</textarea></div>
+    <div class="linha mt"><a class="btn pri" id="w-abrir" target="_blank" rel="noopener">Abrir no WhatsApp</a><button class="btn" id="w-copiar">Copiar mensagem</button></div>
+  </div>`;
+  document.body.appendChild(fundo);
+  const montar = () => {
+    const num = fundo.querySelector('#w-num').value.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+    const msg = encodeURIComponent(fundo.querySelector('#w-txt').value);
+    fundo.querySelector('#w-abrir').href = num ? `https://wa.me/55${num}?text=${msg}` : `https://wa.me/?text=${msg}`;
+  };
+  montar();
+  fundo.querySelectorAll('#w-num, #w-txt').forEach((x) => x.addEventListener('input', montar));
+  fundo.querySelector('#w-copiar').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(fundo.querySelector('#w-txt').value); avisar('Mensagem copiada.'); }
+    catch (_) { fundo.querySelector('#w-txt').select(); avisar('Selecionei o texto: aperte Ctrl + C para copiar.'); }
+  });
+  fundo.addEventListener('click', (ev) => { if (ev.target === fundo || ev.target.closest('[data-fechar]')) fundo.remove(); });
+  return true;
+}
+
 const PAPEL = { admin: 'Administração', mentor: 'Mentor', mentorado: 'Mentorado' };
 
 export async function render(ctx, el) {
@@ -31,7 +74,7 @@ export async function render(ctx, el) {
   const nomes = Object.fromEntries((pessoas || []).map((p) => [p.id, p.nome]));
 
   el.innerHTML = `
-    <div class="cab"><div><h1>Equipe</h1><p class="sub">Mentores e administração. Cada convite chega por e-mail com um link para criar a senha.</p></div></div>
+    <div class="cab"><div><h1>Equipe</h1><p class="sub">Mentores e administração. O convite pode ir por e-mail ou pelo seu WhatsApp, com um link para criar a senha.</p></div></div>
     <div class="grade g2">
       <div class="cartao"><h3>Convidar pessoa da equipe</h3>
         <form id="f-conv" class="grade mt" style="gap:10px">
@@ -49,7 +92,8 @@ export async function render(ctx, el) {
           <div class="tabela mt"><table><tr><th>Pessoa</th><th>Tipo</th><th></th></tr>
           ${convites.map((c) => `<tr><td>${esc(c.nome)}<br><span class="peq apagado">${esc(c.email)}</span></td><td>${PAPEL[c.papel]}</td>
           <td><div class="linha"><button class="btn peq" data-preparar="${esc(c.email)}">Preparar (sem e-mail)</button>
-            <button class="btn peq" data-enviar="${esc(c.email)}">Enviar convite</button></div></td></tr>`).join('')}</table></div>`
+            <button class="btn peq" data-enviar="${esc(c.email)}">Enviar convite</button>
+            <button class="btn peq" data-whats="${esc(c.email)}">WhatsApp</button></div></td></tr>`).join('')}</table></div>`
           : '<p class="apagado mt">Todos já foram preparados. Veja a lista "Pessoas na plataforma" abaixo.</p>'}
       </div>
     </div>
@@ -57,7 +101,7 @@ export async function render(ctx, el) {
       <div class="tabela mt"><table><tr><th>Pessoa</th><th>Tipo</th><th>Primeiro acesso</th><th>Último acesso</th><th></th></tr>
       ${(pessoas || []).map((p) => { const a = ultimo[p.id]; return `<tr><td><div class="linha">${avatar(p)}<div>${esc(p.nome)}<br><span class="peq apagado">${esc(p.email)}</span></div></div></td>
         <td>${PAPEL[p.papel]}${p.tambem_mentor ? ' e mentora' : ''}</td>
-        <td>${p.termo_aceito_em ? `<span class="selo">Feito</span>` : `<span class="selo alerta">Convite não enviado ou não aceito</span>${p.id !== ctx.perfil.id ? ` <button class="btn peq" data-enviar-pessoa="${p.id}">Enviar convite</button>` : ''}`}</td>
+        <td>${p.termo_aceito_em ? `<span class="selo">Feito</span>` : `<span class="selo alerta">Convite não enviado ou não aceito</span>${p.id !== ctx.perfil.id ? ` <button class="btn peq" data-enviar-pessoa="${p.id}">Enviar convite</button> <button class="btn peq" data-whats-pessoa="${p.id}">WhatsApp</button>` : ''}`}</td>
         <td class="peq">${a ? `${dataHoraBR(a.entrou_em)} · ${esc(a.aparelho || '')}` : '—'}</td>
         <td>${p.ativo ? `<button class="btn peq perigo" data-desativar="${p.id}">Desativar</button>` : `<button class="btn peq" data-ativar="${p.id}">Reativar</button>`}</td></tr>`; }).join('')}
       </table></div></div>
@@ -91,6 +135,22 @@ export async function render(ctx, el) {
       }
       avisar('Equipe preparada. Nenhum e-mail foi enviado.');
       ctx.irPara('#/equipe');
+      return;
+    }
+    const wc = ev.target.closest('[data-whats]');
+    if (wc) {
+      const c = convites.find((x) => x.email === wc.dataset.whats);
+      wc.disabled = true;
+      await conviteWhatsApp({ email: c.email, nome: c.nome, papel: c.papel, tambem_mentor: c.tambem_mentor, mentorado_id: c.mentorado_id, remetente: ctx.perfil.nome });
+      wc.disabled = false;
+      return;
+    }
+    const wp = ev.target.closest('[data-whats-pessoa]');
+    if (wp) {
+      const p = pessoas.find((x) => x.id === wp.dataset.whatsPessoa);
+      wp.disabled = true;
+      await conviteWhatsApp({ email: p.email, nome: p.nome, papel: p.papel, tambem_mentor: p.tambem_mentor, remetente: ctx.perfil.nome });
+      wp.disabled = false;
       return;
     }
     const ep = ev.target.closest('[data-enviar-pessoa]');
