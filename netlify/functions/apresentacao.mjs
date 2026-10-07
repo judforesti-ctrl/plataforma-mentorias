@@ -42,7 +42,15 @@ export default async (req) => {
   const eu = await ler('/auth/v1/user', secreta, token);
   if (!eu || !eu.id) return resposta({ mensagem: 'Sua sessão expirou. Faça login de novo.' }, 401);
 
-  const [p] = (await ler(`/rest/v1/perfis?id=eq.${eu.id}&select=nome,papel,tambem_mentor,ativo,trajetoria`, secreta)) || [];
+  let b = {}; try { b = await req.json(); } catch (_) { /* sem corpo: o próprio perfil */ }
+  let alvo = eu.id;
+  if (b.perfil_id && b.perfil_id !== eu.id) {
+    const [quem] = (await ler(`/rest/v1/perfis?id=eq.${eu.id}&select=papel,ativo`, secreta)) || [];
+    if (!quem || quem.papel !== 'admin' || !quem.ativo) return resposta({ mensagem: 'Só a administração gera o texto de outra pessoa.' }, 403);
+    if (!/^[0-9a-f-]{36}$/i.test(String(b.perfil_id))) return resposta({ mensagem: 'Pessoa inválida.' }, 400);
+    alvo = b.perfil_id;
+  }
+  const [p] = (await ler(`/rest/v1/perfis?id=eq.${alvo}&select=nome,papel,tambem_mentor,ativo,trajetoria`, secreta)) || [];
   if (!p || !p.ativo || !(p.papel === 'mentor' || p.tambem_mentor)) return resposta({ mensagem: 'Só mentores têm resumo de apresentação.' }, 403);
 
   const t = p.trajetoria || {};

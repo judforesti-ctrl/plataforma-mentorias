@@ -49,6 +49,10 @@ async function visaoGeral(ctx, el) {
     <div id="numeros"></div>
     <h2 class="mt2">Para hoje e pendências</h2>
     <div id="pendencias" class="mt"><p class="carregando">Carregando…</p></div>
+    <h2 class="mt2">Mentores</h2>
+    <div class="chips mt">${d.mentores.map((x) => `<a class="btn peq" href="#/pessoa/${x.id}">${esc(x.nome)}</a>`).join('') || '<span class="apagado">Nenhum mentor ativo.</span>'}
+      <a class="btn peq escuro" href="#/equipe">+ Convidar mentor</a></div>
+    <p class="peq apagado mt">Clique no nome para editar foto, contato, trajetória, sala do Meet e texto de apresentação.</p>
     <h2 class="mt2">Empresas e programas</h2>
     <div class="linha mt"><button class="btn peq" id="nova-empresa">+ Nova empresa</button></div>
     <div id="empresas" class="mt"></div>`;

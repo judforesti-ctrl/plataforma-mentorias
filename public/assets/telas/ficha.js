@@ -23,7 +23,9 @@ export async function render(ctx, el, [id]) {
   const p = m.perfil || {};
   const feitas = sess.filter((s) => s.situacao === 'realizada').length;
   const proxima = sess.find((s) => !s.concluida_em);
-  const whats = (p.whatsapp || '').replace(/\D/g, '');
+  const whats = (p.whatsapp || m.whatsapp || '').replace(/\D/g, '');
+  const rede = p.rede_social || m.rede_social || '';
+  const travaContato = p.id && !ctx.ehAdmin ? ' disabled' : ''; // depois do primeiro acesso, o contato é do mentorado (a administração ainda corrige)
   const swot = m.swot || {};
   let pontos = Array.isArray(m.pontos_desenvolver) ? m.pontos_desenvolver.map((x) => (typeof x === 'string' ? x : x.ponto)).filter(Boolean) : [];
 
@@ -40,7 +42,7 @@ export async function render(ctx, el, [id]) {
       <div class="linha">
         ${whats ? `<a class="btn peq" href="https://wa.me/55${whats.replace(/^55/, '')}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
         ${(m.email || p.email) ? `<a class="btn peq" href="mailto:${esc(m.email || p.email)}">E-mail</a>` : ''}
-        ${p.rede_social ? `<a class="btn peq" href="${esc(/^https?:/.test(p.rede_social) ? p.rede_social : `https://${p.rede_social}`)}" target="_blank" rel="noopener">Rede social</a>` : ''}
+        ${rede ? `<a class="btn peq" href="${esc(/^https?:/.test(rede) ? rede : `https://${rede}`)}" target="_blank" rel="noopener">Rede social</a>` : ''}
         ${m.sala_meet ? `<a class="btn peq escuro" href="${esc(m.sala_meet)}" target="_blank" rel="noopener">Entrar no Meet</a>` : ''}
         ${proxima ? `<a class="btn peq pri" href="#/sessao/${proxima.id}">Abrir sessão ${proxima.numero}</a>` : ''}
         <span class="salvo" id="indicador"></span>
@@ -98,14 +100,16 @@ export async function render(ctx, el, [id]) {
     </section>
 
     <section data-painel="dados" hidden>
-      <div class="cartao"><h3>Dados de trabalho</h3>
+      <div class="cartao"><h3>Dados de trabalho e contato</h3>
         <div class="grade g2 mt">
           <div class="campo"><label>Cargo</label><input type="text" data-m="cargo" value="${esc(m.cargo || '')}"></div>
           <div class="campo"><label>Tempo de casa</label><input type="text" data-m="tempo_de_casa" value="${esc(m.tempo_de_casa || '')}"></div>
           <div class="campo"><label>Pessoas no time</label><input type="number" min="0" data-m="pessoas_no_time" value="${esc(m.pessoas_no_time ?? '')}"></div>
           <div class="campo"><label>Gestor direto</label><input type="text" data-m="gestor_direto" value="${esc(m.gestor_direto || '')}"></div>
           <div class="campo"><label>Sala do Meet</label><input type="url" data-m="sala_meet" value="${esc(m.sala_meet || '')}"></div>
-          <div class="campo"><label>E-mail</label><input type="email" data-m="email" value="${esc(m.email || '')}"></div>
+          <div class="campo"><label>E-mail (vira o login)</label><input type="email" data-m="email" value="${esc(m.email || '')}"></div>
+          <div class="campo"><label>WhatsApp</label><input type="tel" data-m="whatsapp" placeholder="(54) 99999-0000" value="${esc(p.whatsapp || m.whatsapp || '')}"${travaContato}></div>
+          <div class="campo"><label>LinkedIn ou Instagram</label><input type="text" data-m="rede_social" value="${esc(rede)}"${travaContato}></div>
         </div></div>
       <div class="cartao"><h3>Contato informado pelo mentorado</h3>
         ${p.id ? `<table class="mt"><tr><td class="apagado">WhatsApp</td><td>${esc(p.whatsapp || '—')}</td></tr>
@@ -135,8 +139,17 @@ export async function render(ctx, el, [id]) {
       const sw = {}; el.querySelectorAll('[data-swot]').forEach((c) => { sw[c.dataset.swot] = c.value.trim(); });
       mud.swot = sw;
       mud.pontos_desenvolver = pontos.map((ponto) => ({ ponto }));
-      const { error: e } = await sb.from('mentorados').update(mud).eq('id', m.id);
+      let { error: e } = await sb.from('mentorados').update(mud).eq('id', m.id);
+      if (e && /whatsapp|rede_social/.test(e.message || '')) { // banco ainda sem as colunas novas (07-contato-mentorado.sql)
+        const { whatsapp: _w, rede_social: _r, ...resto } = mud;
+        ({ error: e } = await sb.from('mentorados').update(resto).eq('id', m.id));
+      }
       if (e) throw e;
+      // a administração corrige também o contato que o mentorado informou no primeiro acesso
+      if (ctx.ehAdmin && p.id) {
+        const { error: e2 } = await sb.from('perfis').update({ whatsapp: mud.whatsapp, rede_social: mud.rede_social }).eq('id', p.id);
+        if (e2) throw e2;
+      }
     },
   });
   el.querySelectorAll('[data-m], [data-swot]').forEach((c) => c.addEventListener('input', salvador.mudou));
@@ -176,7 +189,7 @@ export async function render(ctx, el, [id]) {
     if (!email) { avisar('Preencha o e-mail do mentorado: ele vira o login.', true); return; }
     btn.disabled = true;
     const { conviteWhatsApp } = await import('./equipe.js');
-    await conviteWhatsApp({ email, nome: m.nome, papel: 'mentorado', mentorado_id: m.id, whatsapp: p.whatsapp || '', remetente: ctx.perfil.nome });
+    await conviteWhatsApp({ email, nome: m.nome, papel: 'mentorado', mentorado_id: m.id, whatsapp: el.querySelector('[data-m="whatsapp"]').value.trim(), remetente: ctx.perfil.nome });
     btn.disabled = false;
   });
 

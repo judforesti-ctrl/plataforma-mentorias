@@ -59,6 +59,7 @@ const ROTAS = {
   sessao: () => import('./telas/sessao.js'),
   relatorios: () => import('./telas/relatorios.js'),
   ferramenta: () => import('./telas/ferramenta-online.js'),
+  pessoa: () => import('./telas/perfil.js'),
 };
 
 function montarTopo(atual) {
@@ -79,7 +80,7 @@ async function abrir() {
   if (!rota || !ROTAS[rota]) { location.replace(inicio); return; }
   if (telaAtual && telaAtual.sair) telaAtual.sair();
   montarTopo(rota === 'mentorado' || rota === 'sessao' ? (ehAdmin ? 'mentorados' : 'meus') : rota === 'carregar-arsenal' ? 'arsenal'
-    : rota === 'ferramenta' ? (perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota);
+    : rota === 'ferramenta' ? (perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota === 'pessoa' ? 'equipe' : rota);
   document.getElementById('topo').querySelector('.menu').hidden = precisaPrimeiroAcesso;
   // cada tela nasce num elemento novo, para os cliques de uma tela não se acumularem na outra
   const alvo = document.createElement('div');

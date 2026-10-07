@@ -99,11 +99,11 @@ export async function render(ctx, el) {
     </div>
     <div class="cartao mt"><h3>Pessoas na plataforma</h3><p class="peq apagado mt">Quem está com "Convite não enviado" já existe na plataforma, mas ainda não recebeu nenhum e-mail.</p>
       <div class="tabela mt"><table><tr><th>Pessoa</th><th>Tipo</th><th>Primeiro acesso</th><th>Último acesso</th><th></th></tr>
-      ${(pessoas || []).map((p) => { const a = ultimo[p.id]; return `<tr><td><div class="linha">${avatar(p)}<div>${esc(p.nome)}<br><span class="peq apagado">${esc(p.email)}</span></div></div></td>
+      ${(pessoas || []).map((p) => { const a = ultimo[p.id]; return `<tr><td><div class="linha">${avatar(p)}<div><a href="#/pessoa/${p.id}"><b>${esc(p.nome)}</b></a><br><span class="peq apagado">${esc(p.email)}</span></div></div></td>
         <td>${PAPEL[p.papel]}${p.tambem_mentor ? ' e mentora' : ''}</td>
         <td>${p.termo_aceito_em ? `<span class="selo">Feito</span>` : `<span class="selo alerta">Convite não enviado ou não aceito</span>${p.id !== ctx.perfil.id ? ` <button class="btn peq" data-enviar-pessoa="${p.id}">Enviar convite</button> <button class="btn peq" data-whats-pessoa="${p.id}">WhatsApp</button>` : ''}`}</td>
         <td class="peq">${a ? `${dataHoraBR(a.entrou_em)} · ${esc(a.aparelho || '')}` : '—'}</td>
-        <td>${p.ativo ? `<button class="btn peq perigo" data-desativar="${p.id}">Desativar</button>` : `<button class="btn peq" data-ativar="${p.id}">Reativar</button>`}</td></tr>`; }).join('')}
+        <td><div class="linha"><a class="btn peq" href="#/pessoa/${p.id}">Editar perfil</a>${p.ativo ? `<button class="btn peq perigo" data-desativar="${p.id}">Desativar</button>` : `<button class="btn peq" data-ativar="${p.id}">Reativar</button>`}</div></td></tr>`; }).join('')}
       </table></div></div>
     <div class="cartao mt"><h3>Acessos recentes</h3>
       <div class="tabela mt"><table><tr><th>Pessoa</th><th>Entrou</th><th>Última atividade</th><th>Aparelho</th></tr>

@@ -36,7 +36,7 @@ export async function render(ctx, el) {
       <h2 class="mt">Seus dados</h2>
       <div class="mt">${htmlFoto(p)}</div>
       <h4 class="mt2">Contato</h4>
-      <div class="mt">${htmlContato(p)}</div>
+      <div class="mt">${htmlContato(mentorado ? { ...p, whatsapp: p.whatsapp || mentorado.whatsapp, rede_social: p.rede_social || mentorado.rede_social } : p)}</div>
       ${ehMentorado ? `<h4 class="mt2">Seu trabalho</h4><div class="mt">${htmlDadosMentorado(mentorado)}</div>` : ''}
       ${atende ? `<h4 class="mt2">Sua trajetória</h4>
         <p class="peq apagado">A plataforma junta estas respostas num resumo de apresentação que os seus mentorados vão ver. Você revisa o texto antes de publicar.</p>
