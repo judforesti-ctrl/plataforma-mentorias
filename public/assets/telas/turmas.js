@@ -1,0 +1,358 @@
+// Mentoria em grupo: turmas (por empresa), módulos (aulas), slides e percepções dos mentores.
+// "#/turmas": lista (administração: todas e "Nova turma"; mentor: as dele e as próximas aulas).
+// "#/turma/<id>": dados da turma e módulos. "#/modulo/<id>": tudo o que o mentor precisa para a aula.
+import { sb, esc, avatar, dataBR, dataHoraBR, diaMes, horaBR, autoSalvar, avisar, explicarErro, localParaISO, isoParaLocal } from '../base.js';
+
+const FORMATO = { meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro' };
+const STATUS = { planejada: ['Planejada', 'neutro'], em_andamento: ['Em andamento', ''], concluida: ['Concluída', 'neutro'], pausada: ['Pausada', 'alerta'] };
+const SEL_MODULO = 'id, numero, titulo, data_hora, formato, link, local, percepcoes_em, mentores:modulo_mentores(mentor:perfis(id, nome, foto_url))';
+const agora = () => Date.now();
+const nomesMentores = (m) => (m.mentores || []).map((x) => x.mentor && x.mentor.nome).filter(Boolean).join(' e ');
+const ministra = (m, id) => (m.mentores || []).some((x) => x.mentor && x.mentor.id === id);
+const passou = (m) => m.data_hora && new Date(m.data_hora).getTime() < agora() - 2 * 3600 * 1000;
+
+export async function render(ctx, el, [id]) {
+  if (ctx.rota === 'turma' && id) return paginaTurma(ctx, el, id);
+  if (ctx.rota === 'modulo' && id) return paginaModulo(ctx, el, id);
+  return lista(ctx, el);
+}
+
+// ---------- lista de turmas ----------
+async function lista(ctx, el) {
+  const [{ data: turmas, error }, { data: empresas }] = await Promise.all([
+    sb.from('turmas').select(`id, nome, status, inicio, fim_previsto, participantes_previstos, empresa:empresas(nome), modulos(${SEL_MODULO})`).order('inicio', { ascending: false }),
+    ctx.ehAdmin ? sb.from('empresas').select('id, nome').order('nome') : Promise.resolve({ data: [] }),
+  ]);
+  if (error) throw error;
+  const todas = turmas || [];
+  const meusModulos = todas.flatMap((t) => (t.modulos || []).filter((m) => ministra(m, ctx.perfil.id)).map((m) => ({ ...m, turma: t })));
+  const proximas = meusModulos.filter((m) => m.data_hora && !passou(m)).sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
+  const semPercepcao = meusModulos.filter((m) => passou(m) && !m.percepcoes_em);
+  const linhaAula = (m) => `<a class="pend" href="#/modulo/${m.id}"><b>${diaMes(m.data_hora)}<br>${horaBR(m.data_hora)}</b>
+    <span>Módulo ${m.numero} · ${esc(m.titulo)}<br><span class="peq apagado">${esc(m.turma.empresa ? m.turma.empresa.nome : '')} · ${esc(m.turma.nome)} · ${FORMATO[m.formato] || ''}</span></span></a>`;
+
+  el.innerHTML = `
+    <div class="cab"><div><h1>${ctx.ehAdmin ? 'Turmas' : 'Minhas turmas'}</h1><p class="sub">Mentoria em grupo: módulos, slides, recomendações e percepções de cada aula.</p></div>
+      ${ctx.ehAdmin ? '<div class="acoes"><button class="btn escuro" id="nova">+ Nova turma</button></div>' : ''}</div>
+    ${ctx.ehAdmin ? `<div class="cartao" id="form-nova" hidden><h3>Nova turma</h3>
+      <form class="grade g2 mt" id="f-turma">
+        <div class="campo"><label for="t-empresa">Empresa contratante</label><select id="t-empresa" required><option value="">Escolha…</option>${(empresas || []).map((e) => `<option value="${e.id}">${esc(e.nome)}</option>`).join('')}<option value="nova">+ Outra empresa…</option></select></div>
+        <div class="campo"><label for="t-nome">Nome da turma ou programa</label><input id="t-nome" type="text" placeholder="Ex.: Liderança na Prática · Turma 1" required></div>
+        <div class="campo"><label for="t-part">Participantes esperados</label><input id="t-part" type="number" min="0"></div>
+        <div class="grade g2" style="gap:10px"><div class="campo"><label for="t-ini">Início</label><input id="t-ini" type="date"></div><div class="campo"><label for="t-fim">Fim previsto</label><input id="t-fim" type="date"></div></div>
+        <div class="campo" style="grid-column:1/-1"><label for="t-perfil">Perfil da turma</label><textarea id="t-perfil" placeholder="Cargos, nível de liderança, principais desafios, o que a empresa espera do programa."></textarea></div>
+        <div class="linha"><button class="btn pri" type="submit">Criar turma</button></div>
+      </form></div>` : ''}
+    ${proximas.length || semPercepcao.length ? `<div class="grade g2">
+      ${proximas.length ? `<div class="cartao pend-bloco"><h3>Suas próximas aulas <span class="selo neutro">${proximas.length}</span></h3><div class="lista mt">${proximas.slice(0, 8).map(linhaAula).join('')}</div></div>` : ''}
+      ${semPercepcao.length ? `<div class="cartao pend-bloco urgente"><h3>Aulas sem as suas percepções <span class="selo erro">${semPercepcao.length}</span></h3>
+        <p class="peq apagado">Conte como foi: engajamento, pontos de atenção e quantas pessoas vieram.</p><div class="lista mt">${semPercepcao.map(linhaAula).join('')}</div></div>` : ''}
+    </div>` : ''}
+    <h2 class="mt2">${ctx.ehAdmin ? 'Todas as turmas' : 'Turmas em que você dá aula'}</h2>
+    <div class="grade g2 mt">${todas.map((t) => {
+      const mods = (t.modulos || []).slice().sort((a, b) => a.numero - b.numero);
+      const prox = mods.find((m) => m.data_hora && !passou(m));
+      const [st, cls] = STATUS[t.status] || [t.status, 'neutro'];
+      return `<a class="cartao" href="#/turma/${t.id}" style="margin-top:0;color:inherit;text-decoration:none;display:grid;gap:6px">
+        <span class="peq apagado" style="text-transform:uppercase;letter-spacing:.05em;font-weight:600">${esc(t.empresa ? t.empresa.nome : '')}</span>
+        <h3>${esc(t.nome)}</h3>
+        <div class="linha" style="gap:6px"><span class="selo ${cls}">${st}</span><span class="selo neutro">${mods.length} módulo(s)</span>${t.participantes_previstos ? `<span class="selo neutro">${t.participantes_previstos} participantes</span>` : ''}</div>
+        <p class="peq apagado">${t.inicio ? `${dataBR(`${t.inicio}T12:00:00-03:00`)} a ${dataBR(`${t.fim_previsto || t.inicio}T12:00:00-03:00`)}` : 'Período a definir'}${prox ? ` · próximo módulo ${diaMes(prox.data_hora)}` : ''}</p>
+      </a>`;
+    }).join('') || `<div class="vazio" style="grid-column:1/-1">${ctx.ehAdmin ? 'Nenhuma turma ainda. Clique em "+ Nova turma".' : 'Você ainda não está em nenhum módulo. A administração da Mentorei faz essa ligação.'}</div>`}</div>`;
+
+  if (!ctx.ehAdmin) return;
+  el.querySelector('#nova').addEventListener('click', () => { const f = el.querySelector('#form-nova'); f.hidden = !f.hidden; });
+  el.querySelector('#t-empresa').addEventListener('change', async (ev) => {
+    if (ev.target.value !== 'nova') return;
+    const nome = window.prompt('Nome da empresa contratante:');
+    if (!nome || !nome.trim()) { ev.target.value = ''; return; }
+    const { data, error: e } = await sb.from('empresas').insert({ nome: nome.trim() }).select('id, nome').single();
+    if (e) { avisar(explicarErro(e), true); ev.target.value = ''; return; }
+    ev.target.insertAdjacentHTML('afterbegin', `<option value="${data.id}">${esc(data.nome)}</option>`);
+    ev.target.value = data.id;
+  });
+  el.querySelector('#f-turma').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const v = (s) => el.querySelector(s).value.trim();
+    if (!v('#t-empresa') || v('#t-empresa') === 'nova' || !v('#t-nome')) { avisar('Escolha a empresa e dê um nome à turma.', true); return; }
+    const { data, error: e } = await sb.from('turmas').insert({ empresa_id: v('#t-empresa'), nome: v('#t-nome'), perfil_turma: v('#t-perfil') || null,
+      participantes_previstos: v('#t-part') === '' ? null : Number(v('#t-part')), inicio: v('#t-ini') || null, fim_previsto: v('#t-fim') || null }).select('id').single();
+    if (e) { avisar(explicarErro(e), true); return; }
+    avisar('Turma criada. Agora cadastre os módulos.');
+    ctx.irPara(`#/turma/${data.id}`);
+  });
+}
+
+// ---------- página da turma ----------
+async function paginaTurma(ctx, el, id) {
+  const [{ data: t, error }, { data: mentores }] = await Promise.all([
+    sb.from('turmas').select(`*, empresa:empresas(nome), modulos(${SEL_MODULO})`).eq('id', id).maybeSingle(),
+    ctx.ehAdmin ? sb.from('perfis').select('id, nome, atende_grupo').or('papel.eq.mentor,tambem_mentor.eq.true').eq('ativo', true).order('nome') : Promise.resolve({ data: [] }),
+  ]);
+  if (error) throw error;
+  if (!t) { el.innerHTML = '<div class="vazio">Turma não encontrada, ou você não tem acesso a ela.</div>'; return; }
+  const mods = (t.modulos || []).slice().sort((a, b) => a.numero - b.numero);
+  const adm = ctx.ehAdmin;
+  const dis = adm ? '' : ' disabled';
+  const opMentores = (mentores || []).slice().sort((a, b) => (b.atende_grupo ? 1 : 0) - (a.atende_grupo ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
+
+  el.innerHTML = `
+    <div class="cab"><div><p class="peq apagado"><a href="#/turmas">← Turmas</a></p><p class="apagado">${esc(t.empresa ? t.empresa.nome : '')}</p><h1>${esc(t.nome)}</h1></div>
+      <div class="acoes"><span class="salvo" id="indicador"></span></div></div>
+    <div class="grade g2" style="align-items:start">
+      <div class="cartao" style="margin-top:0"><h3>A turma</h3>
+        <div class="grade g2 mt" style="gap:10px">
+          ${adm ? `<div class="campo" style="grid-column:1/-1"><label>Nome</label><input type="text" data-t="nome" value="${esc(t.nome)}"></div>` : ''}
+          <div class="campo"><label>Participantes esperados</label><input type="number" min="0" data-t="participantes_previstos" value="${esc(t.participantes_previstos ?? '')}"${dis}></div>
+          <div class="campo"><label>Situação</label><select data-t="status"${dis}>${Object.entries(STATUS).map(([k, [r]]) => `<option value="${k}"${k === t.status ? ' selected' : ''}>${r}</option>`).join('')}</select></div>
+          <div class="campo"><label>Início</label><input type="date" data-t="inicio" value="${esc(t.inicio || '')}"${dis}></div>
+          <div class="campo"><label>Fim previsto</label><input type="date" data-t="fim_previsto" value="${esc(t.fim_previsto || '')}"${dis}></div>
+        </div>
+        <div class="campo mt"><label>Perfil da turma</label><textarea data-t="perfil_turma" style="min-height:120px" placeholder="Cargos, nível de liderança, principais desafios, o que a empresa espera."${dis}>${esc(t.perfil_turma || '')}</textarea></div>
+        ${adm ? `<div class="campo mt"><label>Observações internas</label><textarea data-t="observacoes" placeholder="Combinados comerciais, contato do RH, cuidados.">${esc(t.observacoes || '')}</textarea></div>` : (t.observacoes ? `<p class="peq mt"><b>Observações:</b> ${esc(t.observacoes)}</p>` : '')}
+      </div>
+      <div class="cartao" style="margin-top:0">
+        <div class="linha"><h3 style="flex:1">Módulos (${mods.length})</h3>${adm ? '<button class="btn peq escuro" id="novo-mod">+ Novo módulo</button>' : ''}</div>
+        ${adm ? `<form id="f-mod" class="mt" hidden style="background:var(--bg);border-radius:12px;padding:12px">
+          <div class="grade g2" style="gap:10px">
+            <div class="campo" style="grid-column:1/-1"><label>Título do módulo</label><input type="text" id="m-titulo" placeholder="Ex.: Feedback que desenvolve" required></div>
+            <div class="campo"><label>Data e hora (Brasília)</label><input type="datetime-local" id="m-data"></div>
+            <div class="campo"><label>Onde acontece</label><select id="m-formato">${Object.entries(FORMATO).map(([k, r]) => `<option value="${k}">${r}</option>`).join('')}</select></div>
+            <div class="campo" style="grid-column:1/-1"><label>Link da sala (ou endereço, se presencial)</label><input type="text" id="m-link" placeholder="https://…"></div>
+          </div>
+          <p class="peq mt"><b>Mentor(es) do módulo</b></p>
+          <div class="chips mt">${opMentores.map((x) => `<label class="check" style="margin-right:12px"><input type="checkbox" name="m-ment" value="${x.id}"><span>${esc(x.nome)}${x.atende_grupo ? '' : ' <span class="peq apagado">(individual)</span>'}</span></label>`).join('')}</div>
+          <div class="linha mt"><button class="btn pri peq" type="submit">Criar módulo</button></div>
+        </form>` : ''}
+        <div class="lista mt">${mods.map((m) => `<a class="item" href="#/modulo/${m.id}" style="grid-template-columns:70px 1fr auto">
+          <div><b>${m.numero}</b><br><span class="peq apagado">${m.data_hora ? diaMes(m.data_hora) : 'sem data'}</span></div>
+          <div style="min-width:0"><div class="nome">${esc(m.titulo)}</div><div class="info">${esc(nomesMentores(m) || 'Mentor a definir')} · ${FORMATO[m.formato] || ''}${m.data_hora ? ` · ${horaBR(m.data_hora)}` : ''}</div></div>
+          ${m.percepcoes_em ? '<span class="selo">Percepções ✓</span>' : passou(m) ? '<span class="selo alerta">Sem percepções</span>' : '<span class="selo neutro">A acontecer</span>'}</a>`).join('')
+          || '<p class="apagado">Nenhum módulo ainda.</p>'}</div>
+      </div>
+    </div>`;
+
+  if (!adm) return;
+  const salvador = autoSalvar({
+    indicador: el.querySelector('#indicador'),
+    salvar: async () => {
+      const mud = {};
+      el.querySelectorAll('[data-t]').forEach((c) => { const x = c.value.trim(); mud[c.dataset.t] = c.type === 'number' ? (x === '' ? null : Number(x)) : (x || null); });
+      if (!mud.nome) delete mud.nome;
+      const { error: e } = await sb.from('turmas').update(mud).eq('id', id);
+      if (e) throw e;
+    },
+  });
+  el.querySelectorAll('[data-t]').forEach((c) => { c.addEventListener('input', salvador.mudou); c.addEventListener('change', salvador.mudou); });
+  el.querySelector('#novo-mod').addEventListener('click', () => { const f = el.querySelector('#f-mod'); f.hidden = !f.hidden; });
+  el.querySelector('#f-mod').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const titulo = el.querySelector('#m-titulo').value.trim();
+    if (!titulo) { avisar('Dê um título ao módulo.', true); return; }
+    const formato = el.querySelector('#m-formato').value;
+    const lk = el.querySelector('#m-link').value.trim();
+    const numero = mods.reduce((a, m) => Math.max(a, m.numero), 0) + 1;
+    const { data: novo, error: e } = await sb.from('modulos').insert({ turma_id: id, numero, titulo, formato,
+      data_hora: localParaISO(el.querySelector('#m-data').value) || null,
+      link: formato === 'presencial' ? null : (lk || null), local: formato === 'presencial' ? (lk || null) : null }).select('id').single();
+    if (e) { avisar(explicarErro(e), true); return; }
+    const ids = [...el.querySelectorAll('input[name=m-ment]:checked')].map((c) => ({ modulo_id: novo.id, mentor_id: c.value }));
+    if (ids.length) { const r = await sb.from('modulo_mentores').insert(ids); if (r.error) avisar(explicarErro(r.error), true); }
+    avisar('Módulo criado.');
+    ctx.irPara(`#/modulo/${novo.id}`);
+  });
+  return { sair: () => { salvador.agora(); salvador.parar(); } };
+}
+
+// ---------- página do módulo ----------
+const nomeSeguro = (n) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').slice(-90);
+const TIPO_POR_EXT = { pdf: 'application/pdf', ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  odp: 'application/vnd.oasis.opendocument.presentation', key: 'application/vnd.apple.keynote', zip: 'application/zip' };
+const tamanho = (b) => (b ? (b > 1048576 ? `${(b / 1048576).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(b / 1024))} KB`) : '');
+
+async function paginaModulo(ctx, el, id) {
+  const { data: m, error } = await sb.from('modulos').select(`*, turma:turmas(id, nome, perfil_turma, participantes_previstos, empresa:empresas(nome)),
+    mentores:modulo_mentores(mentor:perfis(id, nome, foto_url)), arquivos:modulo_arquivos(id, tipo, nome, caminho, tamanho, enviado_por, enviado_em, autor:perfis(nome))`).eq('id', id).maybeSingle();
+  if (error) throw error;
+  if (!m) { el.innerHTML = '<div class="vazio">Módulo não encontrado, ou você não tem acesso a ele.</div>'; return; }
+  const adm = ctx.ehAdmin;
+  const souMentor = ministra(m, ctx.perfil.id);
+  const podePercepcao = adm || souMentor;
+  const { data: equipe } = adm ? await sb.from('perfis').select('id, nome, atende_grupo').or('papel.eq.mentor,tambem_mentor.eq.true').eq('ativo', true).order('nome') : { data: [] };
+  const escolhidos = new Set((m.mentores || []).map((x) => x.mentor && x.mentor.id));
+  const arquivos = (m.arquivos || []).slice().sort((a, b) => new Date(b.enviado_em) - new Date(a.enviado_em));
+  const oficiais = arquivos.filter((a) => a.tipo === 'oficial');
+  const dosMentores = arquivos.filter((a) => a.tipo === 'mentor');
+  const dis = adm ? '' : ' disabled';
+  const linkSala = m.formato === 'presencial' ? '' : (m.link || '');
+  const ehUrl = /^https?:\/\//i.test(linkSala);
+
+  const listaArquivos = (lista, vazio) => (lista.length ? `<div class="lista mt">${lista.map((a) => `<div class="item" style="grid-template-columns:1fr auto">
+      <div style="min-width:0"><div class="nome" style="word-break:break-word">${esc(a.nome)}</div><div class="info">${tamanho(a.tamanho)}${a.autor ? ` · ${esc(a.autor.nome)}` : ''} · ${dataBR(a.enviado_em)}</div></div>
+      <div class="linha" style="gap:6px"><button class="btn peq pri" data-baixar="${a.id}">Baixar</button>${adm || (a.tipo === 'mentor' && a.enviado_por === ctx.perfil.id) ? `<button class="btn peq" data-apagar="${a.id}" aria-label="Apagar ${esc(a.nome)}">Apagar</button>` : ''}</div></div>`).join('')}</div>`
+    : `<p class="apagado mt">${vazio}</p>`);
+  const botaoEnvio = (tipo, rotulo) => `<label class="btn peq${tipo === 'oficial' ? ' escuro' : ' pri'} mt" style="cursor:pointer">${rotulo}<input type="file" data-enviar="${tipo}" accept=".pdf,.ppt,.pptx,.odp,.key,.zip" hidden></label>`;
+
+  el.innerHTML = `
+    <div class="linha" style="align-items:flex-start;gap:16px">
+      <div style="flex:1;min-width:240px">
+        <p class="peq apagado"><a href="#/turma/${m.turma.id}">← ${esc(m.turma.empresa ? m.turma.empresa.nome : '')} · ${esc(m.turma.nome)}</a></p>
+        <h1>Módulo ${m.numero} · ${esc(m.titulo)}</h1>
+        <p class="apagado">${m.data_hora ? dataHoraBR(m.data_hora) : 'Data a definir'}${m.duracao_min ? ` · ${m.duracao_min} min` : ''} · ${FORMATO[m.formato] || ''}${m.formato === 'presencial' && m.local ? ` · ${esc(m.local)}` : ''}</p>
+        <div class="linha mt" style="gap:6px">${(m.mentores || []).map((x) => x.mentor ? `<span class="selo neutro">${esc(x.mentor.nome)}</span>` : '').join('') || '<span class="selo alerta">Mentor a definir</span>'}</div>
+      </div>
+      <div class="linha">
+        ${ehUrl ? `<a class="btn escuro" href="${esc(linkSala)}" target="_blank" rel="noopener">Entrar na aula (${FORMATO[m.formato] || 'online'})</a>` : ''}
+        <button class="btn" id="cintia">Falar com a Cintia</button>
+        <span class="salvo" id="indicador"></span>
+      </div>
+    </div>
+
+    <div class="grade g2 mt2" style="align-items:start">
+      <div class="sessao-col">
+        <div class="cartao"><h3>A turma</h3>
+          <p class="mt"><b>${esc(m.turma.empresa ? m.turma.empresa.nome : '')}</b> · ${esc(m.turma.nome)}${m.turma.participantes_previstos ? ` · <span class="selo neutro">${m.turma.participantes_previstos} participantes esperados</span>` : ''}</p>
+          ${m.turma.perfil_turma ? `<p class="peq mt" style="white-space:pre-wrap">${esc(m.turma.perfil_turma)}</p>` : '<p class="peq apagado mt">Perfil da turma ainda não preenchido.</p>'}
+        </div>
+        <div class="cartao"><h3>Temática da aula</h3>
+          ${adm ? `<div class="campo mt"><label>Título</label><input type="text" data-mod="titulo" value="${esc(m.titulo)}"></div>` : ''}
+          <textarea class="mt" data-mod="tematica" style="min-height:120px" placeholder="Tema, objetivos de aprendizagem e o que os participantes devem levar da aula."${dis}>${esc(m.tematica || '')}</textarea>
+        </div>
+        <div class="cartao"><h3>Recomendações da aula</h3>
+          <textarea class="mt" data-mod="recomendacoes" style="min-height:120px" placeholder="O que enfatizar, cuidados com a turma, combinados com a empresa, dinâmicas sugeridas."${dis}>${esc(m.recomendacoes || '')}</textarea>
+        </div>
+        ${adm ? `<div class="cartao"><h3>Quando e onde</h3>
+          <div class="grade g2 mt" style="gap:10px">
+            <div class="campo"><label>Data e hora (Brasília)</label><input type="datetime-local" data-mod="data_hora" value="${esc(isoParaLocal(m.data_hora))}"></div>
+            <div class="campo"><label>Duração (minutos)</label><input type="number" min="0" data-mod="duracao_min" value="${esc(m.duracao_min ?? '')}"></div>
+            <div class="campo"><label>Onde acontece</label><select data-mod="formato">${Object.entries(FORMATO).map(([k, r]) => `<option value="${k}"${k === m.formato ? ' selected' : ''}>${r}</option>`).join('')}</select></div>
+            <div class="campo"><label>Link da sala</label><input type="url" data-mod="link" placeholder="https://zoom.us/… ou https://meet.google.com/…" value="${esc(m.link || '')}"></div>
+            <div class="campo" style="grid-column:1/-1"><label>Endereço (se presencial)</label><input type="text" data-mod="local" value="${esc(m.local || '')}"></div>
+          </div>
+          <p class="peq mt"><b>Mentor(es) do módulo</b></p>
+          <div class="chips mt" id="mentores">${(equipe || []).map((x) => `<label class="check" style="margin-right:12px"><input type="checkbox" value="${x.id}"${escolhidos.has(x.id) ? ' checked' : ''}><span>${esc(x.nome)}${x.atende_grupo ? '' : ' <span class="peq apagado">(individual)</span>'}</span></label>`).join('')}</div>
+        </div>` : ''}
+      </div>
+
+      <div class="sessao-col">
+        <div class="cartao"><h3>Slides oficiais da Mentorei</h3>
+          <p class="peq apagado">O material base do módulo, para baixar e adaptar.</p>
+          ${listaArquivos(oficiais, 'Os slides oficiais ainda não foram enviados.')}
+          ${adm ? botaoEnvio('oficial', 'Enviar slides oficiais') : ''}
+        </div>
+        <div class="cartao"><h3>Slides dos mentores</h3>
+          <p class="peq apagado">A versão que ${souMentor ? 'você vai usar' : 'o mentor vai usar'} na aula (PDF ou PowerPoint, até 50 MB).</p>
+          ${listaArquivos(dosMentores, 'Nenhum slide enviado pelos mentores ainda.')}
+          ${souMentor || adm ? botaoEnvio('mentor', souMentor ? 'Enviar os meus slides' : 'Enviar slides do mentor') : ''}
+          <p class="peq apagado mt" id="progresso"></p>
+        </div>
+        <div class="cartao" style="${podePercepcao ? 'border-color:var(--verde);background:linear-gradient(var(--verde-claro), var(--papel) 90px)' : ''}">
+          <h3>Percepções sobre a aula</h3>
+          <p class="peq">${podePercepcao ? 'Depois da aula, conte como foi: engajamento, o que funcionou, pontos de atenção e sugestões para os próximos módulos. Só a equipe da Mentorei lê.' : 'Escritas pelo mentor depois da aula.'}</p>
+          <div class="campo mt" style="max-width:220px"><label>Participantes presentes</label><input type="number" min="0" data-perc="participantes_presentes" value="${esc(m.participantes_presentes ?? '')}"${podePercepcao ? '' : ' disabled'}></div>
+          <textarea class="mt" data-perc="percepcoes" style="min-height:180px" placeholder="Como foi a aula?"${podePercepcao ? '' : ' disabled'}>${esc(m.percepcoes || '')}</textarea>
+          ${m.percepcoes_em ? `<p class="peq apagado mt">Registradas em ${dataHoraBR(m.percepcoes_em)}.</p>` : ''}
+        </div>
+      </div>
+    </div>`;
+
+  // salvamento automático (administração: tudo; mentor do módulo: percepções e presença)
+  const salvador = autoSalvar({
+    indicador: el.querySelector('#indicador'),
+    salvar: async () => {
+      const mud = {};
+      const ler = (sel, attr) => el.querySelectorAll(sel).forEach((c) => {
+        const x = c.value.trim();
+        mud[c.dataset[attr]] = c.type === 'number' ? (x === '' ? null : Number(x)) : c.type === 'datetime-local' ? (localParaISO(x) || null) : (x || null);
+      });
+      if (adm) ler('[data-mod]', 'mod');
+      if (podePercepcao) ler('[data-perc]', 'perc');
+      if (adm && !mud.titulo) delete mud.titulo;
+      if (mud.percepcoes && !m.percepcoes_em) { mud.percepcoes_em = new Date().toISOString(); mud.percepcoes_por = ctx.perfil.id; m.percepcoes_em = mud.percepcoes_em; }
+      const { error: e } = await sb.from('modulos').update(mud).eq('id', id);
+      if (e) throw e;
+    },
+  });
+  el.querySelectorAll(adm ? '[data-mod], [data-perc]' : '[data-perc]').forEach((c) => { if (!c.disabled) { c.addEventListener('input', salvador.mudou); c.addEventListener('change', salvador.mudou); } });
+
+  // mentores do módulo (administração)
+  el.querySelector('#mentores')?.addEventListener('change', async (ev) => {
+    const c = ev.target.closest('input[type=checkbox]'); if (!c) return;
+    const r = c.checked ? await sb.from('modulo_mentores').insert({ modulo_id: id, mentor_id: c.value })
+      : await sb.from('modulo_mentores').delete().eq('modulo_id', id).eq('mentor_id', c.value);
+    if (r.error) { avisar(explicarErro(r.error), true); c.checked = !c.checked; return; }
+    avisar(c.checked ? 'Mentor incluído no módulo.' : 'Mentor retirado do módulo.');
+  });
+
+  // envio de slides
+  el.querySelectorAll('[data-enviar]').forEach((inp) => inp.addEventListener('change', async () => {
+    const arq = inp.files[0]; if (!arq) return;
+    const tipo = inp.dataset.enviar;
+    const prog = el.querySelector('#progresso');
+    if (arq.size > 52428800) { avisar('O arquivo passa de 50 MB. Salve como PDF ou reduza as imagens e tente de novo.', true); return; }
+    const ext = (arq.name.split('.').pop() || '').toLowerCase();
+    const contentType = TIPO_POR_EXT[ext] || arq.type;
+    if (!TIPO_POR_EXT[ext]) { avisar('Envie um PDF ou uma apresentação (PowerPoint, Keynote ou ODP).', true); return; }
+    const caminho = `${id}/${tipo}/${Date.now()}-${nomeSeguro(arq.name)}`;
+    try {
+      if (prog) prog.textContent = `Enviando ${arq.name}…`;
+      const up = await sb.storage.from('turmas').upload(caminho, arq, { contentType });
+      if (up.error) throw up.error;
+      const r = await sb.from('modulo_arquivos').insert({ modulo_id: id, tipo, nome: arq.name, caminho, tamanho: arq.size, enviado_por: ctx.perfil.id });
+      if (r.error) { await sb.storage.from('turmas').remove([caminho]); throw r.error; }
+      avisar('Slides enviados.');
+      ctx.irPara(`#/modulo/${id}`);
+    } catch (e) { if (prog) prog.textContent = ''; avisar(explicarErro(e), true); }
+  }));
+
+  el.addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-baixar]');
+    if (b) {
+      const a = arquivos.find((x) => x.id === b.dataset.baixar);
+      const aba = window.open('', '_blank'); // abre já no clique, para o navegador não bloquear
+      const { data, error: e } = await sb.storage.from('turmas').createSignedUrl(a.caminho, 300, { download: a.nome });
+      if (e) { if (aba) aba.close(); avisar(explicarErro(e), true); return; }
+      if (aba) aba.location = data.signedUrl; else location.href = data.signedUrl;
+      return;
+    }
+    const d = ev.target.closest('[data-apagar]');
+    if (d) {
+      const a = arquivos.find((x) => x.id === d.dataset.apagar);
+      if (!window.confirm(`Apagar "${a.nome}"?`)) return;
+      const r = await sb.from('modulo_arquivos').delete().eq('id', a.id);
+      if (r.error) { avisar(explicarErro(r.error), true); return; }
+      await sb.storage.from('turmas').remove([a.caminho]);
+      avisar('Arquivo apagado.'); ctx.irPara(`#/modulo/${id}`);
+      return;
+    }
+    if (ev.target.id === 'cintia') {
+      const { data } = await sb.rpc('contato_coordenacao');
+      const c = (data || [])[0];
+      const num = (c && c.whatsapp || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+      if (!num) { avisar('O WhatsApp da Cintia ainda não está no perfil dela. Escreva para contato@mentorei.com.br.', true); return; }
+      const texto = `Oi, ${(c.nome || 'Cintia').split(' ')[0]}! Aqui é ${ctx.perfil.nome.split(' ')[0]}. É sobre o módulo ${m.numero} (${m.titulo}) da turma ${m.turma.nome}${m.turma.empresa ? `, ${m.turma.empresa.nome}` : ''}: `;
+      window.open(`https://wa.me/55${num}?text=${encodeURIComponent(texto)}`, '_blank', 'noopener');
+    }
+  });
+
+  return { sair: () => { salvador.agora(); salvador.parar(); } };
+}
+
+// ---------- resumo para o Painel da administração ----------
+export async function resumoGrupo(el) {
+  const { data, error } = await sb.from('modulos').select(`id, numero, titulo, data_hora, percepcoes_em, turma:turmas(nome, empresa:empresas(nome)), mentores:modulo_mentores(mentor:perfis(nome))`);
+  if (error) { el.innerHTML = ''; return; }
+  const em14 = agora() + 14 * 86400000;
+  const proximos = (data || []).filter((m) => m.data_hora && !passou(m) && new Date(m.data_hora).getTime() < em14).sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
+  const pendentes = (data || []).filter((m) => passou(m) && !m.percepcoes_em);
+  const semMentor = (data || []).filter((m) => !passou(m) && !(m.mentores || []).length);
+  const item = (m) => `<a class="pend" href="#/modulo/${m.id}"><b>${m.data_hora ? `${diaMes(m.data_hora)}<br>${horaBR(m.data_hora)}` : 'sem data'}</b>
+    <span>${esc(m.turma ? m.turma.nome : '')} · módulo ${m.numero}<br><span class="peq apagado">${esc(m.titulo)} · ${esc(nomesMentores(m) || 'sem mentor')}</span></span></a>`;
+  if (!proximos.length && !pendentes.length && !semMentor.length) {
+    el.innerHTML = (data || []).length ? '<div class="aviso ok">Nenhum módulo nos próximos 14 dias e nenhuma percepção pendente.</div>' : '<p class="apagado">Nenhuma turma cadastrada. <a href="#/turmas">Criar a primeira turma</a>.</p>';
+    return;
+  }
+  const bloco = (titulo, itens, cls = '') => (itens.length ? `<div class="cartao pend-bloco ${cls}"><h3>${titulo} <span class="selo ${cls ? 'erro' : 'neutro'}">${itens.length}</span></h3><div class="lista mt">${itens.slice(0, 8).map(item).join('')}</div></div>` : '');
+  el.innerHTML = `<div class="grade g2">${bloco('Módulos nos próximos 14 dias', proximos)}${bloco('Aulas sem percepções do mentor', pendentes, 'urgente')}${bloco('Módulos sem mentor definido', semMentor, 'urgente')}</div>`;
+}

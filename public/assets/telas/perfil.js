@@ -27,6 +27,9 @@ export async function render(ctx, el, [id] = []) {
       <div>
         <div class="cartao">${outro ? `<div class="campo" style="margin-bottom:14px"><label for="p-nome">Nome</label><input id="p-nome" type="text" data-campo="nome" value="${esc(p.nome)}"></div>` : ''}${htmlFoto(p)}<h4 class="mt2">Contato</h4><div class="mt">${htmlContato(p)}</div></div>
         ${ehMentorado && mentorado ? `<div class="cartao"><h3>Seu trabalho</h3><div class="mt">${htmlDadosMentorado(mentorado)}</div></div>` : ''}
+        ${atende && ctx.ehAdmin ? `<div class="cartao"><h3>Tipo de atendimento</h3><p class="peq apagado">Só a administração muda. Define o que aparece no menu desta pessoa.</p>
+          <div class="lista mt"><label class="check"><input type="checkbox" data-campo="atende_individual"${p.atende_individual !== false ? ' checked' : ''}><span>Mentoria individual (Meus mentorados)</span></label>
+          <label class="check"><input type="checkbox" data-campo="atende_grupo"${p.atende_grupo ? ' checked' : ''}><span>Mentoria em grupo (Minhas turmas)</span></label></div></div>` : ''}
         ${atende ? `<div class="cartao"><h3>${outro ? 'Trajetória' : 'Sua trajetória'}</h3><div class="mt">${htmlTrajetoria(p)}</div></div>` : ''}
       </div>
       <div>

@@ -28,11 +28,16 @@ registrarAcesso(perfil.id);
 
 const ehAdmin = perfil.papel === 'admin';
 const atende = perfil.papel === 'mentor' || perfil.tambem_mentor;
+// tipo de atendimento: individual (padrão) e/ou mentoria em grupo
+const individual = atende && perfil.atende_individual !== false;
+const grupo = atende && perfil.atende_grupo === true;
 
 const MENU = [
   ehAdmin && ['#/painel', 'Painel'],
   ehAdmin && ['#/mentorados', 'Mentorados'],
-  atende && ['#/meus', 'Meus mentorados'],
+  individual && ['#/meus', 'Meus mentorados'],
+  ehAdmin && ['#/turmas', 'Turmas'],
+  !ehAdmin && grupo && ['#/turmas', 'Minhas turmas'],
   (ehAdmin || atende) && ['#/arsenal', 'Arsenal'],
   ehAdmin && ['#/relatorios', 'Relatórios'],
   ehAdmin && ['#/equipe', 'Equipe'],
@@ -42,7 +47,7 @@ const MENU = [
   ['#/perfil', perfil.papel === 'mentorado' ? 'Meus dados' : 'Meu perfil'],
 ].filter(Boolean);
 
-const inicio = ehAdmin ? '#/painel' : atende ? '#/meus' : '#/minha-area';
+const inicio = ehAdmin ? '#/painel' : individual ? '#/meus' : grupo ? '#/turmas' : atende ? '#/perfil' : '#/minha-area';
 
 // telas: cada uma é um módulo com render(ctx, elemento, parametros)
 const ROTAS = {
@@ -62,6 +67,9 @@ const ROTAS = {
   relatorios: () => import('./telas/relatorios.js'),
   ferramenta: () => import('./telas/ferramenta-online.js'),
   pessoa: () => import('./telas/perfil.js'),
+  turmas: () => import('./telas/turmas.js'),
+  turma: () => import('./telas/turmas.js'),
+  modulo: () => import('./telas/turmas.js'),
 };
 
 function montarTopo(atual) {
@@ -82,7 +90,7 @@ async function abrir() {
   if (!rota || !ROTAS[rota]) { location.replace(inicio); return; }
   if (telaAtual && telaAtual.sair) telaAtual.sair();
   montarTopo(rota === 'mentorado' || rota === 'sessao' ? (ehAdmin ? 'mentorados' : 'meus') : rota === 'carregar-arsenal' ? 'arsenal'
-    : rota === 'ferramenta' ? (perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota === 'pessoa' ? 'equipe' : rota);
+    : rota === 'ferramenta' ? (perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota === 'pessoa' ? 'equipe' : rota === 'turma' || rota === 'modulo' ? 'turmas' : rota);
   document.getElementById('topo').querySelector('.menu').hidden = precisaPrimeiroAcesso;
   // cada tela nasce num elemento novo, para os cliques de uma tela não se acumularem na outra
   const alvo = document.createElement('div');

@@ -57,6 +57,8 @@ async function visaoGeral(ctx, el) {
     <div class="cartao mt" id="google"><p class="peq apagado">Verificando a Google Agenda…</p></div>
     <h2 class="mt2">Para hoje e pendências</h2>
     <div id="pendencias" class="mt"><p class="carregando">Carregando…</p></div>
+    <h2 class="mt2">Mentoria em grupo</h2>
+    <div id="grupo" class="mt"><p class="carregando">Carregando…</p></div>
     <h2 class="mt2">Mentores</h2>
     <div class="chips mt">${d.mentores.map((x) => `<a class="btn peq" href="#/pessoa/${x.id}">${esc(x.nome)}</a>`).join('') || '<span class="apagado">Nenhum mentor ativo.</span>'}
       <a class="btn peq escuro" href="#/equipe">+ Convidar mentor</a></div>
@@ -96,6 +98,7 @@ async function visaoGeral(ctx, el) {
   el.querySelectorAll('select').forEach((s) => s.addEventListener('input', desenhar));
   desenhar();
   pendencias(el.querySelector('#pendencias'), { mostrarMentor: true });
+  import('./turmas.js').then(({ resumoGrupo }) => resumoGrupo(el.querySelector('#grupo')));
   cartaoGoogle(el.querySelector('#google'));
   el.addEventListener('click', async (ev) => {
     const tr = ev.target.closest('[data-ir]'); if (tr) { location.hash = tr.dataset.ir; return; }
