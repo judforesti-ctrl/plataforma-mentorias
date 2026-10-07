@@ -12,7 +12,8 @@ const quando = (iso) => {
 export async function abrirRemarcar(ctx, sessaoId, aoSalvar = () => {}) {
   const { data: s, error } = await sb.from('sessoes').select(`id, numero, data_hora, concluida_em,
     mentor:perfis!sessoes_mentor_id_fkey(id, nome, whatsapp),
-    mentorado:mentorados(*, perfil:perfis!mentorados_perfil_id_fkey(whatsapp))`).eq('id', sessaoId).maybeSingle();
+    mentorado:mentorados(*, perfil:perfis!mentorados_perfil_id_fkey(whatsapp),
+      vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome, whatsapp)))`).eq('id', sessaoId).maybeSingle();
   if (error || !s) { avisar(error ? explicarErro(error) : 'Sessão não encontrada.', true); return; }
   if (s.concluida_em) { avisar('Esta sessão já foi concluída e não pode ser remarcada.', true); return; }
   const m = s.mentorado || {};
@@ -69,18 +70,23 @@ export async function abrirRemarcar(ctx, sessaoId, aoSalvar = () => {}) {
     const meet = m.sala_meet ? `\n\nA sala do Google Meet continua a mesma:\n${m.sala_meet}` : '';
     const antes = s.data_hora ? `\nAntes: ${quando(s.data_hora)}` : '';
     const txtMentorado = `Olá, ${String(m.nome || '').split(' ')[0]}! Aqui é ${eu}, da Mentorei. A sua sessão ${s.numero} de mentoria foi remarcada.\n${antes}\nAgora: ${quando(novo)}${meet}${convite ? '\n\nO convite da agenda com o novo horário foi enviado para o seu e-mail.' : ''}\n\nQualquer dúvida, é só responder aqui.`;
-    const souMentor = s.mentor && s.mentor.id === ctx.perfil.id;
-    const txtMentor = s.mentor ? `Olá, ${s.mentor.nome.split(' ')[0]}! A sessão ${s.numero} com ${m.nome} foi remarcada.\n${antes}\nAgora: ${quando(novo)}${meet}${convite ? '\n\nO convite da agenda já foi atualizado.' : ''}` : '';
+    // quem conduz a sessão primeiro, depois os outros mentores do mentorado (dupla), sem repetir
+    const mentores = [s.mentor, ...(m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor)]
+      .filter((x, k, arr) => x && arr.findIndex((y) => y && y.id === x.id) === k);
+    const txtMentor = (x) => `Olá, ${x.nome.split(' ')[0]}! Aqui é ${eu}, da Mentorei. A sessão ${s.numero} com ${m.nome} foi remarcada.\n${antes}\nAgora: ${quando(novo)}${meet}${convite ? '\n\nO convite da agenda já foi atualizado.' : ''}`;
     depois.innerHTML = `${status}
       <p class="peq mt"><b>Agora avise pelo WhatsApp:</b></p>
       <div class="linha mt"><button class="btn pri" id="r-whats-m">Avisar ${esc(String(m.nome || 'mentorado').split(' ')[0])}</button>
-        ${s.mentor && !souMentor ? `<button class="btn" id="r-whats-t">Avisar ${esc(s.mentor.nome.split(" ")[0])} (quem conduz)</button>` : ''}</div>`;
+        ${mentores.map((x, k) => `<button class="btn pri" data-whats-mentor="${k}">Avisar ${esc(x.nome.split(' ')[0])} (mentoria)</button>`).join('')}</div>
+      ${mentores.length ? '' : '<p class="peq apagado mt">Esta sessão não tem mentor ligado na plataforma.</p>'}`;
     btn.textContent = 'Remarcada';
     const { janelaWhatsApp } = await import('./equipe.js');
     depois.querySelector('#r-whats-m').addEventListener('click', () => janelaWhatsApp({ titulo: `Aviso de remarcação · ${m.nome}`,
       whatsapp: (m.perfil && m.perfil.whatsapp) || m.whatsapp || '', texto: txtMentorado }));
-    depois.querySelector('#r-whats-t')?.addEventListener('click', () => janelaWhatsApp({ titulo: `Aviso de remarcação · ${s.mentor.nome}`,
-      whatsapp: s.mentor.whatsapp || '', texto: txtMentor }));
+    depois.querySelectorAll('[data-whats-mentor]').forEach((b) => b.addEventListener('click', () => {
+      const x = mentores[Number(b.dataset.whatsMentor)];
+      janelaWhatsApp({ titulo: `Aviso de remarcação · ${x.nome}`, whatsapp: x.whatsapp || '', texto: txtMentor(x) });
+    }));
   });
 }
 
