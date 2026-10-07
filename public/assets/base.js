@@ -26,7 +26,8 @@ export const isoParaLocal = (iso) => {
   return d.toISOString().slice(0, 16);
 };
 
-export const iniciais = (nome) => String(nome || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+// apelido entre parênteses não vira inicial: "Luciane (Lu)" → "L"
+export const iniciais = (nome) => (String(nome || '?').trim().split(/\s+/).filter((p) => /^\p{L}/u.test(p)).slice(0, 2).map((p) => p[0]).join('') || '?').toUpperCase();
 export const avatar = (pessoa, grande = false) => `<span class="avatar${grande ? ' g' : ''}">${pessoa && pessoa.foto_url
   ? `<img src="${esc(pessoa.foto_url)}" alt="">` : esc(iniciais(pessoa && pessoa.nome))}</span>`;
 

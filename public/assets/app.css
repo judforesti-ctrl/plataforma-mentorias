@@ -154,11 +154,16 @@ tr.clicavel { cursor: pointer; } tr.clicavel:hover td { background: var(--bg); }
 .pend:hover { background: var(--verde-claro); }
 .pend b { font-family: var(--f-titulo); font-size: 13px; }
 
-/* tela da sessão: resumo do mentorado */
-.sobre > summary { cursor: pointer; list-style: none; }
-.sobre > summary::-webkit-details-marker { display: none; }
-.sobre > summary::after { content: ' ▾'; color: var(--apagado); }
-.sobre:not([open]) > summary::after { content: ' ▸'; }
+/* tela da sessão: resumo do mentorado (faixa pequena que abre para ler tudo) */
+.sobre { padding: 10px 14px; }
+.sobre-barra { appearance: none; border: 0; background: none; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; width: 100%;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; row-gap: 2px; align-items: center; }
+.sobre-titulo, .sobre-linha { grid-column: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sobre-linha { color: var(--apagado); }
+.sobre-acao { grid-column: 2; grid-row: 1 / span 2; }
+.sobre-barra:hover .sobre-acao { border-color: var(--verde); }
+.sobre.aberto .sobre-linha { display: none; }
+.sobre-tudo { margin-top: 12px; max-height: 60vh; overflow: auto; }
 .sobre-objetivo { background: var(--petroleo); color: #fff; border-radius: 10px; padding: 10px 14px; }
 .sobre-objetivo > span { color: var(--lima); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; font-size: 11px; }
 .sobre-caixa { background: var(--bg); border-radius: 10px; padding: 8px 10px; min-width: 0; }

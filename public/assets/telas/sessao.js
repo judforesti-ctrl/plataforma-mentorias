@@ -2,6 +2,7 @@
 // roteiro, anotações por voz, campo delicado, notas de evolução, tarefa, ferramentas e resumo para o mentorado.
 // Depois de concluída, só a administração altera.
 import { sb, esc, avatar, dataHoraBR, diaMes, autoSalvar, avisar, explicarErro, hojeISO } from '../base.js';
+import { abrirMeetAoLado, editarLinkMeet } from './meet.js';
 
 const SITUACOES = [['agendada', 'Agendada'], ['realizada', 'Realizada'], ['falta_avisada', 'Falta avisada'],
   ['falta_sem_aviso', 'Falta sem aviso'], ['remarcada', 'Remarcada'], ['cancelada', 'Cancelada']];
@@ -61,16 +62,24 @@ export async function render(ctx, el, [id]) {
     caixa('Forças · visão do gestor', m.forcas_visao_gestor), caixa('Fraquezas · visão do gestor', m.fraquezas_visao_gestor)].join('');
   const swotHtml = [caixa('SWOT · Forças', sw.forcas), caixa('SWOT · Fraquezas', sw.fraquezas), caixa('SWOT · Oportunidades', sw.oportunidades), caixa('SWOT · Ameaças', sw.ameacas)].join('');
   const trabalho = [m.cargo, m.tempo_de_casa && `${m.tempo_de_casa} de casa`, m.pessoas_no_time != null && `${m.pessoas_no_time} pessoas no time`, m.gestor_direto && `gestor: ${m.gestor_direto}`].filter(Boolean).map(esc).join(' · ');
+  // começa como uma faixa pequena (nome e objetivo numa linha); o mentor abre para ler tudo e diminui de novo
   const blocoSobre = `
-    <details class="cartao sobre" open>
-      <summary><h3 style="display:inline">Sobre ${esc(m.nome.split(' ')[0])}</h3></summary>
-      ${trabalho ? `<p class="peq apagado mt">${trabalho}</p>` : ''}
-      <div class="sobre-objetivo mt"><span class="peq">Objetivo da mentoria</span><p>${m.objetivo_principal ? esc(m.objetivo_principal) : '<span class="apagado">Ainda não combinado. Anote na ficha do mentorado.</span>'}</p></div>
-      ${pontos.length ? `<p class="peq mt"><b>Pontos a desenvolver</b></p><div class="chips mt">${pontos.map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div>` : ''}
-      ${visoes ? `<div class="grade g2 mt">${visoes}</div>` : ''}
-      ${swotHtml ? `<details class="mt"><summary class="peq" style="cursor:pointer"><b>Ver SWOT</b></summary><div class="grade g2 mt">${swotHtml}</div></details>` : ''}
-      ${!visoes && !swotHtml ? `<p class="peq apagado mt">Forças, fraquezas e SWOT ainda não foram preenchidas na <a href="#/mentorado/${m.id}">ficha</a>.</p>` : ''}
-    </details>`;
+    <div class="cartao sobre" id="sobre">
+      <button type="button" class="sobre-barra" id="sobre-alternar" aria-expanded="false" aria-controls="sobre-tudo">
+        <span class="sobre-titulo"><b>Sobre ${esc(m.nome.split(' ')[0])}</b>${m.cargo ? ` <span class="peq apagado">· ${esc(m.cargo)}</span>` : ''}</span>
+        <span class="sobre-linha peq"><b>Objetivo:</b> ${m.objetivo_principal ? esc(m.objetivo_principal) : 'ainda não combinado'}${pontos.length ? ` · ${pontos.length} ponto${pontos.length > 1 ? 's' : ''} a desenvolver` : ''}</span>
+        <span class="btn peq sobre-acao">Ver tudo</span>
+      </button>
+      <div class="sobre-tudo" id="sobre-tudo" hidden>
+        ${trabalho ? `<p class="peq apagado">${trabalho}</p>` : ''}
+        <div class="sobre-objetivo mt"><span class="peq">Objetivo da mentoria</span><p>${m.objetivo_principal ? esc(m.objetivo_principal) : '<span class="apagado">Ainda não combinado. Anote na ficha do mentorado.</span>'}</p></div>
+        ${pontos.length ? `<p class="peq mt"><b>Pontos a desenvolver</b></p><div class="chips mt">${pontos.map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div>` : ''}
+        ${visoes ? `<div class="grade g2 mt">${visoes}</div>` : ''}
+        ${swotHtml ? `<details class="mt"><summary class="peq" style="cursor:pointer"><b>Ver SWOT</b></summary><div class="grade g2 mt">${swotHtml}</div></details>` : ''}
+        ${!visoes && !swotHtml ? `<p class="peq apagado mt">Forças, fraquezas e SWOT ainda não foram preenchidas na <a href="#/mentorado/${m.id}">ficha</a>.</p>` : ''}
+        <div class="linha mt"><button type="button" class="btn peq" data-sobre-diminuir>Diminuir</button></div>
+      </div>
+    </div>`;
 
   const blocoAnteriores = anteriores.length ? `
     <div class="cartao">
@@ -116,7 +125,7 @@ export async function render(ctx, el, [id]) {
       </div>
       <div class="linha">
         ${!concluida ? '<button class="btn" id="remarcar">Remarcar</button>' : ''}
-        ${m.sala_meet ? `<a class="btn escuro" id="meet" href="${esc(m.sala_meet)}" target="_blank" rel="noopener" title="Abre o Meet numa janela ao lado da plataforma">Entrar no Meet</a>` : ''}
+        <span class="linha" id="meet-area" style="gap:6px"></span>
         <span class="salvo" id="indicador"></span>
       </div>
     </div>
@@ -202,17 +211,29 @@ export async function render(ctx, el, [id]) {
       </div>
     </div>`;
 
-  // ---------- Meet ao lado ----------
-  // O Google não deixa o Meet funcionar dentro de outro site. Então ele abre numa janela própria,
-  // encaixada no lado direito da tela, e a plataforma fica no lado esquerdo.
-  el.querySelector('#meet')?.addEventListener('click', (ev) => {
-    ev.preventDefault();
-    const larg = Math.round(screen.availWidth * 0.42);
-    const esq = (screen.availLeft || 0) + screen.availWidth - larg;
-    const janela = window.open(m.sala_meet, 'meet-mentorei',
-      `popup=yes,width=${larg},height=${screen.availHeight},left=${esq},top=${screen.availTop || 0}`);
-    if (!janela) { window.open(m.sala_meet, '_blank', 'noopener'); return; }
-    avisar('O Meet abriu à direita. Para encaixar a plataforma à esquerda, aperte a tecla Windows + seta para a esquerda.');
+  // ---------- resumo do mentorado: abrir e diminuir ----------
+  const sobre = el.querySelector('#sobre');
+  const alternarSobre = (abrir) => {
+    sobre.classList.toggle('aberto', abrir);
+    el.querySelector('#sobre-tudo').hidden = !abrir;
+    el.querySelector('#sobre-alternar').setAttribute('aria-expanded', String(abrir));
+    sobre.querySelector('.sobre-acao').textContent = abrir ? 'Diminuir' : 'Ver tudo';
+    if (!abrir) sobre.scrollIntoView({ block: 'nearest' });
+  };
+  el.querySelector('#sobre-alternar').addEventListener('click', () => alternarSobre(!sobre.classList.contains('aberto')));
+  el.querySelector('[data-sobre-diminuir]').addEventListener('click', () => alternarSobre(false));
+
+  // ---------- Meet: abre ao lado da plataforma; o link pode ser colocado ou trocado aqui mesmo ----------
+  const desenharMeet = () => {
+    el.querySelector('#meet-area').innerHTML = m.sala_meet
+      ? `<a class="btn escuro" id="meet" href="${esc(m.sala_meet)}" target="_blank" rel="noopener" title="Abre o Meet numa janela ao lado da plataforma">Entrar no Meet</a>
+         <button type="button" class="btn peq" id="meet-link" title="Trocar o link da sala do Meet" aria-label="Trocar o link da sala do Meet">✎</button>`
+      : '<button type="button" class="btn" id="meet-link">+ Link do Meet</button>';
+  };
+  desenharMeet();
+  el.querySelector('#meet-area').addEventListener('click', (ev) => {
+    if (ev.target.closest('#meet')) { ev.preventDefault(); abrirMeetAoLado(m.sala_meet); return; }
+    if (ev.target.closest('#meet-link')) editarLinkMeet(m, (link) => { m.sala_meet = link; desenharMeet(); });
   });
 
   // ---------- motivo da falta ----------

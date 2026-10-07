@@ -2,6 +2,7 @@
 // Mentor e administração editam; o salvamento é automático.
 import { sb, esc, avatar, dataHoraBR, autoSalvar, avisar, explicarErro, localParaISO, hojeISO } from '../base.js';
 import { htmlResultado } from '../ferramentas-online.js';
+import { abrirMeetAoLado, editarLinkMeet, normalizarMeet } from './meet.js';
 
 const SITUACAO = { agendada: ['Agendada', 'neutro'], realizada: ['Feita', ''], falta_avisada: ['Falta avisada', 'alerta'],
   falta_sem_aviso: ['Falta sem aviso', 'erro'], remarcada: ['Remarcada', 'alerta'], cancelada: ['Cancelada', 'neutro'] };
@@ -44,7 +45,7 @@ export async function render(ctx, el, [id]) {
         ${ctx.ehAdmin ? (p.termo_aceito_em ? '<button class="btn peq" data-convite-whats title="Gera um link para criar uma senha nova">Novo link de acesso</button>' : '<button class="btn peq pri" data-convite-whats>Convite por WhatsApp</button>') : ''}
         ${(m.email || p.email) ? `<a class="btn peq" href="mailto:${esc(m.email || p.email)}">E-mail</a>` : ''}
         ${rede ? `<a class="btn peq" href="${esc(/^https?:/.test(rede) ? rede : `https://${rede}`)}" target="_blank" rel="noopener">Rede social</a>` : ''}
-        ${m.sala_meet ? `<a class="btn peq escuro" href="${esc(m.sala_meet)}" target="_blank" rel="noopener">Entrar no Meet</a>` : ''}
+        <span class="linha" id="meet-area" style="gap:6px"></span>
         ${proxima ? `<a class="btn peq pri" href="#/sessao/${proxima.id}">Abrir sessão ${proxima.numero}</a>` : ''}
         <span class="salvo" id="indicador"></span>
       </div>
@@ -103,12 +104,14 @@ export async function render(ctx, el, [id]) {
 
     <section data-painel="dados" hidden>
       <div class="cartao"><h3>Dados de trabalho e contato</h3>
+        <div class="campo mt"><label for="f-meet">Link da sala do Meet</label>
+          <input id="f-meet" type="text" inputmode="url" data-m="sala_meet" placeholder="https://meet.google.com/abc-defg-hij" value="${esc(m.sala_meet || '')}">
+          <small>Pode colar ou trocar a qualquer momento. Vale para todas as sessões e aparece no botão "Entrar no Meet".</small></div>
         <div class="grade g2 mt">
           <div class="campo"><label>Cargo</label><input type="text" data-m="cargo" value="${esc(m.cargo || '')}"></div>
           <div class="campo"><label>Tempo de casa</label><input type="text" data-m="tempo_de_casa" value="${esc(m.tempo_de_casa || '')}"></div>
           <div class="campo"><label>Pessoas no time</label><input type="number" min="0" data-m="pessoas_no_time" value="${esc(m.pessoas_no_time ?? '')}"></div>
           <div class="campo"><label>Gestor direto</label><input type="text" data-m="gestor_direto" value="${esc(m.gestor_direto || '')}"></div>
-          <div class="campo"><label>Sala do Meet</label><input type="url" data-m="sala_meet" value="${esc(m.sala_meet || '')}"></div>
           <div class="campo"><label>E-mail (vira o login)</label><input type="email" data-m="email" value="${esc(m.email || '')}"></div>
           <div class="campo"><label>WhatsApp</label><input type="tel" data-m="whatsapp" placeholder="(54) 99999-0000" value="${esc(p.whatsapp || m.whatsapp || '')}"${travaContato}></div>
           <div class="campo"><label>LinkedIn ou Instagram</label><input type="text" data-m="rede_social" value="${esc(rede)}"${travaContato}></div>
@@ -138,6 +141,7 @@ export async function render(ctx, el, [id]) {
         const x = c.value.trim();
         mud[c.dataset.m] = c.type === 'number' ? (x === '' ? null : Number(x)) : (x || null);
       });
+      mud.sala_meet = normalizarMeet(mud.sala_meet);
       const sw = {}; el.querySelectorAll('[data-swot]').forEach((c) => { sw[c.dataset.swot] = c.value.trim(); });
       mud.swot = sw;
       mud.pontos_desenvolver = pontos.map((ponto) => ({ ponto }));
@@ -155,6 +159,21 @@ export async function render(ctx, el, [id]) {
     },
   });
   el.querySelectorAll('[data-m], [data-swot]').forEach((c) => c.addEventListener('input', salvador.mudou));
+
+  // Meet: botão no alto da ficha (entrar, ou colocar o link quando ainda não tem) e campo em "Dados e contato"
+  const campoMeet = el.querySelector('#f-meet');
+  const desenharMeet = () => {
+    el.querySelector('#meet-area').innerHTML = m.sala_meet
+      ? `<a class="btn peq escuro" id="meet" href="${esc(m.sala_meet)}" target="_blank" rel="noopener" title="Abre o Meet numa janela ao lado da plataforma">Entrar no Meet</a>
+         <button type="button" class="btn peq" id="meet-link" title="Trocar o link da sala do Meet" aria-label="Trocar o link da sala do Meet">✎</button>`
+      : '<button type="button" class="btn peq" id="meet-link">+ Link do Meet</button>';
+  };
+  desenharMeet();
+  el.querySelector('#meet-area').addEventListener('click', (ev) => {
+    if (ev.target.closest('#meet')) { ev.preventDefault(); abrirMeetAoLado(m.sala_meet); return; }
+    if (ev.target.closest('#meet-link')) editarLinkMeet(m, (link) => { m.sala_meet = link; campoMeet.value = link || ''; desenharMeet(); });
+  });
+  campoMeet.addEventListener('input', () => { m.sala_meet = normalizarMeet(campoMeet.value); desenharMeet(); });
 
   const desenharPontos = () => {
     el.querySelector('#pontos').innerHTML = pontos.length ? pontos.map((x, i) => `<span class="chip">${esc(x)} <button aria-label="Remover ${esc(x)}" data-rm="${i}">×</button></span>`).join('')

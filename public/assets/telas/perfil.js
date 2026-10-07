@@ -1,10 +1,10 @@
 // Meu perfil (mentor e administração) e Meus dados (mentorado), com salvamento automático.
-// "#/pessoa/<id>": a administração edita o perfil de outra pessoa da equipe.
+// "#/pessoa/<id>": a administração edita o perfil de outra pessoa da equipe ("#/pessoa/<id>/mentores" volta para a aba Mentores).
 import { sb, esc, autoSalvar, lerCampos, avisar, explicarErro, dataBR } from '../base.js';
 import { htmlFoto, ligarFoto, htmlContato, htmlTrajetoria, lerTrajetoria, htmlDadosMentorado, lerDadosMentorado } from './perfil-comum.js';
 import { AUTORIZACOES_MENTORADO } from '../termos.js';
 
-export async function render(ctx, el, [id] = []) {
+export async function render(ctx, el, [id, origem] = []) {
   const outro = !!(id && ctx.ehAdmin && id !== ctx.perfil.id);
   let p = ctx.perfil;
   if (outro) {
@@ -21,11 +21,11 @@ export async function render(ctx, el, [id] = []) {
   const aut = p.autorizacoes || {};
 
   el.innerHTML = `
-    <div class="cab"><div>${outro ? '<p class="peq apagado"><a href="#/equipe">← Equipe</a></p>' : ''}<h1>${outro ? `Perfil de ${esc(p.nome)}` : ehMentorado ? 'Meus dados' : 'Meu perfil'}</h1><p class="sub">${esc(p.email)}${outro ? ' · você está editando como administração' : ''}</p></div>
+    <div class="cab"><div>${origem === 'mentores' ? '<p class="peq apagado"><a href="#/mentores">← Mentores</a></p>' : outro ? '<p class="peq apagado"><a href="#/equipe">← Equipe</a></p>' : ''}<h1>${outro ? `Perfil de ${esc(p.nome)}` : ehMentorado ? 'Meus dados' : 'Meu perfil'}</h1><p class="sub">${esc(p.email)}${outro ? ' · você está editando como administração' : ''}</p></div>
       <div class="acoes"><span class="salvo" id="indicador"></span></div></div>
     <div class="grade g2" style="align-items:start">
       <div>
-        <div class="cartao">${outro ? `<div class="campo" style="margin-bottom:14px"><label for="p-nome">Nome</label><input id="p-nome" type="text" data-campo="nome" value="${esc(p.nome)}"></div>` : ''}${htmlFoto(p)}<h4 class="mt2">Contato</h4><div class="mt">${htmlContato(p)}</div></div>
+        <div class="cartao">${outro || ctx.ehAdmin ? `<div class="campo" style="margin-bottom:14px"><label for="p-nome">Nome e sobrenome</label><input id="p-nome" type="text" data-campo="nome" value="${esc(p.nome)}"></div>` : ''}${htmlFoto(p)}<h4 class="mt2">Contato</h4><div class="mt">${htmlContato(p)}</div></div>
         ${ehMentorado && mentorado ? `<div class="cartao"><h3>Seu trabalho</h3><div class="mt">${htmlDadosMentorado(mentorado)}</div></div>` : ''}
         ${atende && ctx.ehAdmin ? `<div class="cartao"><h3>Tipo de atendimento</h3><p class="peq apagado">Só a administração muda. Define o que aparece no menu desta pessoa.</p>
           <div class="lista mt"><label class="check"><input type="checkbox" data-campo="atende_individual"${p.atende_individual !== false ? ' checked' : ''}><span>Mentoria individual (Meus mentorados)</span></label>
@@ -52,6 +52,7 @@ export async function render(ctx, el, [id] = []) {
     indicador: el.querySelector('#indicador'),
     salvar: async () => {
       const mud = { ...lerCampos(el), foto_url: foto };
+      if ('nome' in mud && !mud.nome) delete mud.nome; // nome em branco não apaga o nome que já existe
       if (atende) mud.trajetoria = lerTrajetoria(el);
       if (ehMentorado && !outro) {
         const a = { ...aut }; el.querySelectorAll('[data-aut]').forEach((c) => { a[c.dataset.aut] = c.checked; }); mud.autorizacoes = a;
