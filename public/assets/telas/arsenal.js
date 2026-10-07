@@ -107,9 +107,10 @@ export async function render(ctx, el) {
         ${motivo ? `<p class="peq" style="background:var(--verde-claro);border-radius:8px;padding:6px 8px">Encontrada ${esc(motivo[0])}: “${destacar(motivo[1], palavras)}”</p>` : ''}
         <div class="linha" style="gap:6px;margin-top:auto">
           <button class="btn peq" data-ficha="${esc(f.id)}">Ver ficha</button>
-          ${f.arquivo_storage ? `<button class="btn peq" data-pdf="${esc(f.id)}">Baixar PDF</button><button class="btn peq pri" data-enviar="${esc(f.id)}">Enviar</button>`
-            : ONLINE[f.id] ? `${linkOnline(f.id, 'Abrir')}${ONLINE[f.id].interna ? `<button class="btn peq pri" data-enviar="${esc(f.id)}">Enviar</button>` : ''}`
-            : '<span class="selo neutro">Ferramenta online · em breve</span>'}
+          ${f.arquivo_storage ? `<button class="btn peq" data-pdf="${esc(f.id)}">PDF</button>` : ''}
+          ${ONLINE[f.id] ? linkOnline(f.id, 'Online') : ''}
+          ${f.arquivo_storage || (ONLINE[f.id] && ONLINE[f.id].interna) ? `<button class="btn peq pri" data-enviar="${esc(f.id)}">Enviar</button>`
+            : ONLINE[f.id] ? '' : '<span class="selo neutro">Ferramenta online · em breve</span>'}
         </div></div>`).join('') : `<div class="vazio" style="grid-column:1/-1">Nenhuma ferramenta encontrada.${nivel !== 'Todos' || tag ? ' Clique em "Limpar filtros" para ver todas.' : ' Tente outra palavra, como "conflito" ou "prioridade".'}</div>`;
   };
 
@@ -141,8 +142,10 @@ export async function render(ctx, el) {
       <div class="grade g2 mt"><div><h4>Perguntas poderosas</h4><ul class="peq">${li(f.perguntas_poderosas)}</ul></div>
         <div><h4>Entregável</h4><p class="peq">${esc(f.entregavel || '')}</p><h4 class="mt">Dica da mentora</h4><p class="peq">${esc(f.dica_mentora || '')}</p></div></div>
       <div class="mt"><h4>Combina com</h4>${seq('Antes', c.antes)}${seq('Na mesma sessão', c.mesma_sessao)}${seq('Depois', c.depois)}</div>
-      ${f.arquivo_storage ? `<div class="linha mt2"><button class="btn pri" data-enviar="${esc(f.id)}">Enviar a um mentorado</button><button class="btn" data-pdf="${esc(f.id)}">Baixar PDF</button></div>`
-        : ONLINE[f.id] ? `<div class="linha mt2">${ONLINE[f.id].interna ? `<button class="btn pri" data-enviar="${esc(f.id)}">Enviar a um mentorado</button>` : ''}${linkOnline(f.id, 'Abrir a ferramenta', 'btn')}</div>` : ''}
+      ${f.arquivo_storage || ONLINE[f.id] ? `<div class="linha mt2">
+        ${f.arquivo_storage || (ONLINE[f.id] && ONLINE[f.id].interna) ? `<button class="btn pri" data-enviar="${esc(f.id)}">Enviar a um mentorado</button>` : ''}
+        ${f.arquivo_storage ? `<button class="btn" data-pdf="${esc(f.id)}">Baixar PDF</button>` : ''}
+        ${ONLINE[f.id] ? linkOnline(f.id, 'Abrir a versão online', 'btn') : ''}</div>` : ''}
     </div>`;
     box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }

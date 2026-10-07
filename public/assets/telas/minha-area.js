@@ -63,8 +63,9 @@ export async function render(ctx, el) {
     <div class="cartao"><h3>Ferramentas que você recebeu</h3>
       ${(recebidas || []).length ? `<div class="lista mt">${recebidas.filter((r) => r.ferramenta).map((r) => `<div class="item" style="grid-template-columns:1fr auto">
         <div><b>${esc(r.ferramenta.nome)}</b><p class="peq apagado">${esc((r.ferramenta.dados && r.ferramenta.dados.resumo) || '')}</p></div>
-        ${r.ferramenta.arquivo ? `<button class="btn peq pri" data-baixar="${esc(r.ferramenta.arquivo)}">Baixar PDF</button>`
-          : ONLINE[r.ferramenta.id] ? linkOnline(r.ferramenta.id, (testes || []).some((t) => t.ferramenta_id === r.ferramenta.id) ? 'Fazer de novo' : 'Fazer agora', 'btn peq pri') : ''}</div>`).join('')}</div>`
+        <div class="linha" style="gap:6px">
+          ${ONLINE[r.ferramenta.id] ? linkOnline(r.ferramenta.id, (testes || []).some((t) => t.ferramenta_id === r.ferramenta.id) ? 'Fazer de novo' : 'Fazer agora', 'btn peq pri') : ''}
+          ${r.ferramenta.arquivo ? `<button class="btn peq${ONLINE[r.ferramenta.id] ? '' : ' pri'}" data-baixar="${esc(r.ferramenta.arquivo)}">Baixar PDF</button>` : ''}</div></div>`).join('')}</div>`
         : '<p class="apagado mt">Quando o seu mentor enviar uma ferramenta, ela aparece aqui.</p>'}</div>
 
     ${(testes || []).length ? `<div class="cartao"><h3>Resultados das suas ferramentas</h3><div class="lista mt">${testes.map(htmlResultado).join('')}</div></div>` : ''}
