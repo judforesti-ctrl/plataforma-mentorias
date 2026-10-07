@@ -1,7 +1,7 @@
 // Meu perfil (mentor e administração) e Meus dados (mentorado), com salvamento automático.
 // "#/pessoa/<id>": a administração edita o perfil de outra pessoa da equipe ("#/pessoa/<id>/mentores" volta para a aba Mentores).
 import { sb, esc, autoSalvar, lerCampos, avisar, explicarErro, dataBR } from '../base.js';
-import { htmlFoto, ligarFoto, htmlContato, htmlTrajetoria, lerTrajetoria, htmlDadosMentorado, lerDadosMentorado } from './perfil-comum.js';
+import { htmlFoto, ligarFoto, htmlContato, htmlTrajetoria, lerTrajetoria, htmlDadosMentorado, lerDadosMentorado, gravarComRedes } from './perfil-comum.js';
 import { AUTORIZACOES_MENTORADO } from '../termos.js';
 
 export async function render(ctx, el, [id, origem] = []) {
@@ -57,7 +57,7 @@ export async function render(ctx, el, [id, origem] = []) {
       if (ehMentorado && !outro) {
         const a = { ...aut }; el.querySelectorAll('[data-aut]').forEach((c) => { a[c.dataset.aut] = c.checked; }); mud.autorizacoes = a;
       }
-      const { error } = await sb.from('perfis').update(mud).eq('id', p.id);
+      const { error } = await gravarComRedes('perfis', p.id, mud);
       if (error) throw error;
       if (ehMentorado && mentorado) {
         const { error: e2 } = await sb.from('mentorados').update(lerDadosMentorado(el)).eq('id', mentorado.id);

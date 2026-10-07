@@ -2,7 +2,10 @@
 // roteiro, anotações por voz, campo delicado, notas de evolução, tarefa, ferramentas e resumo para o mentorado.
 // Depois de concluída, só a administração altera.
 import { sb, esc, avatar, dataHoraBR, diaMes, autoSalvar, avisar, explicarErro, hojeISO } from '../base.js';
-import { abrirMeetAoLado, editarLinkMeet } from './meet.js';
+import { editarLinkMeet } from './meet.js';
+
+// Janela flutuante (fica por cima de tudo, até do Meet): Google Chrome e Edge no computador.
+const FLUTUANTE = 'documentPictureInPicture' in window;
 
 const SITUACOES = [['agendada', 'Agendada'], ['realizada', 'Realizada'], ['falta_avisada', 'Falta avisada'],
   ['falta_sem_aviso', 'Falta sem aviso'], ['remarcada', 'Remarcada'], ['cancelada', 'Cancelada']];
@@ -126,6 +129,7 @@ export async function render(ctx, el, [id]) {
       <div class="linha">
         ${!concluida ? '<button class="btn" id="remarcar">Remarcar</button>' : ''}
         <span class="linha" id="meet-area" style="gap:6px"></span>
+        ${FLUTUANTE && pode ? '<button type="button" class="btn" id="flutuar" title="Abre as anotações numa janela pequena que fica por cima do Meet">📝 Anotações flutuantes</button>' : ''}
         <span class="salvo" id="indicador"></span>
       </div>
     </div>
@@ -156,14 +160,20 @@ export async function render(ctx, el, [id]) {
           <div class="campo mt" id="motivo" hidden><label>Motivo da falta ou da remarcação</label><input type="text" data-s="motivo_falta" value="${esc(s.motivo_falta || '')}"${dis}></div>
         </div>
 
-        <div class="cartao">
+        <div class="flutuando-aviso cartao" id="flutuando-aviso" hidden>
+          <h3>📝 As anotações estão na janela flutuante</h3>
+          <p class="peq apagado mt">O resumo do mentorado, as anotações, as informações delicadas e a tarefa estão na janela pequena, por cima do Meet. Tudo continua salvando sozinho.</p>
+          <div class="linha mt"><button type="button" class="btn peq" data-trazer>Trazer de volta para cá</button></div>
+        </div>
+
+        <div class="cartao" id="c-anotacoes">
           <div class="linha"><h3 style="flex:1">Anotações da sessão</h3>${pode ? '<button type="button" class="btn peq" data-voz="resumo_mentor">🎤 Falar</button>' : ''}</div>
           <p class="peq apagado">Só os mentores deste mentorado e a administração leem. Servem de base para o resumo do mentorado.</p>
           <textarea class="mt" data-i="resumo_mentor" style="min-height:200px" placeholder="O que foi conversado, percepções, o que mudou desde a última sessão…"${dis}>${esc(interno.resumo_mentor || '')}</textarea>
           <p class="peq apagado" data-ouvindo="resumo_mentor"></p>
         </div>
 
-        <div class="cartao delicado-cartao">
+        <div class="cartao delicado-cartao" id="c-delicadas">
           <div class="linha"><h3 style="flex:1">🔒 Informações delicadas</h3>${pode ? '<button type="button" class="btn peq" data-voz="informacoes_delicadas">🎤 Falar</button>' : ''}</div>
           <p class="peq">Saúde, conflitos pessoais, confidências, riscos. Só os mentores deste mentorado e a administração veem. <b>Nunca vai para o mentorado nem para o resumo automático.</b></p>
           <textarea class="mt" data-i="informacoes_delicadas" style="min-height:90px" placeholder="Deixe em branco se não houver."${dis}>${esc(interno.informacoes_delicadas || '')}</textarea>
@@ -178,7 +188,7 @@ export async function render(ctx, el, [id]) {
             : `<p class="apagado mt">Cadastre os pontos a desenvolver na <a href="#/mentorado/${m.id}">ficha do mentorado</a> para dar notas de evolução.</p>`}
         </div>
 
-        <div class="cartao">
+        <div class="cartao" id="c-tarefa">
           <h3>Tarefa para o mentorado</h3>
           <div class="grade mt" style="grid-template-columns:1fr 180px;gap:10px">
             <div class="campo"><label>O que ele vai fazer até a próxima sessão</label><textarea data-s="tarefa" style="min-height:70px"${dis}>${esc(s.tarefa || '')}</textarea></div>
@@ -211,33 +221,104 @@ export async function render(ctx, el, [id]) {
       </div>
     </div>`;
 
+  // Os campos ficam guardados aqui porque alguns blocos podem ir para a janela flutuante (fora desta página).
+  const camposS = [...el.querySelectorAll('[data-s]')];
+  const camposI = [...el.querySelectorAll('[data-i]')];
+  const campoS = (k) => camposS.find((c) => c.dataset.s === k);
+  const campoI = (k) => camposI.find((c) => c.dataset.i === k);
+  const avisosVoz = Object.fromEntries([...el.querySelectorAll('[data-ouvindo]')].map((x) => [x.dataset.ouvindo, x]));
+
   // ---------- resumo do mentorado: abrir e diminuir ----------
   const sobre = el.querySelector('#sobre');
+  const sobreTudo = sobre.querySelector('#sobre-tudo'), sobreBarra = sobre.querySelector('#sobre-alternar');
   const alternarSobre = (abrir) => {
     sobre.classList.toggle('aberto', abrir);
-    el.querySelector('#sobre-tudo').hidden = !abrir;
-    el.querySelector('#sobre-alternar').setAttribute('aria-expanded', String(abrir));
+    sobreTudo.hidden = !abrir;
+    sobreBarra.setAttribute('aria-expanded', String(abrir));
     sobre.querySelector('.sobre-acao').textContent = abrir ? 'Diminuir' : 'Ver tudo';
     if (!abrir) sobre.scrollIntoView({ block: 'nearest' });
   };
-  el.querySelector('#sobre-alternar').addEventListener('click', () => alternarSobre(!sobre.classList.contains('aberto')));
-  el.querySelector('[data-sobre-diminuir]').addEventListener('click', () => alternarSobre(false));
+  sobreBarra.addEventListener('click', () => alternarSobre(!sobre.classList.contains('aberto')));
+  sobre.querySelector('[data-sobre-diminuir]').addEventListener('click', () => alternarSobre(false));
 
-  // ---------- Meet: abre ao lado da plataforma; o link pode ser colocado ou trocado aqui mesmo ----------
+  // ---------- anotações flutuantes ----------
+  // Uma janela pequena que fica por cima de tudo, até do Meet em tela cheia. O resumo do mentorado, as anotações,
+  // as informações delicadas e a tarefa mudam para ela e voltam para a página quando ela fecha. O salvamento é o mesmo.
+  let flutuante = null;
+  const botaoFlutuar = el.querySelector('#flutuar');
+  const avisoFlutuando = el.querySelector('#flutuando-aviso');
+  const blocosFlutuantes = ['#sobre', '#c-anotacoes', '#c-delicadas', '#c-tarefa'].map((x) => el.querySelector(x));
+  const marcarBotaoFlutuar = () => { if (botaoFlutuar) botaoFlutuar.textContent = flutuante ? 'Trazer anotações de volta' : '📝 Anotações flutuantes'; };
+  async function abrirFlutuante() {
+    if (flutuante) { flutuante.focus(); return true; }
+    let w;
+    try { w = await window.documentPictureInPicture.requestWindow({ width: 440, height: 720 }); } catch (e) {
+      console.warn('Janela flutuante:', e);
+      avisar('Não foi possível abrir a janela flutuante. Ela funciona no Google Chrome ou no Edge, no computador.', true);
+      return false;
+    }
+    flutuante = w;
+    const d = w.document;
+    document.querySelectorAll('link[rel="stylesheet"], style').forEach((x) => d.head.appendChild(x.cloneNode(true)));
+    d.title = `Sessão ${s.numero} · ${m.nome}`;
+    d.body.className = 'janela-flutuante';
+    d.body.innerHTML = `<div class="linha flutuante-topo"><b style="flex:1">Sessão ${s.numero} · ${esc(m.nome.split(' ')[0])}</b><span class="salvo" id="indicador-f"></span></div>
+      <p class="peq apagado flutuante-dica">Esta janela fica por cima do Meet. Arraste pela borda de cima e mude o tamanho pelos cantos. Tudo salva sozinho.</p>`;
+    // o "Salvo às..." da página aparece também na janela
+    const ind = el.querySelector('#indicador'), indF = d.getElementById('indicador-f');
+    const espelhar = () => { indF.className = ind.className; indF.textContent = ind.textContent; };
+    espelhar();
+    const observador = new MutationObserver(espelhar);
+    observador.observe(ind, { attributes: true, childList: true, characterData: true, subtree: true });
+    // muda os blocos (guardando o que já foi digitado) e deixa um marcador no lugar de cada um
+    const marcadores = blocosFlutuantes.map((b) => {
+      const marca = document.createComment('bloco na janela flutuante');
+      const valores = [...b.querySelectorAll('textarea, input')].map((c) => [c, c.value]);
+      b.before(marca); d.body.append(b);
+      valores.forEach(([c, v]) => { c.value = v; });
+      return marca;
+    });
+    avisoFlutuando.hidden = false; marcarBotaoFlutuar();
+    w.addEventListener('pagehide', () => {
+      salvador.agora();
+      blocosFlutuantes.forEach((b, i) => {
+        const valores = [...b.querySelectorAll('textarea, input')].map((c) => [c, c.value]);
+        marcadores[i].replaceWith(b);
+        valores.forEach(([c, v]) => { c.value = v; });
+      });
+      observador.disconnect();
+      flutuante = null; avisoFlutuando.hidden = true; marcarBotaoFlutuar();
+    });
+    return true;
+  }
+  const fecharFlutuante = () => { if (flutuante) flutuante.close(); };
+  botaoFlutuar?.addEventListener('click', () => (flutuante ? fecharFlutuante() : abrirFlutuante()));
+  avisoFlutuando.querySelector('[data-trazer]').addEventListener('click', fecharFlutuante);
+
+  // ---------- Meet: abre numa aba nova; o link pode ser colocado ou trocado aqui mesmo ----------
   const desenharMeet = () => {
     el.querySelector('#meet-area').innerHTML = m.sala_meet
-      ? `<a class="btn escuro" id="meet" href="${esc(m.sala_meet)}" target="_blank" rel="noopener" title="Abre o Meet numa janela ao lado da plataforma">Entrar no Meet</a>
+      ? `<a class="btn escuro" id="meet" href="${esc(m.sala_meet)}" target="_blank" rel="noopener">Entrar no Meet</a>
          <button type="button" class="btn peq" id="meet-link" title="Trocar o link da sala do Meet" aria-label="Trocar o link da sala do Meet">✎</button>`
       : '<button type="button" class="btn" id="meet-link">+ Link do Meet</button>';
   };
   desenharMeet();
-  el.querySelector('#meet-area').addEventListener('click', (ev) => {
-    if (ev.target.closest('#meet')) { ev.preventDefault(); abrirMeetAoLado(m.sala_meet); return; }
+  el.querySelector('#meet-area').addEventListener('click', async (ev) => {
+    if (ev.target.closest('#meet')) {
+      if (!FLUTUANTE || !pode || flutuante) return; // o link abre o Meet numa aba nova, normalmente
+      // primeiro as anotações flutuam, depois o Meet abre por baixo delas
+      ev.preventDefault();
+      await abrirFlutuante();
+      const aba = window.open(m.sala_meet, '_blank');
+      if (aba) aba.opener = null;
+      else avisar('As anotações já estão na janela flutuante. Clique de novo em "Entrar no Meet" para abrir a chamada.');
+      return;
+    }
     if (ev.target.closest('#meet-link')) editarLinkMeet(m, (link) => { m.sala_meet = link; desenharMeet(); });
   });
 
   // ---------- motivo da falta ----------
-  const sit = el.querySelector('[data-s="situacao"]');
+  const sit = campoS('situacao');
   const mostrarMotivo = () => { el.querySelector('#motivo').hidden = !/falta|remarcada|cancelada/.test(sit.value); };
   mostrarMotivo(); sit.addEventListener('change', mostrarMotivo);
 
@@ -246,19 +327,19 @@ export async function render(ctx, el, [id]) {
     indicador: el.querySelector('#indicador'),
     salvar: async () => {
       const mud = {};
-      el.querySelectorAll('[data-s]').forEach((c) => {
+      camposS.forEach((c) => {
         const x = c.value.trim();
         mud[c.dataset.s] = c.type === 'number' ? (x === '' ? null : Number(x)) : (x || null);
       });
       if (!mud.situacao) mud.situacao = 'agendada';
       const it = { sessao_id: s.id, notas_evolucao: notasEvol };
-      el.querySelectorAll('[data-i]').forEach((c) => { it[c.dataset.i] = c.value.trim() || null; });
+      camposI.forEach((c) => { it[c.dataset.i] = c.value.trim() || null; });
       const r1 = await sb.from('sessoes').update(mud).eq('id', s.id); if (r1.error) throw r1.error;
       const r2 = await sb.from('sessoes_interno').upsert(it, { onConflict: 'sessao_id' }); if (r2.error) throw r2.error;
     },
   });
   if (pode) {
-    el.querySelectorAll('[data-s], [data-i]').forEach((c) => {
+    [...camposS, ...camposI].forEach((c) => {
       c.addEventListener('input', salvador.mudou); c.addEventListener('change', salvador.mudou);
     });
   }
@@ -281,8 +362,8 @@ export async function render(ctx, el, [id]) {
     if (voz && voz.campo === campo) { pararVoz(); return; }
     pararVoz();
     if (!Reconhecer) { avisar('Este navegador não transcreve voz. Use o Google Chrome.', true); return; }
-    const area = el.querySelector(`[data-i="${campo}"]`);
-    const aviso = el.querySelector(`[data-ouvindo="${campo}"]`);
+    const area = campoI(campo);
+    const aviso = avisosVoz[campo];
     const rec = new Reconhecer();
     rec.lang = 'pt-BR'; rec.continuous = true; rec.interimResults = true;
     voz = { campo, rec, botao, aviso, ativo: true };
@@ -332,9 +413,9 @@ export async function render(ctx, el, [id]) {
   // ---------- resumo com IA ----------
   el.querySelector('#gerar')?.addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
-    const alvo = el.querySelector('[data-s="resumo_mentorado"]');
+    const alvo = campoS('resumo_mentorado');
     if (alvo.value.trim() && !window.confirm('Já existe um resumo. Gerar outro e substituir?')) return;
-    if (el.querySelector('[data-i="resumo_mentor"]').value.trim().length < 40) { avisar('Escreva (ou fale) as anotações da sessão primeiro.', true); return; }
+    if (campoI('resumo_mentor').value.trim().length < 40) { avisar('Escreva (ou fale) as anotações da sessão primeiro.', true); return; }
     btn.disabled = true; btn.textContent = 'Escrevendo…';
     try {
       salvador.mudou(); await salvador.agora();
@@ -353,7 +434,7 @@ export async function render(ctx, el, [id]) {
   el.querySelector('#concluir')?.addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
     const situacao = sit.value;
-    const resumo = el.querySelector('[data-s="resumo_mentorado"]').value.trim();
+    const resumo = campoS('resumo_mentorado').value.trim();
     if (situacao === 'agendada' && !window.confirm('A situação ainda está "Agendada". Concluir marcando como "Realizada"?')) return;
     if ((situacao === 'agendada' || situacao === 'realizada') && !resumo && !window.confirm('Ainda não há resumo para o mentorado. Concluir mesmo assim?')) return;
     if (!window.confirm('Depois de concluída, a sessão não pode mais ser alterada (só pela administração). Concluir agora?')) return;
@@ -382,5 +463,5 @@ export async function render(ctx, el, [id]) {
     abrirRemarcar(ctx, s.id, () => ctx.irPara(`#/sessao/${s.id}`));
   });
 
-  return { sair: () => { pararVoz(); salvador.agora(); salvador.parar(); } };
+  return { sair: () => { pararVoz(); fecharFlutuante(); salvador.agora(); salvador.parar(); } };
 }

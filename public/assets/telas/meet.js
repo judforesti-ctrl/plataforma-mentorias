@@ -1,5 +1,5 @@
-// Sala do Meet do mentorado: abrir ao lado da plataforma e colocar ou trocar o link a qualquer momento
-// (na ficha e na tela da sessão). O link fica em mentorados.sala_meet e vale para todas as sessões.
+// Sala do Meet do mentorado: colocar ou trocar o link a qualquer momento (na ficha e na tela da sessão).
+// O link fica em mentorados.sala_meet e vale para todas as sessões.
 import { sb, esc, avisar, explicarErro } from '../base.js';
 
 // "meet.google.com/abc" vira "https://meet.google.com/abc"; em branco vira null.
@@ -7,17 +7,6 @@ export function normalizarMeet(valor) {
   const x = String(valor || '').trim();
   if (!x) return null;
   return /^https?:\/\//i.test(x) ? x : `https://${x}`;
-}
-
-// O Google não deixa o Meet funcionar dentro de outro site. Então ele abre numa janela própria,
-// encaixada no lado direito da tela, e a plataforma fica no lado esquerdo.
-export function abrirMeetAoLado(url) {
-  const larg = Math.round(screen.availWidth * 0.42);
-  const esq = (screen.availLeft || 0) + screen.availWidth - larg;
-  const janela = window.open(url, 'meet-mentorei',
-    `popup=yes,width=${larg},height=${screen.availHeight},left=${esq},top=${screen.availTop || 0}`);
-  if (!janela) { window.open(url, '_blank', 'noopener'); return; }
-  avisar('O Meet abriu à direita. Para encaixar a plataforma à esquerda, aperte a tecla Windows + seta para a esquerda.');
 }
 
 // Janela para colar (ou trocar) o link da sala. Chama aoSalvar(novoLink) depois de gravar.

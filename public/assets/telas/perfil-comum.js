@@ -39,12 +39,45 @@ export function ligarFoto(raiz, perfil, aoTrocar) {
   });
 }
 
+// LinkedIn e Instagram ficam em campos separados (13-linkedin-instagram.sql). Antes desse script o banco só tem
+// o campo único "rede_social": as telas já mostram os dois campos, e o que for "@..." ou "instagram" vai para Instagram.
+const pareceInstagram = (x) => /instagram|^\s*@/i.test(String(x || ''));
+export function redes(x) {
+  const o = x || {};
+  if ('linkedin' in o || 'instagram' in o) return { linkedin: o.linkedin || '', instagram: o.instagram || '' };
+  const r = String(o.rede_social || '').trim();
+  return pareceInstagram(r) ? { linkedin: '', instagram: r } : { linkedin: r, instagram: '' };
+}
+// "@fulano", "instagram.com/fulano" ou o endereço completo viram um link que abre o perfil.
+export function linkRede(tipo, valor) {
+  const x = String(valor || '').trim();
+  if (!x) return '';
+  if (/^https?:\/\//i.test(x)) return x;
+  if (/linkedin\.com|instagram\.com/i.test(x)) return `https://${x.replace(/^\/+/, '')}`;
+  const nome = x.replace(/^@/, '');
+  return tipo === 'instagram' ? `https://www.instagram.com/${nome}` : `https://www.linkedin.com/in/${nome}`;
+}
+// Grava em perfis ou mentorados; "rede_social" acompanha, para o que ainda lê o campo antigo.
+// Se o banco ainda não tem as colunas novas, grava o resto sem elas.
+export async function gravarComRedes(tabela, id, mud) {
+  const dados = { ...mud };
+  if ('linkedin' in dados || 'instagram' in dados) dados.rede_social = dados.linkedin || dados.instagram || null;
+  let { error } = await sb.from(tabela).update(dados).eq('id', id);
+  if (error && /linkedin|instagram/i.test(error.message || '')) {
+    const { linkedin: _l, instagram: _i, ...resto } = dados;
+    ({ error } = await sb.from(tabela).update(resto).eq('id', id));
+  }
+  return { error };
+}
+
 // Contato (todos os papéis)
 export function htmlContato(perfil) {
+  const r = redes(perfil);
   return `<div class="grade g2">
     <div class="campo"><label for="p-whats">WhatsApp</label><input id="p-whats" type="tel" data-campo="whatsapp" placeholder="(54) 99999-0000" value="${v(perfil.whatsapp)}"></div>
-    <div class="campo"><label for="p-rede">LinkedIn ou Instagram</label><input id="p-rede" type="text" data-campo="rede_social" placeholder="linkedin.com/in/seu-nome" value="${v(perfil.rede_social)}"></div>
     <div class="campo"><label for="p-cargo">Cargo</label><input id="p-cargo" type="text" data-campo="cargo" value="${v(perfil.cargo)}"></div>
+    <div class="campo"><label for="p-linkedin">LinkedIn</label><input id="p-linkedin" type="text" data-campo="linkedin" placeholder="linkedin.com/in/seu-nome" value="${v(r.linkedin)}"></div>
+    <div class="campo"><label for="p-instagram">Instagram</label><input id="p-instagram" type="text" data-campo="instagram" placeholder="@seuperfil" value="${v(r.instagram)}"></div>
   </div>`;
 }
 

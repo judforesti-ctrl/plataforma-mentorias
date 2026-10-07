@@ -2,7 +2,8 @@
 // Mentor e administração editam; o salvamento é automático.
 import { sb, esc, avatar, dataHoraBR, autoSalvar, avisar, explicarErro, localParaISO, hojeISO } from '../base.js';
 import { htmlResultado } from '../ferramentas-online.js';
-import { abrirMeetAoLado, editarLinkMeet, normalizarMeet } from './meet.js';
+import { editarLinkMeet, normalizarMeet } from './meet.js';
+import { redes, linkRede, gravarComRedes } from './perfil-comum.js';
 
 const SITUACAO = { agendada: ['Agendada', 'neutro'], realizada: ['Feita', ''], falta_avisada: ['Falta avisada', 'alerta'],
   falta_sem_aviso: ['Falta sem aviso', 'erro'], remarcada: ['Remarcada', 'alerta'], cancelada: ['Cancelada', 'neutro'] };
@@ -10,7 +11,7 @@ const SITUACAO = { agendada: ['Agendada', 'neutro'], realizada: ['Feita', ''], f
 export async function render(ctx, el, [id]) {
   const { data: m, error } = await sb.from('mentorados').select(`*,
     programa:programas(id, nome, empresa:empresas(nome)),
-    perfil:perfis!mentorados_perfil_id_fkey(id, nome, email, foto_url, whatsapp, rede_social, autorizacoes, termo_aceito_em),
+    perfil:perfis!mentorados_perfil_id_fkey(*),
     vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome, foto_url)),
     sessoes(id, numero, extra, data_hora, tema, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em, mentor:perfis!sessoes_mentor_id_fkey(nome))`)
     .eq('id', id).maybeSingle();
@@ -25,7 +26,8 @@ export async function render(ctx, el, [id]) {
   const feitas = sess.filter((s) => s.situacao === 'realizada').length;
   const proxima = sess.find((s) => !s.concluida_em);
   const whats = (p.whatsapp || m.whatsapp || '').replace(/\D/g, '');
-  const rede = p.rede_social || m.rede_social || '';
+  const redesPerfil = redes(p), redesFicha = redes(m); // o que o mentorado informou vale mais que o da ficha
+  const linkedin = redesPerfil.linkedin || redesFicha.linkedin, instagram = redesPerfil.instagram || redesFicha.instagram;
   const travaContato = p.id && !ctx.ehAdmin ? ' disabled' : ''; // depois do primeiro acesso, o contato é do mentorado (a administração ainda corrige)
   const swot = m.swot || {};
   let pontos = Array.isArray(m.pontos_desenvolver) ? m.pontos_desenvolver.map((x) => (typeof x === 'string' ? x : x.ponto)).filter(Boolean) : [];
@@ -44,7 +46,8 @@ export async function render(ctx, el, [id]) {
         ${whats ? `<a class="btn peq" href="https://wa.me/55${whats.replace(/^55/, '')}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
         ${ctx.ehAdmin ? (p.termo_aceito_em ? '<button class="btn peq" data-convite-whats title="Gera um link para criar uma senha nova">Novo link de acesso</button>' : '<button class="btn peq pri" data-convite-whats>Convite por WhatsApp</button>') : ''}
         ${(m.email || p.email) ? `<a class="btn peq" href="mailto:${esc(m.email || p.email)}">E-mail</a>` : ''}
-        ${rede ? `<a class="btn peq" href="${esc(/^https?:/.test(rede) ? rede : `https://${rede}`)}" target="_blank" rel="noopener">Rede social</a>` : ''}
+        ${linkedin ? `<a class="btn peq" href="${esc(linkRede('linkedin', linkedin))}" target="_blank" rel="noopener">LinkedIn</a>` : ''}
+        ${instagram ? `<a class="btn peq" href="${esc(linkRede('instagram', instagram))}" target="_blank" rel="noopener">Instagram</a>` : ''}
         <span class="linha" id="meet-area" style="gap:6px"></span>
         ${proxima ? `<a class="btn peq pri" href="#/sessao/${proxima.id}">Abrir sessão ${proxima.numero}</a>` : ''}
         <span class="salvo" id="indicador"></span>
@@ -114,12 +117,14 @@ export async function render(ctx, el, [id]) {
           <div class="campo"><label>Gestor direto</label><input type="text" data-m="gestor_direto" value="${esc(m.gestor_direto || '')}"></div>
           <div class="campo"><label>E-mail (vira o login)</label><input type="email" data-m="email" value="${esc(m.email || '')}"></div>
           <div class="campo"><label>WhatsApp</label><input type="tel" data-m="whatsapp" placeholder="(54) 99999-0000" value="${esc(p.whatsapp || m.whatsapp || '')}"${travaContato}></div>
-          <div class="campo"><label>LinkedIn ou Instagram</label><input type="text" data-m="rede_social" value="${esc(rede)}"${travaContato}></div>
+          <div class="campo"><label>LinkedIn</label><input type="text" data-m="linkedin" placeholder="linkedin.com/in/nome" value="${esc(linkedin)}"${travaContato}></div>
+          <div class="campo"><label>Instagram</label><input type="text" data-m="instagram" placeholder="@perfil" value="${esc(instagram)}"${travaContato}></div>
         </div></div>
       <div class="cartao"><h3>Acesso à plataforma</h3>
         ${p.termo_aceito_em ? `<table class="mt"><tr><td class="apagado">WhatsApp</td><td>${esc(p.whatsapp || '—')}</td></tr>
           <tr><td class="apagado">Aceita resumo no WhatsApp</td><td>${p.autorizacoes && p.autorizacoes.whatsapp ? 'Sim' : 'Não'}</td></tr>
-          <tr><td class="apagado">Rede social</td><td>${esc(p.rede_social || '—')}</td></tr>
+          <tr><td class="apagado">LinkedIn</td><td>${esc(redesPerfil.linkedin || '—')}</td></tr>
+          <tr><td class="apagado">Instagram</td><td>${esc(redesPerfil.instagram || '—')}</td></tr>
           <tr><td class="apagado">Termo aceito em</td><td>${dataHoraBR(p.termo_aceito_em)}</td></tr></table>`
           : `<p class="apagado mt">${p.id ? 'O convite já foi gerado, mas o mentorado ainda não criou a senha. Se ele não recebeu ou o link expirou, mande de novo.' : 'O mentorado ainda não recebeu o convite.'}</p>
              ${ctx.ehAdmin ? `<div class="linha mt"><button class="btn pri peq" data-convite-whats>Convite por WhatsApp</button><button class="btn peq" id="convidar">Convite por e-mail</button><span class="peq apagado">O e-mail acima vira o login.</span></div>` : ''}`}
@@ -145,15 +150,15 @@ export async function render(ctx, el, [id]) {
       const sw = {}; el.querySelectorAll('[data-swot]').forEach((c) => { sw[c.dataset.swot] = c.value.trim(); });
       mud.swot = sw;
       mud.pontos_desenvolver = pontos.map((ponto) => ({ ponto }));
-      let { error: e } = await sb.from('mentorados').update(mud).eq('id', m.id);
+      let { error: e } = await gravarComRedes('mentorados', m.id, mud);
       if (e && /whatsapp|rede_social/.test(e.message || '')) { // banco ainda sem as colunas novas (07-contato-mentorado.sql)
-        const { whatsapp: _w, rede_social: _r, ...resto } = mud;
+        const { whatsapp: _w, linkedin: _l, instagram: _i, ...resto } = mud;
         ({ error: e } = await sb.from('mentorados').update(resto).eq('id', m.id));
       }
       if (e) throw e;
       // a administração corrige também o contato que o mentorado informou no primeiro acesso
       if (ctx.ehAdmin && p.id) {
-        const { error: e2 } = await sb.from('perfis').update({ whatsapp: mud.whatsapp, rede_social: mud.rede_social }).eq('id', p.id);
+        const { error: e2 } = await gravarComRedes('perfis', p.id, { whatsapp: mud.whatsapp, linkedin: mud.linkedin, instagram: mud.instagram });
         if (e2) throw e2;
       }
     },
@@ -164,13 +169,12 @@ export async function render(ctx, el, [id]) {
   const campoMeet = el.querySelector('#f-meet');
   const desenharMeet = () => {
     el.querySelector('#meet-area').innerHTML = m.sala_meet
-      ? `<a class="btn peq escuro" id="meet" href="${esc(m.sala_meet)}" target="_blank" rel="noopener" title="Abre o Meet numa janela ao lado da plataforma">Entrar no Meet</a>
+      ? `<a class="btn peq escuro" id="meet" href="${esc(m.sala_meet)}" target="_blank" rel="noopener">Entrar no Meet</a>
          <button type="button" class="btn peq" id="meet-link" title="Trocar o link da sala do Meet" aria-label="Trocar o link da sala do Meet">✎</button>`
       : '<button type="button" class="btn peq" id="meet-link">+ Link do Meet</button>';
   };
   desenharMeet();
   el.querySelector('#meet-area').addEventListener('click', (ev) => {
-    if (ev.target.closest('#meet')) { ev.preventDefault(); abrirMeetAoLado(m.sala_meet); return; }
     if (ev.target.closest('#meet-link')) editarLinkMeet(m, (link) => { m.sala_meet = link; campoMeet.value = link || ''; desenharMeet(); });
   });
   campoMeet.addEventListener('input', () => { m.sala_meet = normalizarMeet(campoMeet.value); desenharMeet(); });

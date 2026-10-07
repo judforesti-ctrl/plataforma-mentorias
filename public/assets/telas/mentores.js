@@ -1,9 +1,9 @@
 // Mentores (administração): lista de todos os mentores com nome completo, contatos, tipo de atendimento,
 // trilhas individuais (mentorados por empresa e programa) e turmas de mentoria em grupo. Baixa a lista em Excel.
 import { sb, esc, avatar, diaMes, horaBR, hojeISO, avisar, explicarErro } from '../base.js';
+import { redes, linkRede } from './perfil-comum.js';
 
 const temSobrenome = (nome) => String(nome || '').trim().split(/\s+/).filter((x) => x && !x.startsWith('(')).length >= 2;
-const linkRede = (r) => (/^https?:/i.test(r) ? r : `https://${r}`);
 const quando = (iso) => `${diaMes(iso)} às ${horaBR(iso)}`;
 const SITUACAO_MTD = { pausado: 'pausado', concluido: 'concluído', desligado: 'desligado' };
 
@@ -93,7 +93,8 @@ export async function render(ctx, el) {
           <div class="lista peq" style="gap:4px;margin-top:8px">
             <span><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></span>
             <span>${whats ? `<a href="https://wa.me/55${whats}" target="_blank" rel="noopener">WhatsApp ${esc(p.whatsapp)}</a>` : '<span class="apagado">WhatsApp não informado</span>'}</span>
-            <span>${p.rede_social ? `<a href="${esc(linkRede(p.rede_social))}" target="_blank" rel="noopener">${esc(p.rede_social)}</a>` : '<span class="apagado">Sem LinkedIn ou Instagram</span>'}</span>
+            ${[['linkedin', 'LinkedIn'], ['instagram', 'Instagram']].map(([k, rot]) => { const x = redes(p)[k];
+              return `<span>${x ? `<a href="${esc(linkRede(k, x))}" target="_blank" rel="noopener">${rot}: ${esc(x)}</a>` : `<span class="apagado">${rot} não informado</span>`}</span>`; }).join('')}
           </div></div>
         <div><h4>Trilhas individuais${nMentorados ? ` · ${nMentorados} mentorado${nMentorados > 1 ? 's' : ''}` : ''}</h4>
           ${trilhas.length ? `<div class="lista peq" style="gap:6px;margin-top:8px">${trilhas.map((t) => `<div><b>${esc(t.empresa)}</b>${t.empresa ? ' · ' : ''}${esc(t.nome)}${t.status === 'concluido' ? ' <span class="selo neutro">concluído</span>' : ''}
@@ -121,16 +122,16 @@ export async function render(ctx, el) {
     if (!lista.length) { avisar('Nenhum mentor neste filtro.', true); return; }
     let XLSX;
     try { XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs'); } catch (e) { avisar(explicarErro(e), true); return; }
-    const linhas = [['Nome', 'E-mail', 'WhatsApp', 'LinkedIn ou Instagram', 'Mentoria individual', 'Mentoria em grupo',
+    const linhas = [['Nome', 'E-mail', 'WhatsApp', 'LinkedIn', 'Instagram', 'Mentoria individual', 'Mentoria em grupo',
       'Trilhas individuais', 'Mentorados', 'Sessões individuais feitas', 'Turmas em grupo', 'Situação'],
-    ...lista.map(({ p, trilhas, turmas, feitas, nMentorados }) => [p.nome, p.email, p.whatsapp || '', p.rede_social || '',
+    ...lista.map(({ p, trilhas, turmas, feitas, nMentorados }) => [p.nome, p.email, p.whatsapp || '', redes(p).linkedin, redes(p).instagram,
       p.atende_individual !== false ? 'Sim' : 'Não', p.atende_grupo ? 'Sim' : 'Não',
       trilhas.map((t) => `${t.empresa ? `${t.empresa} · ` : ''}${t.nome} (${t.mentorados.length})`).join('; '), nMentorados, feitas,
       turmas.map((t) => `${t.empresa ? `${t.empresa} · ` : ''}${t.nome} (módulos ${t.modulos.map((md) => md.numero).sort((a, b) => a - b).join(', ')})`).join('; '),
       p.ativo ? 'Ativo' : 'Desativado'])];
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet(linhas);
-    ws['!cols'] = [28, 32, 18, 30, 12, 12, 50, 11, 12, 50, 11].map((wch) => ({ wch }));
+    ws['!cols'] = [28, 32, 18, 30, 24, 12, 12, 50, 11, 12, 50, 11].map((wch) => ({ wch }));
     XLSX.utils.book_append_sheet(wb, ws, 'Mentores');
     XLSX.writeFile(wb, `Mentorei - Mentores - ${hojeISO()}.xlsx`);
   });

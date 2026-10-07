@@ -2,7 +2,7 @@
 import { sb, esc, avisar, explicarErro, lerCampos } from '../base.js';
 import { TERMO_VERSAO } from '../config.js';
 import { TERMO_MENTORADO, TERMO_MENTOR, AUTORIZACOES_MENTORADO, AUTORIZACOES_MENTOR } from '../termos.js';
-import { htmlFoto, ligarFoto, htmlContato, htmlTrajetoria, lerTrajetoria, trajetoriaCompleta, htmlDadosMentorado, lerDadosMentorado } from './perfil-comum.js';
+import { htmlFoto, ligarFoto, htmlContato, htmlTrajetoria, lerTrajetoria, trajetoriaCompleta, htmlDadosMentorado, lerDadosMentorado, redes, gravarComRedes } from './perfil-comum.js';
 
 export async function render(ctx, el) {
   const p = ctx.perfil;
@@ -36,7 +36,8 @@ export async function render(ctx, el) {
       <h2 class="mt">Seus dados</h2>
       <div class="mt">${htmlFoto(p)}</div>
       <h4 class="mt2">Contato</h4>
-      <div class="mt">${htmlContato(mentorado ? { ...p, whatsapp: p.whatsapp || mentorado.whatsapp, rede_social: p.rede_social || mentorado.rede_social } : p)}</div>
+      <div class="mt">${htmlContato(mentorado ? { ...p, whatsapp: p.whatsapp || mentorado.whatsapp,
+        linkedin: redes(p).linkedin || redes(mentorado).linkedin, instagram: redes(p).instagram || redes(mentorado).instagram } : p)}</div>
       ${ehMentorado ? `<h4 class="mt2">Seu trabalho</h4><div class="mt">${htmlDadosMentorado(mentorado)}</div>` : ''}
       ${atende ? `<h4 class="mt2">Sua trajetória</h4>
         <p class="peq apagado">A plataforma junta estas respostas num resumo de apresentação que os seus mentorados vão ver. Você revisa o texto antes de publicar.</p>
@@ -61,7 +62,7 @@ export async function render(ctx, el) {
     try {
       const mudar = { ...dados, foto_url: fotoUrl, trajetoria, dados_completos: true };
       if (!jaAceitou) Object.assign(mudar, { termo_versao: TERMO_VERSAO, termo_aceito_em: new Date().toISOString(), autorizacoes: aut });
-      const { error } = await sb.from('perfis').update(mudar).eq('id', p.id);
+      const { error } = await gravarComRedes('perfis', p.id, mudar);
       if (error) throw error;
       if (ehMentorado && mentorado.id) {
         const { error: e2 } = await sb.from('mentorados').update({ ...lerDadosMentorado(el), email: p.email }).eq('id', mentorado.id);
