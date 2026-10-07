@@ -12,3 +12,16 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), geolocation=(), microphone=(self)"
+
+# Endereço oficial: plataforma.mentorei.com.br. Os endereços antigos levam para ele.
+[[redirects]]
+  from = "https://mentorias.mentorei.com.br/*"
+  to = "https://plataforma.mentorei.com.br/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://mentormentorei.netlify.app/*"
+  to = "https://plataforma.mentorei.com.br/:splat"
+  status = 301
+  force = true
