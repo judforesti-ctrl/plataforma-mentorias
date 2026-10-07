@@ -96,6 +96,7 @@ export async function render(ctx, el, [id]) {
         ${m.objetivo_principal ? `<p class="peq mt"><b>Objetivo da mentoria:</b> ${esc(m.objetivo_principal)}</p>` : ''}
       </div>
       <div class="linha">
+        ${!concluida ? '<button class="btn" id="remarcar">Remarcar</button>' : ''}
         ${m.sala_meet ? `<a class="btn escuro" href="${esc(m.sala_meet)}" target="_blank" rel="noopener">Entrar no Meet</a>` : ''}
         <span class="salvo" id="indicador"></span>
       </div>
@@ -320,6 +321,12 @@ export async function render(ctx, el, [id]) {
       `Tudo fica guardado na sua área: ${location.origin}/app.html#/minha-area`].filter(Boolean).join('\n\n');
     w.href = `https://wa.me/55${whats.replace(/^55/, '')}?text=${encodeURIComponent(texto)}`;
   }
+
+  el.querySelector('#remarcar')?.addEventListener('click', async () => {
+    await salvador.agora();
+    const { abrirRemarcar } = await import('./remarcar.js');
+    abrirRemarcar(ctx, s.id, () => ctx.irPara(`#/sessao/${s.id}`));
+  });
 
   return { sair: () => { pararVoz(); salvador.agora(); salvador.parar(); } };
 }

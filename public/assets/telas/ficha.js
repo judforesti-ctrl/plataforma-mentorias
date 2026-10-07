@@ -94,7 +94,8 @@ export async function render(ctx, el, [id]) {
             return `<tr><td>${s.numero}${s.extra ? ' <span class="selo neutro">extra</span>' : ''}</td><td>${dataHoraBR(s.data_hora)}</td>
               <td>${esc(s.mentor ? s.mentor.nome : '—')}</td><td>${esc(s.tema || '—')}</td><td>${tarefa}</td>
               <td><span class="selo ${cls}">${rot}</span>${s.concluida_em ? ' <span class="selo neutro">🔒</span>' : ''}</td>
-              <td><a class="btn peq${s === proxima ? ' pri' : ''}" href="#/sessao/${s.id}">${s.concluida_em ? 'Ver' : 'Abrir'}</a></td></tr>`;
+              <td><div class="linha" style="gap:6px;flex-wrap:nowrap"><a class="btn peq${s === proxima ? ' pri' : ''}" href="#/sessao/${s.id}">${s.concluida_em ? 'Ver' : 'Abrir'}</a>
+                ${s.concluida_em ? '' : `<button class="btn peq" data-remarcar="${s.id}">Remarcar</button>`}</div></td></tr>`;
           }).join('') || '<tr><td colspan="7" class="apagado">Nenhuma sessão criada ainda.</td></tr>'}
         </table></div>
       </div>
@@ -180,6 +181,13 @@ export async function render(ctx, el, [id]) {
     const { error: e } = await sb.rpc('criar_sessao_extra', { p_mentorado: m.id, p_data: iso, p_mentor: mentores[0] ? mentores[0].id : null });
     if (e) { avisar(explicarErro(e), true); return; }
     avisar('Sessão extra criada.'); ctx.irPara(`#/mentorado/${m.id}`);
+  });
+
+  // remarcar uma sessão (data e horário, Google Agenda e aviso pelo WhatsApp)
+  el.addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-remarcar]'); if (!b) return;
+    const { abrirRemarcar } = await import('./remarcar.js');
+    abrirRemarcar(ctx, b.dataset.remarcar, () => ctx.irPara(`#/mentorado/${m.id}`));
   });
 
   // convite do mentorado pelo WhatsApp (administração): gera o link, nenhum e-mail sai

@@ -10,6 +10,13 @@ export async function render(ctx, el, params) {
   if (sub === 'novo-programa') return novoPrograma(ctx, el);
   if (sub === 'novo-mentorado') return novoMentorado(ctx, el);
   if (sub === 'programa' && id) return paginaPrograma(ctx, el, id);
+  if (sub === 'agenda') {
+    const MSG = { ok: ['Google Agenda conectada.', false], cancelado: ['A conexão com o Google foi cancelada.', true], expirou: ['O pedido expirou. Clique em Conectar de novo.', true],
+      negado: ['Só a administração conecta a Google Agenda.', true], 'sem-permissao': ['O Google não liberou o acesso. Clique em Conectar de novo e aceite as permissões.', true], erro: ['Não foi possível conectar a Google Agenda.', true] };
+    const [txt, erro] = MSG[id] || MSG.erro;
+    avisar(txt, erro);
+    history.replaceState(null, '', '#/painel');
+  }
   return visaoGeral(ctx, el);
 }
 
@@ -47,6 +54,7 @@ async function visaoGeral(ctx, el) {
       <select id="f-programa" style="width:auto"><option value="">Todos os programas</option>${d.programas.map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join('')}</select>
     </div>
     <div id="numeros"></div>
+    <div class="cartao mt" id="google"><p class="peq apagado">Verificando a Google Agenda…</p></div>
     <h2 class="mt2">Para hoje e pendências</h2>
     <div id="pendencias" class="mt"><p class="carregando">Carregando…</p></div>
     <h2 class="mt2">Mentores</h2>
@@ -88,6 +96,7 @@ async function visaoGeral(ctx, el) {
   el.querySelectorAll('select').forEach((s) => s.addEventListener('input', desenhar));
   desenhar();
   pendencias(el.querySelector('#pendencias'), { mostrarMentor: true });
+  cartaoGoogle(el.querySelector('#google'));
   el.addEventListener('click', async (ev) => {
     const tr = ev.target.closest('[data-ir]'); if (tr) { location.hash = tr.dataset.ir; return; }
     if (ev.target.id === 'nova-empresa') {
@@ -95,6 +104,24 @@ async function visaoGeral(ctx, el) {
       const { error } = await sb.from('empresas').insert({ nome: nome.trim() });
       if (error) avisar(explicarErro(error), true); else { avisar('Empresa criada.'); ctx.irPara('#/painel'); }
     }
+  });
+}
+
+// Cartão da Google Agenda: mostra a conta conectada e o botão de conectar (usado ao remarcar sessões).
+async function cartaoGoogle(box) {
+  const { data: { session } } = await sb.auth.getSession();
+  const chamar = (corpo) => fetch('/api/google-conectar', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify(corpo) })
+    .then((r) => r.json().then((j) => ({ ok: r.ok, ...j }))).catch(() => ({ ok: false, mensagem: 'Sem conexão.' }));
+  const st = await chamar({ acao: 'status' });
+  box.innerHTML = `<div class="linha"><div style="flex:1"><h3>Google Agenda</h3>
+      <p class="peq apagado">${st.conectado ? `Conectada com <b>${esc(st.email || 'a conta do Google')}</b>. Ao remarcar uma sessão, o convite dessa agenda é atualizado e o Google avisa os convidados.`
+        : st.configurado === false ? 'Falta configurar as chaves do Google na Netlify (GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET).'
+        : 'Conecte a conta Google que cria os convites das mentorias. Assim, ao remarcar uma sessão, o convite é atualizado sozinho.'}</p></div>
+    ${st.configurado === false ? '' : `<button class="btn ${st.conectado ? '' : 'pri'}" id="g-conectar">${st.conectado ? 'Trocar conta' : 'Conectar Google Agenda'}</button>`}</div>`;
+  box.querySelector('#g-conectar')?.addEventListener('click', async (ev) => {
+    ev.currentTarget.disabled = true;
+    const r = await chamar({});
+    if (r.url) location.href = r.url; else { avisar(r.mensagem || 'Não foi possível conectar.', true); ev.currentTarget.disabled = false; }
   });
 }
 
