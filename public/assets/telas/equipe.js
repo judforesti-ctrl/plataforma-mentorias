@@ -17,29 +17,13 @@ export async function convidar({ email, nome, papel, tambem_mentor = false, ment
   } catch (e) { avisar(explicarErro(e), true); return false; }
 }
 
-// Convite pelo WhatsApp: a plataforma gera o link de criar senha (nenhum e-mail sai)
-// e abre uma janela com a mensagem pronta para mandar do seu WhatsApp.
-export async function conviteWhatsApp({ email, nome, papel, tambem_mentor = false, mentorado_id = null, whatsapp = '', remetente = '' }) {
-  const { data } = await sb.auth.getSession();
-  let j;
-  try {
-    const r = await fetch('/api/convidar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
-      body: JSON.stringify({ email, nome, papel, tambem_mentor, mentorado_id, canal: 'link' }),
-    });
-    j = await r.json().catch(() => ({}));
-    if (!r.ok || !j.link) { if (j.detalhe) console.warn('Detalhe do convite:', j.detalhe); throw new Error(j.mensagem || 'Não foi possível gerar o link.'); }
-  } catch (e) { avisar(explicarErro(e), true); return false; }
-
-  const primeiro = String(nome || '').split(' ')[0];
-  const quem = remetente ? `Aqui é ${remetente.split(' ')[0]}, da Mentorei.` : 'Aqui é da Mentorei.';
-  const texto = `Olá, ${primeiro}! ${quem} Seu acesso à plataforma de mentorias está pronto.\n\nPara entrar, crie sua senha neste link:\n${j.link}\n\nSeu login é este e-mail: ${email}\n\nO link vale por tempo limitado. Se expirar, me avise que eu mando outro.`;
+// Janela com a mensagem pronta para mandar do seu WhatsApp (você confere, ajusta e envia).
+export function janelaWhatsApp({ titulo, nota, whatsapp = '', texto }) {
   const fundo = document.createElement('div');
   fundo.style.cssText = 'position:fixed;inset:0;background:rgba(9,18,22,.55);z-index:40;display:grid;place-items:center;padding:16px';
-  fundo.innerHTML = `<div class="cartao" role="dialog" aria-modal="true" aria-label="Convite por WhatsApp" style="width:100%;max-width:560px;max-height:90vh;overflow:auto">
-    <div class="linha"><h3 style="flex:1">Convite por WhatsApp · ${esc(nome)}</h3><button class="btn peq" data-fechar>Fechar</button></div>
-    <p class="peq apagado mt">O link foi gerado e nenhum e-mail foi enviado. Confira a mensagem e mande pelo seu WhatsApp.</p>
+  fundo.innerHTML = `<div class="cartao" role="dialog" aria-modal="true" aria-label="${esc(titulo)}" style="width:100%;max-width:560px;max-height:90vh;overflow:auto">
+    <div class="linha"><h3 style="flex:1">${esc(titulo)}</h3><button class="btn peq" data-fechar>Fechar</button></div>
+    ${nota ? `<p class="peq apagado mt">${esc(nota)}</p>` : ''}
     <div class="campo mt"><label for="w-num">WhatsApp da pessoa (com DDD)</label><input id="w-num" type="tel" placeholder="Em branco: você escolhe o contato no WhatsApp" value="${esc(whatsapp || '')}"></div>
     <div class="campo mt"><label for="w-txt">Mensagem</label><textarea id="w-txt" style="min-height:190px">${esc(texto)}</textarea></div>
     <div class="linha mt"><a class="btn pri" id="w-abrir" target="_blank" rel="noopener">Abrir no WhatsApp</a><button class="btn" id="w-copiar">Copiar mensagem</button></div>
@@ -57,6 +41,27 @@ export async function conviteWhatsApp({ email, nome, papel, tambem_mentor = fals
     catch (_) { fundo.querySelector('#w-txt').select(); avisar('Selecionei o texto: aperte Ctrl + C para copiar.'); }
   });
   fundo.addEventListener('click', (ev) => { if (ev.target === fundo || ev.target.closest('[data-fechar]')) fundo.remove(); });
+}
+
+// Convite pelo WhatsApp: a plataforma gera o link de criar senha (nenhum e-mail sai)
+// e abre a janela com a mensagem pronta. "contexto" entra no texto (ex.: a trilha que a pessoa vai acompanhar).
+export async function conviteWhatsApp({ email, nome, papel, tambem_mentor = false, mentorado_id = null, whatsapp = '', remetente = '', contexto = '' }) {
+  const { data } = await sb.auth.getSession();
+  let j;
+  try {
+    const r = await fetch('/api/convidar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
+      body: JSON.stringify({ email, nome, papel, tambem_mentor, mentorado_id, canal: 'link' }),
+    });
+    j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.link) { if (j.detalhe) console.warn('Detalhe do convite:', j.detalhe); throw new Error(j.mensagem || 'Não foi possível gerar o link.'); }
+  } catch (e) { avisar(explicarErro(e), true); return false; }
+
+  const primeiro = String(nome || '').split(' ')[0];
+  const quem = remetente ? `Aqui é ${remetente.split(' ')[0]}, da Mentorei.` : 'Aqui é da Mentorei.';
+  const texto = `Olá, ${primeiro}! ${quem} Seu acesso à plataforma de mentorias está pronto.${contexto ? `\n\n${contexto}` : ''}\n\nPara entrar, crie sua senha neste link:\n${j.link}\n\nSeu login é este e-mail: ${email}\n\nO link vale por tempo limitado. Se expirar, me avise que eu mando outro.`;
+  janelaWhatsApp({ titulo: `Convite por WhatsApp · ${nome}`, nota: 'O link foi gerado e nenhum e-mail foi enviado. Confira a mensagem e mande pelo seu WhatsApp.', whatsapp, texto });
   return true;
 }
 

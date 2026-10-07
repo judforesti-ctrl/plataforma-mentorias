@@ -205,11 +205,19 @@ async function paginaPrograma(ctx, el, id) {
   const [{ data: p, error }, { data: temas }, { data: ments }] = await Promise.all([
     sb.from('programas').select('*, empresa:empresas(nome)').eq('id', id).maybeSingle(),
     sb.from('programa_temas').select('*').eq('programa_id', id).order('numero'),
-    sb.from('mentorados').select('id, nome, cargo, status, vinculos:mentor_mentorado(ordem, mentor:perfis(nome)), sessoes(situacao)').eq('programa_id', id).order('nome'),
+    sb.from('mentorados').select('id, nome, cargo, status, vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome, email, whatsapp, papel, tambem_mentor, termo_aceito_em)), sessoes(situacao)').eq('programa_id', id).order('nome'),
   ]);
   if (error) throw error;
   if (!p) { el.innerHTML = '<div class="vazio">Programa não encontrado.</div>'; return; }
   const [st, cls] = STATUS_PROG[p.status];
+  // mentores ligados aos mentorados deste programa, com os nomes dos mentorados de cada um
+  const porMentor = new Map();
+  (ments || []).forEach((m) => (m.vinculos || []).forEach((v) => {
+    if (!v.mentor) return;
+    if (!porMentor.has(v.mentor.id)) porMentor.set(v.mentor.id, { ...v.mentor, mentorados: [] });
+    porMentor.get(v.mentor.id).mentorados.push(m.nome);
+  }));
+  const mentores = [...porMentor.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   el.innerHTML = `
     <div class="cab"><div><p class="apagado">${esc(p.empresa.nome)}</p><h1>${esc(p.nome)}</h1>
       <p class="sub">${p.sessoes_por_mentorado} sessões por mentorado · ${FREQ[p.frequencia] || p.frequencia} · ${p.duracao_min} min · ${dataBR(p.inicio)} a ${dataBR(p.fim_previsto)} · <span class="selo ${cls}">${st}</span></p></div>
@@ -221,11 +229,35 @@ async function paginaPrograma(ctx, el, id) {
         <td>${esc((m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor && v.mentor.nome).join(' e '))}</td>
         <td>${(m.sessoes || []).filter((s) => s.situacao === 'realizada').length} de ${(m.sessoes || []).length}</td><td>${esc(m.status)}</td></tr>`).join('')
         || '<tr><td colspan="5" class="apagado">Nenhum mentorado ainda.</td></tr>'}</table></div></div>
+    <div class="cartao"><h3>Mentores desta trilha</h3>
+      <p class="peq apagado mt">Quando um mentor entra numa trilha nova, avise pelo WhatsApp. Quem ainda não usa a plataforma recebe junto o link para criar a senha.</p>
+      ${mentores.length ? `<div class="tabela mt"><table><tr><th>Mentor</th><th>Mentorados nesta trilha</th><th>Plataforma</th><th></th></tr>
+        ${mentores.map((x) => `<tr><td><a href="#/pessoa/${x.id}"><b>${esc(x.nome)}</b></a></td><td class="peq">${x.mentorados.length}: ${esc(x.mentorados.join(', '))}</td>
+          <td>${x.termo_aceito_em ? '<span class="selo">Já usa</span>' : '<span class="selo alerta">Ainda não entrou</span>'}</td>
+          <td><button class="btn peq pri" data-avisar-mentor="${x.id}">Avisar pelo WhatsApp</button></td></tr>`).join('')}</table></div>`
+        : '<p class="apagado mt">Nenhum mentor ligado aos mentorados desta trilha ainda.</p>'}</div>
     <div class="cartao"><h3>Plano de temas</h3>
       ${(temas || []).length ? `<div class="tabela mt"><table><tr><th>Sessão</th><th>Tema</th><th>Roteiro e ferramenta</th></tr>
         ${temas.map((t) => `<tr><td>${t.numero}</td><td>${esc(t.tema)}</td><td class="peq">${esc(t.roteiro || '')}</td></tr>`).join('')}</table></div>`
         : '<p class="apagado mt">Sem plano de temas. Os temas podem ficar em cada sessão de cada mentorado.</p>'}</div>`;
-  el.addEventListener('click', (ev) => { const tr = ev.target.closest('[data-ir]'); if (tr) location.hash = tr.dataset.ir; });
+  el.addEventListener('click', async (ev) => {
+    const tr = ev.target.closest('[data-ir]'); if (tr) { location.hash = tr.dataset.ir; return; }
+    const b = ev.target.closest('[data-avisar-mentor]'); if (!b) return;
+    const x = porMentor.get(b.dataset.avisarMentor);
+    const lista = x.mentorados.length === 1 ? `com 1 mentorado: ${x.mentorados[0]}` : `com ${x.mentorados.length} mentorados: ${x.mentorados.join(', ')}`;
+    const contexto = `Você vai acompanhar a trilha "${p.nome}", da ${p.empresa.nome}, ${lista}.`;
+    const { conviteWhatsApp, janelaWhatsApp } = await import('./equipe.js');
+    if (!x.termo_aceito_em) {
+      b.disabled = true;
+      await conviteWhatsApp({ email: x.email, nome: x.nome, papel: x.papel, tambem_mentor: x.tambem_mentor, whatsapp: x.whatsapp || '', remetente: ctx.perfil.nome, contexto });
+      b.disabled = false;
+      return;
+    }
+    const quem = `Aqui é ${ctx.perfil.nome.split(' ')[0]}, da Mentorei.`;
+    janelaWhatsApp({ titulo: `Aviso de trilha · ${x.nome}`, whatsapp: x.whatsapp || '',
+      nota: 'Esta pessoa já usa a plataforma: a mensagem só avisa da trilha nova, sem link de senha.',
+      texto: `Olá, ${x.nome.split(' ')[0]}! ${quem} ${contexto}\n\nOs mentorados já estão na sua área da plataforma, em "Meus mentorados":\n${location.origin}/app.html#/meus` });
+  });
   el.querySelector('#status').addEventListener('input', async (ev) => {
     const { error: e } = await sb.from('programas').update({ status: ev.target.value }).eq('id', id);
     if (e) avisar(explicarErro(e), true); else avisar('Situação do programa atualizada.');

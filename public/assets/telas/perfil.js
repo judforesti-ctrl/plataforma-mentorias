@@ -37,7 +37,11 @@ export async function render(ctx, el, [id] = []) {
         ${ehMentorado && !outro ? `<div class="cartao"><h3>Suas autorizações</h3><div class="lista mt">
           ${AUTORIZACOES_MENTORADO.filter((a) => !a.obrigatoria).map((a) => `<label class="check"><input type="checkbox" data-aut="${a.chave}"${aut[a.chave] ? ' checked' : ''}><span>${a.texto}</span></label>`).join('')}
           </div><p class="peq apagado mt">O termo de consentimento foi aceito em ${p.termo_aceito_em ? new Date(p.termo_aceito_em).toLocaleDateString('pt-BR') : '—'}. Para retirar o consentimento, escreva para contato@mentorei.com.br.</p></div>` : ''}
-        ${outro ? '' : '<div class="cartao"><h3>Senha</h3><p class="apagado mt">Para trocar a senha, saia e use "Esqueci minha senha" na tela de entrada.</p></div>'}
+        ${outro ? `<div class="cartao"><h3>Acesso à plataforma</h3>
+          <p class="apagado mt">${p.termo_aceito_em ? `Entrou pela primeira vez em ${dataBR(p.termo_aceito_em)}. Se esqueceu a senha, gere um link novo.` : 'Ainda não entrou na plataforma. Mande o convite pelo WhatsApp, que não cai no spam.'}</p>
+          <div class="linha mt"><button type="button" class="btn pri peq" id="acesso-whats">${p.termo_aceito_em ? 'Novo link de acesso pelo WhatsApp' : 'Convite por WhatsApp'}</button>
+            ${p.termo_aceito_em ? '' : '<button type="button" class="btn peq" id="acesso-email">Convite por e-mail</button>'}</div></div>`
+          : '<div class="cartao"><h3>Senha</h3><p class="apagado mt">Para trocar a senha, saia e use "Esqueci minha senha" na tela de entrada.</p></div>'}
       </div>
     </div>`;
 
@@ -60,6 +64,22 @@ export async function render(ctx, el, [id] = []) {
   });
   el.querySelectorAll('input, textarea').forEach((c) => c.id !== 'apres' && c.addEventListener(c.type === 'checkbox' ? 'change' : 'input', salvador.mudou));
   ligarFoto(el, p, (url) => { foto = url; salvador.mudou(); });
+
+  // acesso de outra pessoa da equipe (administração): convite ou link novo de senha
+  el.querySelector('#acesso-whats')?.addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget; btn.disabled = true;
+    await salvador.agora();
+    const { conviteWhatsApp } = await import('./equipe.js');
+    await conviteWhatsApp({ email: p.email, nome: el.querySelector('#p-nome')?.value.trim() || p.nome, papel: p.papel, tambem_mentor: p.tambem_mentor,
+      whatsapp: el.querySelector('[data-campo="whatsapp"]')?.value.trim() || '', remetente: ctx.perfil.nome });
+    btn.disabled = false;
+  });
+  el.querySelector('#acesso-email')?.addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget; btn.disabled = true;
+    const { convidar } = await import('./equipe.js');
+    await convidar({ email: p.email, nome: p.nome, papel: p.papel, tambem_mentor: p.tambem_mentor });
+    btn.disabled = false;
+  });
 
   // resumo de apresentação: gerar com IA, ajustar e aprovar
   const apres = el.querySelector('#apres');

@@ -44,6 +44,14 @@ export default async (req) => {
   const mentoradoId = papel === 'mentorado' ? b.mentorado_id : null;
   if (papel === 'mentorado' && !UUID.test(String(mentoradoId || ''))) return resposta('Mentorado inválido.', 400);
 
+  // 2b. O e-mail já é de alguém da plataforma com outro papel? Então não gera convite nem link.
+  const existente = await chamar(`/rest/v1/perfis?email=eq.${encodeURIComponent(email)}&select=nome,papel`, { chave: secreta });
+  const dono = existente.ok && existente.dados && existente.dados[0];
+  if (dono && dono.papel !== papel) {
+    const PAPEIS = { admin: 'administração', mentor: 'mentor', mentorado: 'mentorado' };
+    return resposta(`Este e-mail já é o login de ${dono.nome} (${PAPEIS[dono.papel] || dono.papel}). Use outro e-mail para ${nome}.`, 409);
+  }
+
   // 3. Grava (ou atualiza) o convite
   const conv = await chamar('/rest/v1/convites', {
     metodo: 'POST', chave: secreta, prefer: 'resolution=merge-duplicates,return=minimal',
