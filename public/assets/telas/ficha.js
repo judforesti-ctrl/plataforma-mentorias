@@ -41,7 +41,7 @@ export async function render(ctx, el, [id]) {
       </div>
       <div class="linha">
         ${whats ? `<a class="btn peq" href="https://wa.me/55${whats.replace(/^55/, '')}" target="_blank" rel="noopener">WhatsApp</a>` : ''}
-        ${ctx.ehAdmin && !p.termo_aceito_em ? '<button class="btn peq pri" data-convite-whats>Convite por WhatsApp</button>' : ''}
+        ${ctx.ehAdmin ? (p.termo_aceito_em ? '<button class="btn peq" data-convite-whats title="Gera um link para criar uma senha nova">Novo link de acesso</button>' : '<button class="btn peq pri" data-convite-whats>Convite por WhatsApp</button>') : ''}
         ${(m.email || p.email) ? `<a class="btn peq" href="mailto:${esc(m.email || p.email)}">E-mail</a>` : ''}
         ${rede ? `<a class="btn peq" href="${esc(/^https?:/.test(rede) ? rede : `https://${rede}`)}" target="_blank" rel="noopener">Rede social</a>` : ''}
         ${m.sala_meet ? `<a class="btn peq escuro" href="${esc(m.sala_meet)}" target="_blank" rel="noopener">Entrar no Meet</a>` : ''}
