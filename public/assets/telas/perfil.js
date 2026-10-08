@@ -30,7 +30,10 @@ export async function render(ctx, el, [id, origem] = []) {
         ${ehMentorado && mentorado ? `<div class="cartao"><h3>Seu trabalho</h3><div class="mt">${htmlDadosMentorado(mentorado)}</div></div>` : ''}
         ${atende && ctx.ehAdmin ? `<div class="cartao"><h3>Tipo de atendimento</h3><p class="peq apagado">Só a administração muda. Define o que aparece no menu desta pessoa.</p>
           <div class="lista mt"><label class="check"><input type="checkbox" data-campo="atende_individual"${p.atende_individual !== false ? ' checked' : ''}><span>Mentoria individual (Meus mentorados)</span></label>
-          <label class="check"><input type="checkbox" data-campo="atende_grupo"${p.atende_grupo ? ' checked' : ''}><span>Mentoria em grupo (Minhas turmas)</span></label></div></div>` : ''}
+          <label class="check"><input type="checkbox" data-campo="atende_grupo"${p.atende_grupo ? ' checked' : ''}><span>Mentoria em grupo (Minhas turmas)</span></label></div>
+          ${outro ? `<h4 class="mt2">Acesso</h4>
+          <label class="check mt"><input type="checkbox" id="p-admin"${p.papel === 'admin' ? ' checked' : ''}><span><b>Também faz parte da administração</b>: continua mentora e passa a ver e mudar tudo
+            na plataforma (painel, agenda da equipe, relatórios e as informações delicadas de todos os mentorados).</span></label>` : ''}</div>` : ''}
         ${atende ? `<div class="cartao"><h3>${outro ? 'Trajetória' : 'Sua trajetória'}</h3><div class="mt">${htmlTrajetoria(p)}</div></div>` : ''}
       </div>
       <div>
@@ -72,6 +75,19 @@ export async function render(ctx, el, [id, origem] = []) {
   });
   el.querySelectorAll('input, textarea').forEach((c) => c.id !== 'apres' && c.addEventListener(c.type === 'checkbox' ? 'change' : 'input', salvador.mudou));
   ligarFoto(el, p, (url) => { foto = url; salvador.mudou(); });
+
+  // dar ou tirar o acesso de administração (a pessoa continua mentora)
+  el.querySelector('#p-admin')?.addEventListener('change', async (ev) => {
+    const c = ev.target;
+    const vira = c.checked;
+    const nome = el.querySelector('#p-nome')?.value.trim() || p.nome;
+    if (!window.confirm(vira ? `Dar acesso de administração para ${nome}? Ela continua mentora e passa a ver e mudar tudo na plataforma.`
+      : `Tirar o acesso de administração de ${nome}? Ela continua mentora, vendo só os próprios mentorados e turmas.`)) { c.checked = !vira; return; }
+    const { error } = await sb.from('perfis').update(vira ? { papel: 'admin', tambem_mentor: true } : { papel: 'mentor', tambem_mentor: false }).eq('id', p.id);
+    if (error) { c.checked = !vira; avisar(explicarErro(error), true); return; }
+    p.papel = vira ? 'admin' : 'mentor'; p.tambem_mentor = vira;
+    avisar(vira ? `${nome} agora é administração e mentora. Ela vê o novo menu na próxima vez que abrir a plataforma.` : `${nome} voltou a ser só mentora.`);
+  });
 
   // e-mail de verdade para quem foi cadastrado sem e-mail
   el.querySelector('#salvar-email')?.addEventListener('click', async (ev) => {
