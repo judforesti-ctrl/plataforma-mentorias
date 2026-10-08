@@ -6,11 +6,10 @@
 import { json, supa, quemPede, SITE } from '../lib/google.mjs';
 import { enviarEmail, modeloEmail, temChaveEmail, COORDENACAO } from '../lib/email.mjs';
 import { dadosAgenda, emailResumoMentor, emailResumoCoordenacao, primeiroNome, clienteDe, ondeReserva, descreverDataReserva } from '../lib/agenda.mjs';
-import { descreverBloqueio, choquesDoBloqueio } from '../../public/assets/agenda-regras.js';
+import { descreverBloqueio, choquesDoBloqueio, rotuloBloqueio } from '../../public/assets/agenda-regras.js';
 
 export const config = { path: '/api/agenda-email', method: 'POST' };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const TIPO = { bloqueio: 'Bloqueio', ferias: 'Férias / folga', recesso: 'Recesso' };
 
 export default async (req) => {
   const eu = await quemPede(req);
@@ -35,14 +34,14 @@ export default async (req) => {
     const quando = descreverBloqueio(bl);
     const blocos = [
       { p: `${nome} bloqueou a agenda na plataforma:` },
-      { lista: [`${TIPO[bl.tipo] || 'Bloqueio'}: ${quando}`, ...(bl.motivo ? [`Motivo: ${bl.motivo}`] : [])] },
+      { lista: [`Tipo: ${rotuloBloqueio(bl)}`, `Quando: ${quando}`, ...(bl.motivo ? [`Detalhes: ${bl.motivo}`] : [])] },
     ];
     if (choques.length) {
       blocos.push({ titulo: 'Atenção: já existe compromisso nesse período' }, { lista: choques.slice(0, 15) },
         { p: `Esses compromissos continuam marcados. Combine com ${primeiroNome(nome)} o que remarcar.` });
     } else blocos.push({ p: 'Não há nenhum compromisso marcado nesse período.' });
     blocos.push({ botao: { texto: 'Ver na agenda', link: `${SITE}/app.html#/agenda/bloqueios` } });
-    const m = modeloEmail({ assunto: `${nome} bloqueou a agenda: ${quando}`, titulo: 'Bloqueio de agenda', blocos });
+    const m = modeloEmail({ assunto: `${nome} bloqueou a agenda (${rotuloBloqueio(bl)}): ${quando}`, titulo: 'Bloqueio de agenda', blocos });
     const res = await enviarEmail({ para: [{ email: COORDENACAO, name: 'Coordenação Mentorei' }], assunto: m.assunto, html: m.html, texto: m.texto });
     return json(res);
   }

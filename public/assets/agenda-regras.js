@@ -94,6 +94,17 @@ export const atendeEm = (disp, dia, periodo) => (disp[diaDaSemana(dia)] || disp[
 const nomeEmpresa = (e) => (e && e.nome) || '';
 const DUR_MODULO = { online: 120, presencial: 240 };
 
+// Tipo do bloqueio pedido pelo mentor (o que aparece na agenda e no aviso para a coordenação).
+export const CATEGORIAS = { pessoal: 'Pessoal', criacao: 'Tempo de criação', operacional: 'Tempo operacional', reuniao: 'Reunião entre mentores', outro: 'Outro' };
+export function rotuloBloqueio(b) {
+  if (b.tipo === 'recesso') return `Recesso${b.motivo ? ` · ${b.motivo}` : ''}`;
+  if (b.tipo === 'ferias') return 'Férias / folga';
+  if (b.categoria === 'outro') return b.categoria_texto || 'Outro';
+  return CATEGORIAS[b.categoria] || 'Bloqueio';
+}
+// Módulo com local "a definir" segue o formato da turma (quando a turma é toda presencial).
+export const moduloPresencial = (md) => md.formato === 'presencial' || (md.formato === 'indefinido' && !!md.turma && md.turma.formato === 'presencial');
+
 export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], reservas = [] } = {}, { de, ate } = {}) {
   de = de || somarDias(hoje(), -400);
   ate = ate || somarDias(hoje(), 400);
@@ -115,14 +126,15 @@ export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], rese
   for (const md of modulos) {
     if (!md.data_hora) continue;
     const t = md.turma || {};
-    const presencial = md.formato === 'presencial';
+    const presencial = moduloPresencial(md);
     const min = md.duracao_min || DUR_MODULO[presencial ? 'presencial' : 'online'];
     const h = comHorario(md.data_hora, min);
     const vinc = md.mentores || [];
-    const base = { empresa: nomeEmpresa(t.empresa), empresaId: t.empresa && t.empresa.id, link: `#/modulo/${md.id}`, local: md.local || '' };
+    const local = md.local || (presencial && t.local) || '';
+    const base = { empresa: nomeEmpresa(t.empresa), empresaId: t.empresa && t.empresa.id, link: `#/modulo/${md.id}`, local };
     out.push({ id: `modulo-${md.id}`, tipo: presencial ? 'presencial' : 'turma', origem: md, mentores: vinc.map((v) => v.mentor_id), todos: false, ...h,
       ...(presencial ? { periodos: [...PERIODOS], diaInteiro: true } : {}),
-      titulo: `${t.nome || 'Turma'} · módulo ${md.numero}`, sub: `${md.titulo || ''}${base.empresa ? ` · ${base.empresa}` : ''}${presencial && md.local ? ` · ${md.local}` : ''}`,
+      titulo: `${t.nome || 'Turma'} · módulo ${md.numero}`, sub: `${md.titulo || ''}${base.empresa ? ` · ${base.empresa}` : ''}${presencial && local ? ` · ${local}` : ''}`,
       formato: presencial ? 'presencial' : 'online', horas: min / 60, ...base });
     if (presencial) {
       for (const v of vinc) {
@@ -130,7 +142,7 @@ export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], rese
         for (const [k, quando] of [[-1, 'véspera'], [1, 'volta']]) {
           out.push({ id: `desloc-${md.id}-${v.mentor_id}-${k}`, tipo: 'deslocamento', origem: md, mentores: [v.mentor_id], todos: false,
             dia: somarDias(h.dia, k), periodos: [...PERIODOS], ini: null, fim: null, diaInteiro: true,
-            titulo: `Deslocamento (${quando})`, sub: `${t.nome || 'Turma'} · módulo ${md.numero}${md.local ? ` · ${md.local}` : ''}`,
+            titulo: `Deslocamento (${quando})`, sub: `${t.nome || 'Turma'} · módulo ${md.numero}${local ? ` · ${local}` : ''}`,
             formato: 'presencial', horas: 0, ...base });
         }
       }
@@ -149,7 +161,7 @@ export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], rese
       out.push({ id: `bloqueio-${b.id}-${dia}`, tipo: b.tipo || 'bloqueio', origem: b, mentores: b.mentor_id ? [b.mentor_id] : [], todos: !b.mentor_id,
         dia, periodos, ini: temHora ? Date.parse(isoDe(dia, b.hora_inicio)) : null, fim: temHora ? Date.parse(isoDe(dia, b.hora_fim || horaTexto(hi + 1))) : null,
         diaInteiro: !temHora && periodos.length === 3,
-        titulo: b.tipo === 'recesso' ? `Recesso${b.motivo ? ` · ${b.motivo}` : ''}` : b.tipo === 'ferias' ? 'Férias' : 'Bloqueio',
+        titulo: b.tipo === 'recesso' ? rotuloBloqueio(b) : b.tipo === 'ferias' ? 'Férias' : rotuloBloqueio(b) === 'Bloqueio' ? 'Bloqueio' : `Bloqueio · ${rotuloBloqueio(b)}`,
         sub: temHora ? `${String(b.hora_inicio).slice(0, 5)}–${String(b.hora_fim || '').slice(0, 5)}` : periodos.length === 3 ? 'Dia inteiro' : periodos.map((p) => NOME_PERIODO[p]).join(' e '),
         formato: '', horas: 0, link: '' });
     }

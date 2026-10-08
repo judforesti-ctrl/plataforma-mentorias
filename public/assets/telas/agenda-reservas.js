@@ -370,7 +370,9 @@ async function converterEmTurma(ctx, d, r, recarregar) {
       }
       let turmaId = $('#c-existente').value, inicio = 1;
       if (nova) {
-        const { data, error } = await sb.from('turmas').insert({ empresa_id: empresa, nome: $('#c-nome').value.trim(), inicio: ds[0].dia, fim_previsto: ds[ds.length - 1].dia, status: 'planejada' }).select('id').single();
+        const { gravarTurma } = await import('./turmas.js');
+        const { data, error } = await gravarTurma({ empresa_id: empresa, nome: $('#c-nome').value.trim(), inicio: ds[0].dia, fim_previsto: ds[ds.length - 1].dia, status: 'planejada',
+          formato: r.formato === 'presencial' ? 'presencial' : 'online', local: r.formato === 'presencial' ? (r.local || null) : null });
         if (error) throw error;
         turmaId = data.id;
       } else {
@@ -382,7 +384,7 @@ async function converterEmTurma(ctx, d, r, recarregar) {
         data_hora: isoDe(x.dia, x.hora_inicio || HORA_PADRAO[(x.periodos && x.periodos[0]) || 'manha']),
         duracao_min: x.duracao_min || null, formato: r.formato === 'presencial' ? 'presencial' : 'meet', local: r.formato === 'presencial' ? r.local : null,
       }));
-      const { data: mods, error: e2 } = await sb.from('modulos').insert(linhas).select('id');
+      const { data: mods, error: e2 } = await sb.from('modulos').insert(linhas).select('id, numero, titulo, data_hora, duracao_min, formato');
       if (e2) throw e2;
       if (mentores.length) {
         const vinc = (mods || []).flatMap((m) => mentores.map((id) => ({ modulo_id: m.id, mentor_id: id, com_deslocamento: r.com_deslocamento !== false })));
@@ -394,6 +396,9 @@ async function converterEmTurma(ctx, d, r, recarregar) {
       limparCache();
       avisar('Turma criada com os módulos nas datas do pré-bloqueio.');
       j.fechar();
+      const { conferirModulos, mostrarConflitos } = await import('./agenda-dados.js');
+      const conflitos = await conferirModulos(ctx, (mods || []).map((m) => ({ ...m, mentorIds: mentores })));
+      if (conflitos.length) { mostrarConflitos(conflitos, { intro: 'A turma foi criada, mas estas datas batem com algo na agenda:', aoFechar: () => { location.hash = `#/turma/${turmaId}`; } }); return; }
       location.hash = `#/turma/${turmaId}`;
     } catch (e) {
       btn.disabled = false; btn.textContent = 'Criar a turma';

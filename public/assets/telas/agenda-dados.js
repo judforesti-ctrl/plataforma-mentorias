@@ -1,6 +1,7 @@
 // Agenda: leitura do banco (cada um só recebe o que as regras de acesso permitem), janelas e peças comuns das telas.
 import { sb, esc, avatar } from '../base.js';
-import { montarEventos, indexar, choques, diaDe, horaDe, periodosDoIntervalo, PERIODOS, NOME_PERIODO, ESTADOS, TIPOS, estadoPeriodo, dispDe, ordenar } from '../agenda-regras.js';
+import { montarEventos, indexar, choques, diaDe, horaDe, periodosDoIntervalo, PERIODOS, NOME_PERIODO, ESTADOS, TIPOS, estadoPeriodo, dispDe, ordenar,
+  feriadoDe, situacaoParaEncaixe, diaCurto, horaTexto, moduloPresencial } from '../agenda-regras.js';
 
 // Tabela ou coluna que ainda não existe (o script 14 ainda não foi rodado no Supabase).
 export const faltaScript = (e) => !!e && /does not exist|Could not find|schema cache|42P01|42703|PGRST20[45]/i.test(`${e.code || ''} ${e.message || ''}`);
@@ -41,7 +42,12 @@ export async function carregarAgenda(ctx) {
     tentar(sb.from('agenda_reservas').select('*, empresa:empresas(id, nome), datas:agenda_reserva_datas(*), mentores:agenda_reserva_mentores(*)')),
   ]);
   const extra = new Map((extras || []).map((x) => [`${x.modulo_id}|${x.mentor_id}`, x]));
-  const modulos = modulosBase.map((m) => ({ ...m, mentores: (m.mentores || []).map((v) => ({ com_deslocamento: true, viagem: {}, ...v, ...(extra.get(`${m.id}|${v.mentor_id}`) || {}) })) }));
+  // formato e cidade da turma (script 15); sem o script, segue sem essa informação
+  const tf = await sb.from('turmas').select('id, formato, local');
+  const formatos = new Map(((!tf.error && tf.data) || []).map((t) => [t.id, t]));
+  const modulos = modulosBase.map((m) => ({ ...m,
+    turma: m.turma ? { ...m.turma, formato: (formatos.get(m.turma.id) || {}).formato || null, local: (formatos.get(m.turma.id) || {}).local || null } : m.turma,
+    mentores: (m.mentores || []).map((v) => ({ com_deslocamento: true, viagem: {}, ...v, ...(extra.get(`${m.id}|${v.mentor_id}`) || {}) })) }));
   // sessão futura de quem foi desligado do programa não ocupa a agenda
   const sess = sessoes.filter((s) => !(s.mentorado && s.mentorado.status === 'desligado' && s.situacao === 'agendada'));
   const eventos = montarEventos({ sessoes: sess, modulos, bloqueios, reservas });
@@ -68,6 +74,55 @@ export async function verificarChoques(ctx, { mentorIds = [], inicio, duracaoMin
     const m = d.mentores.find((x) => x.id === id);
     return m ? choques(d.idx, m, novo) : [];
   });
+}
+
+// Confere módulos (recém-criados ou mudados) contra a agenda: feriados, recessos, choques de cada mentor e,
+// quando o módulo ainda não tem mentor, se há alguém da equipe de turmas livre. Devolve só os que têm conflito.
+// modulos: [{ id?, numero?, titulo?, data_hora, duracao_min?, formato, mentorIds[] }]
+export async function conferirModulos(ctx, modulos) {
+  limparCache();
+  let d;
+  try { d = await agendaEmCache(ctx); } catch (_) { return []; }
+  const out = [];
+  for (const m of modulos) {
+    if (!m.data_hora) continue;
+    const presencial = moduloPresencial(m);
+    const dur = Number(m.duracao_min) || (presencial ? 240 : 120);
+    const h = horaDe(m.data_hora), ini = new Date(m.data_hora).getTime();
+    const dia = diaDe(m.data_hora);
+    const novo = { dia, ini, fim: ini + dur * 60000, periodos: periodosDoIntervalo(h, Math.min(24, h + dur / 60)), formato: presencial ? 'presencial' : 'online', ignorar: m.id || null };
+    const avisos = [];
+    const f = feriadoDe(dia);
+    if (f) avisos.push(`${diaCurto(dia)} é feriado (${f}).`);
+    (d.idx.todos.get(dia) || []).filter((e) => e.tipo === 'recesso').forEach((e) => avisos.push(`${diaCurto(dia)} está no recesso da Mentorei (${e.titulo}).`));
+    const ids = m.mentorIds || [];
+    if (ids.length) {
+      for (const id of ids) {
+        const mentor = d.mentores.find((x) => x.id === id);
+        if (mentor) choques(d.idx, mentor, novo).filter((x) => !/ é feriado /.test(x)).forEach((x) => avisos.push(x));
+      }
+    } else {
+      const equipe = d.mentores.filter((x) => x.atende_grupo);
+      const livres = equipe.filter((x) => situacaoParaEncaixe(d.idx, x, dia, novo.periodos, novo.formato).livre);
+      if (equipe.length && !livres.length) avisos.push(`Ninguém da equipe de turmas está livre em ${diaCurto(dia)} nesse horário.`);
+    }
+    if (avisos.length) {
+      out.push({ titulo: `${m.numero ? `Módulo ${m.numero}` : 'Módulo'}${m.titulo ? ` · ${m.titulo}` : ''}`, quando: `${diaCurto(dia)} às ${horaTexto(h)}`, avisos: [...new Set(avisos)] });
+    }
+  }
+  return out;
+}
+
+// Mensagem de conflito: a coordenação clica em "Ok" e sabe que precisa olhar a agenda nessas datas.
+export function mostrarConflitos(lista, { titulo = 'Atenção: conflito na agenda', intro = '', aoFechar = null } = {}) {
+  const j = janela(titulo, `${intro ? `<p>${esc(intro)}</p>` : ''}
+    <div class="lista mt">${lista.map((x) => `<div class="ag-bloco"><b>${esc(x.quando)}</b> · ${esc(x.titulo)}
+      <ul class="peq" style="margin:6px 0 0 18px">${x.avisos.map((a) => `<li>${esc(a)}</li>`).join('')}</ul></div>`).join('')}</div>
+    <p class="peq apagado mt">Nada foi mudado na agenda: confira essas datas e ajuste o que for preciso.</p>
+    <div class="linha mt2"><button class="btn pri" type="button" data-fechar>Ok, vou olhar na agenda</button><a class="btn" href="#/agenda" data-ir-agenda>Abrir a agenda</a></div>`,
+  { largura: 640, aoFechar });
+  j.corpo.querySelector('[data-ir-agenda]').addEventListener('click', () => j.fechar());
+  return j;
 }
 
 // ---------- servidor da plataforma ----------

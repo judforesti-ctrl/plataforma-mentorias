@@ -1,8 +1,11 @@
-// Importar proposta (PDF): lê o texto do PDF no navegador, a IA organiza empresa, turma(s), perfil e módulos
+// Importar proposta (PDF ou PowerPoint): lê o texto do arquivo no navegador, a IA organiza empresa, turma(s), perfil e módulos
 // (em segundo plano, no servidor) e a administração revisa tudo antes de criar as turmas.
 // O que a proposta não traz (datas, link, mentores) a coordenação completa depois na turma.
+// Depois de criar, a plataforma confere a agenda e avisa se alguma data já tem conflito.
 import { sb, esc, avisar, explicarErro, localParaISO } from '../base.js';
+import { COMO, gravarTurma } from './turmas.js';
 
+const JSZIP = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
 const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs';
 const PDFJS_WORKER = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
 const FORMATO = { indefinido: 'A definir', meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro' };
@@ -24,17 +27,45 @@ async function lerTextoPdf(arquivo, aoAvancar) {
   return partes.join('\n\n').replace(/[ \t]+/g, ' ');
 }
 
+// PowerPoint (.pptx): o arquivo é um pacote de textos; lê os slides na ordem da apresentação.
+async function lerTextoPptx(arquivo, aoAvancar) {
+  const JSZip = (await import(JSZIP)).default;
+  const zip = await JSZip.loadAsync(await arquivo.arrayBuffer());
+  const xml = async (nome) => (zip.file(nome) ? new DOMParser().parseFromString(await zip.file(nome).async('string'), 'application/xml') : null);
+  const A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+  const P = 'http://schemas.openxmlformats.org/presentationml/2006/main';
+  const R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  let slides = [];
+  const pres = await xml('ppt/presentation.xml'), rels = await xml('ppt/_rels/presentation.xml.rels');
+  if (pres && rels) {
+    const alvo = Object.fromEntries([...rels.getElementsByTagName('Relationship')].map((r) => [r.getAttribute('Id'), r.getAttribute('Target')]));
+    slides = [...pres.getElementsByTagNameNS(P, 'sldId')].map((x) => `ppt/${String(alvo[x.getAttributeNS(R, 'id')] || '').replace(/^\/?ppt\//, '')}`).filter((n) => zip.file(n));
+  }
+  if (!slides.length) {
+    slides = Object.keys(zip.files).filter((n) => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+      .sort((a, b) => Number(a.match(/(\d+)\.xml$/)[1]) - Number(b.match(/(\d+)\.xml$/)[1]));
+  }
+  const partes = [];
+  for (const [i, nome] of slides.entries()) {
+    aoAvancar(`Lendo o slide ${i + 1} de ${slides.length}…`);
+    const doc = await xml(nome);
+    const linhas = [...doc.getElementsByTagNameNS(A, 'p')].map((p) => [...p.getElementsByTagNameNS(A, 't')].map((t) => t.textContent).join('')).filter((t) => t.trim());
+    partes.push(`--- slide ${i + 1} ---\n${linhas.join('\n')}`);
+  }
+  return partes.join('\n\n');
+}
+
 export async function render(ctx, el) {
   if (!ctx.ehAdmin) { el.innerHTML = '<div class="vazio">Só a administração importa propostas.</div>'; return; }
   const { data: empresas } = await sb.from('empresas').select('id, nome').order('nome');
 
   el.innerHTML = `
     <div class="cab"><div><p class="peq apagado"><a href="#/turmas">← Turmas</a></p><h1>Importar proposta</h1>
-      <p class="sub">Envie a proposta em PDF. A plataforma lê a empresa, as turmas, o perfil e os módulos, e você confere tudo antes de criar.</p></div></div>
+      <p class="sub">Envie a proposta em PDF ou PowerPoint. A plataforma lê a empresa, as turmas, o perfil e os módulos, e você confere tudo antes de criar.</p></div></div>
     <div class="cartao" style="max-width:760px">
-      <h3>1. Escolha o PDF da proposta</h3>
-      <p class="peq apagado mt">Leva de 1 a 3 minutos. Pode deixar a tela aberta enquanto isso. Preços e condições comerciais não são copiados.</p>
-      <label class="btn pri mt" style="cursor:pointer">Escolher o PDF<input type="file" id="pdf" accept="application/pdf,.pdf" hidden></label>
+      <h3>1. Escolha o arquivo da proposta</h3>
+      <p class="peq apagado mt">PDF ou PowerPoint (.pptx). Leva de 1 a 3 minutos. Pode deixar a tela aberta enquanto isso. Preços e condições comerciais não são copiados.</p>
+      <label class="btn pri mt" style="cursor:pointer">Escolher o arquivo<input type="file" id="pdf" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.ppt" hidden></label>
       <p class="mt" id="estado" role="status"></p>
     </div>
     <div id="revisao"></div>`;
@@ -46,9 +77,12 @@ export async function render(ctx, el) {
     const arq = ev.target.files[0]; if (!arq) return;
     el.querySelector('#revisao').innerHTML = '';
     try {
-      const texto = await lerTextoPdf(arq, (t) => { estado.textContent = t; });
-      if (texto.replace(/--- página \d+ ---/g, '').trim().length < 200) {
-        estado.innerHTML = '<span class="selo erro">Este PDF não tem texto legível</span> Parece ser uma imagem escaneada. Exporte a proposta de novo como PDF a partir do Canva ou do PowerPoint.';
+      const ext = (arq.name.split('.').pop() || '').toLowerCase();
+      if (ext === 'ppt') { estado.innerHTML = '<span class="selo erro">Formato antigo do PowerPoint</span> Abra no PowerPoint e salve como .pptx (ou exporte como PDF) e envie de novo.'; return; }
+      const texto = ext === 'pptx' ? await lerTextoPptx(arq, (t) => { estado.textContent = t; }) : await lerTextoPdf(arq, (t) => { estado.textContent = t; });
+      if (texto.replace(/--- (página|slide) \d+ ---/g, '').trim().length < 200) {
+        estado.innerHTML = ext === 'pptx' ? '<span class="selo erro">Este PowerPoint quase não tem texto</span> Se os slides forem imagens, exporte a proposta como PDF a partir do Canva e envie o PDF.'
+          : '<span class="selo erro">Este PDF não tem texto legível</span> Parece ser uma imagem escaneada. Exporte a proposta de novo como PDF a partir do Canva ou do PowerPoint.';
         return;
       }
       estado.textContent = 'Organizando a proposta com a IA… (de 1 a 3 minutos)';
@@ -78,6 +112,14 @@ export async function render(ctx, el) {
   return { sair: () => { parar = true; } };
 }
 
+// formato inicial de cada módulo na revisão: o que a proposta disse; se não disse, o da turma
+function formatoInicial(t, m) {
+  if (m.formato && m.formato !== 'indefinido') return m.formato;
+  if (t.formato === 'presencial') return 'presencial';
+  if (t.formato === 'online') return 'meet';
+  return 'indefinido';
+}
+
 function revisar(ctx, box, r, empresas) {
   const turmas = r.turmas || [];
   const achada = empresas.find((e) => norm(e.nome) === norm(r.empresa)) || empresas.find((e) => norm(e.nome) && norm(r.empresa).includes(norm(e.nome)));
@@ -95,6 +137,10 @@ function revisar(ctx, box, r, empresas) {
       <div class="linha"><h3 style="flex:1">3. Turma ${turmas.length > 1 ? i + 1 : ''}</h3><label class="check"><input type="checkbox" data-criar checked><span>Criar esta turma</span></label></div>
       <div class="grade g2 mt" style="gap:10px">
         <div class="campo" style="grid-column:1/-1"><label>Nome da turma</label><input type="text" data-c="nome" value="${esc(t.nome)}"></div>
+        <div class="campo" style="grid-column:1/-1"><span class="rotulo">Como vai ser *</span><div class="linha">
+          ${Object.entries(COMO).map(([k, rot]) => `<label class="check"><input type="radio" name="formato-${i}" data-formato value="${k}"${k === t.formato ? ' checked' : ''}><span>${rot}</span></label>`).join('')}</div>
+          <small>${t.formato && t.formato !== 'indefinido' ? 'Lido na proposta. Confira.' : 'A proposta não dizia: marque aqui.'} A agenda usa essa informação (aula presencial reserva a véspera e o dia seguinte para o deslocamento).</small></div>
+        <div class="campo" data-local-caixa${t.formato === 'online' ? ' hidden' : ''}><label>Cidade das aulas presenciais</label><input type="text" data-c="local" value="${esc(t.local || '')}" placeholder="Ex.: Curitiba (PR)"></div>
         <div class="campo"><label>Participantes esperados</label><input type="number" min="0" data-c="participantes_previstos" value="${esc(t.participantes_previstos ?? '')}"></div>
         <div class="grade g2" style="gap:10px"><div class="campo"><label>Início</label><input type="date" data-c="inicio" value="${esc(t.inicio || '')}"></div>
           <div class="campo"><label>Fim previsto</label><input type="date" data-c="fim_previsto" value="${esc(t.fim_previsto || '')}"></div></div>
@@ -107,7 +153,7 @@ function revisar(ctx, box, r, empresas) {
         <div class="grade g2 mt" style="gap:10px">
           <div class="campo" style="grid-column:1/-1"><label>Título</label><input type="text" data-m="titulo" value="${esc(m.titulo)}"></div>
           <div class="campo"><label>Data e hora (Brasília)</label><input type="datetime-local" data-m="data_hora" value="${m.data ? esc(`${m.data}T${m.hora || '09:00'}`) : ''}"></div>
-          <div class="grade g2" style="gap:10px"><div class="campo"><label>Onde</label><select data-m="formato">${Object.entries(FORMATO).map(([k, rot]) => `<option value="${k}"${k === m.formato ? ' selected' : ''}>${rot}</option>`).join('')}</select></div>
+          <div class="grade g2" style="gap:10px"><div class="campo"><label>Onde *</label><select data-m="formato">${Object.entries(FORMATO).map(([k, rot]) => `<option value="${k}"${k === formatoInicial(t, m) ? ' selected' : ''}>${rot}</option>`).join('')}</select></div>
             <div class="campo"><label>Duração (min)</label><input type="number" min="0" data-m="duracao_min" value="${esc(m.duracao_min ?? '')}"></div></div>
           <div class="campo" style="grid-column:1/-1"><label>Temática</label><textarea data-m="tematica" style="min-height:110px">${esc(m.tematica || '')}</textarea></div>
           <div class="campo" style="grid-column:1/-1"><label>Recomendações da aula</label><textarea data-m="recomendacoes" style="min-height:60px">${esc(m.recomendacoes || '')}</textarea></div>
@@ -116,6 +162,15 @@ function revisar(ctx, box, r, empresas) {
     ${turmas.length ? '<div class="linha mt2" style="max-width:980px"><button class="btn pri" id="criar">Criar turma' + (turmas.length > 1 ? 's' : '') + '</button><span class="peq apagado">Depois, na turma, você define os mentores, o link da sala e envia os slides.</span></div>' : ''}`;
 
   box.querySelector('#r-emp').addEventListener('change', (ev) => { box.querySelector('#r-emp-nome').disabled = ev.target.value !== 'nova'; });
+  // ao escolher como a turma vai ser, os módulos acompanham (no "parte de cada", escolha módulo a módulo)
+  box.querySelectorAll('[data-formato]').forEach((r) => r.addEventListener('change', () => {
+    const cx = r.closest('[data-turma]');
+    cx.querySelector('[data-local-caixa]').hidden = r.value === 'online';
+    cx.querySelectorAll('[data-m="formato"]').forEach((sel) => {
+      if (r.value === 'presencial') sel.value = 'presencial';
+      else if (r.value === 'online' && (sel.value === 'presencial' || sel.value === 'indefinido')) sel.value = 'meet';
+    });
+  }));
 
   box.querySelector('#criar')?.addEventListener('click', async (ev) => {
     const btn = ev.currentTarget; btn.disabled = true;
@@ -129,14 +184,21 @@ function revisar(ctx, box, r, empresas) {
         if (ja) empresaId = ja.id;
         else { const { data, error } = await sb.from('empresas').insert({ nome }).select('id').single(); if (error) throw error; empresaId = data.id; }
       }
-      const criadas = [];
+      const criadas = [], novosModulos = [];
       for (const cx of box.querySelectorAll('[data-turma]')) {
         if (!cx.querySelector('[data-criar]').checked) continue;
         const v = (k) => cx.querySelector(`[data-c="${k}"]`).value.trim();
         if (!v('nome')) throw new Error('Toda turma precisa de um nome.');
-        const { data: t, error } = await sb.from('turmas').insert({ empresa_id: empresaId, nome: v('nome'), perfil_turma: v('perfil_turma') || null, observacoes: v('observacoes') || null,
+        const formatoTurma = (cx.querySelector('[data-formato]:checked') || {}).value;
+        if (!formatoTurma) throw new Error(`Turma "${v('nome')}": marque se é online, presencial ou parte de cada.`);
+        for (const mx of cx.querySelectorAll('[data-mod]')) {
+          if (mx.querySelector('[data-incluir]').checked && mx.querySelector('[data-m="formato"]').value === 'indefinido') {
+            throw new Error(`Turma "${v('nome')}": escolha em "Onde" se o módulo "${mx.querySelector('[data-m="titulo"]').value.trim()}" é online ou presencial.`);
+          }
+        }
+        const { data: t, error } = await gravarTurma({ empresa_id: empresaId, nome: v('nome'), perfil_turma: v('perfil_turma') || null, observacoes: v('observacoes') || null,
           participantes_previstos: v('participantes_previstos') === '' ? null : Number(v('participantes_previstos')),
-          inicio: v('inicio') || null, fim_previsto: v('fim_previsto') || null }).select('id').single();
+          inicio: v('inicio') || null, fim_previsto: v('fim_previsto') || null, formato: formatoTurma, local: formatoTurma === 'online' ? null : (v('local') || null) });
         if (error) throw error;
         let n = 0;
         const linhas = [];
@@ -147,14 +209,25 @@ function revisar(ctx, box, r, empresas) {
           const formato = mv('formato');
           linhas.push({ turma_id: t.id, numero: ++n, titulo: mv('titulo'), tematica: mv('tematica') || null, recomendacoes: mv('recomendacoes') || null,
             data_hora: localParaISO(mv('data_hora')) || null, duracao_min: mv('duracao_min') === '' ? null : Number(mv('duracao_min')),
-            formato });
+            formato, local: formato === 'presencial' ? (v('local') || null) : null });
         }
-        if (linhas.length) { const r2 = await sb.from('modulos').insert(linhas); if (r2.error) throw r2.error; }
+        if (linhas.length) {
+          const r2 = await sb.from('modulos').insert(linhas).select('id, numero, titulo, data_hora, duracao_min, formato');
+          if (r2.error) throw r2.error;
+          (r2.data || []).forEach((m) => novosModulos.push({ ...m, titulo: `${v('nome')} · ${m.titulo}`, turma: { formato: formatoTurma }, mentorIds: [] }));
+        }
         criadas.push(t.id);
       }
       if (!criadas.length) throw new Error('Marque pelo menos uma turma para criar.');
       avisar(criadas.length > 1 ? `${criadas.length} turmas criadas.` : 'Turma criada. Agora defina os mentores e o link de cada módulo.');
-      ctx.irPara(criadas.length === 1 ? `#/turma/${criadas[0]}` : '#/turmas');
+      const destino = criadas.length === 1 ? `#/turma/${criadas[0]}` : '#/turmas';
+      const { conferirModulos, mostrarConflitos } = await import('./agenda-dados.js');
+      const conflitos = await conferirModulos(ctx, novosModulos);
+      if (conflitos.length) {
+        mostrarConflitos(conflitos, { intro: `${criadas.length > 1 ? 'As turmas foram criadas' : 'A turma foi criada'}, mas estas datas batem com algo na agenda:`, aoFechar: () => ctx.irPara(destino) });
+        return;
+      }
+      ctx.irPara(destino);
     } catch (e) { avisar(explicarErro(e), true); btn.disabled = false; }
   });
 }

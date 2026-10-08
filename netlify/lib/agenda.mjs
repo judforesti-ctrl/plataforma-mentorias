@@ -7,20 +7,27 @@ import {
   NOME_PERIODO, PERIODOS, feriadoDe, dispDe, estadoPeriodo,
 } from '../../public/assets/agenda-regras.js';
 
+// O resumo sai na sexta e fala da semana seguinte (de segunda a domingo).
+export const proximaSegunda = () => segundaDaSemana(somarDias(hoje(), 7));
+
 const SEL_SESSAO = 'id,numero,data_hora,duracao_min,situacao,mentor_id,mentorado:mentorados(id,nome,status,sala_meet,programa:programas(id,nome,duracao_min,empresa:empresas(id,nome)))';
 const SEL_MODULO = 'id,numero,titulo,data_hora,duracao_min,formato,local,link,turma:turmas(id,nome,empresa:empresas(id,nome)),mentores:modulo_mentores(mentor_id,com_deslocamento,viagem)';
 const SEL_RESERVA = '*,empresa:empresas(id,nome),datas:agenda_reserva_datas(*),mentores:agenda_reserva_mentores(*)';
 
 export async function dadosAgenda() {
-  const [s, m, b, r, p] = await Promise.all([
+  const [s, m, b, r, p, tf] = await Promise.all([
     supa(`/rest/v1/sessoes?data_hora=not.is.null&select=${SEL_SESSAO}`),
     supa(`/rest/v1/modulos?select=${SEL_MODULO}`),
     supa('/rest/v1/agenda_bloqueios?select=*'),
     supa(`/rest/v1/agenda_reservas?select=${SEL_RESERVA}`),
     supa('/rest/v1/perfis?ativo=eq.true&select=id,nome,email,whatsapp,papel,tambem_mentor,termo_aceito_em,disponibilidade'),
+    supa('/rest/v1/turmas?select=id,formato,local'),
   ]);
   for (const x of [s, m, b, r, p]) if (!x.ok) throw new Error(`Falha ao ler a agenda (${x.status}).`);
   const sessoes = s.dados.filter((x) => !(x.mentorado && x.mentorado.status === 'desligado' && x.situacao === 'agendada'));
+  // formato e cidade da turma (script 15); sem ele, segue sem essa informação
+  const formatos = new Map(((tf.ok && Array.isArray(tf.dados)) ? tf.dados : []).map((t) => [t.id, t]));
+  m.dados = m.dados.map((x) => ({ ...x, turma: x.turma ? { ...x.turma, ...(formatos.get(x.turma.id) || {}) } : x.turma }));
   const eventos = montarEventos({ sessoes, modulos: m.dados, bloqueios: b.dados, reservas: r.dados });
   const pessoas = p.dados;
   return {
@@ -40,7 +47,7 @@ export const ondeReserva = (r) => (r.formato === 'presencial'
 export const textoEvento = (e) => `${e.ini ? `${horaDoISO(new Date(e.ini).toISOString())} · ` : ''}${e.titulo}${e.sub ? ` (${e.sub})` : ''}`;
 
 // ---------- resumo da semana de um mentor ----------
-export function emailResumoMentor(d, m, seg = segundaDaSemana(hoje())) {
+export function emailResumoMentor(d, m, seg = proximaSegunda()) {
   const dias = listaDias(seg, somarDias(seg, 6));
   const disp = dispDe(m);
   const linhas = [], livres = [];
@@ -53,7 +60,7 @@ export function emailResumoMentor(d, m, seg = segundaDaSemana(hoje())) {
   }
   const pendentes = d.reservas.filter((r) => r.situacao === 'pre' || r.situacao === 'confirmada')
     .map((r) => ({ r, x: (r.mentores || []).find((y) => y.mentor_id === m.id) })).filter((c) => c.x && c.x.resposta === 'aguardando');
-  const blocos = [{ p: `Olá, ${primeiroNome(m.nome)}! Esta é a sua agenda da Mentorei para a semana de ${ddmm(seg)} a ${ddmm(somarDias(seg, 6))}.` }];
+  const blocos = [{ p: `Olá, ${primeiroNome(m.nome)}! Esta é a sua agenda da Mentorei para a próxima semana, de ${ddmm(seg)} a ${ddmm(somarDias(seg, 6))}.` }];
   blocos.push(linhas.length ? { lista: linhas } : { p: 'Nenhum compromisso marcado nesta semana.' });
   if (livres.length) blocos.push({ p: `Dias livres: ${livres.join(', ')}.` });
   if (pendentes.length) {
@@ -65,11 +72,11 @@ export function emailResumoMentor(d, m, seg = segundaDaSemana(hoje())) {
   }
   blocos.push({ botao: { texto: 'Abrir minha agenda', link: `${SITE}/app.html#/agenda` } });
   blocos.push({ nota: 'Precisa bloquear algum dia? Na sua agenda da plataforma, clique em "+ Pedir bloqueio". A coordenação é avisada na hora.' });
-  return modeloEmail({ assunto: `Sua semana na Mentorei · ${ddmm(seg)} a ${ddmm(somarDias(seg, 6))}`, titulo: 'Sua agenda da semana', blocos });
+  return modeloEmail({ assunto: `Sua próxima semana na Mentorei · ${ddmm(seg)} a ${ddmm(somarDias(seg, 6))}`, titulo: 'Sua agenda da próxima semana', blocos });
 }
 
 // ---------- resumo da semana para a coordenação ----------
-export function emailResumoCoordenacao(d, seg = segundaDaSemana(hoje())) {
+export function emailResumoCoordenacao(d, seg = proximaSegunda()) {
   const h = hoje();
   const nome = (id) => (d.pessoas.find((p) => p.id === id) || {}).nome || 'Mentor';
   const vencidos = d.reservas.filter((r) => r.situacao === 'pre' && r.lembrar_em <= h);
@@ -89,14 +96,14 @@ export function emailResumoCoordenacao(d, seg = segundaDaSemana(hoje())) {
     const viag = new Set(evs.filter((e) => e.tipo === 'presencial' || e.tipo === 'deslocamento').map((e) => e.dia)).size;
     return `${m.nome}: ${sess} ${sess === 1 ? 'sessão individual' : 'sessões individuais'}, ${aulas} ${aulas === 1 ? 'aula' : 'aulas'} de turma${viag ? `, ${viag} ${viag === 1 ? 'dia' : 'dias'} de viagem` : ''}`;
   });
-  const blocos = [{ p: `Resumo da agenda da equipe para a semana de ${ddmm(seg)} a ${ddmm(somarDias(seg, 6))}.` }];
+  const blocos = [{ p: `Resumo da agenda da equipe para a próxima semana, de ${ddmm(seg)} a ${ddmm(somarDias(seg, 6))}.` }];
   if (vencidos.length) blocos.push({ titulo: 'Pré-bloqueios com mais de 5 dias: confirmar ou liberar' }, { lista: vencidos.map((r) => `${r.titulo}${clienteDe(r) ? ` · ${clienteDe(r)}` : ''}`) });
   if (respostas.length) blocos.push({ titulo: 'Respostas novas dos mentores' }, { lista: respostas });
   if (semResposta.length) blocos.push({ titulo: 'Ainda sem resposta' }, { lista: semResposta });
   if (bloqueios.length) blocos.push({ titulo: 'Bloqueios novos pedidos pelos mentores' }, { lista: bloqueios });
   if (viagens.length) blocos.push({ titulo: 'Viagens nos próximos 15 dias com pendência' }, { lista: viagens });
   if (!vencidos.length && !respostas.length && !bloqueios.length && !viagens.length) blocos.push({ p: 'Nada pendente na agenda.' });
-  blocos.push({ titulo: 'A semana de cada mentor' }, { lista: semana });
+  blocos.push({ titulo: 'A próxima semana de cada mentor' }, { lista: semana });
   blocos.push({ botao: { texto: 'Abrir a agenda', link: `${SITE}/app.html#/agenda` } });
-  return modeloEmail({ assunto: `Agenda da equipe · semana de ${ddmm(seg)}`, titulo: 'Agenda da equipe', blocos });
+  return modeloEmail({ assunto: `Agenda da equipe · próxima semana (${ddmm(seg)} a ${ddmm(somarDias(seg, 6))})`, titulo: 'Agenda da equipe', blocos });
 }

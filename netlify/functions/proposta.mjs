@@ -1,4 +1,4 @@
-// Lê o texto de uma proposta comercial (PDF) e organiza, com o Claude, empresa, turma(s), perfil e módulos.
+// Lê o texto de uma proposta comercial (PDF ou PowerPoint) e organiza, com o Claude, empresa, turma(s), perfil e módulos.
 // Roda em segundo plano (pode levar mais de um minuto): o resultado vai para a tabela importacoes_proposta,
 // que a tela "Importar proposta" acompanha. Só a administração usa.
 import Anthropic from '@anthropic-ai/sdk';
@@ -31,9 +31,11 @@ const ESQUEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['nome', 'perfil_turma', 'metodologia', 'participantes_previstos', 'inicio', 'fim_previsto', 'modulos'],
+        required: ['nome', 'formato', 'local', 'perfil_turma', 'metodologia', 'participantes_previstos', 'inicio', 'fim_previsto', 'modulos'],
         properties: {
           nome: texto,
+          formato: { type: 'string', enum: ['online', 'presencial', 'misto', 'indefinido'] },
+          local: textoOuNulo,
           perfil_turma: texto,
           metodologia: textoOuNulo,
           participantes_previstos: inteiroOuNulo,
@@ -76,13 +78,15 @@ Como as propostas da Mentorei costumam ser:
 - "Uma experiência dinâmica e aplicada" e "Personalização que faz diferença": a metodologia. Vai para "metodologia".
 - "Organização da jornada": a grade com período, duração e foco de cada módulo.
 - "Investimento" e "Próximos passos": ignore (nunca copie preços).
-- O texto vem de um PDF do Canva: palavras às vezes aparecem grudadas ("Fomentara carteira") ou partidas ("Experi ê ncia"). Corrija a separação das palavras, sem mudar o conteúdo.
+- O texto vem de um PDF do Canva ou de um PowerPoint (marcado por slide): palavras às vezes aparecem grudadas ("Fomentara carteira") ou partidas ("Experi ê ncia"). Corrija a separação das palavras, sem mudar o conteúdo.
 
 Regras:
 - Use só o que está na proposta. Nunca invente datas, números, nomes ou temas. O que não estiver no texto fica nulo e entra em "faltando".
 - empresa: o nome da empresa contratante, como aparece na proposta (sem "Proposta", sem o nome da Mentorei).
 - turmas: uma turma por público ou programa distinto. Se a proposta tiver dois públicos (por exemplo, diretores e gerentes), são duas turmas.
 - nome da turma: o nome do programa ou da trilha mais o público, curto (ex.: "Trilha de Desenvolvimento · Gerentes").
+- formato da turma: "presencial" se todos os encontros forem presenciais, "online" se todos forem online (Meet, Zoom, Teams, ao vivo pela internet), "misto" se houver dos dois; "indefinido" se a proposta não disser.
+- local da turma: a cidade (e o estado) dos encontros presenciais, só se estiver escrita; senão nulo.
 - perfil_turma: quem são os participantes (cargos, nível, público atendido), o contexto e o que a empresa espera ("O que entendemos da sua demanda"), em parágrafos curtos.
 - metodologia: como a aula é conduzida e personalizada (casos, simulações, momentos individuais, ferramentas entregues, personalização), em linhas começando com "• ". Nulo se não houver.
 - participantes_previstos: só se a proposta disser a quantidade.

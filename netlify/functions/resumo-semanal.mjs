@@ -1,10 +1,10 @@
-// Resumo da semana por e-mail: toda segunda-feira às 7h (Brasília), se a administração ligou em Agenda → Celular e e-mail.
-// Cada mentor que já usa a plataforma recebe a própria semana; a coordenação recebe o resumo da equipe.
+// Resumo da próxima semana por e-mail: toda sexta-feira às 9h (Brasília), se a administração ligou em Agenda → Celular e e-mail.
+// Cada mentor que já usa a plataforma recebe a própria semana seguinte; a coordenação recebe o resumo da equipe.
 import { supa } from '../lib/google.mjs';
 import { enviarEmail, COORDENACAO } from '../lib/email.mjs';
 import { dadosAgenda, emailResumoMentor, emailResumoCoordenacao } from '../lib/agenda.mjs';
 
-export const config = { schedule: '0 10 * * 1' }; // 10h no horário universal = 7h em Brasília
+export const config = { schedule: '0 12 * * 5' }; // sexta, 12h no horário universal = 9h em Brasília
 
 export default async () => {
   const cfg = await supa('/rest/v1/configuracoes?chave=eq.resumo_semanal&select=valor');

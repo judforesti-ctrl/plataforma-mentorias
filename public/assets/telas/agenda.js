@@ -3,7 +3,7 @@
 import { sb, esc, avatar, horaBR, avisar, explicarErro, diaMes } from '../base.js';
 import { PERIODOS, NOME_PERIODO, LETRA_PERIODO, ESTADOS, hoje, somarDias, diaDaSemana, listaDias, segundaDaSemana, nomeSemana, nomeMes, ddmm, diaCurto,
   feriadoDe, dispDe, situacaoParaEncaixe, periodosDoIntervalo, horaDoTexto, diasEntre, diaDe, ordenar, indexar,
-  descreverBloqueio, choquesDoBloqueio as choquesBloq } from '../agenda-regras.js';
+  descreverBloqueio, choquesDoBloqueio as choquesBloq, rotuloBloqueio, CATEGORIAS, moduloPresencial } from '../agenda-regras.js';
 import { carregarAgenda, limparCache, janela, api, legenda, amostra, estadosDoDia, dicaEstados, linhaEvento, primeiroNome, faltaScript } from './agenda-dados.js';
 
 const SEMANA_LONGA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -65,6 +65,7 @@ function avisos(d) {
     respostas: ativas.flatMap((r) => (r.mentores || []).filter((x) => x.respondido_em && !x.visto_em).map((x) => ({ r, x }))),
     bloqueios: d.bloqueios.filter((b) => b.mentor_id && !b.visto_em && b.fim >= h),
     viagens: viagensPendentes(d),
+    semFormato: d.modulos.filter((m) => m.data_hora && diaDe(m.data_hora) >= h && m.formato === 'indefinido' && !moduloPresencial(m)),
   };
 }
 const contagem = (aba, av) => {
@@ -77,6 +78,7 @@ function htmlAvisos(av, d) {
   if (av.vencidos.length) linhas.push(`<b>${av.vencidos.length} pré-bloqueio${av.vencidos.length > 1 ? 's' : ''} com mais de 5 dias</b> (${esc(av.vencidos.slice(0, 2).map((r) => r.titulo).join('; '))}${av.vencidos.length > 2 ? '…' : ''}). Confirme com o cliente ou libere a agenda.|#/agenda/pre`);
   if (av.respostas.length) linhas.push(`<b>${av.respostas.length} resposta${av.respostas.length > 1 ? 's' : ''} nova${av.respostas.length > 1 ? 's' : ''}</b> de mentores aos pré-bloqueios (${esc(av.respostas.slice(0, 2).map(({ r, x }) => `${nome(x.mentor_id)} ${x.resposta === 'aceito' ? 'aceitou' : 'não pode'}: ${r.titulo}`).join('; '))}).|#/agenda/pre`);
   if (av.bloqueios.length) linhas.push(`<b>${av.bloqueios.length} bloqueio${av.bloqueios.length > 1 ? 's' : ''} novo${av.bloqueios.length > 1 ? 's' : ''}</b> pedido${av.bloqueios.length > 1 ? 's' : ''} pelos mentores (${esc(av.bloqueios.slice(0, 3).map((b) => `${nome(b.mentor_id)} · ${b.inicio === b.fim ? ddmm(b.inicio) : `${ddmm(b.inicio)} a ${ddmm(b.fim)}`}`).join('; '))}).|#/agenda/bloqueios`);
+  if (av.semFormato.length) linhas.push(`<b>${av.semFormato.length === 1 ? '1 módulo sem dizer' : `${av.semFormato.length} módulos sem dizer`} se ${av.semFormato.length === 1 ? 'é' : 'são'} online ou presencial</b> (${esc(av.semFormato.slice(0, 2).map((m) => `${(m.turma && m.turma.nome) || 'Turma'} · módulo ${m.numero}`).join('; '))}). A agenda precisa dessa informação.|${av.semFormato.length === 1 ? `#/modulo/${av.semFormato[0].id}` : '#/turmas'}`);
   if (av.viagens.length) linhas.push(`<b>${av.viagens.length} viage${av.viagens.length > 1 ? 'ns' : 'm'} nos próximos 15 dias</b> com passagem ou hotel pendente.|#/agenda/viagens`);
   return linhas.map((l) => { const [t, h] = l.split('|'); return `<div class="aviso ag-aviso"><span>${t}</span><button class="btn peq" type="button" data-ir="${h}">Ver</button></div>`; }).join('');
 }
@@ -256,7 +258,7 @@ function blocoEvento(ctx, d, e, mentor) {
   }
   if ((e.tipo === 'bloqueio' || e.tipo === 'ferias' || e.tipo === 'recesso') && e.origem) {
     const b = e.origem;
-    extra = `${b.motivo && podeVer && b.tipo !== 'recesso' ? `<p class="peq mt"><b>Motivo:</b> ${esc(b.motivo)}</p>` : ''}
+    extra = `${b.motivo && podeVer && b.tipo !== 'recesso' ? `<p class="peq mt"><b>Detalhes:</b> ${esc(b.motivo)}</p>` : ''}
       <p class="peq apagado mt">${esc(descreverBloqueio(b))}</p>
       ${(ctx.ehAdmin || (b.mentor_id === ctx.perfil.id && b.tipo !== 'recesso')) ? `<button class="btn peq mt" type="button" data-editar-bloqueio="${b.id}">Mudar ou apagar</button>` : ''}`;
   }
@@ -311,7 +313,6 @@ function ligarViagens(raiz, d, aoMudar) {
 }
 
 // ---------- bloqueios ----------
-const TIPO_BLOQ = { bloqueio: 'Bloqueio', ferias: 'Férias / folga', recesso: 'Recesso da Mentorei' };
 
 export function abrirBloqueio(ctx, d, { mentorId = null, dia = null, bloqueio = null, recesso = false }, aoSalvar) {
   const adm = ctx.ehAdmin;
@@ -325,9 +326,9 @@ export function abrirBloqueio(ctx, d, { mentorId = null, dia = null, bloqueio = 
     ${adm ? `<div class="campo"><label for="b-quem">De quem é a agenda</label><select id="b-quem"><option value="">Escolha…</option>
       ${d.mentores.map((m) => `<option value="${m.id}"${m.id === quemInicial ? ' selected' : ''}>${esc(m.nome)}</option>`).join('')}
       <option value="recesso"${quemInicial === 'recesso' ? ' selected' : ''}>Toda a equipe (recesso da Mentorei)</option></select></div>` : ''}
-    <div class="campo" id="b-tipo-caixa"><span class="rotulo">O que é</span><div class="linha">
-      <label class="check"><input type="radio" name="b-tipo" value="bloqueio"${b.tipo !== 'ferias' ? ' checked' : ''}><span>Compromisso / bloqueio</span></label>
-      <label class="check"><input type="radio" name="b-tipo" value="ferias"${b.tipo === 'ferias' ? ' checked' : ''}><span>Férias / folga</span></label></div></div>
+    <div class="campo" id="b-tipo-caixa"><span class="rotulo">O que é *</span><div class="linha">
+      ${[...Object.entries(CATEGORIAS).filter(([k]) => k !== 'outro'), ['ferias', 'Férias / folga'], ['outro', 'Outro']].map(([k, r]) => `<label class="check"><input type="radio" name="b-cat" value="${k}"${(b.tipo === 'ferias' ? 'ferias' : b.categoria) === k ? ' checked' : ''}><span>${r}</span></label>`).join('')}</div>
+      <input type="text" id="b-cat-outro" class="mt" aria-label="Escreva o que é" placeholder="Escreva o que é (ex.: gravação de conteúdo)" value="${esc(b.categoria_texto || '')}"${b.categoria === 'outro' ? '' : ' hidden'}></div>
     <div class="grade g2" style="gap:10px"><div class="campo"><label for="b-de">De</label><input type="date" id="b-de" value="${de}"></div>
       <div class="campo"><label for="b-ate" id="b-ate-rot">Até</label><input type="date" id="b-ate" value="${ate}"></div></div>
     <div class="campo"><span class="rotulo">Horário</span><div class="linha">
@@ -353,10 +354,12 @@ export function abrirBloqueio(ctx, d, { mentorId = null, dia = null, bloqueio = 
     const q = quem();
     const rec = q === 'recesso';
     const modoAt = (f.querySelector('input[name=b-modo]:checked') || {}).value || 'dia';
+    const cat = (f.querySelector('input[name=b-cat]:checked') || {}).value || '';
     const periodos = modoAt === 'periodos' ? [...$('#b-periodos').querySelectorAll('input:checked')].map((c) => c.value)
       : modoAt === 'hora' ? periodosDoIntervalo(horaDoTexto($('#b-hi').value), horaDoTexto($('#b-hf').value)) : [...PERIODOS];
     return {
-      mentor_id: rec ? null : q || null, tipo: rec ? 'recesso' : (f.querySelector('input[name=b-tipo]:checked') || {}).value || 'bloqueio',
+      mentor_id: rec ? null : q || null, tipo: rec ? 'recesso' : cat === 'ferias' ? 'ferias' : 'bloqueio',
+      categoria: rec || cat === 'ferias' ? null : cat || null, categoria_texto: !rec && cat === 'outro' ? ($('#b-cat-outro').value.trim() || null) : null,
       inicio: $('#b-de').value, fim: $('#b-ate').value || $('#b-de').value,
       dias_semana: $('#b-repete').checked ? [...$('#b-dias').querySelectorAll('input:checked')].map((c) => Number(c.value)) : null,
       periodos, hora_inicio: modoAt === 'hora' ? $('#b-hi').value : null, hora_fim: modoAt === 'hora' ? $('#b-hf').value : null,
@@ -367,12 +370,13 @@ export function abrirBloqueio(ctx, d, { mentorId = null, dia = null, bloqueio = 
     const l = ler();
     const rec = l.tipo === 'recesso';
     $('#b-tipo-caixa').hidden = rec;
+    $('#b-cat-outro').hidden = l.categoria !== 'outro';
     $('#b-periodos').hidden = l._modo !== 'periodos';
     $('#b-horas').hidden = l._modo !== 'hora';
     $('#b-dias').hidden = !$('#b-repete').checked;
     $('#b-ate-rot').textContent = $('#b-repete').checked ? 'Repetir até' : 'Até';
-    $('#b-motivo-rot').textContent = rec ? 'Nome do recesso (ex.: Fim de ano)' : `Motivo (opcional · só ${adm && l.mentor_id !== ctx.perfil.id ? 'o mentor e a coordenação veem' : 'você e a coordenação veem'})`;
-    $('#b-motivo').placeholder = rec ? 'Fim de ano' : 'Ex.: consulta médica, outro trabalho, viagem pessoal';
+    $('#b-motivo-rot').textContent = rec ? 'Nome do recesso (ex.: Fim de ano)' : `Detalhes (opcional · só ${adm && l.mentor_id !== ctx.perfil.id ? 'o mentor e a coordenação veem' : 'você e a coordenação veem'})`;
+    $('#b-motivo').placeholder = rec ? 'Fim de ano' : 'Ex.: consulta médica, preparar o material da turma A';
     $('#b-salvar').textContent = b.id ? 'Salvar' : rec ? 'Criar recesso' : adm ? 'Bloquear' : 'Bloquear e avisar a coordenação';
     const mentores = rec ? d.mentores : d.mentores.filter((m) => m.id === l.mentor_id);
     const lista = l.inicio && l.fim >= l.inicio && mentores.length ? choquesBloq(d.idx, mentores, l) : [];
@@ -395,6 +399,8 @@ export function abrirBloqueio(ctx, d, { mentorId = null, dia = null, bloqueio = 
     ev.preventDefault();
     const l = ler();
     if (l.tipo !== 'recesso' && !l.mentor_id) { avisar('Escolha de quem é a agenda.', true); return; }
+    if (l.tipo === 'bloqueio' && !l.categoria) { avisar('Marque o que é: pessoal, tempo de criação, tempo operacional, reunião entre mentores, férias ou outro.', true); return; }
+    if (l.categoria === 'outro' && !l.categoria_texto) { avisar('Escreva o que é, no campo ao lado de "Outro".', true); return; }
     if (!l.inicio) { avisar('Escolha o dia.', true); return; }
     if (l.fim < l.inicio) { avisar('A data final vem antes da inicial.', true); return; }
     if (l._modo === 'periodos' && !l.periodos.length) { avisar('Marque manhã, tarde ou noite.', true); return; }
@@ -402,11 +408,16 @@ export function abrirBloqueio(ctx, d, { mentorId = null, dia = null, bloqueio = 
     if (l.dias_semana && !l.dias_semana.length) { avisar('Marque em que dias da semana o bloqueio se repete.', true); return; }
     if (diasEntre(l.inicio, l.fim) > 400) { avisar('Use um período de no máximo um ano.', true); return; }
     const linha = { mentor_id: l.mentor_id, tipo: l.tipo, inicio: l.inicio, fim: l.fim, dias_semana: l.dias_semana, periodos: l.periodos,
-      hora_inicio: l.hora_inicio, hora_fim: l.hora_fim, motivo: l.motivo };
+      hora_inicio: l.hora_inicio, hora_fim: l.hora_fim, motivo: l.motivo, categoria: l.categoria, categoria_texto: l.categoria_texto };
     if (adm) linha.visto_em = new Date().toISOString();
     const btn = $('#b-salvar'); btn.disabled = true;
-    const r = b.id ? await sb.from('agenda_bloqueios').update(linha).eq('id', b.id).select('id').single()
-      : await sb.from('agenda_bloqueios').insert(linha).select('id').single();
+    const gravar = (x) => (b.id ? sb.from('agenda_bloqueios').update(x).eq('id', b.id).select('id').single() : sb.from('agenda_bloqueios').insert(x).select('id').single());
+    let r = await gravar(linha);
+    if (r.error && /categoria/.test(r.error.message || '')) { // sem o script 15: o tipo vai junto com os detalhes
+      const { categoria, categoria_texto, ...resto } = linha;
+      if (l.tipo === 'bloqueio') resto.motivo = [rotuloBloqueio(l), l.motivo].filter(Boolean).join(' · ');
+      r = await gravar(resto);
+    }
     if (r.error) { btn.disabled = false; avisar(faltaScript(r.error) ? 'A coordenação ainda precisa terminar de preparar a agenda (script 14 no Supabase).' : explicarErro(r.error), true); return; }
     limparCache();
     if (!adm) {
@@ -431,7 +442,7 @@ function htmlBloqueiosDoMentor(ctx, d, mentor) {
   return `<div class="cartao" style="margin-top:0"><div class="linha"><h3 style="flex:1">${meu ? 'Meus bloqueios' : 'Bloqueios'}</h3>
     <button class="btn peq" type="button" data-novo-bloqueio="${mentor.id}">+ ${meu && !ctx.ehAdmin ? 'Pedir bloqueio' : 'Bloquear'}</button></div>
     ${lista.length ? `<div class="lista mt">${lista.map((b) => `<button type="button" class="item ag-item-bloq" data-editar-bloqueio="${b.id}" style="grid-template-columns:auto 1fr auto;text-align:left;font:inherit;cursor:pointer">
-      ${amostra(b.tipo)}<span style="min-width:0"><span class="nome">${esc(TIPO_BLOQ[b.tipo])}${b.motivo ? ` · ${esc(b.motivo)}` : ''}</span><br><span class="info">${esc(descreverBloqueio(b))}</span></span><span class="peq apagado">Mudar</span></button>`).join('')}</div>`
+      ${amostra(b.tipo)}<span style="min-width:0"><span class="nome">${esc(rotuloBloqueio(b))}${b.motivo ? ` · ${esc(b.motivo)}` : ''}</span><br><span class="info">${esc(descreverBloqueio(b))}</span></span><span class="peq apagado">Mudar</span></button>`).join('')}</div>`
       : `<p class="apagado mt">Nenhum bloqueio${d.faltaScript ? ' (a agenda ainda está sendo preparada)' : ''}.</p>`}</div>`;
 }
 function ligarBloqueiosDoMentor(ctx, d, raiz, mentor, recarregar) {
@@ -554,19 +565,19 @@ function abaBloqueios(ctx, el, d, recarregar) {
   const recessos = d.bloqueios.filter((b) => !b.mentor_id && b.fim >= h).sort((a, b) => a.inicio.localeCompare(b.inicio));
   const fer = listaDias(h, somarDias(h, 365)).map((dia) => [dia, feriadoDe(dia)]).filter(([, f]) => f);
   const linhaBloq = (b) => `<tr class="clicavel" data-editar-bloqueio="${b.id}"><td>${amostra(b.tipo)} <b>${esc(nome(b.mentor_id))}</b></td><td>${esc(descreverBloqueio(b))}</td>
-    <td>${esc(TIPO_BLOQ[b.tipo])}</td><td class="peq">${esc(b.motivo || '—')}</td><td class="peq apagado">${diaMes(b.criado_em)}${b.criado_por === b.mentor_id ? ' · pelo mentor' : ''}</td></tr>`;
+    <td>${esc(rotuloBloqueio(b))}</td><td class="peq">${esc(b.motivo || '—')}</td><td class="peq apagado">${diaMes(b.criado_em)}${b.criado_por === b.mentor_id ? ' · pelo mentor' : ''}</td></tr>`;
   el.innerHTML = `
     ${novos.length ? `<div class="cartao pend-bloco urgente"><div class="linha"><h3 style="flex:1">Bloqueios novos pedidos pelos mentores <span class="selo erro">${novos.length}</span></h3>
       <button class="btn peq" type="button" id="ciente-todos">Estou ciente de todos</button></div>
       <div class="lista mt">${novos.map((b) => {
         const lista = choquesBloq(d.idx, d.mentores.filter((m) => m.id === b.mentor_id), b);
-        return `<div class="item" style="grid-template-columns:auto 1fr auto">${amostra(b.tipo)}<div style="min-width:0"><div class="nome">${esc(nome(b.mentor_id))} · ${esc(TIPO_BLOQ[b.tipo])}</div>
+        return `<div class="item" style="grid-template-columns:auto 1fr auto">${amostra(b.tipo)}<div style="min-width:0"><div class="nome">${esc(nome(b.mentor_id))} · ${esc(rotuloBloqueio(b))}</div>
           <div class="info">${esc(descreverBloqueio(b))}${b.motivo ? ` · ${esc(b.motivo)}` : ''}</div>
           ${lista.length ? `<div class="peq" style="color:var(--erro)">Choca com: ${esc(lista.slice(0, 3).join('; '))}${lista.length > 3 ? '…' : ''}</div>` : ''}</div>
           <button class="btn peq" type="button" data-ciente="${b.id}">Ciente</button></div>`;
       }).join('')}</div></div>` : ''}
     <div class="cartao"><div class="linha"><h3 style="flex:1">Próximos bloqueios da equipe</h3><button class="btn peq" type="button" id="bloq-novo">+ Bloquear agenda de um mentor</button></div>
-      ${proximos.length ? `<div class="tabela mt"><table><tr><th>Mentor</th><th>Quando</th><th>Tipo</th><th>Motivo</th><th>Pedido em</th></tr>${proximos.map(linhaBloq).join('')}</table></div>
+      ${proximos.length ? `<div class="tabela mt"><table><tr><th>Mentor</th><th>Quando</th><th>O que é</th><th>Detalhes</th><th>Pedido em</th></tr>${proximos.map(linhaBloq).join('')}</table></div>
         <p class="peq apagado mt">Clique numa linha para mudar ou apagar.</p>` : '<p class="apagado mt">Nenhum bloqueio marcado.</p>'}</div>
     <div class="cartao"><div class="linha"><h3 style="flex:1">Recessos da Mentorei</h3><button class="btn peq" type="button" id="recesso-novo">+ Novo recesso</button></div>
       <p class="peq apagado">Valem para toda a equipe (ex.: fim de ano).</p>
@@ -626,16 +637,16 @@ async function abaCelular(ctx, el, d) {
   if (error) { box.innerHTML = `<p class="peq">${faltaScript(error) ? 'Disponível depois que o script 14 for rodado no Supabase.' : esc(explicarErro(error))}</p>`; return; }
   const ligado = !!(cfg && cfg.valor && cfg.valor.ligado);
   const usando = d.mentores.filter((m) => m.termo_aceito_em).length;
-  box.innerHTML = `<p class="peq">Toda segunda-feira, às 7h, cada mentor que já usa a plataforma recebe por e-mail a própria agenda da semana. A coordenação recebe um resumo da equipe:
+  box.innerHTML = `<p class="peq">Toda sexta-feira, às 9h, cada mentor que já usa a plataforma recebe por e-mail a própria agenda da semana seguinte. A coordenação recebe um resumo da equipe:
       pré-bloqueios para resolver, respostas, bloqueios novos e viagens pendentes.</p>
     <p class="peq apagado mt">Hoje ${usando === 1 ? '1 mentor já usa' : `${usando} mentores já usam`} a plataforma. Quem ainda não entrou não recebe.</p>
-    <label class="check mt"><input type="checkbox" id="resumo-ligado"${ligado ? ' checked' : ''}><span><b>Enviar o resumo toda segunda-feira</b></span></label>
+    <label class="check mt"><input type="checkbox" id="resumo-ligado"${ligado ? ' checked' : ''}><span><b>Enviar o resumo toda sexta-feira</b></span></label>
     <p class="peq mt">${st.ok && st.email ? '<span class="selo">E-mail pronto para enviar</span>' : st.ok ? '<span class="selo alerta">Falta cadastrar a chave do Brevo na Netlify</span> Sem ela, os avisos continuam aparecendo na plataforma, mas nenhum e-mail sai.' : '<span class="selo neutro">Não consegui conferir o envio de e-mail agora</span>'}</p>
     <button class="btn mt" type="button" id="resumo-teste">Enviar um teste agora para mim</button>`;
   box.querySelector('#resumo-ligado').addEventListener('change', async (ev) => {
     const { error: e } = await sb.from('configuracoes').upsert({ chave: 'resumo_semanal', valor: { ligado: ev.target.checked }, atualizado_em: new Date().toISOString() });
     if (e) { avisar(explicarErro(e), true); ev.target.checked = !ev.target.checked; return; }
-    avisar(ev.target.checked ? 'Resumo semanal ligado: sai toda segunda às 7h.' : 'Resumo semanal desligado.');
+    avisar(ev.target.checked ? 'Resumo semanal ligado: sai toda sexta às 9h, com a semana seguinte.' : 'Resumo semanal desligado.');
   });
   box.querySelector('#resumo-teste').addEventListener('click', async (ev) => {
     ev.currentTarget.disabled = true;

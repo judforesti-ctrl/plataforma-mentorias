@@ -10,6 +10,20 @@ const agora = () => Date.now();
 const nomesMentores = (m) => (m.mentores || []).map((x) => x.mentor && x.mentor.nome).filter(Boolean).join(' e ');
 const ministra = (m, id) => (m.mentores || []).some((x) => x.mentor && x.mentor.id === id);
 const passou = (m) => m.data_hora && new Date(m.data_hora).getTime() < agora() - 2 * 3600 * 1000;
+// como a turma acontece (a agenda usa: aula presencial reserva a véspera e o dia seguinte para o deslocamento)
+export const COMO = { online: 'Online', presencial: 'Presencial', misto: 'Parte online, parte presencial' };
+
+// Grava a turma (nova ou mudança). Sem o script 15 no Supabase, grava sem "online ou presencial" e avisa.
+export async function gravarTurma(dados, id = null) {
+  const q = (x) => (id ? sb.from('turmas').update(x).eq('id', id).select('id').single() : sb.from('turmas').insert(x).select('id').single());
+  let r = await q(dados);
+  if (r.error && /formato|local/.test(r.error.message || '') && /column|schema/i.test(r.error.message || '')) {
+    const { formato, local, ...resto } = dados;
+    r = await q(resto);
+    if (!r.error) avisar('Turma salva, mas sem o "online ou presencial": falta rodar o script 15 no Supabase.', true);
+  }
+  return r;
+}
 
 export async function render(ctx, el, [id]) {
   if (ctx.rota === 'turma' && id) return paginaTurma(ctx, el, id);
@@ -20,7 +34,7 @@ export async function render(ctx, el, [id]) {
 // ---------- lista de turmas ----------
 async function lista(ctx, el) {
   const [{ data: turmas, error }, { data: empresas }] = await Promise.all([
-    sb.from('turmas').select(`id, nome, status, inicio, fim_previsto, participantes_previstos, empresa:empresas(nome), modulos(${SEL_MODULO})`).order('inicio', { ascending: false }),
+    sb.from('turmas').select(`*, empresa:empresas(nome), modulos(${SEL_MODULO})`).order('inicio', { ascending: false }),
     ctx.ehAdmin ? sb.from('empresas').select('id, nome').order('nome') : Promise.resolve({ data: [] }),
   ]);
   if (error) throw error;
@@ -39,6 +53,10 @@ async function lista(ctx, el) {
         <div class="campo"><label for="t-empresa">Empresa contratante</label><select id="t-empresa" required><option value="">Escolha…</option>${(empresas || []).map((e) => `<option value="${e.id}">${esc(e.nome)}</option>`).join('')}<option value="nova">+ Outra empresa…</option></select></div>
         <div class="campo"><label for="t-nome">Nome da turma ou programa</label><input id="t-nome" type="text" placeholder="Ex.: Liderança na Prática · Turma 1" required></div>
         <div class="campo"><label for="t-part">Participantes esperados</label><input id="t-part" type="number" min="0"></div>
+        <div class="campo" style="grid-column:1/-1"><span class="rotulo">Como vai ser *</span><div class="linha">
+          ${Object.entries(COMO).map(([k, r]) => `<label class="check"><input type="radio" name="t-formato" value="${k}"><span>${r}</span></label>`).join('')}</div>
+          <small>A agenda usa essa informação: aula presencial reserva a véspera e o dia seguinte para o deslocamento.</small></div>
+        <div class="campo" id="t-local-caixa" hidden><label for="t-local">Cidade das aulas presenciais</label><input id="t-local" type="text" placeholder="Ex.: Curitiba (PR)"></div>
         <div class="grade g2" style="gap:10px"><div class="campo"><label for="t-ini">Início</label><input id="t-ini" type="date"></div><div class="campo"><label for="t-fim">Fim previsto</label><input id="t-fim" type="date"></div></div>
         <div class="campo" style="grid-column:1/-1"><label for="t-perfil">Perfil da turma</label><textarea id="t-perfil" placeholder="Cargos, nível de liderança, principais desafios, o que a empresa espera do programa."></textarea></div>
         <div class="linha"><button class="btn pri" type="submit">Criar turma</button></div>
@@ -56,7 +74,7 @@ async function lista(ctx, el) {
       return `<a class="cartao" href="#/turma/${t.id}" style="margin-top:0;color:inherit;text-decoration:none;display:grid;gap:6px">
         <span class="peq apagado" style="text-transform:uppercase;letter-spacing:.05em;font-weight:600">${esc(t.empresa ? t.empresa.nome : '')}</span>
         <h3>${esc(t.nome)}</h3>
-        <div class="linha" style="gap:6px"><span class="selo ${cls}">${st}</span><span class="selo neutro">${mods.length} módulo(s)</span>${t.participantes_previstos ? `<span class="selo neutro">${t.participantes_previstos} participantes</span>` : ''}</div>
+        <div class="linha" style="gap:6px"><span class="selo ${cls}">${st}</span>${t.formato ? `<span class="selo neutro">${COMO[t.formato]}</span>` : ctx.ehAdmin ? '<span class="selo alerta">Online ou presencial?</span>' : ''}<span class="selo neutro">${mods.length} módulo(s)</span>${t.participantes_previstos ? `<span class="selo neutro">${t.participantes_previstos} participantes</span>` : ''}</div>
         <p class="peq apagado">${t.inicio ? `${dataBR(`${t.inicio}T12:00:00-03:00`)} a ${dataBR(`${t.fim_previsto || t.inicio}T12:00:00-03:00`)}` : 'Período a definir'}${prox ? ` · próximo módulo ${diaMes(prox.data_hora)}` : ''}</p>
       </a>`;
     }).join('') || `<div class="vazio" style="grid-column:1/-1">${ctx.ehAdmin ? 'Nenhuma turma ainda. Clique em "+ Nova turma".' : 'Você ainda não está em nenhum módulo. A administração da Mentorei faz essa ligação.'}</div>`}</div>`;
@@ -72,12 +90,18 @@ async function lista(ctx, el) {
     ev.target.insertAdjacentHTML('afterbegin', `<option value="${data.id}">${esc(data.nome)}</option>`);
     ev.target.value = data.id;
   });
+  el.querySelectorAll('input[name=t-formato]').forEach((r) => r.addEventListener('change', () => {
+    el.querySelector('#t-local-caixa').hidden = r.value === 'online';
+  }));
   el.querySelector('#f-turma').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const v = (s) => el.querySelector(s).value.trim();
     if (!v('#t-empresa') || v('#t-empresa') === 'nova' || !v('#t-nome')) { avisar('Escolha a empresa e dê um nome à turma.', true); return; }
-    const { data, error: e } = await sb.from('turmas').insert({ empresa_id: v('#t-empresa'), nome: v('#t-nome'), perfil_turma: v('#t-perfil') || null,
-      participantes_previstos: v('#t-part') === '' ? null : Number(v('#t-part')), inicio: v('#t-ini') || null, fim_previsto: v('#t-fim') || null }).select('id').single();
+    const formato = (el.querySelector('input[name=t-formato]:checked') || {}).value;
+    if (!formato) { avisar('Marque se a turma é online, presencial ou parte de cada.', true); return; }
+    const { data, error: e } = await gravarTurma({ empresa_id: v('#t-empresa'), nome: v('#t-nome'), perfil_turma: v('#t-perfil') || null,
+      participantes_previstos: v('#t-part') === '' ? null : Number(v('#t-part')), inicio: v('#t-ini') || null, fim_previsto: v('#t-fim') || null,
+      formato, local: formato === 'online' ? null : (v('#t-local') || null) });
     if (e) { avisar(explicarErro(e), true); return; }
     avisar('Turma criada. Agora cadastre os módulos.');
     ctx.irPara(`#/turma/${data.id}`);
@@ -106,9 +130,12 @@ async function paginaTurma(ctx, el, id) {
           ${adm ? `<div class="campo" style="grid-column:1/-1"><label>Nome</label><input type="text" data-t="nome" value="${esc(t.nome)}"></div>` : ''}
           <div class="campo"><label>Participantes esperados</label><input type="number" min="0" data-t="participantes_previstos" value="${esc(t.participantes_previstos ?? '')}"${dis}></div>
           <div class="campo"><label>Situação</label><select data-t="status"${dis}>${Object.entries(STATUS).map(([k, [r]]) => `<option value="${k}"${k === t.status ? ' selected' : ''}>${r}</option>`).join('')}</select></div>
+          <div class="campo"><label>Como vai ser</label><select data-t="formato"${dis}><option value="">Escolha…</option>${Object.entries(COMO).map(([k, r]) => `<option value="${k}"${k === t.formato ? ' selected' : ''}>${r}</option>`).join('')}</select></div>
+          <div class="campo"><label>Cidade (aulas presenciais)</label><input type="text" data-t="local" value="${esc(t.local || '')}" placeholder="Ex.: Curitiba (PR)"${dis}></div>
           <div class="campo"><label>Início</label><input type="date" data-t="inicio" value="${esc(t.inicio || '')}"${dis}></div>
           <div class="campo"><label>Fim previsto</label><input type="date" data-t="fim_previsto" value="${esc(t.fim_previsto || '')}"${dis}></div>
         </div>
+        ${adm && !t.formato ? '<div class="aviso mt">Escolha se a turma é <b>online, presencial ou parte de cada</b>: a agenda usa essa informação para reservar os dias de deslocamento.</div>' : ''}
         <div class="campo mt"><label>Perfil da turma</label><textarea data-t="perfil_turma" style="min-height:120px" placeholder="Cargos, nível de liderança, principais desafios, o que a empresa espera."${dis}>${esc(t.perfil_turma || '')}</textarea></div>
         ${adm ? `<div class="campo mt"><label>Metodologia e observações (os mentores veem)</label><textarea data-t="observacoes" style="min-height:100px" placeholder="Como a aula é conduzida, personalização, cuidados com a turma. Não coloque valores nem condições comerciais.">${esc(t.observacoes || '')}</textarea></div>` : (t.observacoes ? `<p class="peq mt"><b>Metodologia e observações</b></p><p class="peq" style="white-space:pre-wrap">${esc(t.observacoes)}</p>` : '')}
       </div>
@@ -118,7 +145,8 @@ async function paginaTurma(ctx, el, id) {
           <div class="grade g2" style="gap:10px">
             <div class="campo" style="grid-column:1/-1"><label>Título do módulo</label><input type="text" id="m-titulo" placeholder="Ex.: Feedback que desenvolve" required></div>
             <div class="campo"><label>Data e hora (Brasília)</label><input type="datetime-local" id="m-data"></div>
-            <div class="campo"><label>Onde acontece</label><select id="m-formato">${Object.entries(FORMATO).map(([k, r]) => `<option value="${k}">${r}</option>`).join('')}</select></div>
+            <div class="campo"><label>Onde acontece *</label><select id="m-formato"><option value="">Escolha…</option>${Object.entries(FORMATO).filter(([k]) => k !== 'indefinido')
+              .map(([k, r]) => `<option value="${k}"${k === (t.formato === 'presencial' ? 'presencial' : t.formato === 'online' ? 'meet' : '') ? ' selected' : ''}>${r}</option>`).join('')}</select></div>
             <div class="campo" style="grid-column:1/-1"><label>Link da sala (ou endereço, se presencial)</label><input type="text" id="m-link" placeholder="https://…"></div>
           </div>
           <p class="peq mt"><b>Mentor(es) do módulo</b></p>
@@ -140,7 +168,7 @@ async function paginaTurma(ctx, el, id) {
       const mud = {};
       el.querySelectorAll('[data-t]').forEach((c) => { const x = c.value.trim(); mud[c.dataset.t] = c.type === 'number' ? (x === '' ? null : Number(x)) : (x || null); });
       if (!mud.nome) delete mud.nome;
-      const { error: e } = await sb.from('turmas').update(mud).eq('id', id);
+      const { error: e } = await gravarTurma(mud, id);
       if (e) throw e;
     },
   });
@@ -151,22 +179,21 @@ async function paginaTurma(ctx, el, id) {
     const titulo = el.querySelector('#m-titulo').value.trim();
     if (!titulo) { avisar('Dê um título ao módulo.', true); return; }
     const formato = el.querySelector('#m-formato').value;
+    if (!formato) { avisar('Escolha onde o módulo acontece: online (Meet, Zoom, Teams) ou presencial.', true); return; }
     const lk = el.querySelector('#m-link').value.trim();
     const numero = mods.reduce((a, m) => Math.max(a, m.numero), 0) + 1;
     const quando = localParaISO(el.querySelector('#m-data').value);
     const escolhidos = [...el.querySelectorAll('input[name=m-ment]:checked')].map((c) => c.value);
-    if (quando && escolhidos.length) {
-      const { verificarChoques } = await import('./agenda-dados.js');
-      const lista = await verificarChoques(ctx, { mentorIds: escolhidos, inicio: quando, duracaoMin: formato === 'presencial' ? 240 : 120, formato: formato === 'presencial' ? 'presencial' : 'online' });
-      if (lista.length && !window.confirm(`Atenção na agenda:\n\n• ${lista.join('\n• ')}\n\nCriar o módulo mesmo assim?`)) return;
-    }
     const { data: novo, error: e } = await sb.from('modulos').insert({ turma_id: id, numero, titulo, formato,
       data_hora: localParaISO(el.querySelector('#m-data').value) || null,
-      link: formato === 'presencial' ? null : (lk || null), local: formato === 'presencial' ? (lk || null) : null }).select('id').single();
+      link: formato === 'presencial' ? null : (lk || null), local: formato === 'presencial' ? (lk || t.local || null) : null }).select('id').single();
     if (e) { avisar(explicarErro(e), true); return; }
     const ids = [...el.querySelectorAll('input[name=m-ment]:checked')].map((c) => ({ modulo_id: novo.id, mentor_id: c.value }));
     if (ids.length) { const r = await sb.from('modulo_mentores').insert(ids); if (r.error) avisar(explicarErro(r.error), true); }
     avisar('Módulo criado.');
+    const { conferirModulos, mostrarConflitos } = await import('./agenda-dados.js');
+    const conflitos = await conferirModulos(ctx, [{ id: novo.id, numero, titulo, data_hora: quando, formato, turma: t, mentorIds: escolhidos }]);
+    if (conflitos.length) { mostrarConflitos(conflitos, { intro: 'O módulo foi criado, mas a data bate com algo na agenda:', aoFechar: () => ctx.irPara(`#/modulo/${novo.id}`) }); return; }
     ctx.irPara(`#/modulo/${novo.id}`);
   });
   return { sair: () => { salvador.agora(); salvador.parar(); } };
@@ -179,7 +206,7 @@ const TIPO_POR_EXT = { pdf: 'application/pdf', ppt: 'application/vnd.ms-powerpoi
 const tamanho = (b) => (b ? (b > 1048576 ? `${(b / 1048576).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(b / 1024))} KB`) : '');
 
 async function paginaModulo(ctx, el, id) {
-  const { data: m, error } = await sb.from('modulos').select(`*, turma:turmas(id, nome, perfil_turma, participantes_previstos, empresa:empresas(nome)),
+  const { data: m, error } = await sb.from('modulos').select(`*, turma:turmas(*, empresa:empresas(nome)),
     mentores:modulo_mentores(mentor:perfis(id, nome, foto_url)), arquivos:modulo_arquivos(id, tipo, nome, caminho, tamanho, enviado_por, enviado_em, autor:perfis(nome))`).eq('id', id).maybeSingle();
   if (error) throw error;
   if (!m) { el.innerHTML = '<div class="vazio">Módulo não encontrado, ou você não tem acesso a ele.</div>'; return; }
@@ -291,12 +318,14 @@ async function paginaModulo(ctx, el, id) {
     const quando = localParaISO(el.querySelector('[data-mod="data_hora"]').value);
     const ids = [...el.querySelectorAll('#mentores input:checked')].map((c) => c.value);
     if (!quando || !ids.length) { box.innerHTML = ''; return; }
-    const formato = el.querySelector('[data-mod="formato"]').value === 'presencial' ? 'presencial' : 'online';
-    const dur = Number(el.querySelector('[data-mod="duracao_min"]').value) || (formato === 'presencial' ? 240 : 120);
-    const { verificarChoques } = await import('./agenda-dados.js');
-    const lista = await verificarChoques(ctx, { mentorIds: ids, inicio: quando, duracaoMin: dur, formato, ignorar: id });
-    box.innerHTML = lista.length ? `<div class="aviso"><b>Atenção na agenda dos mentores:</b><ul class="peq">${lista.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`
-      : '<p class="peq" style="color:var(--verde-esc)">✓ Sem choques na agenda dos mentores.</p>';
+    const formato = el.querySelector('[data-mod="formato"]').value;
+    const indefinido = formato === 'indefinido' && !(m.turma && m.turma.formato === 'presencial')
+      ? '<div class="aviso">Escolha em "Onde acontece" se a aula é online ou presencial: a agenda usa essa informação.</div>' : '';
+    if (!quando) { box.innerHTML = indefinido; return; }
+    const { conferirModulos } = await import('./agenda-dados.js');
+    const lista = await conferirModulos(ctx, [{ id, data_hora: quando, duracao_min: el.querySelector('[data-mod="duracao_min"]').value, formato, turma: m.turma, mentorIds: ids }]);
+    box.innerHTML = indefinido + (lista.length ? `<div class="aviso"><b>Atenção na agenda:</b><ul class="peq">${lista[0].avisos.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`
+      : `<p class="peq" style="color:var(--verde-esc)">✓ ${ids.length ? 'Sem choques na agenda dos mentores.' : 'Data livre na agenda. Ainda falta escolher o mentor.'}</p>`);
   };
   if (adm) {
     el.querySelectorAll('[data-mod="data_hora"], [data-mod="formato"], [data-mod="duracao_min"]').forEach((c) => c.addEventListener('change', conferirChoques));
