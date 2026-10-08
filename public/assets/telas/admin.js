@@ -22,15 +22,28 @@ export async function render(ctx, el, params) {
 }
 
 async function carregarTudo() {
-  const [emp, prog, ment, sess, mentores] = await Promise.all([
+  const [emp, prog, ment, sess, mentores, turmas, modulos] = await Promise.all([
     sb.from('empresas').select('*').order('nome'),
     sb.from('programas').select('*').order('criado_em', { ascending: false }),
     sb.from('mentorados').select('id, nome, programa_id, status'),
-    sb.from('sessoes').select('id, mentorado_id, data_hora, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em'),
+    sb.from('sessoes').select('id, mentorado_id, mentor_id, data_hora, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em'),
     sb.from('perfis').select('id, nome, papel, tambem_mentor, ativo').or('papel.eq.mentor,tambem_mentor.eq.true').eq('ativo', true).order('nome'),
+    sb.from('turmas').select('id, nome, empresa_id, status'),
+    sb.from('modulos').select('id, turma_id, data_hora, percepcoes_em, mentores:modulo_mentores(mentor_id)'),
   ]);
   for (const r of [emp, prog, ment, sess, mentores]) if (r.error) throw r.error;
-  return { empresas: emp.data, programas: prog.data, mentorados: ment.data, sessoes: sess.data, mentores: mentores.data };
+  // Turmas e módulos são opcionais (o script 11 pode não ter sido rodado): sem eles o painel continua funcionando.
+  return { empresas: emp.data, programas: prog.data, mentorados: ment.data, sessoes: sess.data, mentores: mentores.data,
+    turmas: turmas.error ? [] : turmas.data, modulos: modulos.error ? [] : modulos.data };
+}
+
+// Números das turmas (mentoria em grupo): um módulo está "aberto" enquanto a aula não aconteceu ou o mentor ainda não registrou as percepções.
+function numerosGrupo(turmas, modulos) {
+  const limite = Date.now() - 2 * 3600 * 1000;
+  const passou = (m) => m.data_hora && new Date(m.data_hora).getTime() < limite;
+  const aAcontecer = modulos.filter((m) => !passou(m)).length;
+  const semPercepcoes = modulos.filter((m) => passou(m) && !m.percepcoes_em).length;
+  return { turmas: turmas.length, emAndamento: turmas.filter((t) => t.status === 'em_andamento').length, modulos: modulos.length, aAcontecer, semPercepcoes, abertos: aAcontecer + semPercepcoes };
 }
 
 function numeros(sessoes) {
@@ -77,12 +90,31 @@ async function visaoGeral(ctx, el) {
     const progIds = new Set(progs.map((p) => p.id));
     const ments = d.mentorados.filter((m) => progIds.has(m.programa_id));
     const mentIds = new Set(ments.map((m) => m.id));
-    const n = numeros(d.sessoes.filter((s) => mentIds.has(s.mentorado_id)));
+    const sessFiltro = d.sessoes.filter((s) => mentIds.has(s.mentorado_id));
+    const n = numeros(sessFiltro);
+    // Turmas seguem o filtro de empresa (o filtro de programa é só das mentorias individuais).
+    const turmas = d.turmas.filter((t) => !fe || t.empresa_id === fe);
+    const turmaIds = new Set(turmas.map((t) => t.id));
+    const modulos = d.modulos.filter((m) => turmaIds.has(m.turma_id));
+    const g = numerosGrupo(turmas, modulos);
+    // Empresa ativa = tem programa individual ou turma em andamento.
+    const empsFiltro = d.empresas.filter((e) => !fe || e.id === fe);
+    const empAtivas = new Set([...progs.filter((p) => p.status === 'em_andamento').map((p) => p.empresa_id), ...turmas.filter((t) => t.status === 'em_andamento').map((t) => t.empresa_id)]);
+    // Mentor em atividade = tem sessão individual agendada ou módulo de turma ainda por acontecer.
+    const agoraMs = Date.now(), limite = agoraMs - 2 * 3600 * 1000;
+    const mentoresAtivos = new Set();
+    sessFiltro.forEach((s) => { if (s.mentor_id && s.situacao === 'agendada' && s.data_hora && new Date(s.data_hora).getTime() >= agoraMs) mentoresAtivos.add(s.mentor_id); });
+    modulos.forEach((m) => { if (!(m.data_hora && new Date(m.data_hora).getTime() < limite)) (m.mentores || []).forEach((x) => x.mentor_id && mentoresAtivos.add(x.mentor_id)); });
     el.querySelector('#numeros').innerHTML = `<div class="grade g4">
       <div class="cartao numero"><b>${ments.filter((m) => m.status === 'ativo').length}</b><span>mentorados ativos</span></div>
       <div class="cartao numero"><b>${n.feitas}<small style="font-size:14px;color:var(--apagado)"> de ${n.total}</small></b><span>sessões feitas</span></div>
       <div class="cartao numero"><b>${n.presenca == null ? '—' : `${n.presenca}%`}</b><span>presença (${n.faltas} faltas)</span></div>
       <div class="cartao numero"><b>${d.mentores.length}</b><span>mentores ativos</span></div></div>
+    <div class="grade g4 mt">
+      <div class="cartao numero"><b>${empAtivas.size}<small style="font-size:14px;color:var(--apagado)"> de ${empsFiltro.length}</small></b><span>empresas ativas</span></div>
+      <div class="cartao numero"><b>${g.emAndamento}<small style="font-size:14px;color:var(--apagado)"> de ${g.turmas}</small></b><span>turmas em andamento</span></div>
+      <div class="cartao numero"><b>${g.abertos}<small style="font-size:14px;color:var(--apagado)"> de ${g.modulos}</small></b><span>módulos abertos${g.semPercepcoes ? ` (${g.semPercepcoes} sem percepções)` : ''}</span></div>
+      <div class="cartao numero"><b>${mentoresAtivos.size}<small style="font-size:14px;color:var(--apagado)"> de ${d.mentores.length}</small></b><span>mentores com agenda à frente</span></div></div>
       ${n.semRegistro || n.atrasadas ? `<div class="aviso mt">${n.semRegistro ? `<b>${n.semRegistro}</b> sessão(ões) já passaram há mais de 48 horas sem registro. ` : ''}${n.atrasadas ? `<b>${n.atrasadas}</b> tarefa(s) atrasada(s).` : ''}</div>` : ''}`;
     const emps = d.empresas.filter((e) => !fe || e.id === fe);
     el.querySelector('#empresas').innerHTML = emps.length ? emps.map((e) => {
