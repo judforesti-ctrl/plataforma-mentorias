@@ -56,6 +56,7 @@ async function visaoGeral(ctx, el) {
     </div>
     <div id="numeros"></div>
     <div id="agenda-avisos"></div>
+    <div id="vendas" class="mt"></div>
     <div class="cartao mt" id="google"><p class="peq apagado">Verificando a Google Agenda…</p></div>
     <div class="cartao mt" id="backup"><p class="peq apagado">Verificando as cópias de segurança…</p></div>
     <h2 class="mt2">Para hoje e pendências</h2>
@@ -105,6 +106,7 @@ async function visaoGeral(ctx, el) {
   import('./agenda.js').then(({ avisosAgenda }) => avisosAgenda(ctx, el.querySelector('#agenda-avisos')));
   cartaoGoogle(el.querySelector('#google'));
   import('./backup.js').then(({ cartaoBackup }) => cartaoBackup(ctx, el.querySelector('#backup')));
+  import('./vendas.js').then(({ cartaoVendas }) => cartaoVendas(ctx, el.querySelector('#vendas')));
   el.addEventListener('click', async (ev) => {
     const tr = ev.target.closest('[data-ir]'); if (tr) { location.hash = tr.dataset.ir; return; }
     if (ev.target.id === 'nova-empresa') {

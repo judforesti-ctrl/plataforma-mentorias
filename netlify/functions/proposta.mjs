@@ -64,8 +64,22 @@ const ESQUEMA = {
       },
     },
     faltando: { type: 'array', items: texto },
+    comercial: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['servico', 'valor_total', 'validade', 'contato', 'condicoes'],
+      properties: {
+        servico: { type: 'string', enum: ['palestra', 'treinamento', 'workshop', 'mentoria_grupo', 'mentoria_individual', 'diagnostico', 'outro'] },
+        valor_total: { type: ['number', 'null'] },
+        validade: textoOuNulo,
+        contato: { type: 'object', additionalProperties: false, required: ['nome', 'cargo', 'email', 'whatsapp'],
+          properties: { nome: textoOuNulo, cargo: textoOuNulo, email: textoOuNulo, whatsapp: textoOuNulo } },
+        condicoes: textoOuNulo,
+      },
+    },
   },
 };
+ESQUEMA.required = ['empresa', 'turmas', 'faltando', 'comercial'];
 
 const INSTRUCOES = `Você organiza propostas comerciais da Mentorei (workshops, treinamentos e mentorias em grupo) para cadastrar turmas numa plataforma interna. Responda em português do Brasil, no formato pedido.
 
@@ -77,7 +91,7 @@ Como as propostas da Mentorei costumam ser:
 - A página de cada pilar ou módulo traz OBJETIVO, ENTREGA PRÁTICA, TÓPICOS ABORDADOS e o período e a duração (ex.: "Manhã • 2 horas").
 - "Uma experiência dinâmica e aplicada" e "Personalização que faz diferença": a metodologia. Vai para "metodologia".
 - "Organização da jornada": a grade com período, duração e foco de cada módulo.
-- "Investimento" e "Próximos passos": ignore (nunca copie preços).
+- "Investimento" e "Próximos passos": o valor e as condições vão SÓ para "comercial" (nunca para turmas ou módulos).
 - O texto vem de um PDF do Canva ou de um PowerPoint (marcado por slide): palavras às vezes aparecem grudadas ("Fomentara carteira") ou partidas ("Experi ê ncia"). Corrija a separação das palavras, sem mudar o conteúdo.
 
 Regras:
@@ -93,8 +107,9 @@ Regras:
 - inicio e fim_previsto: datas no formato AAAA-MM-DD, só se a proposta trouxer datas completas.
 - modulos: na ordem da proposta. titulo = nome do módulo ou pilar, sem o número (ex.: "Leitura do cooperado e da carteira"). tematica = três partes, nesta ordem: "Objetivo: ..." (uma frase), "Entrega prática: ..." (se houver) e os tópicos abordados como linhas começando com "• ". Se a proposta disser o período (manhã, tarde), comece a temática com "Período: Manhã". duracao_min = duração do módulo em minutos (ex.: "2 horas" = 120); se só houver a carga total, deixe nulo. formato = online (meet, zoom, teams) ou presencial só se a proposta disser; senão "indefinido". data (AAAA-MM-DD) e hora (HH:MM) só se estiverem escritas. recomendacoes = orientações para quem vai conduzir que a proposta mencionar (metodologia, dinâmicas, ferramentas, cuidados); senão nulo.
 - individual = true quando o "módulo" for mentoria individual ou sessão um a um (não é aula em grupo).
-- Não inclua preços, valores, investimento, condições de pagamento nem dados bancários.
-- faltando: lista curta, em linguagem simples, do que a coordenação precisa completar à mão (ex.: "Datas e horários dos módulos", "Link da sala", "Quantidade de participantes", "Mentores de cada módulo").`;
+- Nas turmas e módulos não inclua preços, valores, investimento, condições de pagamento nem dados bancários: isso vai só em "comercial".
+- faltando: lista curta, em linguagem simples, do que a coordenação precisa completar à mão (ex.: "Datas e horários dos módulos", "Link da sala", "Quantidade de participantes", "Mentores de cada módulo").
+- comercial (para o pipeline de vendas): servico = o tipo principal do que está sendo vendido (palestra; treinamento ou curso; workshop; mentoria_grupo = mentoria em grupo, trilha ou jornada com encontros em grupo; mentoria_individual = sessões um a um; diagnostico = Radar ou avaliação; outro). valor_total = o investimento total da proposta em reais, como número (ex.: "R$ 18.500,00" = 18500); se houver parcelas, some o total; se houver mais de uma opção de valor, use a opção completa e explique em condicoes; nulo se a proposta não trouxer valor. validade = data (AAAA-MM-DD) até quando a proposta vale, só se estiver escrita. contato = nome, cargo, e-mail e WhatsApp/telefone da pessoa da empresa a quem a proposta é dirigida, só se estiverem escritos (nunca os dados da Mentorei). condicoes = forma de pagamento, parcelas, o que está incluso ou não, em uma ou duas frases; nulo se não houver.`;
 
 export default async (req) => {
   const secreta = env('SUPABASE_SECRET_KEY').trim();
@@ -129,6 +144,7 @@ export default async (req) => {
     let resultado;
     try { resultado = JSON.parse(json); } catch (_) { return falhar('A IA não devolveu a proposta organizada. Tente de novo.'); }
     await supa(`/rest/v1/importacoes_proposta?id=eq.${id}`, { metodo: 'PATCH', chave: secreta, corpo: { status: 'pronto', resultado } });
+    try { await criarOportunidade(secreta, id, resultado, String(b.arquivo || ''), eu.dados.id); } catch (_) { /* o pipeline não pode travar a importação */ }
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return falhar('A chave do Claude na Netlify não está valendo.');
     if (e instanceof Anthropic.RateLimitError) return falhar('Muitos pedidos ao mesmo tempo. Espere um minuto e tente de novo.');
@@ -136,3 +152,52 @@ export default async (req) => {
     return falhar('Não foi possível falar com o Claude agora. Tente de novo.');
   }
 };
+
+// ---------- pipeline de vendas (Fase 4): toda proposta importada vira uma oportunidade ----------
+// Se a empresa já tem uma oportunidade aberta em "proposta" ou "negociação", a importação entra como nova versão da proposta.
+// Sem o script 19 no Supabase, nada acontece aqui (a importação segue normal).
+const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+async function criarOportunidade(chave, importacaoId, r, arquivo, criadoPor) {
+  const c = r.comercial || {};
+  const ler = async (caminho) => { const x = await supa(caminho, { chave }); return x.ok && Array.isArray(x.dados) ? x.dados : null; };
+  const gravar = async (caminho, corpo) => {
+    const headers = { apikey: chave, 'Content-Type': 'application/json', Prefer: 'return=representation' };
+    const x = await fetch(`${SUPABASE_URL}${caminho}`, { method: 'POST', headers, body: JSON.stringify(corpo) });
+    const t = await x.text(); try { return x.ok ? JSON.parse(t)[0] : null; } catch (_) { return null; }
+  };
+  const tabela = await ler('/rest/v1/oportunidades?select=id&limit=1');
+  if (tabela === null) return;                                      // script 19 ainda não rodado
+  // empresa: a já cadastrada com o mesmo nome, ou uma nova
+  const empresas = (await ler('/rest/v1/empresas?select=id,nome')) || [];
+  const nomeN = norm(r.empresa);
+  let empresa = empresas.find((e) => norm(e.nome) === nomeN) || empresas.find((e) => norm(e.nome) && nomeN.includes(norm(e.nome)));
+  if (!empresa && r.empresa) empresa = await gravar('/rest/v1/empresas', { nome: String(r.empresa).trim().slice(0, 200) });
+  if (!empresa) return;
+  // contato da proposta
+  let contato = null;
+  if (c.contato && c.contato.nome) {
+    const existentes = (await ler(`/rest/v1/contatos?empresa_id=eq.${empresa.id}&select=id,nome`)) || [];
+    contato = existentes.find((x) => norm(x.nome) === norm(c.contato.nome))
+      || await gravar('/rest/v1/contatos', { empresa_id: empresa.id, nome: c.contato.nome, cargo: c.contato.cargo || null, email: c.contato.email || null, whatsapp: c.contato.whatsapp || null, criado_por: criadoPor });
+  }
+  const valor = typeof c.valor_total === 'number' && c.valor_total > 0 ? Math.round(c.valor_total * 100) / 100 : null;
+  const titulo = ((r.turmas || [])[0] && r.turmas[0].nome) || `Proposta · ${r.empresa}`;
+  const abertas = (await ler(`/rest/v1/oportunidades?empresa_id=eq.${empresa.id}&etapa=in.(proposta,negociacao)&select=id,titulo&order=criado_em.desc`)) || [];
+  let op = abertas[0] || null;
+  let versao = 1;
+  if (op) {
+    const vs = (await ler(`/rest/v1/propostas?oportunidade_id=eq.${op.id}&select=versao`)) || [];
+    versao = vs.reduce((m, v) => Math.max(m, v.versao || 0), 0) + 1;
+    await supa(`/rest/v1/oportunidades?id=eq.${op.id}`, { metodo: 'PATCH', chave, corpo: { ...(valor ? { valor } : {}), importacao_id: importacaoId, ...(contato ? { contato_id: contato.id } : {}) } });
+  } else {
+    const prox = new Date(); prox.setUTCDate(prox.getUTCDate() + 7); prox.setUTCHours(12, 0, 0, 0);   // 9h de Brasília, daqui a 7 dias
+    op = await gravar('/rest/v1/oportunidades', { empresa_id: empresa.id, titulo: titulo.slice(0, 200), servico: c.servico || 'treinamento', valor, etapa: 'proposta',
+      contato_id: contato ? contato.id : null, responsavel_id: criadoPor, proximo_contato_em: prox.toISOString(), proximo_contato_por: criadoPor,
+      proximo_contato_obs: 'Confirmar se recebeu a proposta e tirar dúvidas', importacao_id: importacaoId, observacoes: c.condicoes || null, criado_por: criadoPor });
+    if (!op) return;
+  }
+  await gravar('/rest/v1/propostas', { oportunidade_id: op.id, versao, valor, validade: c.validade || null, arquivo: arquivo.slice(0, 200), importacao_id: importacaoId,
+    resumo: [c.servico ? `Serviço: ${c.servico}` : '', c.condicoes || '', (r.turmas || []).map((t) => t.nome).join('; ')].filter(Boolean).join('\n'), enviada_em: new Date().toISOString().slice(0, 10), criado_por: criadoPor });
+  await gravar('/rest/v1/interacoes', { oportunidade_id: op.id, contato_id: contato ? contato.id : null, tipo: 'proposta',
+    texto: `Proposta importada${versao > 1 ? ` (versão ${versao})` : ''}: ${arquivo}${valor ? ` · R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}`, por: criadoPor });
+}

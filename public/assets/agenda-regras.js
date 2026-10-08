@@ -15,6 +15,7 @@ export const TIPOS = {
   presencial: { nome: 'Turma presencial', peso: 5, firme: true },
   reservado: { nome: 'Reservado (cliente confirmou)', peso: 5, firme: true },
   reuniao: { nome: 'Reunião', peso: 5, firme: true },
+  contato: { nome: 'Contato de venda', peso: 1, firme: false },
   pre: { nome: 'Pré-bloqueio', peso: 4, firme: false },
   deslocamento: { nome: 'Deslocamento', peso: 3, firme: false },
   bloqueio: { nome: 'Bloqueio do mentor', peso: 6, firme: true },
@@ -113,7 +114,7 @@ export function quemDaReuniao(r) {
   return [nomes.join(', '), n ? `${n} convidado${n > 1 ? 's' : ''} de fora` : ''].filter(Boolean).join(' + ');
 }
 
-export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], reservas = [], reunioes = [] } = {}, { de, ate } = {}) {
+export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], reservas = [], reunioes = [], contatos = [] } = {}, { de, ate } = {}) {
   de = de || somarDias(hoje(), -400);
   ate = ate || somarDias(hoje(), 400);
   const out = [];
@@ -217,6 +218,16 @@ export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], rese
     out.push({ id: `reuniao-${r.id}`, tipo: 'reuniao', origem: r, mentores: r.participantes || [], todos: false, dia: r.dia,
       periodos: periodosDoIntervalo(hi, hf != null ? hf : hi + 1), ini, fim, diaInteiro: false,
       titulo: `Reunião · ${r.titulo}`, sub: quemDaReuniao(r), formato: 'online', link: '', horas: Math.max(0, (fim - ini) / 3600000), meet: r.meet_link || '' });
+  }
+
+  // próximos contatos de venda (pipeline): lembrete de 30 minutos na agenda de quem vai fazer o contato
+  for (const o of contatos) {
+    if (!o.proximo_contato_em || !o.proximo_contato_por || o.etapa === 'fechado' || o.etapa === 'perdido') continue;
+    const ini = Date.parse(o.proximo_contato_em), fim = ini + 30 * 60000;
+    const h = horaDe(o.proximo_contato_em);
+    out.push({ id: `contato-${o.id}`, tipo: 'contato', origem: o, mentores: [o.proximo_contato_por], todos: false, dia: diaDe(o.proximo_contato_em),
+      periodos: [periodoDaHora(h)], ini, fim, diaInteiro: false, titulo: `Contato · ${(o.empresa && o.empresa.nome) || o.empresa_nome || 'cliente'}`,
+      sub: `${o.titulo || ''}${o.proximo_contato_obs ? ` · ${o.proximo_contato_obs}` : ''}`, formato: '', link: `#/vendas/oportunidade/${o.id}`, horas: 0 });
   }
 
   // feriados nacionais (valem para todos)

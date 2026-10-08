@@ -36,13 +36,16 @@ export async function carregarAgenda(ctx) {
   if (!ctx.ehAdmin) qs = qs.eq('mentor_id', eu);
   // reuniões (script 18): sem a tabela, a agenda segue sem elas
   const lerReunioes = async () => { const r = await sb.from('agenda_reunioes').select('*'); return r.error ? null : (r.data || []); };
-  const [sessoes, modulosBase, extras, bloqueios, reservas, reunioes] = await Promise.all([
+  // próximos contatos de venda (script 19; só a administração enxerga)
+  const lerContatos = async () => { if (!ctx.ehAdmin) return []; const r = await sb.from('oportunidades').select('id, titulo, etapa, proximo_contato_em, proximo_contato_por, proximo_contato_obs, empresa:empresas(nome)').not('proximo_contato_em', 'is', null); return r.error ? [] : (r.data || []); };
+  const [sessoes, modulosBase, extras, bloqueios, reservas, reunioes, contatos] = await Promise.all([
     tentar(qs),
     tentar(sb.from('modulos').select('id, numero, titulo, data_hora, duracao_min, formato, local, link, turma:turmas(id, nome, status, empresa:empresas(id, nome)), mentores:modulo_mentores(mentor_id)')),
     tentar(sb.from('modulo_mentores').select('modulo_id, mentor_id, com_deslocamento, viagem'), null),
     tentar(sb.from('agenda_bloqueios').select('*')),
     tentar(sb.from('agenda_reservas').select('*, empresa:empresas(id, nome), datas:agenda_reserva_datas(*), mentores:agenda_reserva_mentores(*)')),
     lerReunioes(),
+    lerContatos(),
   ]);
   const extra = new Map((extras || []).map((x) => [`${x.modulo_id}|${x.mentor_id}`, x]));
   // formato e cidade da turma (script 15); sem o script, segue sem essa informação
@@ -53,7 +56,7 @@ export async function carregarAgenda(ctx) {
     mentores: (m.mentores || []).map((v) => ({ com_deslocamento: true, viagem: {}, ...v, ...(extra.get(`${m.id}|${v.mentor_id}`) || {}) })) }));
   // sessão futura de quem foi desligado do programa não ocupa a agenda
   const sess = sessoes.filter((s) => !(s.mentorado && s.mentorado.status === 'desligado' && s.situacao === 'agendada'));
-  const eventos = montarEventos({ sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [] });
+  const eventos = montarEventos({ sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], contatos });
   return { mentores, sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], temReunioes: reunioes !== null,
     eventos, idx: indexar(eventos), faltaScript: falta, temExtras: extras !== null };
 }

@@ -40,6 +40,7 @@ const MENU = [
   ehAdmin && ['#/turmas', 'Turmas'],
   !ehAdmin && grupo && ['#/turmas', 'Minhas turmas'],
   ehAdmin && ['#/agenda', 'Agenda'],
+  ehAdmin && ['#/vendas', 'Vendas'],
   !ehAdmin && atende && ['#/agenda', 'Minha agenda'],
   (ehAdmin || atende) && ['#/arsenal', 'Arsenal'],
   ehAdmin && ['#/relatorios', 'Relatórios'],
@@ -76,6 +77,7 @@ const ROTAS = {
   modulo: () => import('./telas/turmas.js'),
   'importar-proposta': () => import('./telas/importar-proposta.js'),
   agenda: () => import('./telas/agenda.js'),
+  vendas: () => import('./telas/vendas.js'),
 };
 
 function montarTopo(atual) {

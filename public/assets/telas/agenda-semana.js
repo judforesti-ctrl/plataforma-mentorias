@@ -146,14 +146,16 @@ export function abrirReuniao(ctx, d, r, recarregar) {
 }
 
 // Janela para marcar (ou mudar) uma reunião.
-export async function abrirFormReuniao(ctx, d, { reuniao = null, dia = null } = {}, aoSalvar) {
+// titulo e convidados iniciais servem para marcar a partir de uma oportunidade de venda (e-mail do contato já preenchido).
+export async function abrirFormReuniao(ctx, d, { reuniao = null, dia = null, titulo: tituloIni = '', convidados: convIni = [] } = {}, aoSalvar) {
   const r = reuniao || {};
   const h = hoje();
   const diaIni = r.dia || dia || h;
   const hi = r.hora_inicio ? String(r.hora_inicio).slice(0, 5) : '10:00';
   const hf = r.hora_fim ? String(r.hora_fim).slice(0, 5) : '11:00';
   const marcados = new Set(r.participantes || [ctx.perfil.id]);
-  const convidados = [...(r.convidados || [])];
+  const convidados = [...(r.convidados || convIni || [])];
+  if (!r.titulo && tituloIni) r.titulo = tituloIni;
   const html = `<form id="f-reuniao" class="grade" style="gap:14px" novalidate>
     ${!d.temReunioes ? '<div class="aviso erro">Falta rodar o script <b>18-reunioes.sql</b> no Supabase. Sem ele, a reunião não é guardada.</div>' : ''}
     <div class="campo"><label for="r-titulo">Assunto *</label><input type="text" id="r-titulo" maxlength="200" placeholder="Ex.: Alinhamento com a gráfica" value="${esc(r.titulo || '')}" required></div>
@@ -234,7 +236,7 @@ export async function abrirFormReuniao(ctx, d, { reuniao = null, dia = null } = 
     const res = await api('/api/reuniao', { acao: reuniao ? 'mudar' : 'criar', id: r.id, titulo, dia: diaR, hora_inicio: ini, hora_fim: fim, participantes, convidados, pauta: f.querySelector('#r-pauta').value.trim() });
     if (!res.ok) { avisar(res.mensagem || 'Não consegui marcar a reunião agora.', true); btn.disabled = false; btn.textContent = reuniao ? 'Salvar e avisar os convidados' : 'Agendar e enviar convites'; return; }
     j.fechar();
-    mostrarResultado(res, aoSalvar);
+    mostrarResultado(res, () => { if (aoSalvar) aoSalvar(res.reuniao || null); });
   });
 }
 

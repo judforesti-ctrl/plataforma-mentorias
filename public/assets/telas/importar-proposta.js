@@ -105,7 +105,7 @@ export async function render(ctx, el) {
       if (!res) { estado.textContent = 'Demorou mais que o esperado. Tente de novo em alguns minutos.'; return; }
       if (res.status === 'erro') { estado.innerHTML = `<span class="selo erro">Não deu certo</span> ${esc(res.erro || '')}`; return; }
       estado.innerHTML = '<span class="selo">Pronto</span> Confira abaixo, ajuste o que precisar e clique em "Criar".';
-      revisar(ctx, el.querySelector('#revisao'), res.resultado, empresas || []);
+      revisar(ctx, el.querySelector('#revisao'), res.resultado, empresas || [], imp.id);
     } catch (e) { estado.textContent = ''; avisar(explicarErro(e), true); }
   });
 
@@ -120,7 +120,7 @@ function formatoInicial(t, m) {
   return 'indefinido';
 }
 
-function revisar(ctx, box, r, empresas) {
+function revisar(ctx, box, r, empresas, importacaoId = null) {
   const turmas = r.turmas || [];
   const achada = empresas.find((e) => norm(e.nome) === norm(r.empresa)) || empresas.find((e) => norm(e.nome) && norm(r.empresa).includes(norm(e.nome)));
   box.innerHTML = `
@@ -219,6 +219,14 @@ function revisar(ctx, box, r, empresas) {
         criadas.push(t.id);
       }
       if (!criadas.length) throw new Error('Marque pelo menos uma turma para criar.');
+      // pipeline de vendas: a oportunidade desta proposta fecha e fica ligada à turma
+      if (importacaoId) {
+        const { data: ops } = await sb.from('oportunidades').select('id, etapa').eq('importacao_id', importacaoId);
+        for (const op of (ops || []).filter((o) => o.etapa !== 'fechado' && o.etapa !== 'perdido')) {
+          await sb.from('oportunidades').update({ etapa: 'fechado', chance: 100, fechado_em: new Date().toISOString(), turma_id: criadas[0], empresa_id: empresaId }).eq('id', op.id);
+          await sb.from('interacoes').insert({ oportunidade_id: op.id, tipo: 'etapa', texto: 'Fechou: turma criada a partir da proposta.' });
+        }
+      }
       avisar(criadas.length > 1 ? `${criadas.length} turmas criadas.` : 'Turma criada. Agora defina os mentores e o link de cada módulo.');
       const destino = criadas.length === 1 ? `#/turma/${criadas[0]}` : '#/turmas';
       import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());

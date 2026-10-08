@@ -57,6 +57,17 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   sala do Meet, e-mail ou nome). REGRA: convites RECORRENTES nunca são apagados (nem na limpeza de duplicados, nem quando a sessão some).
   Remarcar nunca cria convite novo sozinho (isso duplicava): se não acha, a tela oferece "Criar convite novo".
 
+- Vendas / Fase 4 (script 19, `telas/vendas.js`, menu "Vendas", só administração; as sócias entram como administração):
+  empresas ganham tipo/cidade/UF/porte/origem; `contatos` (quantos quiser, flag marketing com data e quem marcou, para a Fase 5);
+  `oportunidades` (etapas contato → reuniao → proposta → negociacao → fechado | perdido; chance padrão por etapa; valor; responsável;
+  próximo contato = data + quem + o que, que vira evento "contato" na agenda da semana e no Painel; ultima_interacao_em define
+  🔥 quente < 20 dias e ❄ esfriando > 90 dias); `propostas` (versões); `interacoes` (histórico; trigger atualiza ultima_interacao_em);
+  `modelos_mensagem` ({contato} {empresa} {responsavel} {servico} {valor}); `metas_vendas`. Toda proposta importada vira oportunidade
+  sozinha (proposta.mjs → criarOportunidade; o esquema da IA ganhou "comercial": servico, valor_total, validade, contato, condicoes);
+  criar a turma pela importação fecha a oportunidade e liga turma_id. E-mail ao cliente por `/api/vendas-email` (Brevo);
+  WhatsApp por wa.me; reunião pelo botão da agenda (convidados pré-preenchidos). `vendas-lembrete` (agendada, 8h): e-mail dos
+  contatos do dia por responsável + cria "Renovação ·" para programa/turma terminados (30 dias depois, responsável = 1º admin).
+
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.
 - Informações delicadas: campo trancado da sessão, só mentores do mentorado e administração; nunca em relatório, Excel ou IA.
