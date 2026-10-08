@@ -238,10 +238,10 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ag-sem-topo select { width: auto; max-width: 100%; }
 .ag-sem-topo .ag-sem-dir { margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .btn.reuniao { background: #C0DD97; border-color: #97C459; color: #173404; }
-.ag-sem { display: grid; grid-template-columns: minmax(0, 1fr) 86px; border: 1px solid var(--linha); border-radius: var(--raio); overflow: hidden; background: var(--papel); }
+.ag-sem { display: grid; grid-template-columns: 86px minmax(0, 1fr); border: 1px solid var(--linha); border-radius: var(--raio); overflow: hidden; background: var(--papel); }
 .ag-sem-dia { display: contents; }
 .ag-sem-evs { padding: 10px 12px; border-top: 1px solid var(--linha); display: flex; flex-wrap: wrap; gap: 8px; min-height: 62px; align-items: center; min-width: 0; }
-.ag-sem-dt { border-top: 1px solid var(--linha); border-left: 1px solid var(--linha); padding: 10px 6px; text-align: center; display: grid; align-content: center; gap: 2px; }
+.ag-sem-dt { border-top: 1px solid var(--linha); border-right: 1px solid var(--linha); padding: 10px 6px; text-align: center; display: grid; align-content: center; gap: 2px; }
 .ag-sem-dia:first-child .ag-sem-evs, .ag-sem-dia:first-child .ag-sem-dt { border-top: 0; }
 .ag-sem-dt b { font-family: var(--f-titulo); font-size: 24px; font-weight: 800; line-height: 1.1; }
 .ag-sem-dt span { font-size: 12px; color: var(--apagado); }
@@ -274,7 +274,7 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ag-pessoas { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px; }
 .ag-pessoas .check { align-items: center; padding: 6px 8px; border: 1px solid var(--linha); border-radius: 10px; }
 .ag-pessoas .check .avatar { width: 26px; height: 26px; font-size: 10px; }
-@media (max-width: 640px) { .ag-sem { grid-template-columns: minmax(0, 1fr) 62px; } .ag-sem-dt b { font-size: 20px; } .ag-ev { width: 100%; } }
+@media (max-width: 640px) { .ag-sem { grid-template-columns: 62px minmax(0, 1fr); } .ag-sem-dt b { font-size: 20px; } .ag-ev { width: 100%; } }
 .ag-dia-itens { display: grid; gap: 2px; min-width: 0; }
 .ag-dia-itens > span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
 .ag-dia-itens .ag-amostra { width: 8px; height: 8px; margin-right: 4px; vertical-align: 0; }

@@ -52,8 +52,8 @@ export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, recarregar, 
     if (f) cartoes.unshift(`<span class="ag-ev t-feriado" style="cursor:default"><b>Feriado</b>${esc(f)}</span>`);
     if (livre) cartoes.push(`<span class="ag-sem-livre">✓ ${mentor ? `Dia livre para ${esc(primeiroNome(mentor.nome))}` : 'Dia livre para toda a equipe'}</span>`);
     if (foraTodos) cartoes.push(`<span class="ag-ev t-fora" style="cursor:default"><b>Não atende</b>${esc(primeiroNome(mentor.nome))} não atende neste dia da semana</span>`);
-    return `<div class="${classe}"><div class="ag-sem-evs">${cartoes.join('')}</div>
-      <div class="ag-sem-dt"><b>${dia.slice(8)}</b><span>${nomeSemana(dia)} · ${nomeMes(Number(dia.slice(5, 7))).slice(0, 3)}</span>${f ? '<i>feriado</i>' : ''}</div></div>`;
+    return `<div class="${classe}"><div class="ag-sem-dt"><b>${dia.slice(8)}</b><span>${nomeSemana(dia)} · ${nomeMes(Number(dia.slice(5, 7))).slice(0, 3)}</span>${f ? '<i>feriado</i>' : ''}</div>
+      <div class="ag-sem-evs">${cartoes.join('')}</div></div>`;
   };
 
   alvo.innerHTML = `

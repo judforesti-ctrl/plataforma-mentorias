@@ -36,7 +36,7 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (PDF ou .pptx) a plataforma confere a agenda e mostra os conflitos. Bloqueio do mentor tem tipo: pessoal, tempo de criação,
   tempo operacional, reunião entre mentores, férias ou outro (texto dele).
   Vista padrão da aba "Agenda da equipe" é a SEMANA (`telas/agenda-semana.js`): um dia por linha (seg a sáb; domingo só se tiver algo),
-  data grande à direita, dias livres em verde, filtro por mentor; "Quadro por mentor" é a vista antiga de 3 faixas, e o mês continua lá.
+  data grande à esquerda (ela pediu, 2026-10-08), dias livres em verde, filtro por mentor; "Quadro por mentor" é a vista antiga de 3 faixas, e o mês continua lá.
   Reuniões (script 18, tabela `agenda_reunioes`, função `/api/reuniao`): botão "+ Agendar reunião" na semana e na aba Bloqueios
   (o mentor também tem, em Minha agenda). Aceita gente da equipe e e-mails de fora sem cadastro; o servidor cria o convite na
   Google Agenda conectada com link do Meet (`conferenceDataVersion=1`) e o Google avisa todos. O convite fica em
