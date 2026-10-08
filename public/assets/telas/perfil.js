@@ -19,9 +19,10 @@ export async function render(ctx, el, [id, origem] = []) {
   if (ehMentorado) { const { data } = await sb.from('mentorados').select('*').eq('perfil_id', p.id).maybeSingle(); mentorado = data; }
   let foto = p.foto_url;
   const aut = p.autorizacoes || {};
+  const pendente = /@pendente\.mentorei\.com\.br$/i.test(String(p.email || ''));
 
   el.innerHTML = `
-    <div class="cab"><div>${origem === 'mentores' ? '<p class="peq apagado"><a href="#/mentores">← Mentores</a></p>' : outro ? '<p class="peq apagado"><a href="#/equipe">← Equipe</a></p>' : ''}<h1>${outro ? `Perfil de ${esc(p.nome)}` : ehMentorado ? 'Meus dados' : 'Meu perfil'}</h1><p class="sub">${esc(p.email)}${outro ? ' · você está editando como administração' : ''}</p></div>
+    <div class="cab"><div>${origem === 'mentores' ? '<p class="peq apagado"><a href="#/mentores">← Mentores</a></p>' : outro ? '<p class="peq apagado"><a href="#/equipe">← Equipe</a></p>' : ''}<h1>${outro ? `Perfil de ${esc(p.nome)}` : ehMentorado ? 'Meus dados' : 'Meu perfil'}</h1><p class="sub">${pendente ? 'Cadastro simples: ainda sem e-mail' : esc(p.email)}${outro ? ' · você está editando como administração' : ''}</p></div>
       <div class="acoes"><span class="salvo" id="indicador"></span></div></div>
     <div class="grade g2" style="align-items:start">
       <div>
@@ -40,11 +41,14 @@ export async function render(ctx, el, [id, origem] = []) {
         ${ehMentorado && !outro ? `<div class="cartao"><h3>Suas autorizações</h3><div class="lista mt">
           ${AUTORIZACOES_MENTORADO.filter((a) => !a.obrigatoria).map((a) => `<label class="check"><input type="checkbox" data-aut="${a.chave}"${aut[a.chave] ? ' checked' : ''}><span>${a.texto}</span></label>`).join('')}
           </div><p class="peq apagado mt">O termo de consentimento foi aceito em ${p.termo_aceito_em ? new Date(p.termo_aceito_em).toLocaleDateString('pt-BR') : '—'}. Para retirar o consentimento, escreva para contato@mentorei.com.br.</p></div>` : ''}
-        ${outro ? `<div class="cartao"><h3>Acesso à plataforma</h3>
+        ${outro && pendente ? `<div class="cartao" style="border-color:var(--ocre)"><h3>E-mail de acesso</h3>
+          <p class="peq apagado mt">Esta pessoa foi cadastrada sem e-mail (veio das trilhas da planilha). Coloque o e-mail dela para poder mandar o convite.</p>
+          <div class="linha mt"><input type="email" id="novo-email" placeholder="email@exemplo.com" style="flex:1;min-width:220px"><button type="button" class="btn pri" id="salvar-email">Salvar e-mail</button></div></div>` : ''}
+        ${outro && !pendente ? `<div class="cartao"><h3>Acesso à plataforma</h3>
           <p class="apagado mt">${p.termo_aceito_em ? `Entrou pela primeira vez em ${dataBR(p.termo_aceito_em)}. Se esqueceu a senha, gere um link novo.` : 'Ainda não entrou na plataforma. Mande o convite pelo WhatsApp, que não cai no spam.'}</p>
           <div class="linha mt"><button type="button" class="btn pri peq" id="acesso-whats">${p.termo_aceito_em ? 'Novo link de acesso pelo WhatsApp' : 'Convite por WhatsApp'}</button>
             ${p.termo_aceito_em ? '' : '<button type="button" class="btn peq" id="acesso-email">Convite por e-mail</button>'}</div></div>`
-          : '<div class="cartao"><h3>Senha</h3><p class="apagado mt">Para trocar a senha, saia e use "Esqueci minha senha" na tela de entrada.</p></div>'}
+          : outro ? '' : '<div class="cartao"><h3>Senha</h3><p class="apagado mt">Para trocar a senha, saia e use "Esqueci minha senha" na tela de entrada.</p></div>'}
       </div>
     </div>`;
 
@@ -68,6 +72,23 @@ export async function render(ctx, el, [id, origem] = []) {
   });
   el.querySelectorAll('input, textarea').forEach((c) => c.id !== 'apres' && c.addEventListener(c.type === 'checkbox' ? 'change' : 'input', salvador.mudou));
   ligarFoto(el, p, (url) => { foto = url; salvador.mudou(); });
+
+  // e-mail de verdade para quem foi cadastrado sem e-mail
+  el.querySelector('#salvar-email')?.addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget;
+    const email = el.querySelector('#novo-email').value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { avisar('Confira o e-mail.', true); return; }
+    btn.disabled = true;
+    await salvador.agora();
+    const { data: { session } } = await sb.auth.getSession();
+    const r = await fetch('/api/convidar', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ acao: 'trocar_email', perfil_id: p.id, email }) }).catch(() => null);
+    const j = r ? await r.json().catch(() => ({})) : {};
+    btn.disabled = false;
+    if (!r || !r.ok) { avisar(j.mensagem || 'Não consegui salvar o e-mail agora.', true); return; }
+    avisar(j.mensagem || 'E-mail salvo.');
+    ctx.irPara(location.hash);
+  });
 
   // acesso de outra pessoa da equipe (administração): convite ou link novo de senha
   el.querySelector('#acesso-whats')?.addEventListener('click', async (ev) => {

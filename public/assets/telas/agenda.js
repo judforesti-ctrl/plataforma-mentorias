@@ -612,7 +612,8 @@ function abaViagens(ctx, el, d, recarregar) {
     ${mods.length ? mods.map((m) => {
       const dia = diaDe(m.data_hora);
       const t = m.turma || {};
-      return `<div class="cartao"><div class="linha"><div style="flex:1;min-width:220px"><h3>${diaCurto(dia)} · ${esc(t.nome || 'Turma')} · módulo ${m.numero}</h3>
+      const quem = m.mentores.map((v) => primeiroNome(nome(v.mentor_id))).join(' e ');
+      return `<div class="cartao"><div class="linha"><div style="flex:1;min-width:220px"><h3>${diaCurto(dia)} · ${esc(t.nome || 'Turma')} · módulo ${m.numero} · ${quem ? esc(quem) : '<span class="selo alerta">mentor a definir</span>'}</h3>
         <p class="peq apagado">${esc(m.titulo || '')}${t.empresa ? ` · ${esc(t.empresa.nome)}` : ''}${m.local ? ` · ${esc(m.local)}` : ' · local a definir'}</p></div><a class="btn peq" href="#/modulo/${m.id}">Abrir módulo</a></div>
         ${m.mentores.length ? m.mentores.map((v) => {
           const pend = v.com_deslocamento !== false && !(v.viagem && v.viagem.passagem && v.viagem.hotel);

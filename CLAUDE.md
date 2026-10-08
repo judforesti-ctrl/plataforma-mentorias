@@ -57,5 +57,11 @@ Não há Node nesta máquina: as funções `.mjs` foram testadas no navegador co
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- CONTRATO DE PRESTAÇÃO DE SERVIÇO DO MENTOR (pedido da Juliana em 2026-10-07, ela ainda vai mandar o texto): o mentor precisa
+  concordar no primeiro acesso (cadastro); se escolher "ler depois", depois de 7 dias aparece uma mensagem pedindo para assinar.
+  Perguntar a ela pelo contrato antes de mandar os convites aos mentores. Ainda NÃO implementado.
+- Cadastro simples (convidados das trilhas): mentor com e-mail provisório `…@pendente.mentorei.com.br`, que nunca recebe nada
+  (`emailReal()` no servidor, `emailPendente()` nas telas). A administração coloca o e-mail real em Mentores → Editar dados
+  (`/api/convidar` acao trocar_email) e só então manda o convite.
 - Revisão das 8 ferramentas PROPOSTA; outras ferramentas online automatizadas a ligar; revisão jurídica do texto de privacidade.
 - "mentorado modelo" de teste criado dentro do programa real da Brasdiesel: apagar depois dos testes.

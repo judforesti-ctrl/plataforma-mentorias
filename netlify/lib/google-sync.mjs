@@ -7,6 +7,7 @@
 import { createHash, createHmac } from 'node:crypto';
 import { env, supa, acessoGoogle, agenda, FUSO, SITE } from './google.mjs';
 import { dadosAgenda } from './agenda.mjs';
+import { emailReal } from './email.mjs';
 import { PERIODOS, somarDias, hoje, diaDe, diaCurto, diaDaSemana, rotuloBloqueio, moduloPresencial } from '../../public/assets/agenda-regras.js';
 
 const FAIXA = { manha: ['08:00', '12:00'], tarde: ['13:00', '18:00'], noite: ['18:00', '22:00'] };
@@ -76,7 +77,7 @@ function desejados(d, cfg) {
   const semEmail = new Set();
   const agoraMs = Date.now();
   const h = hoje();
-  const email = (id) => { const p = d.pessoas.find((x) => x.id === id); return p && p.email ? p.email.toLowerCase() : null; };
+  const email = (id) => { const p = d.pessoas.find((x) => x.id === id); return p && emailReal(p.email) ? p.email.toLowerCase() : null; };
   const convidados = (lista) => [...new Set(lista.filter(Boolean))].map((e) => ({ email: e }));
   const add = (chave, tipo, iniMs, fimMs, corpo, busca = null) => {
     if (fimMs < agoraMs) return;                                    // o passado não muda
@@ -144,7 +145,7 @@ function desejados(d, cfg) {
   for (const b of d.bloqueios) {
     if (b.fim < h) continue;
     const rec = b.tipo === 'recesso';
-    const lista = rec ? d.mentores.map((m) => m.email && m.email.toLowerCase()) : [email(b.mentor_id)];
+    const lista = rec ? d.mentores.map((m) => emailReal(m.email) && m.email.toLowerCase()) : [email(b.mentor_id)];
     const titulo = rec ? `Recesso da Mentorei${b.motivo ? ` · ${b.motivo}` : ''}` : b.tipo === 'ferias' ? 'Férias / folga'
       : rotuloBloqueio(b) === 'Bloqueio' ? 'Bloqueio de agenda' : `Bloqueio · ${rotuloBloqueio(b)}`;
     const desc = rec ? 'Recesso da Mentorei: sem compromissos nesses dias.' : [b.motivo ? `Detalhes: ${b.motivo}` : '', 'Bloqueio registrado na agenda da plataforma da Mentorei.'].filter(Boolean).join('\n');

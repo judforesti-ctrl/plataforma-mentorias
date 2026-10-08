@@ -1,7 +1,7 @@
 // Resumo da próxima semana por e-mail: toda sexta-feira às 9h (Brasília), se a administração ligou em Agenda → Celular e e-mail.
 // Cada mentor que já usa a plataforma recebe a própria semana seguinte; a coordenação recebe o resumo da equipe.
 import { supa } from '../lib/google.mjs';
-import { enviarEmail, COORDENACAO } from '../lib/email.mjs';
+import { enviarEmail, emailReal, COORDENACAO } from '../lib/email.mjs';
 import { dadosAgenda, emailResumoMentor, emailResumoCoordenacao } from '../lib/agenda.mjs';
 
 export const config = { schedule: '0 12 * * 5' }; // sexta, 12h no horário universal = 9h em Brasília
@@ -13,7 +13,7 @@ export default async () => {
   const d = await dadosAgenda();
   let enviados = 0;
   for (const m of d.mentores) {
-    if (!m.email || !m.termo_aceito_em) continue; // só quem já usa a plataforma
+    if (!emailReal(m.email) || !m.termo_aceito_em) continue; // só quem já usa a plataforma
     const e = emailResumoMentor(d, m);
     const r = await enviarEmail({ para: [{ email: m.email, name: m.nome }], assunto: e.assunto, html: e.html, texto: e.texto });
     if (r.enviado) enviados += 1;

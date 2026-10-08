@@ -8,6 +8,10 @@ const resposta = (mensagem, status = 200, extra = {}) => new Response(JSON.strin
   status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' },
 });
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Cadastro simples (sem e-mail ainda): a pessoa ganha um endereço provisório que nunca recebe nada.
+const PENDENTE = '@pendente.mentorei.com.br';
+const slug = (t) => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '.').replace(/^\.+|\.+$/g, '').slice(0, 30) || 'mentor';
+const CONDUZ = /Quem conduz: ([^(.;]+?) \(convidad.*?plataforma\)/i;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function chamar(caminho, { metodo = 'GET', chave, token, corpo, prefer } = {}) {
@@ -35,6 +39,63 @@ export default async (req) => {
 
   // 2. Dados do convite
   let b; try { b = await req.json(); } catch (_) { return resposta('Pedido inválido.', 400); }
+
+  // Cadastro simples dos convidados das trilhas: mentor sem e-mail, ligado às aulas que a planilha dizia que conduz.
+  if (b.acao === 'cadastro_simples') {
+    const pessoas = (Array.isArray(b.pessoas) ? b.pessoas : []).slice(0, 30)
+      .map((x) => ({ nome: String(x.nome || '').trim().slice(0, 120), chave: String(x.chave || x.nome || '').trim().toLowerCase() })).filter((x) => x.nome);
+    if (!pessoas.length) return resposta('Nenhuma pessoa para cadastrar.', 400);
+    const mods = await chamar(`/rest/v1/modulos?recomendacoes=ilike.*${encodeURIComponent('Quem conduz')}*&select=id,recomendacoes`, { chave: secreta });
+    const resultados = [];
+    for (const x of pessoas) {
+      let perfilId = null;
+      const ja = await chamar(`/rest/v1/perfis?nome=ilike.${encodeURIComponent(x.nome)}&select=id`, { chave: secreta });
+      if (ja.ok && ja.dados && ja.dados[0]) perfilId = ja.dados[0].id;
+      else {
+        const email = `${slug(x.nome)}.${Math.random().toString(16).slice(2, 6)}${PENDENTE}`;
+        const conv = await chamar('/rest/v1/convites', { metodo: 'POST', chave: secreta, prefer: 'resolution=merge-duplicates,return=minimal',
+          corpo: { email, nome: x.nome, papel: 'mentor', tambem_mentor: false, criado_por: eu.dados.id, usado_em: null } });
+        if (!conv.ok) { resultados.push({ nome: x.nome, ok: false, mensagem: 'não consegui gravar o cadastro' }); continue; }
+        const cria = await chamar('/auth/v1/admin/users', { metodo: 'POST', chave: secreta, corpo: { email, email_confirm: true, user_metadata: { nome: x.nome, cadastro_simples: true } } });
+        if (!cria.ok || !cria.dados || !cria.dados.id) { resultados.push({ nome: x.nome, ok: false, mensagem: 'não consegui criar o acesso' }); continue; }
+        perfilId = cria.dados.id;
+        // mentoria em grupo ligada (com o login de quem pediu: só a administração muda o tipo de atendimento)
+        await chamar(`/rest/v1/perfis?id=eq.${perfilId}`, { metodo: 'PATCH', chave: secreta, token, corpo: { atende_grupo: true, atende_individual: false } });
+      }
+      // aulas em que a planilha dizia "Quem conduz: <nome>"
+      let aulas = 0;
+      for (const md of (mods.ok && mods.dados) || []) {
+        const m = String(md.recomendacoes || '').match(CONDUZ);
+        if (!m || !m[1].split(',').map((n) => n.trim().toLowerCase()).includes(x.chave)) continue;
+        await chamar('/rest/v1/modulo_mentores', { metodo: 'POST', chave: secreta, prefer: 'resolution=ignore-duplicates,return=minimal', corpo: { modulo_id: md.id, mentor_id: perfilId } });
+        await chamar(`/rest/v1/modulos?id=eq.${md.id}`, { metodo: 'PATCH', chave: secreta, prefer: 'return=minimal',
+          corpo: { recomendacoes: String(md.recomendacoes).replace(m[0], `Quem conduz: ${m[1].trim()}`) } });
+        aulas += 1;
+      }
+      resultados.push({ nome: x.nome, ok: true, aulas, ja: !!(ja.ok && ja.dados && ja.dados[0]) });
+    }
+    return resposta('Cadastro simples feito. Nenhum e-mail foi enviado.', 200, { resultados });
+  }
+
+  // Coloca o e-mail de verdade em quem foi cadastrado sem e-mail (depois disso dá para mandar o convite).
+  if (b.acao === 'trocar_email') {
+    const novo = String(b.email || '').trim().toLowerCase();
+    if (!UUID.test(String(b.perfil_id || ''))) return resposta('Pessoa inválida.', 400);
+    if (!EMAIL.test(novo) || novo.endsWith(PENDENTE)) return resposta('E-mail inválido.', 400);
+    const p = await chamar(`/rest/v1/perfis?id=eq.${b.perfil_id}&select=email,nome,papel,tambem_mentor`, { chave: secreta });
+    const pessoa = p.ok && p.dados && p.dados[0];
+    if (!pessoa) return resposta('Pessoa não encontrada.', 404);
+    const outro = await chamar(`/rest/v1/perfis?email=eq.${encodeURIComponent(novo)}&select=id,nome`, { chave: secreta });
+    if (outro.ok && outro.dados && outro.dados[0] && outro.dados[0].id !== b.perfil_id) return resposta(`Este e-mail já é o login de ${outro.dados[0].nome}.`, 409);
+    const u = await chamar(`/auth/v1/admin/users/${b.perfil_id}`, { metodo: 'PUT', chave: secreta, corpo: { email: novo, email_confirm: true } });
+    if (!u.ok) return resposta('Não consegui trocar o e-mail do acesso. Talvez ele já seja usado por outra pessoa.', 502, { detalhe: JSON.stringify(u.dados || '').slice(0, 300) });
+    const pp = await chamar(`/rest/v1/perfis?id=eq.${b.perfil_id}`, { metodo: 'PATCH', chave: secreta, token, corpo: { email: novo } });
+    if (!pp.ok) return resposta('O acesso mudou, mas o perfil não. Tente de novo.', 502);
+    await chamar(`/rest/v1/convites?email=eq.${encodeURIComponent(pessoa.email)}`, { metodo: 'DELETE', chave: secreta });
+    await chamar('/rest/v1/convites', { metodo: 'POST', chave: secreta, prefer: 'resolution=merge-duplicates,return=minimal',
+      corpo: { email: novo, nome: pessoa.nome, papel: pessoa.papel, tambem_mentor: !!pessoa.tambem_mentor, criado_por: eu.dados.id, usado_em: new Date().toISOString() } });
+    return resposta(`E-mail de ${pessoa.nome} salvo. Agora dá para mandar o convite.`);
+  }
   const email = String(b.email || '').trim().toLowerCase();
   const nome = String(b.nome || '').trim().slice(0, 120);
   const papel = b.papel;

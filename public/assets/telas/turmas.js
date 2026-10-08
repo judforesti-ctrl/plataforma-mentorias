@@ -5,7 +5,7 @@ import { sb, esc, avatar, dataBR, dataHoraBR, diaMes, horaBR, autoSalvar, avisar
 
 const FORMATO = { meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro', indefinido: 'Local a definir' };
 const STATUS = { planejada: ['Planejada', 'neutro'], em_andamento: ['Em andamento', ''], concluida: ['Concluída', 'neutro'], pausada: ['Pausada', 'alerta'] };
-const SEL_MODULO = 'id, numero, titulo, data_hora, formato, link, local, percepcoes_em, mentores:modulo_mentores(mentor:perfis(id, nome, foto_url))';
+const SEL_MODULO = 'id, numero, titulo, tematica, recomendacoes, data_hora, formato, link, local, percepcoes_em, mentores:modulo_mentores(mentor:perfis(id, nome, foto_url))';
 const agora = () => Date.now();
 const nomesMentores = (m) => (m.mentores || []).map((x) => x.mentor && x.mentor.nome).filter(Boolean).join(' e ');
 const ministra = (m, id) => (m.mentores || []).some((x) => x.mentor && x.mentor.id === id);
@@ -70,17 +70,85 @@ async function lista(ctx, el) {
         <p class="peq apagado">Conte como foi: engajamento, pontos de atenção e quantas pessoas vieram.</p><div class="lista mt">${semPercepcao.map(linhaAula).join('')}</div></div>` : ''}
     </div>` : ''}
     <h2 class="mt2">${ctx.ehAdmin ? 'Todas as turmas' : 'Turmas em que você dá aula'}</h2>
-    <div class="grade g2 mt">${todas.map((t) => {
+    <div class="linha mt">
+      <input type="search" id="t-busca" placeholder="Buscar por cliente, tema ou mentor…" aria-label="Buscar por cliente, tema ou mentor" style="flex:1;min-width:220px">
+      <select id="t-sit" aria-label="Situação" style="width:auto"><option value="">Todas as situações</option>${Object.entries(STATUS).map(([k, [r]]) => `<option value="${k}">${r}</option>`).join('')}</select>
+      <span class="linha" style="gap:4px"><button type="button" class="btn peq" data-vista="turmas">Por turma</button><button type="button" class="btn peq" data-vista="aulas">Por aula</button></span>
+      <label class="check" id="t-futuras-caixa"><input type="checkbox" id="t-futuras" checked><span>Só as próximas aulas</span></label>
+    </div>
+    <div id="t-res" class="mt"></div>`;
+
+  // busca por cliente, tema (título ou temática do módulo) ou mentor; vista por turma ou por aula
+  const norm = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
+  const convidado = (m) => ((String(m.recomendacoes || '').match(/Quem conduz: ([^(.;]+)/i) || [])[1] || '').trim();
+  const mentorDe = (m) => nomesMentores(m) || (convidado(m) ? `${convidado(m)} (sem cadastro)` : '');
+  const textoTurma = (t) => norm(`${t.empresa ? t.empresa.nome : ''} ${t.nome}`);
+  const textoModulo = (t, m) => norm(`${t.empresa ? t.empresa.nome : ''} ${t.nome} ${m.titulo} ${m.tematica || ''} ${mentorDe(m)}`);
+  let vista = 'turmas';
+  try { vista = localStorage.getItem('turmas_vista') || 'turmas'; } catch (_) { /* sem armazenamento */ }
+  const mentorHtml = (m) => (nomesMentores(m) ? esc(nomesMentores(m)) : convidado(m) ? `${esc(convidado(m))} <span class="peq apagado">(sem cadastro)</span>` : '<span class="selo alerta">Mentor a definir</span>');
+
+  const desenhar = () => {
+    const termos = norm(el.querySelector('#t-busca').value).split(' ').filter(Boolean);
+    const sit = el.querySelector('#t-sit').value;
+    const casa = (txt) => termos.every((k) => txt.includes(k));
+    const res = [];
+    for (const t of todas) {
+      if (sit && t.status !== sit) continue;
       const mods = (t.modulos || []).slice().sort((a, b) => a.numero - b.numero);
+      const pelaTurma = !termos.length || casa(textoTurma(t));
+      const achados = termos.length ? mods.filter((m) => casa(textoModulo(t, m))) : mods;
+      if (pelaTurma || achados.length) res.push({ t, mods, achados: pelaTurma ? mods : achados, pelaTurma });
+    }
+    el.querySelectorAll('[data-vista]').forEach((b) => b.classList.toggle('pri', b.dataset.vista === vista));
+    el.querySelector('#t-futuras-caixa').hidden = vista !== 'aulas';
+    const caixa = el.querySelector('#t-res');
+    if (!todas.length) {
+      caixa.innerHTML = `<div class="vazio">${ctx.ehAdmin ? 'Nenhuma turma ainda. Clique em "+ Nova turma".' : 'Você ainda não está em nenhum módulo. A administração da Mentorei faz essa ligação.'}</div>`;
+      return;
+    }
+    if (!res.length) { caixa.innerHTML = '<div class="vazio">Nada encontrado com essa busca.</div>'; return; }
+
+    if (vista === 'aulas') {
+      const futuras = el.querySelector('#t-futuras').checked;
+      const linhas = res.flatMap(({ t, achados }) => achados.map((m) => ({ t, m })))
+        .filter(({ m }) => !futuras || !m.data_hora || !passou(m))
+        .sort((a, b) => (a.m.data_hora || '9999').localeCompare(b.m.data_hora || '9999'));
+      caixa.innerHTML = linhas.length ? `<div class="tabela cartao" style="padding:0"><table><tr><th>Data</th><th>Cliente</th><th>Turma</th><th>Módulo</th><th>Onde</th><th>Mentor</th></tr>
+        ${linhas.map(({ t, m }) => `<tr class="clicavel" data-ir="#/modulo/${m.id}"><td style="white-space:nowrap">${m.data_hora ? `${diaMes(m.data_hora)} · ${horaBR(m.data_hora)}` : '<span class="apagado">sem data</span>'}</td>
+          <td>${esc(t.empresa ? t.empresa.nome : '')}</td><td>${esc(t.nome)}</td><td><b>${m.numero}.</b> ${esc(m.titulo)}</td>
+          <td class="peq">${FORMATO[m.formato] || ''}${m.formato === 'presencial' && m.local ? ` · ${esc(m.local)}` : ''}</td><td>${mentorHtml(m)}</td></tr>`).join('')}</table></div>
+        <p class="peq apagado mt">${linhas.length} aula(s). Clique numa linha para abrir o módulo.</p>`
+        : '<div class="vazio">Nenhuma aula daqui para frente com essa busca. Desmarque "Só as próximas aulas" para ver as que já aconteceram.</div>';
+      return;
+    }
+
+    caixa.innerHTML = `<div class="grade g2">${res.map(({ t, mods, achados, pelaTurma }) => {
       const prox = mods.find((m) => m.data_hora && !passou(m));
       const [st, cls] = STATUS[t.status] || [t.status, 'neutro'];
+      const equipe = [...new Set(mods.flatMap((m) => (m.mentores || []).map((x) => x.mentor && x.mentor.nome).filter(Boolean).concat(convidado(m) && !(m.mentores || []).length ? [convidado(m)] : [])))];
+      const lista = termos.length && !pelaTurma ? achados : [];
       return `<a class="cartao" href="#/turma/${t.id}" style="margin-top:0;color:inherit;text-decoration:none;display:grid;gap:6px">
         <span class="peq apagado" style="text-transform:uppercase;letter-spacing:.05em;font-weight:600">${esc(t.empresa ? t.empresa.nome : '')}</span>
         <h3>${esc(t.nome)}</h3>
         <div class="linha" style="gap:6px"><span class="selo ${cls}">${st}</span>${t.formato ? `<span class="selo neutro">${COMO[t.formato]}</span>` : ctx.ehAdmin ? '<span class="selo alerta">Online ou presencial?</span>' : ''}<span class="selo neutro">${mods.length} módulo(s)</span>${t.participantes_previstos ? `<span class="selo neutro">${t.participantes_previstos} participantes</span>` : ''}</div>
-        <p class="peq apagado">${t.inicio ? `${dataBR(`${t.inicio}T12:00:00-03:00`)} a ${dataBR(`${t.fim_previsto || t.inicio}T12:00:00-03:00`)}` : 'Período a definir'}${prox ? ` · próximo módulo ${diaMes(prox.data_hora)}` : ''}</p>
+        <p class="peq apagado">${t.inicio ? `${dataBR(`${t.inicio}T12:00:00-03:00`)} a ${dataBR(`${t.fim_previsto || t.inicio}T12:00:00-03:00`)}` : 'Período a definir'}</p>
+        <p class="peq"><b>Mentores:</b> ${equipe.length ? esc(equipe.join(', ')) : '<span class="selo alerta">a definir</span>'}</p>
+        ${prox ? `<p class="peq"><b>Próximo módulo:</b> ${diaMes(prox.data_hora)} · ${esc(prox.titulo)} · ${mentorHtml(prox)}</p>` : ''}
+        ${lista.length ? `<div class="lista peq" style="gap:4px;border-top:1px solid var(--linha);padding-top:8px"><b>Encontrado nesta turma:</b>${lista.slice(0, 5).map((m) => `<span>${m.data_hora ? diaMes(m.data_hora) : 'sem data'} · ${m.numero}. ${esc(m.titulo)} · ${mentorHtml(m)}</span>`).join('')}${lista.length > 5 ? `<span class="apagado">e mais ${lista.length - 5}</span>` : ''}</div>` : ''}
       </a>`;
-    }).join('') || `<div class="vazio" style="grid-column:1/-1">${ctx.ehAdmin ? 'Nenhuma turma ainda. Clique em "+ Nova turma".' : 'Você ainda não está em nenhum módulo. A administração da Mentorei faz essa ligação.'}</div>`}</div>`;
+    }).join('')}</div>`;
+  };
+  el.querySelector('#t-busca').addEventListener('input', desenhar);
+  el.querySelector('#t-sit').addEventListener('input', desenhar);
+  el.querySelector('#t-futuras').addEventListener('change', desenhar);
+  el.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => {
+    vista = b.dataset.vista;
+    try { localStorage.setItem('turmas_vista', vista); } catch (_) { /* sem armazenamento */ }
+    desenhar();
+  }));
+  el.querySelector('#t-res').addEventListener('click', (ev) => { const tr = ev.target.closest('[data-ir]'); if (tr) location.hash = tr.dataset.ir; });
+  desenhar();
 
   if (!ctx.ehAdmin) return;
   el.querySelector('#nova').addEventListener('click', () => { const f = el.querySelector('#form-nova'); f.hidden = !f.hidden; });

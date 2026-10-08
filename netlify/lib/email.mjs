@@ -5,6 +5,8 @@ import { env } from './google.mjs';
 export const REMETENTE = { name: 'Mentorei', email: 'contato@mentorei.com.br' };
 export const COORDENACAO = 'contato@mentorei.com.br';
 export const temChaveEmail = () => !!env('BREVO_API_KEY');
+// Quem foi cadastrado sem e-mail tem um endereço provisório (…@pendente.mentorei.com.br): nunca recebe nada.
+export const emailReal = (e) => !!e && !/@pendente\.mentorei\.com\.br$/i.test(String(e));
 
 const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 

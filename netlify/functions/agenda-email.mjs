@@ -4,7 +4,7 @@
 //  convite-reserva   (administração) manda a cada mentor o pré-bloqueio com o link pessoal para responder
 //  teste-resumo      (administração) manda para quem pediu o resumo da semana, para conferir
 import { json, supa, quemPede, SITE } from '../lib/google.mjs';
-import { enviarEmail, modeloEmail, temChaveEmail, COORDENACAO } from '../lib/email.mjs';
+import { enviarEmail, modeloEmail, temChaveEmail, emailReal, COORDENACAO } from '../lib/email.mjs';
 import { dadosAgenda, emailResumoMentor, emailResumoCoordenacao, primeiroNome, clienteDe, ondeReserva, descreverDataReserva } from '../lib/agenda.mjs';
 import { descreverBloqueio, choquesDoBloqueio, rotuloBloqueio } from '../../public/assets/agenda-regras.js';
 
@@ -57,7 +57,7 @@ export default async (req) => {
     const datas = (res.datas || []).slice().sort((a, c) => a.dia.localeCompare(c.dia)).map((x) => descreverDataReserva(x, res.formato));
     const resultados = [];
     for (const x of alvos) {
-      if (!x.mentor || !x.mentor.email) { resultados.push({ mentor_id: x.mentor_id, enviado: false, mensagem: 'sem e-mail cadastrado' }); continue; }
+      if (!x.mentor || !emailReal(x.mentor.email)) { resultados.push({ mentor_id: x.mentor_id, enviado: false, mensagem: 'sem e-mail cadastrado' }); continue; }
       const m = modeloEmail({
         assunto: `Pré-bloqueio na sua agenda: ${res.titulo}`, titulo: 'Pré-bloqueio na sua agenda',
         blocos: [

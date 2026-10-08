@@ -1,8 +1,13 @@
 // Equipe (administração): mentores e administradores, convites pendentes e envio de convites.
 import { sb, esc, avatar, dataHoraBR, avisar, explicarErro } from '../base.js';
 
+// Quem foi cadastrado sem e-mail tem um endereço provisório: precisa do e-mail de verdade antes do convite.
+export const emailPendente = (e) => /@pendente\.mentorei\.com\.br$/i.test(String(e || ''));
+const SEM_EMAIL = 'Esta pessoa ainda não tem e-mail. Coloque o e-mail em Mentores → Editar dados e depois mande o convite.';
+
 // Envia o convite pelo servidor (a chave secreta do Supabase fica só lá).
 export async function convidar({ email, nome, papel, tambem_mentor = false, mentorado_id = null, sem_email = false }) {
+  if (emailPendente(email)) { avisar(SEM_EMAIL, true); return false; }
   const { data } = await sb.auth.getSession();
   try {
     const r = await fetch('/api/convidar', {
@@ -46,6 +51,7 @@ export function janelaWhatsApp({ titulo, nota, whatsapp = '', texto }) {
 // Convite pelo WhatsApp: a plataforma gera o link de criar senha (nenhum e-mail sai)
 // e abre a janela com a mensagem pronta. "contexto" entra no texto (ex.: a trilha que a pessoa vai acompanhar).
 export async function conviteWhatsApp({ email, nome, papel, tambem_mentor = false, mentorado_id = null, whatsapp = '', remetente = '', contexto = '' }) {
+  if (emailPendente(email)) { avisar(SEM_EMAIL, true); return false; }
   const { data } = await sb.auth.getSession();
   let j;
   try {
