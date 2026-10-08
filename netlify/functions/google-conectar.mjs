@@ -18,7 +18,7 @@ export default async (req) => {
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
   url.search = new URLSearchParams({
     client_id: env('GOOGLE_CLIENT_ID'), redirect_uri: REDIRECT_URI, response_type: 'code',
-    scope: 'openid email https://www.googleapis.com/auth/calendar.events',
+    scope: 'openid email https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.file',   // drive.file: só os arquivos que a plataforma cria (cópias de segurança)
     access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true', state: criarState(eu.id),
   }).toString();
   return json({ url: url.toString() });

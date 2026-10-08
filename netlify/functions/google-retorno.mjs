@@ -25,7 +25,7 @@ export default async (req) => {
 
   const g = await supa('/rest/v1/integracoes', {
     metodo: 'POST', prefer: 'resolution=merge-duplicates,return=minimal',
-    corpo: { chave: 'google', dados: { refresh_token: t.refresh_token, email, conectado_por: st.uid, conectado_em: new Date().toISOString() }, atualizado_em: new Date().toISOString() },
+    corpo: { chave: 'google', dados: { refresh_token: t.refresh_token, email, scope: t.scope || '', conectado_por: st.uid, conectado_em: new Date().toISOString() }, atualizado_em: new Date().toISOString() },
   });
   return voltar(g.ok ? 'ok' : 'erro');
 };

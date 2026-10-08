@@ -10,14 +10,16 @@ export const emailReal = (e) => !!e && !/@pendente\.mentorei\.com\.br$/i.test(St
 
 const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-export async function enviarEmail({ para, assunto, html, texto }) {
+// anexos (opcional): [{ name, content }] com o conteúdo em base64.
+export async function enviarEmail({ para, assunto, html, texto, anexos }) {
   const chave = env('BREVO_API_KEY');
   if (!chave) return { enviado: false, mensagem: 'falta a chave do Brevo na Netlify' };
+  if (!para || !para.length) return { enviado: false, mensagem: 'ninguém para receber' };
   try {
     const r = await fetch('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: { 'api-key': chave, 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ sender: REMETENTE, to: para, subject: assunto, htmlContent: html, textContent: texto }),
+      body: JSON.stringify({ sender: REMETENTE, to: para, subject: assunto, htmlContent: html, textContent: texto, ...(anexos && anexos.length ? { attachment: anexos } : {}) }),
     });
     if (r.ok) return { enviado: true };
     const j = await r.json().catch(() => ({}));

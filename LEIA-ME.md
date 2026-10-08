@@ -26,6 +26,13 @@ Site: Netlify (pasta `public`) · Banco, login e fotos: Supabase (projeto `mixnu
 |---|---|
 | `SUPABASE_SECRET_KEY` | Chave secreta do Supabase (sb_secret_…), usada só para enviar convites |
 | `ANTHROPIC_API_KEY` | Chave da API do Claude, para o resumo da sessão gerado por IA (função /api/resumo) |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Agenda e Google Drive (convites, reuniões com Meet, cópias de segurança) |
+| `BREVO_API_KEY` | E-mails da plataforma (avisos da agenda, resumo semanal, cópia mensal) |
+
+## Cópias de segurança
+Toda segunda a plataforma manda uma planilha Excel com todas as tabelas para a pasta "Backups da Plataforma Mentorei" do Google Drive
+(6 meses guardados); todo dia 1 a planilha vai por e-mail para as sócias. A cópia de restauração completa é feita no computador da Juliana
+por `ferramentas\backup-restauracao.ps1`. Detalhes e o passo a passo de restauração em `ferramentas\COMO-RESTAURAR.md`.
 
 ## Configuração do Supabase (uma vez)
 - Authentication → URL Configuration: Site URL = endereço da Netlify; Redirect URLs = `<endereço>/definir-senha.html`.

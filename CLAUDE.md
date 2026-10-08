@@ -15,7 +15,15 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
 - Site estático em `public/` (módulos JS sem build, rotas por `#/rota/parametros` em `public/assets/app.js`; cada tela em `public/assets/telas/`).
 - Funções do servidor em `netlify/functions/*.mjs` (`export const config = { path, method }`): convidar, resumo e apresentacao (IA),
   agenda, google-conectar/retorno (Google Agenda), proposta (importar proposta em PDF), agenda-email, reserva-resposta (link sem senha),
-  agenda-celular (.ics), resumo-semanal (agendada: sextas 9h, com a semana seguinte), reuniao (reuniões com Meet pela Google Agenda).
+  agenda-celular (.ics), resumo-semanal (agendada: sextas 9h, com a semana seguinte), reuniao (reuniões com Meet pela Google Agenda),
+  backup (status, baixar Excel, e-mails), backup-fundo (background), backup-semanal (seg 6h → Drive) e backup-mensal (dia 1, 7h → Drive + e-mail).
+- Cópias de segurança (`netlify/lib/backup.mjs`, dependência `xlsx` da SheetJS): planilha Excel com uma aba por tabela (sem integracoes,
+  agenda_links, google_eventos, acessos, historico) vai para a pasta "Backups da Plataforma Mentorei" do Drive da conta Google conectada
+  (precisa do escopo drive.file: a Juliana reconecta uma vez) e guarda 6 meses; dia 1 vai por e-mail (anexo Brevo) para configuracoes.backup.emails
+  (sem lista = admins). Cartão no Painel (`telas/backup.js`). O arquivo de RESTAURAÇÃO (todas as tabelas em JSON + fotos/PDFs) é feito
+  SÓ no computador dela por `ferramentas/backup-restauracao.ps1` (tarefa agendada do Windows, segundas 8h; precisa de `.env` com
+  SUPABASE_SECRET_KEY) em `programacoes sites e radares/backups-plataforma-mentorias/`. Ela decidiu: restauração não sai do PC dela;
+  a planilha leva tudo. Passo a passo de restauração em `ferramentas/COMO-RESTAURAR.md`.
 - Variáveis na Netlify: `SUPABASE_SECRET_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BREVO_API_KEY`
   (e-mails da agenda; sem ela os avisos ficam só na plataforma). Nunca mostrar chaves.
 - Banco: scripts numerados em `supabase/` (01, 02...). A Juliana roda cada script novo no Supabase (SQL Editor → New query → colar → Run):
