@@ -68,6 +68,11 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   WhatsApp por wa.me; reunião pelo botão da agenda (convidados pré-preenchidos). `vendas-lembrete` (agendada, 8h): e-mail dos
   contatos do dia por responsável + cria "Renovação ·" para programa/turma terminados (30 dias depois, responsável = 1º admin).
 
+- Visual (2026-10-08, aprovado por prévia): petróleo escuro + branco + bege escuro, contraste alto, SEM mudar layout (ela não quer
+  reaprender a navegar). Tudo em `public/assets/app.css`: `--lima`/`--verde` apontam para o bege (código antigo continua valendo);
+  `--ok` verde só para estados ok; `.cab` é a faixa clara de título; `.cartao.destaque` = cartão petróleo; `.cartao.numero` com borda bege.
+  Barra do topo petróleo com `logo-clara.png`. Toda tela nova deve seguir essas classes, não cores soltas.
+
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.
 - Informações delicadas: campo trancado da sessão, só mentores do mentorado e administração; nunca em relatório, Excel ou IA.
