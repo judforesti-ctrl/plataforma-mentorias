@@ -21,10 +21,31 @@ export async function enviarEmail({ para, assunto, html, texto }) {
     });
     if (r.ok) return { enviado: true };
     const j = await r.json().catch(() => ({}));
-    return { enviado: false, mensagem: r.status === 401 ? 'a chave do Brevo foi recusada' : `o Brevo recusou o envio (${j.message || r.status})` };
+    return { enviado: false, mensagem: r.status === 401 ? explicar401(chave, j) : `o Brevo recusou o envio (${j.message || r.status})` };
   } catch (_) {
     return { enviado: false, mensagem: 'sem conexão com o Brevo' };
   }
+}
+
+// O Brevo recusou: diz em português qual é o problema (sem nunca mostrar a chave).
+function explicar401(chave, j) {
+  if (/^xsmtpsib-/i.test(chave)) return 'a chave cadastrada na Netlify é a chave SMTP do Brevo; para enviar pela plataforma é preciso a chave de API (começa com xkeysib-)';
+  if (/ip/i.test(String(j && j.message))) return 'o Brevo bloqueou o servidor da plataforma (proteção de IPs autorizados ligada)';
+  return 'a chave do Brevo foi recusada (pode ter sido apagada, desativada ou copiada pela metade)';
+}
+
+// Diagnóstico para a tela: a chave existe, é do tipo certo e o Brevo aceita?
+export async function diagnosticarEmail() {
+  const chave = env('BREVO_API_KEY');
+  if (!chave) return { estado: 'sem_chave' };
+  if (/^xsmtpsib-/i.test(chave)) return { estado: 'chave_smtp' };
+  try {
+    const r = await fetch('https://api.brevo.com/v3/account', { headers: { 'api-key': chave, Accept: 'application/json' } });
+    if (r.ok) return { estado: 'ok' };
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) return { estado: /ip/i.test(String(j.message)) ? 'ip_bloqueado' : 'recusada', tipo: /^xkeysib-/i.test(chave) ? 'api' : 'desconhecido' };
+    return { estado: `erro_${r.status}` };
+  } catch (_) { return { estado: 'sem_conexao' }; }
 }
 
 // Modelo com a identidade da Mentorei. Blocos (texto puro, a função protege):

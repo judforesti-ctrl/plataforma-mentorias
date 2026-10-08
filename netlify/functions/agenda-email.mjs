@@ -4,7 +4,7 @@
 //  convite-reserva   (administração) manda a cada mentor o pré-bloqueio com o link pessoal para responder
 //  teste-resumo      (administração) manda para quem pediu o resumo da semana, para conferir
 import { json, supa, quemPede, SITE } from '../lib/google.mjs';
-import { enviarEmail, modeloEmail, temChaveEmail, emailReal, COORDENACAO } from '../lib/email.mjs';
+import { enviarEmail, modeloEmail, temChaveEmail, emailReal, diagnosticarEmail, COORDENACAO } from '../lib/email.mjs';
 import { dadosAgenda, emailResumoMentor, emailResumoCoordenacao, primeiroNome, clienteDe, ondeReserva, descreverDataReserva } from '../lib/agenda.mjs';
 import { descreverBloqueio, choquesDoBloqueio, rotuloBloqueio } from '../../public/assets/agenda-regras.js';
 
@@ -19,7 +19,7 @@ export default async (req) => {
 
   if (b.acao === 'status') {
     if (!adm) return json({ mensagem: 'Só a administração.' }, 403);
-    return json({ email: temChaveEmail() });
+    return json({ email: temChaveEmail(), diagnostico: await diagnosticarEmail() });
   }
 
   if (b.acao === 'aviso-bloqueio') {

@@ -644,7 +644,7 @@ async function abaCelular(ctx, el, d) {
       pré-bloqueios para resolver, respostas, bloqueios novos e viagens pendentes.</p>
     <p class="peq apagado mt">Hoje ${usando === 1 ? '1 mentor já usa' : `${usando} mentores já usam`} a plataforma. Quem ainda não entrou não recebe.</p>
     <label class="check mt"><input type="checkbox" id="resumo-ligado"${ligado ? ' checked' : ''}><span><b>Enviar o resumo toda sexta-feira</b></span></label>
-    <p class="peq mt">${st.ok && st.email ? '<span class="selo">E-mail pronto para enviar</span>' : st.ok ? '<span class="selo alerta">Falta cadastrar a chave do Brevo na Netlify</span> Sem ela, os avisos continuam aparecendo na plataforma, mas nenhum e-mail sai.' : '<span class="selo neutro">Não consegui conferir o envio de e-mail agora</span>'}</p>
+    <div class="mt">${textoBrevo(st)}</div>
     <button class="btn mt" type="button" id="resumo-teste">Enviar um teste agora para mim</button>`;
   box.querySelector('#resumo-ligado').addEventListener('change', async (ev) => {
     const { error: e } = await sb.from('configuracoes').upsert({ chave: 'resumo_semanal', valor: { ligado: ev.target.checked }, atualizado_em: new Date().toISOString() });
@@ -733,6 +733,24 @@ async function cartaoConvites(ctx, box) {
       box.querySelector('#g-conferir').click();
     });
   });
+}
+
+// Situação do envio de e-mail (chave do Brevo na Netlify), com o que fazer em cada caso.
+function textoBrevo(st) {
+  if (!st.ok) return '<span class="selo neutro">Não consegui conferir o envio de e-mail agora</span>';
+  const est = (st.diagnostico && st.diagnostico.estado) || (st.email ? 'ok' : 'sem_chave');
+  const passosApi = `<ol class="peq" style="margin:8px 0 0 18px"><li>No <b>Brevo</b>, clique no seu nome (em cima, à direita) e em <b>SMTP e API</b>.</li>
+    <li>Abra a aba <b>Chaves de API</b> (não a aba SMTP) e clique em <b>Gerar uma nova chave de API</b>. Ela começa com <b>xkeysib-</b>. Copie.</li>
+    <li>Na <b>Netlify</b>, no site <b>mentormentorei</b>: <b>Site configuration</b> → <b>Environment variables</b> → <b>BREVO_API_KEY</b> → <b>Edit</b>. Cole a chave nova e salve.</li>
+    <li>Avise o Claude para publicar de novo (a chave nova só vale depois disso).</li></ol>`;
+  if (est === 'ok') return '<span class="selo">E-mail pronto para enviar</span>';
+  if (est === 'sem_chave') return `<span class="selo alerta">Falta cadastrar a chave do Brevo na Netlify</span> Sem ela, os avisos continuam na plataforma, mas nenhum e-mail sai.${passosApi}`;
+  if (est === 'chave_smtp') return `<div class="aviso erro"><b>A chave cadastrada é a chave SMTP do Brevo, não a chave de API.</b> As duas ficam na mesma página e são parecidas. Para trocar:${passosApi}</div>`;
+  if (est === 'ip_bloqueado') return `<div class="aviso erro"><b>O Brevo está bloqueando o servidor da plataforma.</b> Os servidores da Netlify mudam de endereço, então o bloqueio de IPs precisa ficar desligado:
+    <ol class="peq" style="margin:8px 0 0 18px"><li>No <b>Brevo</b>, clique no seu nome e em <b>Segurança</b> (ou <b>Security</b>).</li><li>Em <b>IPs autorizados</b> (<b>Authorised IPs</b>), desative o bloqueio de endereços desconhecidos.</li>
+    <li>Volte aqui e clique em <b>Enviar um teste agora para mim</b>.</li></ol></div>`;
+  if (est === 'recusada') return `<div class="aviso erro"><b>O Brevo recusou a chave cadastrada na Netlify.</b> Ela pode ter sido apagada, desativada ou copiada pela metade. Gere uma nova:${passosApi}</div>`;
+  return `<span class="selo neutro">O Brevo respondeu com um erro (${esc(est)}). Tente de novo em alguns minutos.</span>`;
 }
 
 export async function cartaoCelular(ctx, el) {
