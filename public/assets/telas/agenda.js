@@ -3,7 +3,7 @@
 import { sb, esc, avatar, horaBR, avisar, explicarErro, diaMes } from '../base.js';
 import { PERIODOS, NOME_PERIODO, LETRA_PERIODO, ESTADOS, hoje, somarDias, diaDaSemana, listaDias, segundaDaSemana, nomeSemana, nomeMes, ddmm, diaCurto,
   feriadoDe, dispDe, situacaoParaEncaixe, periodosDoIntervalo, horaDoTexto, diasEntre, diaDe, ordenar, indexar,
-  descreverBloqueio, choquesDoBloqueio as choquesBloq, rotuloBloqueio, CATEGORIAS, moduloPresencial } from '../agenda-regras.js';
+  descreverBloqueio, choquesDoBloqueio as choquesBloq, rotuloBloqueio, CATEGORIAS, moduloPresencial, estadoPeriodo } from '../agenda-regras.js';
 import { carregarAgenda, limparCache, janela, api, legenda, amostra, estadosDoDia, dicaEstados, linhaEvento, primeiroNome, faltaScript, avisarGoogle } from './agenda-dados.js';
 
 const SEMANA_LONGA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -23,6 +23,7 @@ export async function render(ctx, el, params) {
   const aba = ABAS.some(([k]) => k === params[0]) ? params[0] : 'quadro';
   if (params[0] === 'mentor' && params[1]) est.mentor = params[1];
   const av = avisos(d);
+  av.whatsResumo = await lembrarWhatsHoje();
   el.innerHTML = `
     <div class="cab"><div><h1>Agenda</h1><p class="sub">Compromissos, dias livres, deslocamentos, pré-bloqueios e bloqueios de toda a equipe.</p></div>
       <div class="acoes"><button class="btn" id="novo-bloqueio" type="button">+ Bloqueio</button><button class="btn pri" id="novo-pre" type="button">+ Pré-bloqueio</button></div></div>
@@ -79,6 +80,7 @@ function htmlAvisos(av, d) {
   if (av.respostas.length) linhas.push(`<b>${av.respostas.length} resposta${av.respostas.length > 1 ? 's' : ''} nova${av.respostas.length > 1 ? 's' : ''}</b> de mentores aos pré-bloqueios (${esc(av.respostas.slice(0, 2).map(({ r, x }) => `${nome(x.mentor_id)} ${x.resposta === 'aceito' ? 'aceitou' : 'não pode'}: ${r.titulo}`).join('; '))}).|#/agenda/pre`);
   if (av.bloqueios.length) linhas.push(`<b>${av.bloqueios.length} bloqueio${av.bloqueios.length > 1 ? 's' : ''} novo${av.bloqueios.length > 1 ? 's' : ''}</b> pedido${av.bloqueios.length > 1 ? 's' : ''} pelos mentores (${esc(av.bloqueios.slice(0, 3).map((b) => `${nome(b.mentor_id)} · ${b.inicio === b.fim ? ddmm(b.inicio) : `${ddmm(b.inicio)} a ${ddmm(b.fim)}`}`).join('; '))}).|#/agenda/bloqueios`);
   if (av.semFormato.length) linhas.push(`<b>${av.semFormato.length === 1 ? '1 módulo sem dizer' : `${av.semFormato.length} módulos sem dizer`} se ${av.semFormato.length === 1 ? 'é' : 'são'} online ou presencial</b> (${esc(av.semFormato.slice(0, 2).map((m) => `${(m.turma && m.turma.nome) || 'Turma'} · módulo ${m.numero}`).join('; '))}). A agenda precisa dessa informação.|${av.semFormato.length === 1 ? `#/modulo/${av.semFormato[0].id}` : '#/turmas'}`);
+  if (av.whatsResumo) linhas.push('<b>Hoje é sexta:</b> mande a agenda da próxima semana para cada mentor pelo WhatsApp (mensagens prontas).|#/agenda/celular');
   if (av.viagens.length) linhas.push(`<b>${av.viagens.length} viage${av.viagens.length > 1 ? 'ns' : 'm'} nos próximos 15 dias</b> com passagem ou hotel pendente.|#/agenda/viagens`);
   return linhas.map((l) => { const [t, h] = l.split('|'); return `<div class="aviso ag-aviso"><span>${t}</span><button class="btn peq" type="button" data-ir="${h}">Ver</button></div>`; }).join('');
 }
@@ -88,7 +90,9 @@ export async function avisosAgenda(ctx, el) {
   try {
     const d = await carregarAgenda(ctx);
     if (d.faltaScript) { el.innerHTML = '<div class="aviso">Agenda: falta rodar o script <b>14-agenda-equipe.sql</b> no Supabase para guardar bloqueios e pré-bloqueios. <a href="#/agenda">Abrir a agenda</a></div>'; return; }
-    const html = htmlAvisos(avisos(d), d);
+    const av = avisos(d);
+    av.whatsResumo = await lembrarWhatsHoje();
+    const html = htmlAvisos(av, d);
     el.innerHTML = html ? `<h2 class="mt2">Agenda pede atenção</h2><div class="mt">${html}</div>` : '';
     el.addEventListener('click', (ev) => { const b = ev.target.closest('[data-ir]'); if (b) location.hash = b.dataset.ir; });
   } catch (_) { el.innerHTML = ''; }
@@ -628,7 +632,7 @@ function abaViagens(ctx, el, d, recarregar) {
 // ---------- celular e e-mail ----------
 async function abaCelular(ctx, el, d) {
   el.innerHTML = `<div class="cartao"><h3>Convites na Google Agenda</h3><div id="google-convites" class="mt"><p class="peq apagado">Carregando…</p></div></div>
-    <div class="cartao"><h3>Resumo da semana por e-mail</h3><div id="resumo" class="mt"><p class="peq apagado">Carregando…</p></div></div>
+    <div class="cartao"><h3>Resumo da semana (e-mail e WhatsApp)</h3><div id="resumo" class="mt"><p class="peq apagado">Carregando…</p></div></div>
     ${ctx.atende ? '<div id="celular" class="mt"></div>' : ''}`;
   if (ctx.atende) cartaoCelular(ctx, el.querySelector('#celular'));
   cartaoConvites(ctx, el.querySelector('#google-convites'));
@@ -638,18 +642,52 @@ async function abaCelular(ctx, el, d) {
     api('/api/agenda-email', { acao: 'status' }),
   ]);
   if (error) { box.innerHTML = `<p class="peq">${faltaScript(error) ? 'Disponível depois que o script 14 for rodado no Supabase.' : esc(explicarErro(error))}</p>`; return; }
-  const ligado = !!(cfg && cfg.valor && cfg.valor.ligado);
+  const valor = { ligado: false, whatsapp: false, ...((cfg && cfg.valor) || {}) };
+  const ligado = !!valor.ligado;
   const usando = d.mentores.filter((m) => m.termo_aceito_em).length;
   box.innerHTML = `<p class="peq">Toda sexta-feira, às 9h, cada mentor que já usa a plataforma recebe por e-mail a própria agenda da semana seguinte. A coordenação recebe um resumo da equipe:
       pré-bloqueios para resolver, respostas, bloqueios novos e viagens pendentes.</p>
     <p class="peq apagado mt">Hoje ${usando === 1 ? '1 mentor já usa' : `${usando} mentores já usam`} a plataforma. Quem ainda não entrou não recebe.</p>
     <label class="check mt"><input type="checkbox" id="resumo-ligado"${ligado ? ' checked' : ''}><span><b>Enviar o resumo toda sexta-feira</b></span></label>
     <div class="mt">${textoBrevo(st)}</div>
-    <button class="btn mt" type="button" id="resumo-teste">Enviar um teste agora para mim</button>`;
+    <button class="btn mt" type="button" id="resumo-teste">Enviar um teste agora para mim</button>
+    <h4 class="mt2">Pelo WhatsApp</h4>
+    <p class="peq apagado">O WhatsApp não deixa a plataforma mandar mensagens sozinha (isso só com um serviço pago de WhatsApp Business). Aqui cada mentor tem a mensagem
+      pronta com a agenda da próxima semana: clique, confira e envie do seu WhatsApp.</p>
+    <label class="check mt"><input type="checkbox" id="resumo-whats"${valor.whatsapp ? ' checked' : ''}><span><b>Lembrar toda sexta-feira de mandar pelo WhatsApp</b> (aviso no Painel e na Agenda)</span></label>
+    <div id="resumo-lista" class="lista mt"></div>`;
+  const salvarValor = async (mud, ev) => {
+    const novo = { ...valor, ...mud };
+    const { error: e } = await sb.from('configuracoes').upsert({ chave: 'resumo_semanal', valor: novo, atualizado_em: new Date().toISOString() });
+    if (e) { avisar(explicarErro(e), true); ev.target.checked = !ev.target.checked; return false; }
+    Object.assign(valor, mud);
+    return true;
+  };
   box.querySelector('#resumo-ligado').addEventListener('change', async (ev) => {
-    const { error: e } = await sb.from('configuracoes').upsert({ chave: 'resumo_semanal', valor: { ligado: ev.target.checked }, atualizado_em: new Date().toISOString() });
-    if (e) { avisar(explicarErro(e), true); ev.target.checked = !ev.target.checked; return; }
-    avisar(ev.target.checked ? 'Resumo semanal ligado: sai toda sexta às 9h, com a semana seguinte.' : 'Resumo semanal desligado.');
+    if (await salvarValor({ ligado: ev.target.checked }, ev)) avisar(ev.target.checked ? 'Resumo semanal ligado: sai toda sexta às 9h, com a semana seguinte.' : 'Resumo semanal desligado.');
+  });
+  box.querySelector('#resumo-whats').addEventListener('change', async (ev) => {
+    if (await salvarValor({ whatsapp: ev.target.checked }, ev)) avisar(ev.target.checked ? 'Combinado: toda sexta a plataforma lembra de mandar o resumo pelo WhatsApp.' : 'Lembrete do WhatsApp desligado.');
+  });
+  // mensagens prontas, uma por mentor (marca quem já foi aberto nesta semana, só neste computador)
+  const seg = segundaDaSemana(somarDias(hoje(), 7));
+  const chaveVistos = `resumo_whats_${seg}`;
+  let vistos = [];
+  try { vistos = JSON.parse(localStorage.getItem(chaveVistos) || '[]'); } catch (_) { vistos = []; }
+  const equipe = d.mentores;
+  const listaWhats = () => {
+    box.querySelector('#resumo-lista').innerHTML = `<p class="peq"><b>Semana de ${ddmm(seg)} a ${ddmm(somarDias(seg, 6))}</b></p>${equipe.map((m) => `<div class="item" style="grid-template-columns:auto 1fr auto">
+      ${avatar(m)}<div style="min-width:0"><div class="nome">${esc(m.nome)}</div><div class="info">${m.whatsapp ? esc(m.whatsapp) : 'WhatsApp não informado no perfil'}</div></div>
+      <div class="linha" style="gap:6px">${vistos.includes(m.id) ? '<span class="selo">Aberto ✓</span>' : ''}<button class="btn peq pri" type="button" data-resumo-whats="${m.id}">WhatsApp</button></div></div>`).join('')}`;
+  };
+  listaWhats();
+  box.querySelector('#resumo-lista').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-resumo-whats]'); if (!b) return;
+    const m = d.mentores.find((x) => x.id === b.dataset.resumoWhats);
+    const { janelaWhatsApp } = await import('./equipe.js');
+    janelaWhatsApp({ titulo: `Resumo da semana · ${m.nome}`, whatsapp: m.whatsapp || '', texto: textoResumoWhats(ctx, d, m, seg),
+      nota: 'Agenda da próxima semana deste mentor, montada agora com o que está na plataforma.' });
+    if (!vistos.includes(m.id)) { vistos.push(m.id); try { localStorage.setItem(chaveVistos, JSON.stringify(vistos)); } catch (_) { /* sem armazenamento */ } listaWhats(); }
   });
   box.querySelector('#resumo-teste').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
@@ -733,6 +771,33 @@ async function cartaoConvites(ctx, box) {
       box.querySelector('#g-conferir').click();
     });
   });
+}
+
+// Agenda da próxima semana de um mentor, em texto para o WhatsApp.
+function textoResumoWhats(ctx, d, m, seg) {
+  const disp = dispDe(m);
+  const blocos = [], livres = [];
+  for (const dia of listaDias(seg, somarDias(seg, 6))) {
+    const todos = d.idx.doDia(m.id, dia);
+    const evs = ordenar(todos.filter((e) => e.tipo !== 'feriado'));
+    const f = feriadoDe(dia);
+    if (evs.length) blocos.push(`*${diaCurto(dia)}*${f ? ` (feriado: ${f})` : ''}\n${evs.map((e) => `• ${e.ini ? `${horaBR(new Date(e.ini).toISOString())} ` : ''}${e.titulo}${e.sub ? ` (${e.sub})` : ''}`).join('\n')}`);
+    else if (!f && PERIODOS.some((p) => estadoPeriodo(todos, p, disp, dia).tipo === 'livre')) livres.push(diaCurto(dia));
+  }
+  const pendentes = d.reservas.filter((r) => r.situacao === 'pre' || r.situacao === 'confirmada')
+    .map((r) => ({ r, x: (r.mentores || []).find((y) => y.mentor_id === m.id) })).filter((c) => c.x && c.x.resposta === 'aguardando');
+  return [`Olá, ${primeiroNome(m.nome)}! Aqui é ${primeiroNome(ctx.perfil.nome)}, da Mentorei. Sua agenda da próxima semana (${ddmm(seg)} a ${ddmm(somarDias(seg, 6))}):`,
+    blocos.length ? blocos.join('\n\n') : 'Nenhum compromisso marcado.',
+    livres.length ? `Dias livres: ${livres.join('; ')}.` : '',
+    pendentes.length ? `*Pré-bloqueios esperando a sua resposta:*\n${pendentes.map(({ r, x }) => `• ${r.titulo}: ${location.origin}/reserva.html?t=${x.token}`).join('\n')}` : '',
+    `Sua agenda completa: ${location.origin}/app.html#/agenda`].filter(Boolean).join('\n\n');
+}
+
+// Sexta-feira com o lembrete ligado: avisa que é dia de mandar o resumo pelo WhatsApp.
+async function lembrarWhatsHoje() {
+  if (diaDaSemana(hoje()) !== 5) return false;
+  const { data } = await sb.from('configuracoes').select('valor').eq('chave', 'resumo_semanal').maybeSingle();
+  return !!(data && data.valor && data.valor.whatsapp);
 }
 
 // Situação do envio de e-mail (chave do Brevo na Netlify), com o que fazer em cada caso.
