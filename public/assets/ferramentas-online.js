@@ -8,6 +8,8 @@ export const ONLINE = {
   'MNT-LID-04': { interna: true, url: '/ferramentas/escada-da-delegacao/' },
   'MNT-COM-06': { interna: true, url: '/ferramentas/roda-do-comunicador/' },
   'MNT-PES-08': { interna: true, url: '/ferramentas/swot-do-time/' },
+  'MNT-COM-07': { interna: true, url: '/ferramentas/voce-e-assertivo/' },
+  'MNT-COM-08': { interna: true, url: '/ferramentas/roda-da-diplomacia/' },
   'MNT-JOR-06': { interna: false, url: 'https://radardalideranca.netlify.app' },
 };
 
@@ -24,7 +26,8 @@ const ROTULOS = { media: 'Média', faixa: 'Faixa', plano: 'Plano de ação', not
   urgencia: 'Urgência', compromissos: 'Compromissos', gatilho_mais_frequente: 'Gatilho mais frequente', total_tarefas: 'Tarefas mapeadas',
   mapa: 'Mapa da delegação', regra: 'Regra combinada', time: 'Time', colaboradores: 'Pessoas analisadas',
   forcas_frequentes: 'Forças mais frequentes', fraquezas_frequentes: 'Fraquezas mais frequentes', pontos_de_atencao: 'Pontos de atenção',
-  duplas: 'Duplas de aprendizado', swot_individual: 'SWOT de cada pessoa' };
+  duplas: 'Duplas de aprendizado', swot_individual: 'SWOT de cada pessoa', estilo_predominante: 'Estilo predominante',
+  pontuacao: 'Pontuação por estilo', retorno: 'Quem vai dar retorno' };
 const rotulo = (k) => ROTULOS[k] || (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ');
 
 // Mostra o resultado guardado de uma ferramenta online, qualquer que seja ela.
