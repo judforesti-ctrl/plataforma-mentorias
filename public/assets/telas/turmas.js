@@ -45,8 +45,11 @@ async function lista(ctx, el) {
   const meusModulos = todas.flatMap((t) => (t.modulos || []).filter((m) => ministra(m, ctx.perfil.id)).map((m) => ({ ...m, turma: t })));
   const proximas = meusModulos.filter((m) => m.data_hora && !passou(m)).sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
   const semPercepcao = meusModulos.filter(pedePercepcao);
+  // quem dá a aula: os mentores do módulo (ou o convidado da planilha, se ainda não tem cadastro)
+  const quemDa = (m) => nomesMentores(m) || ((String(m.recomendacoes || '').match(/Quem conduz: ([^(.;]+)/i) || [])[1] || '').trim();
   const linhaAula = (m) => `<a class="pend" href="#/modulo/${m.id}"><b>${diaMes(m.data_hora)}<br>${horaBR(m.data_hora)}</b>
-    <span>Módulo ${m.numero} · ${esc(m.titulo)}<br><span class="peq apagado">${esc(m.turma.empresa ? m.turma.empresa.nome : '')} · ${esc(m.turma.nome)} · ${FORMATO[m.formato] || ''}</span></span></a>`;
+    <span>Módulo ${m.numero} · ${esc(m.titulo)}<br><span class="peq apagado">${esc(m.turma.empresa ? m.turma.empresa.nome : '')} · ${esc(m.turma.nome)} · ${FORMATO[m.formato] || ''}</span>
+      <br><span class="peq"><b>Mentor:</b> ${quemDa(m) ? esc(quemDa(m)) : 'a definir'}</span></span></a>`;
 
   el.innerHTML = `
     <div class="cab"><div><h1>${ctx.ehAdmin ? 'Turmas' : 'Minhas turmas'}</h1><p class="sub">Mentoria em grupo: módulos, slides, recomendações e percepções de cada aula.</p></div>
