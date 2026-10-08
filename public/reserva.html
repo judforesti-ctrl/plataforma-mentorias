@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pré-bloqueio de agenda · Mentorei</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/simbolo-m.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/app.css">
+<style>
+  .res-caixa { max-width: 560px; margin: 0 auto; padding: 28px 16px 48px; }
+  .res-topo { background: var(--petroleo); color: #fff; border-radius: var(--raio) var(--raio) 0 0; padding: 18px 22px; }
+  .res-topo img { height: 18px; width: auto; display: block; }
+  .res-corpo { border-radius: 0 0 var(--raio) var(--raio); border-top: 0; }
+  .res-corpo ul { margin: 10px 0 0; padding-left: 20px; }
+  .res-botoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .res-botoes .btn { justify-content: center; padding: 14px; font-size: 16px; }
+  @media (max-width: 420px) { .res-botoes { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main class="res-caixa">
+  <div class="res-topo"><img src="/assets/logo-clara.png" alt="Mentorei"></div>
+  <div class="cartao res-corpo" id="caixa" aria-live="polite"><p class="carregando">Carregando…</p></div>
+</main>
+<script type="module">
+const caixa = document.getElementById('caixa');
+const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const token = new URLSearchParams(location.search).get('t') || '';
+const RESP = { aceito: 'Você aceitou este pré-bloqueio.', recusado: 'Você respondeu que não pode.' };
+
+function desenhar(d, recado = '') {
+  caixa.innerHTML = `
+    <p class="apagado">Olá${d.nome ? `, ${esc(d.nome)}` : ''}! A coordenação da Mentorei reservou estas datas na sua agenda:</p>
+    <h2 class="mt">${esc(d.titulo)}</h2>
+    <ul>${d.cliente ? `<li>Cliente: ${esc(d.cliente)}</li>` : ''}<li>${esc(d.onde)}</li>${d.datas.map((x) => `<li><b>${esc(x)}</b></li>`).join('')}</ul>
+    ${d.observacoes ? `<p class="peq mt" style="white-space:pre-wrap">${esc(d.observacoes)}</p>` : ''}
+    ${recado ? `<div class="aviso ok mt">${recado}</div>` : ''}
+    ${d.encerrado ? `<div class="aviso mt">${d.situacao === 'liberada' ? 'Este pré-bloqueio foi liberado: as datas já estão livres na sua agenda.' : 'Este pré-bloqueio já virou turma: as aulas estão na sua agenda da plataforma.'}</div>`
+      : `${d.resposta !== 'aguardando' && !recado ? `<div class="aviso mt">${RESP[d.resposta]} Se mudou de ideia, é só responder de novo.</div>` : ''}
+        <h3 class="mt2">Você consegue?</h3>
+        <div class="campo mt"><label for="coment">Comentário (opcional)</label><input type="text" id="coment" maxlength="500" placeholder="Ex.: consigo só à tarde" value="${esc(d.comentario || '')}"></div>
+        <div class="res-botoes mt"><button class="btn pri" type="button" data-r="aceito">Aceito</button><button class="btn" type="button" data-r="recusado">Não posso</button></div>
+        <p class="peq apagado mt">Sua resposta vai direto para a agenda da plataforma e a coordenação é avisada.</p>`}`;
+  caixa.querySelectorAll('[data-r]').forEach((b) => b.addEventListener('click', () => responder(d, b.dataset.r)));
+}
+
+async function responder(d, resposta) {
+  caixa.querySelectorAll('[data-r]').forEach((b) => { b.disabled = true; });
+  try {
+    const r = await fetch('/api/reserva-resposta', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ t: token, resposta, comentario: (document.getElementById('coment') || {}).value || '' }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.mensagem || 'Não consegui gravar a resposta.');
+    d.resposta = resposta; d.comentario = (document.getElementById('coment') || {}).value || '';
+    desenhar(d, resposta === 'aceito' ? '<b>Pronto, obrigada!</b> As datas ficaram reservadas na sua agenda e a coordenação já foi avisada.'
+      : '<b>Resposta enviada.</b> A coordenação já foi avisada e vai procurar outra data ou outra pessoa.');
+  } catch (e) {
+    caixa.querySelectorAll('[data-r]').forEach((b) => { b.disabled = false; });
+    alert(e.message || 'Sem conexão. Tente de novo em instantes.');
+  }
+}
+
+(async () => {
+  try {
+    const r = await fetch(`/api/reserva-resposta?t=${encodeURIComponent(token)}`);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.mensagem || 'Não consegui abrir este pré-bloqueio.');
+    desenhar(j);
+  } catch (e) {
+    caixa.innerHTML = `<h2>Não deu para abrir</h2><p class="mt">${esc(e.message)}</p><p class="peq apagado mt">Se precisar, fale com a coordenação: contato@mentorei.com.br.</p>`;
+  }
+})();
+</script>
+</body>
+</html>

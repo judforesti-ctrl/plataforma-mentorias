@@ -153,6 +153,13 @@ async function paginaTurma(ctx, el, id) {
     const formato = el.querySelector('#m-formato').value;
     const lk = el.querySelector('#m-link').value.trim();
     const numero = mods.reduce((a, m) => Math.max(a, m.numero), 0) + 1;
+    const quando = localParaISO(el.querySelector('#m-data').value);
+    const escolhidos = [...el.querySelectorAll('input[name=m-ment]:checked')].map((c) => c.value);
+    if (quando && escolhidos.length) {
+      const { verificarChoques } = await import('./agenda-dados.js');
+      const lista = await verificarChoques(ctx, { mentorIds: escolhidos, inicio: quando, duracaoMin: formato === 'presencial' ? 240 : 120, formato: formato === 'presencial' ? 'presencial' : 'online' });
+      if (lista.length && !window.confirm(`Atenção na agenda:\n\n• ${lista.join('\n• ')}\n\nCriar o módulo mesmo assim?`)) return;
+    }
     const { data: novo, error: e } = await sb.from('modulos').insert({ turma_id: id, numero, titulo, formato,
       data_hora: localParaISO(el.querySelector('#m-data').value) || null,
       link: formato === 'presencial' ? null : (lk || null), local: formato === 'presencial' ? (lk || null) : null }).select('id').single();
@@ -232,6 +239,8 @@ async function paginaModulo(ctx, el, id) {
           </div>
           <p class="peq mt"><b>Mentor(es) do módulo</b></p>
           <div class="chips mt" id="mentores">${(equipe || []).map((x) => `<label class="check" style="margin-right:12px"><input type="checkbox" value="${x.id}"${escolhidos.has(x.id) ? ' checked' : ''}><span>${esc(x.nome)}${x.atende_grupo ? '' : ' <span class="peq apagado">(individual)</span>'}</span></label>`).join('')}</div>
+          <div id="choques" class="mt"></div>
+          ${m.formato === 'presencial' ? '<p class="peq apagado mt">Aula presencial: a véspera e o dia seguinte ficam reservados para o deslocamento. Passagem e hotel ficam em <a href="#/agenda/viagens">Agenda → Viagens</a>.</p>' : ''}
         </div>` : ''}
       </div>
 
@@ -275,6 +284,25 @@ async function paginaModulo(ctx, el, id) {
     },
   });
   el.querySelectorAll(adm ? '[data-mod], [data-perc]' : '[data-perc]').forEach((c) => { if (!c.disabled) { c.addEventListener('input', salvador.mudou); c.addEventListener('change', salvador.mudou); } });
+
+  // choques com a agenda dos mentores (administração)
+  const conferirChoques = async () => {
+    const box = el.querySelector('#choques'); if (!box) return;
+    const quando = localParaISO(el.querySelector('[data-mod="data_hora"]').value);
+    const ids = [...el.querySelectorAll('#mentores input:checked')].map((c) => c.value);
+    if (!quando || !ids.length) { box.innerHTML = ''; return; }
+    const formato = el.querySelector('[data-mod="formato"]').value === 'presencial' ? 'presencial' : 'online';
+    const dur = Number(el.querySelector('[data-mod="duracao_min"]').value) || (formato === 'presencial' ? 240 : 120);
+    const { verificarChoques } = await import('./agenda-dados.js');
+    const lista = await verificarChoques(ctx, { mentorIds: ids, inicio: quando, duracaoMin: dur, formato, ignorar: id });
+    box.innerHTML = lista.length ? `<div class="aviso"><b>Atenção na agenda dos mentores:</b><ul class="peq">${lista.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`
+      : '<p class="peq" style="color:var(--verde-esc)">✓ Sem choques na agenda dos mentores.</p>';
+  };
+  if (adm) {
+    el.querySelectorAll('[data-mod="data_hora"], [data-mod="formato"], [data-mod="duracao_min"]').forEach((c) => c.addEventListener('change', conferirChoques));
+    el.querySelector('#mentores')?.addEventListener('change', () => setTimeout(conferirChoques, 300));
+    conferirChoques();
+  }
 
   // mentores do módulo (administração)
   el.querySelector('#mentores')?.addEventListener('change', async (ev) => {

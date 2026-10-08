@@ -54,6 +54,7 @@ async function visaoGeral(ctx, el) {
       <select id="f-programa" style="width:auto"><option value="">Todos os programas</option>${d.programas.map((p) => `<option value="${p.id}">${esc(p.nome)}</option>`).join('')}</select>
     </div>
     <div id="numeros"></div>
+    <div id="agenda-avisos"></div>
     <div class="cartao mt" id="google"><p class="peq apagado">Verificando a Google Agenda…</p></div>
     <h2 class="mt2">Para hoje e pendências</h2>
     <div id="pendencias" class="mt"><p class="carregando">Carregando…</p></div>
@@ -99,6 +100,7 @@ async function visaoGeral(ctx, el) {
   desenhar();
   pendencias(el.querySelector('#pendencias'), { mostrarMentor: true });
   import('./turmas.js').then(({ resumoGrupo }) => resumoGrupo(el.querySelector('#grupo')));
+  import('./agenda.js').then(({ avisosAgenda }) => avisosAgenda(ctx, el.querySelector('#agenda-avisos')));
   cartaoGoogle(el.querySelector('#google'));
   el.addEventListener('click', async (ev) => {
     const tr = ev.target.closest('[data-ir]'); if (tr) { location.hash = tr.dataset.ir; return; }

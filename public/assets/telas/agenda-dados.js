@@ -1,0 +1,123 @@
+// Agenda: leitura do banco (cada um só recebe o que as regras de acesso permitem), janelas e peças comuns das telas.
+import { sb, esc, avatar } from '../base.js';
+import { montarEventos, indexar, choques, diaDe, horaDe, periodosDoIntervalo, PERIODOS, NOME_PERIODO, ESTADOS, TIPOS, estadoPeriodo, dispDe, ordenar } from '../agenda-regras.js';
+
+// Tabela ou coluna que ainda não existe (o script 14 ainda não foi rodado no Supabase).
+export const faltaScript = (e) => !!e && /does not exist|Could not find|schema cache|42P01|42703|PGRST20[45]/i.test(`${e.code || ''} ${e.message || ''}`);
+
+const SEL_MENTOR = 'id, nome, foto_url, email, whatsapp, papel, tambem_mentor, atende_individual, atende_grupo, termo_aceito_em';
+
+export async function carregarAgenda(ctx) {
+  const eu = ctx.perfil.id;
+  let falta = false;
+  const tentar = async (consulta, padrao = []) => {
+    const r = await consulta;
+    if (r.error) { if (faltaScript(r.error)) { falta = true; return padrao; } throw r.error; }
+    return r.data || padrao;
+  };
+
+  let mentores;
+  if (ctx.ehAdmin) {
+    const base = () => sb.from('perfis').select(`${SEL_MENTOR}, disponibilidade`).or('papel.eq.mentor,tambem_mentor.eq.true').eq('ativo', true).order('nome');
+    let r = await base();
+    if (r.error && faltaScript(r.error)) {
+      falta = true;
+      r = await sb.from('perfis').select(SEL_MENTOR).or('papel.eq.mentor,tambem_mentor.eq.true').eq('ativo', true).order('nome');
+    }
+    if (r.error) throw r.error;
+    mentores = r.data || [];
+  } else {
+    mentores = [ctx.perfil];
+  }
+
+  let qs = sb.from('sessoes').select('id, numero, data_hora, duracao_min, situacao, mentor_id, mentorado:mentorados(id, nome, status, programa:programas(id, nome, duracao_min, empresa:empresas(id, nome)))')
+    .not('data_hora', 'is', null);
+  if (!ctx.ehAdmin) qs = qs.eq('mentor_id', eu);
+  const [sessoes, modulosBase, extras, bloqueios, reservas] = await Promise.all([
+    tentar(qs),
+    tentar(sb.from('modulos').select('id, numero, titulo, data_hora, duracao_min, formato, local, link, turma:turmas(id, nome, status, empresa:empresas(id, nome)), mentores:modulo_mentores(mentor_id)')),
+    tentar(sb.from('modulo_mentores').select('modulo_id, mentor_id, com_deslocamento, viagem'), null),
+    tentar(sb.from('agenda_bloqueios').select('*')),
+    tentar(sb.from('agenda_reservas').select('*, empresa:empresas(id, nome), datas:agenda_reserva_datas(*), mentores:agenda_reserva_mentores(*)')),
+  ]);
+  const extra = new Map((extras || []).map((x) => [`${x.modulo_id}|${x.mentor_id}`, x]));
+  const modulos = modulosBase.map((m) => ({ ...m, mentores: (m.mentores || []).map((v) => ({ com_deslocamento: true, viagem: {}, ...v, ...(extra.get(`${m.id}|${v.mentor_id}`) || {}) })) }));
+  // sessão futura de quem foi desligado do programa não ocupa a agenda
+  const sess = sessoes.filter((s) => !(s.mentorado && s.mentorado.status === 'desligado' && s.situacao === 'agendada'));
+  const eventos = montarEventos({ sessoes: sess, modulos, bloqueios, reservas });
+  return { mentores, sessoes: sess, modulos, bloqueios, reservas, eventos, idx: indexar(eventos), faltaScript: falta, temExtras: extras !== null };
+}
+
+// Mesma leitura, guardada por um minuto (para conferir choques ao remarcar ou marcar módulos).
+let cache = null, cacheEm = 0, cacheDe = null;
+export async function agendaEmCache(ctx) {
+  if (cache && cacheDe === ctx.perfil.id && Date.now() - cacheEm < 60000) return cache;
+  cache = await carregarAgenda(ctx); cacheEm = Date.now(); cacheDe = ctx.perfil.id;
+  return cache;
+}
+export const limparCache = () => { cache = null; };
+
+// Choques de um compromisso novo (ou remarcado) com a agenda de cada mentor. Devolve frases prontas.
+export async function verificarChoques(ctx, { mentorIds = [], inicio, duracaoMin = 60, formato = 'online', ignorar = null }) {
+  if (!inicio || !mentorIds.length) return [];
+  let d;
+  try { d = await agendaEmCache(ctx); } catch (_) { return []; }
+  const h = horaDe(inicio), ini = new Date(inicio).getTime();
+  const novo = { dia: diaDe(inicio), ini, fim: ini + duracaoMin * 60000, periodos: periodosDoIntervalo(h, Math.min(24, h + duracaoMin / 60)), formato, ignorar };
+  return mentorIds.flatMap((id) => {
+    const m = d.mentores.find((x) => x.id === id);
+    return m ? choques(d.idx, m, novo) : [];
+  });
+}
+
+// ---------- servidor da plataforma ----------
+export async function api(caminho, corpo) {
+  const { data: { session } } = await sb.auth.getSession();
+  try {
+    const r = await fetch(caminho, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session ? session.access_token : ''}` }, body: JSON.stringify(corpo) });
+    const j = await r.json().catch(() => ({}));
+    return { ok: r.ok, ...j };
+  } catch (_) { return { ok: false, mensagem: 'Sem conexão com o servidor da plataforma.' }; }
+}
+
+// ---------- janela por cima da tela ----------
+export function janela(titulo, html, { largura = 600, aoFechar = null } = {}) {
+  const fundo = document.createElement('div');
+  fundo.className = 'janela-fundo';
+  fundo.innerHTML = `<div class="cartao janela" role="dialog" aria-modal="true" aria-label="${esc(titulo)}" style="max-width:${largura}px">
+    <div class="linha"><h3 style="flex:1">${esc(titulo)}</h3><button class="btn peq" data-fechar type="button">Fechar</button></div>
+    <div class="janela-corpo mt">${html}</div></div>`;
+  document.body.appendChild(fundo);
+  const tecla = (ev) => { if (ev.key === 'Escape') fechar(); };
+  function fechar() { if (!fundo.isConnected) return; fundo.remove(); document.removeEventListener('keydown', tecla); if (aoFechar) aoFechar(); }
+  document.addEventListener('keydown', tecla);
+  fundo.addEventListener('click', (ev) => { if (ev.target === fundo || ev.target.closest('[data-fechar]')) fechar(); });
+  return { fundo, corpo: fundo.querySelector('.janela-corpo'), fechar };
+}
+
+// ---------- peças de desenho ----------
+export const primeiroNome = (n) => String(n || '').split(' ')[0];
+export const amostra = (tipo) => `<i class="ag-amostra ag-${tipo}" aria-hidden="true"></i>`;
+
+export function legenda(tipos = ['livre', 'individual', 'turma', 'presencial', 'deslocamento', 'pre', 'reservado', 'bloqueio', 'feriado', 'fora']) {
+  return `<div class="ag-legenda">${tipos.map((t) => `<span>${amostra(t)}${esc(ESTADOS[t])}</span>`).join('')}</div>`;
+}
+
+// Os três períodos (manhã, tarde, noite) de um mentor num dia.
+export function estadosDoDia(idx, mentor, dia) {
+  const evs = idx.doDia(mentor.id, dia);
+  const disp = dispDe(mentor);
+  return PERIODOS.map((p) => ({ periodo: p, ...estadoPeriodo(evs, p, disp, dia) }));
+}
+
+export const dicaEstados = (estados) => estados.map((s) => `${NOME_PERIODO[s.periodo]}: ${s.eventos.length ? s.eventos.map((e) => e.titulo).join('; ') : ESTADOS[s.tipo]}`).join('\n');
+
+export function linhaEvento(e, { horaFn } = {}) {
+  const hora = e.ini && horaFn ? `<b>${horaFn(new Date(e.ini).toISOString())}</b> ` : '';
+  return `<div class="ag-evento">${amostra(e.tipo)}<div style="min-width:0"><div>${hora}${esc(e.titulo)}</div><div class="peq apagado">${esc(e.sub || TIPOS[e.tipo].nome)}</div></div>
+    ${e.link && e.link !== '#/agenda/pre' ? `<a class="btn peq" href="${esc(e.link)}">Abrir</a>` : ''}</div>`;
+}
+
+export const pessoa = (m) => `<span class="linha" style="gap:8px;flex-wrap:nowrap">${avatar(m)}<span>${esc(m.nome)}</span></span>`;
+
+export { ordenar };

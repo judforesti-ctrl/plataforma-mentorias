@@ -10,9 +10,9 @@ const quando = (iso) => {
 };
 
 export async function abrirRemarcar(ctx, sessaoId, aoSalvar = () => {}) {
-  const { data: s, error } = await sb.from('sessoes').select(`id, numero, data_hora, concluida_em,
+  const { data: s, error } = await sb.from('sessoes').select(`id, numero, data_hora, duracao_min, concluida_em,
     mentor:perfis!sessoes_mentor_id_fkey(id, nome, whatsapp),
-    mentorado:mentorados(*, perfil:perfis!mentorados_perfil_id_fkey(whatsapp),
+    mentorado:mentorados(*, programa:programas(duracao_min), perfil:perfis!mentorados_perfil_id_fkey(whatsapp),
       vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome, whatsapp)))`).eq('id', sessaoId).maybeSingle();
   if (error || !s) { avisar(error ? explicarErro(error) : 'Sessão não encontrada.', true); return; }
   if (s.concluida_em) { avisar('Esta sessão já foi concluída e não pode ser remarcada.', true); return; }
@@ -28,6 +28,7 @@ export async function abrirRemarcar(ctx, sessaoId, aoSalvar = () => {}) {
       <div class="campo"><label for="r-dia">Novo dia</label><input id="r-dia" type="date" value="${esc(local.slice(0, 10))}"></div>
       <div class="campo"><label for="r-hora">Novo horário</label><input id="r-hora" type="time" value="${esc(local.slice(11, 16))}"></div>
     </div>
+    <div id="r-choques" class="mt"></div>
     <div class="linha mt"><button class="btn pri" id="r-salvar">Remarcar</button></div>
     <div id="r-depois" class="mt"></div>
   </div>`;
@@ -35,6 +36,11 @@ export async function abrirRemarcar(ctx, sessaoId, aoSalvar = () => {}) {
   let mudou = false;
   const fechar = () => { fundo.remove(); if (mudou) aoSalvar(); };
   fundo.addEventListener('click', (ev) => { if (ev.target === fundo || ev.target.closest('[data-fechar]')) fechar(); });
+  // choques com a agenda do mentor: avisa antes; um segundo clique remarca mesmo assim
+  let aceitouChoques = false;
+  fundo.querySelectorAll('#r-dia, #r-hora').forEach((c) => c.addEventListener('input', () => {
+    aceitouChoques = false; fundo.querySelector('#r-choques').innerHTML = ''; fundo.querySelector('#r-salvar').textContent = 'Remarcar';
+  }));
 
   fundo.querySelector('#r-salvar').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
@@ -42,12 +48,27 @@ export async function abrirRemarcar(ctx, sessaoId, aoSalvar = () => {}) {
     if (!dia || !hora) { avisar('Escolha o novo dia e o horário.', true); return; }
     const novo = localParaISO(`${dia}T${hora}`);
     if (s.data_hora && new Date(novo).getTime() === new Date(s.data_hora).getTime()) { avisar('O dia e o horário são os mesmos de antes.', true); return; }
-    btn.disabled = true; btn.textContent = 'Remarcando…';
+    btn.disabled = true;
+    if (!aceitouChoques && s.mentor) {
+      btn.textContent = 'Conferindo a agenda…';
+      const { verificarChoques } = await import('./agenda-dados.js');
+      const lista = await verificarChoques(ctx, { mentorIds: [s.mentor.id], inicio: novo, duracaoMin: s.duracao_min || (m.programa && m.programa.duracao_min) || 50, ignorar: s.id });
+      if (lista.length) {
+        fundo.querySelector('#r-choques').innerHTML = `<div class="aviso"><b>Atenção na agenda:</b><ul class="peq">${lista.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+        aceitouChoques = true; btn.disabled = false; btn.textContent = 'Remarcar mesmo assim';
+        return;
+      }
+    }
+    btn.textContent = 'Remarcando…';
 
     // 1. grava na plataforma
     const { error: e } = await sb.from('sessoes').update({ data_hora: novo, situacao: 'agendada' }).eq('id', s.id);
     if (e) { avisar(explicarErro(e), true); btn.disabled = false; btn.textContent = 'Remarcar'; return; }
     mudou = true;
+    // conta a remarcação (para os números da agenda) e atualiza a agenda guardada
+    const { data: rc } = await sb.from('sessoes').select('remarcacoes').eq('id', s.id).maybeSingle();
+    if (rc) await sb.from('sessoes').update({ remarcacoes: (rc.remarcacoes || 0) + 1 }).eq('id', s.id);
+    import('./agenda-dados.js').then(({ limparCache }) => limparCache());
 
     // 2. acerta a Google Agenda
     const depois = fundo.querySelector('#r-depois');
