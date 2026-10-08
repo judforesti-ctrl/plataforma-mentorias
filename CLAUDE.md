@@ -68,6 +68,21 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   WhatsApp por wa.me; reunião pelo botão da agenda (convidados pré-preenchidos). `vendas-lembrete` (agendada, 8h): e-mail dos
   contatos do dia por responsável + cria "Renovação ·" para programa/turma terminados (30 dias depois, responsável = 1º admin).
 
+- Propostas geradas pela IA (2026-10-08, script 20, `telas/proposta.js`, rota `#/vendas/proposta/<id>`): na ficha da oportunidade,
+  "✨ Gerar com a IA" → cola o pedido (briefing) → `/api/proposta-gerar` (background; Claude com json_schema) escreve o conteúdo
+  nos moldes do PowerPoint da Mentorei e monta o .pptx → status gerando → rascunho (tela revisa/edita, pede ajustes à IA,
+  "Salvar e montar o arquivo de novo" = `/api/proposta-arquivo`) → Aprovar (Cintia) → Enviar: contato da empresa, busca na lista
+  de clientes ou pessoa nova; e-mail com anexo (`/api/proposta-email`, Brevo) ou WhatsApp (wa.me + baixar arquivo) → enviada:
+  etapa "proposta", retorno na agenda 4 dias depois (dia útil, 9h; `retornoEm4Dias()` em vendas.js, também usado por
+  "Registrar proposta" e pela importação). Arquivo na pasta privada `propostas/<oportunidade>/<proposta>/<nome>.pptx`.
+  MOTOR: `netlify/lib/proposta-pptx.mjs` edita o XML do .pptx (jszip): `MAPA` = páginas e nomes das caixas ("Text N"/"Shape N")
+  do modelo; duplica a página de módulo por módulo, apaga as páginas de exemplo, repete linhas (visão geral e organização) e
+  remove itens/tópicos que faltam; `conferirTamanhos` avisa textos longos. O modelo é `netlify/lib/modelos/proposta-modelo.pptx`
+  embutido em `proposta-modelo.mjs` (base64): quando a Juliana mandar o modelo oficial, trocar o .pptx, rodar
+  `python ferramentas/modelo-proposta.py` e conferir o MAPA (dump com python-pptx). Modelo atual = proposta Sicoob Unic (provisório).
+  Teste local: o Photoshop traz um Node 22 (`C:\Program Files\Adobe\Adobe Photoshop 2026\node.exe`); jszip em node_modules
+  (ignorado pelo git) com `main` apontando para `dist/jszip.min.js`; exportar páginas para PNG pelo PowerShell (COM do PowerPoint).
+
 - Visual (2026-10-08, aprovado por prévia): petróleo escuro + branco + bege escuro, contraste alto, SEM mudar layout (ela não quer
   reaprender a navegar). Tudo em `public/assets/app.css`: `--lima`/`--verde` apontam para o bege (código antigo continua valendo);
   `--ok` verde só para estados ok; `.cab` é a faixa clara de título; `.cartao.destaque` = cartão petróleo; `.cartao.numero` com borda bege.
@@ -86,7 +101,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
 ## Testar antes de publicar
 Não há servidor de desenvolvimento: para testar uma tela, servir `public/` localmente e trocar `/assets/base.js` por um
 arquivo de dados falsos (import map), conferir no navegador e apagar os arquivos de teste antes do commit.
-Não há Node nesta máquina: as funções `.mjs` foram testadas no navegador com import map (`node:crypto` falso) e `fetch` simulado.
+Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe Photoshop 2026\node.exe`, v22): serve para
+`node --check` e para rodar módulos puros como o motor das propostas. Funções com Supabase/Claude continuam sendo testadas no navegador.
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas

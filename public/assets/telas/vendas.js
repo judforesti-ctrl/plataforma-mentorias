@@ -25,8 +25,17 @@ const seloTemp = (o) => { const t = temperatura(o); return t ? `<span class="${T
 const chanceDe = (o) => (o.chance == null ? CHANCE[o.etapa] : o.chance);
 const atrasado = (o) => aberta(o) && o.proximo_contato_em && new Date(o.proximo_contato_em).getTime() < Date.now();
 const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-const limparFone = (t) => String(t || '').replace(/\D/g, '');
-const linkWhats = (fone, texto) => { let n = limparFone(fone); if (n.length <= 11) n = `55${n}`; return `https://wa.me/${n}?text=${encodeURIComponent(texto)}`; };
+export const limparFone = (t) => String(t || '').replace(/\D/g, '');
+export const linkWhats = (fone, texto) => { let n = limparFone(fone); if (n.length <= 11) n = `55${n}`; return `https://wa.me/${n}?text=${encodeURIComponent(texto)}`; };
+// Retorno depois de mandar uma proposta: 4 dias, pulando o fim de semana, às 9h de Brasília (12h UTC).
+export const retornoEm4Dias = () => {
+  const d = new Date(); d.setUTCDate(d.getUTCDate() + 4); d.setUTCHours(12, 0, 0, 0);
+  if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 2); else if (d.getUTCDay() === 0) d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString();
+};
+const OBS_RETORNO = (versao) => `Confirmar se recebeu a proposta${versao ? ` (versão ${versao})` : ''} e tirar dúvidas`;
+const SELO_PROPOSTA = { gerando: ['gerando…', 'selo neutro'], rascunho: ['rascunho', 'selo alerta'], aprovada: ['aprovada', 'selo'], enviada: ['enviada', 'selo escuro'], erro: ['erro', 'selo erro'] };
+const seloProposta = (p) => (p.status && SELO_PROPOSTA[p.status] ? `<span class="${SELO_PROPOSTA[p.status][1]}">${SELO_PROPOSTA[p.status][0]}</span>` : '');
 
 // filtros do pipeline (continuam ao voltar)
 const est = { texto: '', responsavel: '', servico: '', soAbertas: true };
@@ -49,6 +58,7 @@ export async function render(ctx, el, params) {
   if (!ctx.ehAdmin) { el.innerHTML = '<div class="aviso">Só a administração vê as vendas.</div>'; return; }
   if (params[0] === 'oportunidade' && params[1]) return paginaOportunidade(ctx, el, params[1]);
   if (params[0] === 'empresa' && params[1]) return paginaEmpresa(ctx, el, params[1]);
+  if (params[0] === 'proposta' && params[1]) return (await import('./proposta.js')).paginaProposta(ctx, el, params[1]);
   const aba = ABAS.some(([k]) => k === params[0]) ? params[0] : 'pipeline';
   const d = await carregar();
   const recarregar = () => ctx.irPara(`#/vendas/${aba}`);
@@ -248,9 +258,10 @@ async function paginaOportunidade(ctx, el, id) {
           <a class="btn peq mt" href="#/vendas/empresa/${o.empresa_id}">Abrir ficha da empresa</a></div>
       </div>
       <div class="grade" style="gap:14px">
-        <div class="cartao"><div class="linha"><h3 style="flex:1">Propostas</h3><button class="btn peq" type="button" id="nova-prop">+ Registrar proposta</button><a class="btn peq" href="#/importar-proposta">Importar PDF</a></div>
-          <div class="lista mt">${(props.data || []).length ? props.data.map((p) => `<div class="ag-bloco"><b>Versão ${p.versao}</b> · ${dinheiro(p.valor)}${p.enviada_em ? ` · enviada ${dataBR(p.enviada_em)}` : ''}${p.validade ? ` · vale até ${dataBR(p.validade)}` : ''}
-            ${p.arquivo ? `<br><span class="peq apagado">${esc(p.arquivo)}</span>` : ''}${p.resumo ? `<p class="peq mt" style="white-space:pre-wrap">${esc(p.resumo)}</p>` : ''}</div>`).join('') : '<p class="apagado">Nenhuma proposta registrada. Ao importar um PDF, ela aparece aqui sozinha.</p>'}</div></div>
+        <div class="cartao"><div class="linha" style="flex-wrap:wrap"><h3 style="flex:1">Propostas</h3>${aberta(o) ? '<button class="btn peq pri" type="button" id="gerar-prop">✨ Gerar com a IA</button>' : ''}<button class="btn peq" type="button" id="nova-prop">+ Registrar proposta</button><a class="btn peq" href="#/importar-proposta">Importar PDF</a></div>
+          <div class="lista mt">${(props.data || []).length ? props.data.map((p) => `<div class="ag-bloco"><div class="linha" style="justify-content:space-between"><div><b>Versão ${p.versao}</b> · ${dinheiro(p.valor)}${p.enviada_em ? ` · enviada ${dataBR(p.enviada_em)}` : ''}${p.validade ? ` · vale até ${dataBR(p.validade)}` : ''} ${seloProposta(p)}</div>
+            ${p.status ? `<a class="btn peq" href="#/vendas/proposta/${p.id}">${p.status === 'rascunho' ? 'Revisar e aprovar' : p.status === 'aprovada' ? 'Enviar' : p.status === 'gerando' ? 'Acompanhar' : 'Abrir'}</a>` : ''}</div>
+            ${p.arquivo ? `<span class="peq apagado">${esc(p.arquivo)}</span>` : ''}${p.resumo ? `<p class="peq mt" style="white-space:pre-wrap">${esc(p.resumo)}</p>` : ''}</div>`).join('') : '<p class="apagado">Nenhuma proposta ainda. Clique em <b>Gerar com a IA</b> e cole o pedido: a proposta sai nos moldes do PowerPoint da Mentorei.</p>'}</div></div>
         ${o.observacoes ? `<div class="cartao"><h3>Observações</h3><p class="peq mt" style="white-space:pre-wrap">${esc(o.observacoes)}</p></div>` : ''}
         <div class="cartao"><h3>Histórico</h3><div class="hist mt">${(hist.data || []).length ? hist.data.map((h) => `<div class="hist-item"><span class="hist-icone">${ICONE[h.tipo] || '•'}</span>
           <div><div class="peq apagado">${dataHoraBR(h.quando)} · ${TIPOS_INTERACAO[h.tipo] || h.tipo}${h.por_perfil ? ` · ${esc(primeiroNome(h.por_perfil.nome))}` : ''}</div><div style="white-space:pre-wrap">${esc(h.texto || '')}</div></div></div>`).join('') : '<p class="apagado">Nada registrado ainda.</p>'}</div></div>
@@ -269,6 +280,10 @@ async function paginaOportunidade(ctx, el, id) {
   });
   el.querySelector('#novo-contato').addEventListener('click', () => formContato(ctx, { empresaId: o.empresa_id }, recarregar));
   el.querySelector('#nova-prop').addEventListener('click', () => formProposta(ctx, o, (props.data || []).length, recarregar));
+  el.querySelector('#gerar-prop')?.addEventListener('click', async () => {
+    const { janelaGerar } = await import('./proposta.js');
+    janelaGerar(ctx, o, (props.data || []).length, (pid) => ctx.irPara(`#/vendas/proposta/${pid}`));
+  });
   el.querySelector('#lista-contatos').addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-c-acao]'); if (!b) return;
     const c = contatos.find((x) => x.id === b.dataset.c);
@@ -353,9 +368,12 @@ function formProposta(ctx, o, quantas, aoSalvar) {
     if (error) { avisar(explicarErro(error), true); return; }
     const mud = { ...(corpo.valor != null ? { valor: corpo.valor } : {}) };
     if (aberta(o) && (o.etapa === 'contato' || o.etapa === 'reuniao')) mud.etapa = 'proposta';
+    // proposta enviada: o retorno entra na agenda para 4 dias depois
+    if (aberta(o)) { mud.proximo_contato_em = retornoEm4Dias(); mud.proximo_contato_por = o.responsavel_id || ctx.perfil.id; mud.proximo_contato_obs = OBS_RETORNO(quantas + 1); }
     if (Object.keys(mud).length) await sb.from('oportunidades').update(mud).eq('id', o.id);
     await sb.from('interacoes').insert({ oportunidade_id: o.id, contato_id: o.contato_id, tipo: 'proposta', texto: `Proposta enviada (versão ${quantas + 1})${corpo.valor != null ? ` · ${dinheiro(corpo.valor)}` : ''}` });
-    avisar('Proposta registrada.'); j.fechar(); if (aoSalvar) aoSalvar();
+    if (aberta(o)) import('./agenda-dados.js').then(({ limparCache, avisarGoogle }) => { limparCache(); avisarGoogle(); });
+    avisar(aberta(o) ? 'Proposta registrada. Retorno marcado para daqui a 4 dias.' : 'Proposta registrada.'); j.fechar(); if (aoSalvar) aoSalvar();
   });
 }
 
@@ -364,7 +382,7 @@ async function modelos(canal) {
   const { data } = await sb.from('modelos_mensagem').select('*').eq('canal', canal).order('ordem');
   return data || [];
 }
-const preencher = (texto, o, c, ctx) => String(texto || '').replace(/\{contato\}/g, c ? primeiroNome(c.nome) : '').replace(/\{empresa\}/g, (o.empresa && o.empresa.nome) || '')
+export const preencher = (texto, o, c, ctx) => String(texto || '').replace(/\{contato\}/g, c ? primeiroNome(c.nome) : '').replace(/\{empresa\}/g, (o.empresa && o.empresa.nome) || '')
   .replace(/\{responsavel\}/g, primeiroNome((o.responsavel && o.responsavel.nome) || ctx.perfil.nome)).replace(/\{servico\}/g, (SERVICOS[o.servico] || '').toLowerCase()).replace(/\{valor\}/g, dinheiro(o.valor));
 
 async function janelaEmail(ctx, o, contatos, inicial, aoEnviar) {

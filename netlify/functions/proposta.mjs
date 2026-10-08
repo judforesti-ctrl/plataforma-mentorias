@@ -190,7 +190,8 @@ async function criarOportunidade(chave, importacaoId, r, arquivo, criadoPor) {
     versao = vs.reduce((m, v) => Math.max(m, v.versao || 0), 0) + 1;
     await supa(`/rest/v1/oportunidades?id=eq.${op.id}`, { metodo: 'PATCH', chave, corpo: { ...(valor ? { valor } : {}), importacao_id: importacaoId, ...(contato ? { contato_id: contato.id } : {}) } });
   } else {
-    const prox = new Date(); prox.setUTCDate(prox.getUTCDate() + 7); prox.setUTCHours(12, 0, 0, 0);   // 9h de Brasília, daqui a 7 dias
+    const prox = new Date(); prox.setUTCDate(prox.getUTCDate() + 4); prox.setUTCHours(12, 0, 0, 0);   // 9h de Brasília, daqui a 4 dias (pula fim de semana)
+    if (prox.getUTCDay() === 6) prox.setUTCDate(prox.getUTCDate() + 2); else if (prox.getUTCDay() === 0) prox.setUTCDate(prox.getUTCDate() + 1);
     op = await gravar('/rest/v1/oportunidades', { empresa_id: empresa.id, titulo: titulo.slice(0, 200), servico: c.servico || 'treinamento', valor, etapa: 'proposta',
       contato_id: contato ? contato.id : null, responsavel_id: criadoPor, proximo_contato_em: prox.toISOString(), proximo_contato_por: criadoPor,
       proximo_contato_obs: 'Confirmar se recebeu a proposta e tirar dúvidas', importacao_id: importacaoId, observacoes: c.condicoes || null, criado_por: criadoPor });
