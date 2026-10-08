@@ -73,18 +73,28 @@ export async function abrirRemarcar(ctx, sessaoId, aoSalvar = () => {}) {
     // 2. acerta a Google Agenda
     const depois = fundo.querySelector('#r-depois');
     depois.innerHTML = '<p class="peq apagado">Sessão remarcada. Atualizando a agenda…</p>';
-    let ag = { agenda: 'erro', mensagem: 'Não foi possível falar com a Google Agenda.' };
-    try {
-      const { data: { session } } = await sb.auth.getSession();
-      const r = await fetch('/api/agenda', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ sessao_id: s.id, antes: s.data_hora }) });
-      ag = await r.json().catch(() => ag);
-    } catch (_) { /* segue com a mensagem de erro */ }
+    const pedirAgenda = async (extra = {}) => {
+      let r0 = { agenda: 'erro', mensagem: 'Não foi possível falar com a Google Agenda.' };
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const r = await fetch('/api/agenda', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+          body: JSON.stringify({ sessao_id: s.id, antes: s.data_hora, ...extra }) });
+        r0 = await r.json().catch(() => r0);
+      } catch (_) { /* segue com a mensagem de erro */ }
+      return r0;
+    };
+    const ver = (x) => (x.link ? ` · <a href="${esc(x.link)}" target="_blank" rel="noopener">ver na agenda</a>` : '');
+    const textoAgenda = (x) => (x.agenda === 'atualizada' ? `<div class="aviso ok">O convite da Google Agenda foi atualizado (o mesmo convite, sem duplicar) e o Google avisou os convidados por e-mail${ver(x)}.</div>`
+      : x.agenda === 'criada' ? `<div class="aviso ok">Convite criado na Google Agenda e enviado aos convidados${ver(x)}.</div>`
+      : x.agenda === 'nao_achou' ? `<div class="aviso">Não achei o convite desta sessão na Google Agenda conectada${x.conta ? ` (${esc(x.conta)})` : ''}. Para não duplicar, nenhum convite novo foi criado.
+          Se a sessão ainda não tinha convite, clique em <b>Criar convite novo</b>.<div class="linha mt"><button class="btn peq" type="button" id="r-criar-convite">Criar convite novo</button></div></div>`
+      : x.agenda === 'sem_permissao' ? `<div class="aviso">O convite desta sessão foi criado pela conta <b>${esc(x.organizador || 'de outra pessoa')}</b>, e só ela pode mudar o horário.
+          Abra a Google Agenda dessa conta e mude lá${x.conta ? ` (a plataforma está ligada a ${esc(x.conta)})` : ''}. Nada foi duplicado.</div>`
+      : x.agenda === 'desconectada' ? '<div class="aviso">A Google Agenda não está conectada, então o convite não foi mudado. A administração conecta no Painel.</div>'
+      : `<div class="aviso erro">${esc(x.mensagem || 'A agenda não foi atualizada.')}</div>`);
+    let ag = await pedirAgenda();
     const convite = ag.agenda === 'atualizada' || ag.agenda === 'criada';
-    const status = ag.agenda === 'atualizada' ? `<div class="aviso ok">O convite da Google Agenda foi atualizado e o Google avisou os convidados por e-mail${ag.link ? ` · <a href="${esc(ag.link)}" target="_blank" rel="noopener">ver na agenda</a>` : ''}.</div>`
-      : ag.agenda === 'criada' ? `<div class="aviso ok">Não achei o convite antigo na agenda conectada, então criei um convite novo com a mesma sala do Meet e o Google enviou aos convidados${ag.link ? ` · <a href="${esc(ag.link)}" target="_blank" rel="noopener">ver na agenda</a>` : ''}. Se existir um convite antigo, apague-o na agenda de quem o criou.</div>`
-      : ag.agenda === 'desconectada' ? '<div class="aviso">A Google Agenda não está conectada, então o convite não foi mudado. A administração conecta no Painel.</div>'
-      : `<div class="aviso erro">${esc(ag.mensagem || 'A agenda não foi atualizada.')}</div>`;
+    const status = `<div id="r-agenda">${textoAgenda(ag)}</div>`;
 
     // 3. mensagens de WhatsApp
     const eu = ctx.perfil.nome.split(' ')[0];
@@ -101,6 +111,12 @@ export async function abrirRemarcar(ctx, sessaoId, aoSalvar = () => {}) {
         ${mentores.map((x, k) => `<button class="btn pri" data-whats-mentor="${k}">Avisar ${esc(x.nome.split(' ')[0])} (mentoria)</button>`).join('')}</div>
       ${mentores.length ? '' : '<p class="peq apagado mt">Esta sessão não tem mentor ligado na plataforma.</p>'}`;
     btn.textContent = 'Remarcada';
+    depois.addEventListener('click', async (ev) => {
+      const c = ev.target.closest('#r-criar-convite'); if (!c) return;
+      c.disabled = true; c.textContent = 'Criando…';
+      ag = await pedirAgenda({ criar: true });
+      depois.querySelector('#r-agenda').innerHTML = textoAgenda(ag);
+    });
     const { janelaWhatsApp } = await import('./equipe.js');
     depois.querySelector('#r-whats-m').addEventListener('click', () => janelaWhatsApp({ titulo: `Aviso de remarcação · ${m.nome}`,
       whatsapp: (m.perfil && m.perfil.whatsapp) || m.whatsapp || '', texto: txtMentorado }));

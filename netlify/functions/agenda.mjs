@@ -1,7 +1,11 @@
-// Depois de remarcar uma sessão na plataforma, acerta a Google Agenda da conta conectada:
-// procura o convite antigo da sessão (pela sala do Meet ou pelo e-mail do mentorado) e muda o dia e o horário.
-// O próprio Google manda o convite atualizado para os convidados. Se não achar, cria um convite novo com a mesma sala.
+// Depois de remarcar uma sessão na plataforma, acerta o convite da Google Agenda da conta conectada, sem duplicar:
+// 1. se a plataforma já sabe qual é o convite desta sessão (google_eventos), muda direto nele;
+// 2. se não sabe, procura o convite antigo perto do horário antigo (sala do Meet, e-mail ou nome do mentorado) e muda;
+// 3. se o convite é de outra conta Google, avisa (não cria outro);
+// 4. se não acha, também não cria sozinho: a tela oferece "Criar convite novo" (corpo com criar: true).
+// Com os convites automáticos ligados (Agenda → Celular e e-mail), quem cuida é a sincronização.
 import { json, supa, quemPede, acessoGoogle, agenda, FUSO, SITE } from '../lib/google.mjs';
+import { lerConfig, sincronizar, procurarConvite, eventoGuardado, guardarEvento } from '../lib/google-sync.mjs';
 
 export const config = { path: '/api/agenda', method: 'POST' };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -12,7 +16,7 @@ export default async (req) => {
   let b; try { b = await req.json(); } catch (_) { return json({ mensagem: 'Pedido inválido.' }, 400); }
   if (!UUID.test(String(b.sessao_id || ''))) return json({ mensagem: 'Sessão inválida.' }, 400);
 
-  const r = await supa(`/rest/v1/sessoes?id=eq.${b.sessao_id}&select=id,numero,data_hora,mentorado_id,concluida_em,`
+  const r = await supa(`/rest/v1/sessoes?id=eq.${b.sessao_id}&select=id,numero,data_hora,duracao_min,mentorado_id,concluida_em,`
     + 'mentor:perfis!sessoes_mentor_id_fkey(nome,email),'
     + 'mentorado:mentorados(nome,email,sala_meet,perfil:perfis!mentorados_perfil_id_fkey(email),programa:programas(nome,duracao_min,empresa:empresas(nome)))');
   const s = r.ok && r.dados && r.dados[0];
@@ -22,6 +26,17 @@ export default async (req) => {
     if (!(v.ok && v.dados && v.dados.length)) return json({ mensagem: 'Você não é mentor(a) deste mentorado.' }, 403);
   }
   if (!s.data_hora) return json({ mensagem: 'A sessão está sem data.' }, 400);
+  const chave = `sessao:${s.id}`;
+
+  // convites automáticos ligados: a sincronização muda (ou cria) o convite desta sessão
+  const cfg = await lerConfig();
+  if (cfg.equipe || cfg.mentorados) {
+    const res = await sincronizar({ limiteMs: 8000, prefixos: [chave], antes: { [chave]: b.antes } });
+    if (res.erro) return json({ agenda: 'erro', mensagem: res.erro });
+    if (res.semPermissao.length) return json({ agenda: 'sem_permissao', organizador: res.semPermissao[0].organizador, conta: res.conta });
+    if (res.erros.length) return json({ agenda: 'erro', mensagem: res.erros[0] });
+    return json({ agenda: res.criados ? 'criada' : 'atualizada', conta: res.conta });
+  }
 
   const acesso = await acessoGoogle();
   if (!acesso) return json({ agenda: 'desconectada' });
@@ -30,39 +45,38 @@ export default async (req) => {
   const m = s.mentorado || {};
   const prog = m.programa || {};
   const inicio = new Date(s.data_hora);
-  const fim = new Date(inicio.getTime() + (prog.duracao_min || 50) * 60000);
+  const fim = new Date(inicio.getTime() + (s.duracao_min || prog.duracao_min || 50) * 60000);
   const horario = { start: { dateTime: inicio.toISOString(), timeZone: FUSO }, end: { dateTime: fim.toISOString(), timeZone: FUSO } };
   const meet = String(m.sala_meet || '').trim();
-  const codigo = (meet.match(/meet\.google\.com\/([a-z]{3,4}-[a-z]{3,4}-[a-z]{3,4})/i) || [])[1];
   const emailsMentorado = [m.email, m.perfil && m.perfil.email].filter(Boolean).map((x) => x.toLowerCase());
+  const conta = String(acesso.email || '').toLowerCase();
 
-  // 1. Procura o convite antigo, perto do horário antigo
-  let achado = null;
-  if (b.antes && !Number.isNaN(new Date(b.antes).getTime())) {
-    const antes = new Date(b.antes);
-    const q = new URLSearchParams({ timeMin: new Date(antes.getTime() - 3 * 3600000).toISOString(), timeMax: new Date(antes.getTime() + 3 * 3600000).toISOString(),
-      singleEvents: 'true', orderBy: 'startTime', maxResults: '50' });
-    const lista = await agenda(acesso.token, `/calendars/primary/events?${q}`);
-    const eventos = (lista.ok && lista.dados && lista.dados.items) || [];
-    const combina = (ev) => {
-      const texto = JSON.stringify(ev).toLowerCase();
-      if (codigo && texto.includes(codigo.toLowerCase())) return true;
-      return (ev.attendees || []).some((a) => emailsMentorado.includes(String(a.email || '').toLowerCase()));
-    };
-    const candidatos = eventos.filter(combina);
-    achado = candidatos.find((ev) => ev.start && new Date(ev.start.dateTime || ev.start.date).getTime() === antes.getTime()) || candidatos[0] || null;
+  // 1. o convite que a plataforma já conhece
+  let ev = null;
+  const guardado = await eventoGuardado(chave);
+  if (guardado) {
+    const g = await agenda(acesso.token, `/calendars/primary/events/${encodeURIComponent(guardado.evento_id)}`);
+    if (g.ok && g.dados && g.dados.status !== 'cancelled') ev = g.dados;
+  }
+  // 2. o convite antigo, perto do horário antigo (e do novo, caso já tenha sido mudado à mão)
+  if (!ev) ev = await procurarConvite(acesso.token, { perto: [b.antes, s.data_hora], nome: m.nome, emails: emailsMentorado, sala: meet });
+
+  if (ev) {
+    const dono = String((ev.organizer && ev.organizer.email) || '').toLowerCase();
+    if (ev.organizer && !ev.organizer.self && dono && dono !== conta) return json({ agenda: 'sem_permissao', organizador: dono, conta: acesso.email });
+    const p = await agenda(acesso.token, `/calendars/primary/events/${encodeURIComponent(ev.id)}?sendUpdates=all`, { metodo: 'PATCH', corpo: horario });
+    if (p.ok) {
+      await guardarEvento(chave, ev.id, { adotado: guardado && guardado.evento_id === ev.id ? guardado.adotado : true, inicio: inicio.toISOString() });
+      return json({ agenda: 'atualizada', link: p.dados.htmlLink, conta: acesso.email });
+    }
+    if (p.status === 403) return json({ agenda: 'sem_permissao', organizador: dono || null, conta: acesso.email });
+    return json({ agenda: 'erro', mensagem: `A Google Agenda recusou a mudança (erro ${p.status}). Nada foi duplicado.` });
   }
 
-  // 2. Achou: muda o dia e o horário (o Google avisa os convidados)
-  if (achado) {
-    const p = await agenda(acesso.token, `/calendars/primary/events/${encodeURIComponent(achado.id)}?sendUpdates=all`, { metodo: 'PATCH', corpo: horario });
-    if (p.ok) return json({ agenda: 'atualizada', link: p.dados.htmlLink, conta: acesso.email });
-    // sem permissão para mudar (o convite é de outra pessoa): segue para criar um novo
-  }
-
-  // 3. Não achou (ou não pode mudar): cria um convite novo com a mesma sala do Meet
+  // 3. não achou: só cria quando a pessoa pedir
+  if (!b.criar) return json({ agenda: 'nao_achou', conta: acesso.email });
   const convidados = [...new Set([...emailsMentorado, s.mentor && s.mentor.email && s.mentor.email.toLowerCase()].filter(Boolean))]
-    .filter((e) => e !== String(acesso.email || '').toLowerCase()).map((email) => ({ email }));
+    .filter((e) => e !== conta).map((email) => ({ email }));
   const novo = await agenda(acesso.token, '/calendars/primary/events?sendUpdates=all', {
     metodo: 'POST',
     corpo: {
@@ -73,5 +87,6 @@ export default async (req) => {
     },
   });
   if (!novo.ok) return json({ agenda: 'erro', mensagem: `A Google Agenda recusou o convite (erro ${novo.status}).` });
-  return json({ agenda: 'criada', link: novo.dados.htmlLink, conta: acesso.email, antigo_nao_alterado: !!achado });
+  await guardarEvento(chave, novo.dados.id, { adotado: true, inicio: inicio.toISOString() });
+  return json({ agenda: 'criada', link: novo.dados.htmlLink, conta: acesso.email });
 };

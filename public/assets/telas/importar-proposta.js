@@ -221,6 +221,7 @@ function revisar(ctx, box, r, empresas) {
       if (!criadas.length) throw new Error('Marque pelo menos uma turma para criar.');
       avisar(criadas.length > 1 ? `${criadas.length} turmas criadas.` : 'Turma criada. Agora defina os mentores e o link de cada módulo.');
       const destino = criadas.length === 1 ? `#/turma/${criadas[0]}` : '#/turmas';
+      import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
       const { conferirModulos, mostrarConflitos } = await import('./agenda-dados.js');
       const conflitos = await conferirModulos(ctx, novosModulos);
       if (conflitos.length) {

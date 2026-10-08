@@ -4,6 +4,7 @@
 import { json, supa, SITE } from '../lib/google.mjs';
 import { enviarEmail, modeloEmail, COORDENACAO } from '../lib/email.mjs';
 import { primeiroNome, clienteDe, ondeReserva, descreverDataReserva } from '../lib/agenda.mjs';
+import { sincronizar } from '../lib/google-sync.mjs';
 
 export const config = { path: '/api/reserva-resposta', method: ['GET', 'POST'] };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -52,5 +53,7 @@ export default async (req) => {
     ],
   });
   await enviarEmail({ para: [{ email: COORDENACAO, name: 'Coordenação Mentorei' }], assunto: m.assunto, html: m.html, texto: m.texto });
+  // convites da Google Agenda deste pré-bloqueio (quem não pode sai dos convidados)
+  try { await sincronizar({ limiteMs: 5000, prefixos: [`reserva:${r.id}`, `desloc-res:${r.id}`] }); } catch (_) { /* o agendamento acerta depois */ }
   return json({ ok: true, resposta });
 };

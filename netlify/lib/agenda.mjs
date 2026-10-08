@@ -10,7 +10,8 @@ import {
 // O resumo sai na sexta e fala da semana seguinte (de segunda a domingo).
 export const proximaSegunda = () => segundaDaSemana(somarDias(hoje(), 7));
 
-const SEL_SESSAO = 'id,numero,data_hora,duracao_min,situacao,mentor_id,mentorado:mentorados(id,nome,status,sala_meet,programa:programas(id,nome,duracao_min,empresa:empresas(id,nome)))';
+const SEL_SESSAO = 'id,numero,data_hora,duracao_min,situacao,mentor_id,tema,mentorado:mentorados(id,nome,status,email,sala_meet,'
+  + 'perfil:perfis!mentorados_perfil_id_fkey(email,autorizacoes),programa:programas(id,nome,duracao_min,empresa:empresas(id,nome)))';
 const SEL_MODULO = 'id,numero,titulo,data_hora,duracao_min,formato,local,link,turma:turmas(id,nome,empresa:empresas(id,nome)),mentores:modulo_mentores(mentor_id,com_deslocamento,viagem)';
 const SEL_RESERVA = '*,empresa:empresas(id,nome),datas:agenda_reserva_datas(*),mentores:agenda_reserva_mentores(*)';
 

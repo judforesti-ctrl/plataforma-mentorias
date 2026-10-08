@@ -119,7 +119,8 @@ async function cartaoGoogle(box) {
     .then((r) => r.json().then((j) => ({ ok: r.ok, ...j }))).catch(() => ({ ok: false, mensagem: 'Sem conexão.' }));
   const st = await chamar({ acao: 'status' });
   box.innerHTML = `<div class="linha"><div style="flex:1"><h3>Google Agenda</h3>
-      <p class="peq apagado">${st.conectado ? `Conectada com <b>${esc(st.email || 'a conta do Google')}</b>. Ao remarcar uma sessão, o convite dessa agenda é atualizado e o Google avisa os convidados.`
+      <p class="peq apagado">${st.conectado ? `Conectada com <b>${esc(st.email || 'a conta do Google')}</b>. Ao remarcar uma sessão, o mesmo convite é atualizado (sem duplicar) e o Google avisa os convidados.
+        Convites automáticos para todos e a procura de convites duplicados ficam em <a href="#/agenda/celular">Agenda → Google, celular e e-mail</a>.`
         : st.configurado === false ? 'Falta configurar as chaves do Google na Netlify (GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET).'
         : 'Conecte a conta Google que cria os convites das mentorias. Assim, ao remarcar uma sessão, o convite é atualizado sozinho.'}</p></div>
     ${st.configurado === false ? '' : `<button class="btn ${st.conectado ? '' : 'pri'}" id="g-conectar">${st.conectado ? 'Trocar conta' : 'Conectar Google Agenda'}</button>`}</div>`;
@@ -224,6 +225,7 @@ async function novoMentorado(ctx, el) {
       const vinc = [{ mentorado_id: novo.id, mentor_id: m1, ordem: 1 }]; if (m2) vinc.push({ mentorado_id: novo.id, mentor_id: m2, ordem: 2 });
       const { error: e2 } = await sb.from('mentor_mentorado').insert(vinc); if (e2) throw e2;
       const { error: e3 } = await sb.rpc('criar_sessoes_do_programa', { p_mentorado: novo.id, p_primeira: localParaISO(el.querySelector('#n-data').value) }); if (e3) throw e3;
+      import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
       if (email && el.querySelector('#n-convite').checked) {
         const { convidar } = await import('./equipe.js');
         await convidar({ email, nome, papel: 'mentorado', mentorado_id: novo.id });

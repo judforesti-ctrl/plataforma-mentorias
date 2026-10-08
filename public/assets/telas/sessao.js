@@ -444,6 +444,7 @@ export async function render(ctx, el, [id]) {
       concluida_em: new Date().toISOString(), concluida_por: ctx.perfil.id }).eq('id', s.id);
     if (e) { avisar(explicarErro(e), true); btn.disabled = false; return; }
     avisar('Sessão concluída.');
+    import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
     ctx.irPara(`#/sessao/${s.id}`);
   });
 

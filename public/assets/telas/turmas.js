@@ -10,6 +10,9 @@ const agora = () => Date.now();
 const nomesMentores = (m) => (m.mentores || []).map((x) => x.mentor && x.mentor.nome).filter(Boolean).join(' e ');
 const ministra = (m, id) => (m.mentores || []).some((x) => x.mentor && x.mentor.id === id);
 const passou = (m) => m.data_hora && new Date(m.data_hora).getTime() < agora() - 2 * 3600 * 1000;
+// Aulas que aconteceram antes de a mentoria em grupo entrar na plataforma (vieram da planilha) não pedem percepções.
+const PERCEPCOES_DESDE = Date.parse('2026-10-08T00:00:00-03:00');
+const pedePercepcao = (m) => passou(m) && !m.percepcoes_em && new Date(m.data_hora).getTime() >= PERCEPCOES_DESDE;
 // como a turma acontece (a agenda usa: aula presencial reserva a véspera e o dia seguinte para o deslocamento)
 export const COMO = { online: 'Online', presencial: 'Presencial', misto: 'Parte online, parte presencial' };
 
@@ -41,7 +44,7 @@ async function lista(ctx, el) {
   const todas = turmas || [];
   const meusModulos = todas.flatMap((t) => (t.modulos || []).filter((m) => ministra(m, ctx.perfil.id)).map((m) => ({ ...m, turma: t })));
   const proximas = meusModulos.filter((m) => m.data_hora && !passou(m)).sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
-  const semPercepcao = meusModulos.filter((m) => passou(m) && !m.percepcoes_em);
+  const semPercepcao = meusModulos.filter(pedePercepcao);
   const linhaAula = (m) => `<a class="pend" href="#/modulo/${m.id}"><b>${diaMes(m.data_hora)}<br>${horaBR(m.data_hora)}</b>
     <span>Módulo ${m.numero} · ${esc(m.titulo)}<br><span class="peq apagado">${esc(m.turma.empresa ? m.turma.empresa.nome : '')} · ${esc(m.turma.nome)} · ${FORMATO[m.formato] || ''}</span></span></a>`;
 
@@ -156,7 +159,7 @@ async function paginaTurma(ctx, el, id) {
         <div class="lista mt">${mods.map((m) => `<a class="item" href="#/modulo/${m.id}" style="grid-template-columns:70px 1fr auto">
           <div><b>${m.numero}</b><br><span class="peq apagado">${m.data_hora ? diaMes(m.data_hora) : 'sem data'}</span></div>
           <div style="min-width:0"><div class="nome">${esc(m.titulo)}</div><div class="info">${esc(nomesMentores(m) || 'Mentor a definir')} · ${FORMATO[m.formato] || ''}${m.data_hora ? ` · ${horaBR(m.data_hora)}` : ''}</div></div>
-          ${m.percepcoes_em ? '<span class="selo">Percepções ✓</span>' : passou(m) ? '<span class="selo alerta">Sem percepções</span>' : '<span class="selo neutro">A acontecer</span>'}</a>`).join('')
+          ${m.percepcoes_em ? '<span class="selo">Percepções ✓</span>' : pedePercepcao(m) ? '<span class="selo alerta">Sem percepções</span>' : passou(m) ? '<span class="selo neutro">Realizada</span>' : '<span class="selo neutro">A acontecer</span>'}</a>`).join('')
           || '<p class="apagado">Nenhum módulo ainda.</p>'}</div>
       </div>
     </div>`;
@@ -170,6 +173,7 @@ async function paginaTurma(ctx, el, id) {
       if (!mud.nome) delete mud.nome;
       const { error: e } = await gravarTurma(mud, id);
       if (e) throw e;
+      import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
     },
   });
   el.querySelectorAll('[data-t]').forEach((c) => { c.addEventListener('input', salvador.mudou); c.addEventListener('change', salvador.mudou); });
@@ -191,6 +195,7 @@ async function paginaTurma(ctx, el, id) {
     const ids = [...el.querySelectorAll('input[name=m-ment]:checked')].map((c) => ({ modulo_id: novo.id, mentor_id: c.value }));
     if (ids.length) { const r = await sb.from('modulo_mentores').insert(ids); if (r.error) avisar(explicarErro(r.error), true); }
     avisar('Módulo criado.');
+    import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
     const { conferirModulos, mostrarConflitos } = await import('./agenda-dados.js');
     const conflitos = await conferirModulos(ctx, [{ id: novo.id, numero, titulo, data_hora: quando, formato, turma: t, mentorIds: escolhidos }]);
     if (conflitos.length) { mostrarConflitos(conflitos, { intro: 'O módulo foi criado, mas a data bate com algo na agenda:', aoFechar: () => ctx.irPara(`#/modulo/${novo.id}`) }); return; }
@@ -308,6 +313,7 @@ async function paginaModulo(ctx, el, id) {
       if (mud.percepcoes && !m.percepcoes_em) { mud.percepcoes_em = new Date().toISOString(); mud.percepcoes_por = ctx.perfil.id; m.percepcoes_em = mud.percepcoes_em; }
       const { error: e } = await sb.from('modulos').update(mud).eq('id', id);
       if (e) throw e;
+      if (adm) import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
     },
   });
   el.querySelectorAll(adm ? '[data-mod], [data-perc]' : '[data-perc]').forEach((c) => { if (!c.disabled) { c.addEventListener('input', salvador.mudou); c.addEventListener('change', salvador.mudou); } });
@@ -340,6 +346,7 @@ async function paginaModulo(ctx, el, id) {
       : await sb.from('modulo_mentores').delete().eq('modulo_id', id).eq('mentor_id', c.value);
     if (r.error) { avisar(explicarErro(r.error), true); c.checked = !c.checked; return; }
     avisar(c.checked ? 'Mentor incluído no módulo.' : 'Mentor retirado do módulo.');
+    import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
   });
 
   // envio de slides
@@ -402,7 +409,7 @@ export async function resumoGrupo(el) {
   if (error) { el.innerHTML = ''; return; }
   const em14 = agora() + 14 * 86400000;
   const proximos = (data || []).filter((m) => m.data_hora && !passou(m) && new Date(m.data_hora).getTime() < em14).sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
-  const pendentes = (data || []).filter((m) => passou(m) && !m.percepcoes_em);
+  const pendentes = (data || []).filter(pedePercepcao);
   const semMentor = (data || []).filter((m) => !passou(m) && !(m.mentores || []).length);
   const item = (m) => `<a class="pend" href="#/modulo/${m.id}"><b>${m.data_hora ? `${diaMes(m.data_hora)}<br>${horaBR(m.data_hora)}` : 'sem data'}</b>
     <span>${esc(m.turma ? m.turma.nome : '')} · módulo ${m.numero}<br><span class="peq apagado">${esc(m.titulo)} · ${esc(nomesMentores(m) || 'sem mentor')}</span></span></a>`;

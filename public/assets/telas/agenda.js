@@ -4,11 +4,11 @@ import { sb, esc, avatar, horaBR, avisar, explicarErro, diaMes } from '../base.j
 import { PERIODOS, NOME_PERIODO, LETRA_PERIODO, ESTADOS, hoje, somarDias, diaDaSemana, listaDias, segundaDaSemana, nomeSemana, nomeMes, ddmm, diaCurto,
   feriadoDe, dispDe, situacaoParaEncaixe, periodosDoIntervalo, horaDoTexto, diasEntre, diaDe, ordenar, indexar,
   descreverBloqueio, choquesDoBloqueio as choquesBloq, rotuloBloqueio, CATEGORIAS, moduloPresencial } from '../agenda-regras.js';
-import { carregarAgenda, limparCache, janela, api, legenda, amostra, estadosDoDia, dicaEstados, linhaEvento, primeiroNome, faltaScript } from './agenda-dados.js';
+import { carregarAgenda, limparCache, janela, api, legenda, amostra, estadosDoDia, dicaEstados, linhaEvento, primeiroNome, faltaScript, avisarGoogle } from './agenda-dados.js';
 
 const SEMANA_LONGA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const ORDEM_SEMANA = [1, 2, 3, 4, 5, 6, 0];
-const ABAS = [['quadro', 'Agenda da equipe'], ['encaixar', 'Encaixar'], ['pre', 'Pré-bloqueios'], ['bloqueios', 'Bloqueios'], ['viagens', 'Viagens'], ['numeros', 'Números'], ['celular', 'Celular e e-mail']];
+const ABAS = [['quadro', 'Agenda da equipe'], ['encaixar', 'Encaixar'], ['pre', 'Pré-bloqueios'], ['bloqueios', 'Bloqueios'], ['viagens', 'Viagens'], ['numeros', 'Números'], ['celular', 'Google, celular e e-mail']];
 const AVISO_SCRIPT = `<div class="aviso erro" style="margin-bottom:14px">Falta um passo para a agenda funcionar por completo: rodar o script <b>14-agenda-equipe.sql</b> no Supabase.
   Enquanto isso, a agenda mostra as sessões e as turmas, mas ainda não guarda bloqueios, pré-bloqueios, dias de atendimento nem viagens.</div>`;
 
@@ -306,7 +306,7 @@ function ligarViagens(raiz, d, aoMudar) {
     box.querySelector('.ag-viagem-itens').hidden = !com;
     const { error } = await sb.from('modulo_mentores').update({ com_deslocamento: com, viagem }).eq('modulo_id', md.id).eq('mentor_id', v.mentor_id);
     if (error) { avisar(faltaScript(error) ? 'Falta rodar o script 14 no Supabase.' : explicarErro(error), true); return; }
-    v.viagem = viagem; v.com_deslocamento = com; limparCache();
+    v.viagem = viagem; v.com_deslocamento = com; limparCache(); avisarGoogle();
     avisar(ev.target.dataset.v === 'com_deslocamento' ? (com ? 'Deslocamento marcado: véspera e dia seguinte ficam reservados.' : 'Sem deslocamento: véspera e dia seguinte liberados.') : 'Viagem atualizada.');
     if (aoMudar) aoMudar();
   });
@@ -419,7 +419,7 @@ export function abrirBloqueio(ctx, d, { mentorId = null, dia = null, bloqueio = 
       r = await gravar(resto);
     }
     if (r.error) { btn.disabled = false; avisar(faltaScript(r.error) ? 'A coordenação ainda precisa terminar de preparar a agenda (script 14 no Supabase).' : explicarErro(r.error), true); return; }
-    limparCache();
+    limparCache(); avisarGoogle();
     if (!adm) {
       btn.textContent = 'Avisando a coordenação…';
       const res = await api('/api/agenda-email', { acao: 'aviso-bloqueio', bloqueio_id: r.data.id });
@@ -431,7 +431,7 @@ export function abrirBloqueio(ctx, d, { mentorId = null, dia = null, bloqueio = 
     if (!window.confirm('Apagar este bloqueio? O horário volta a ficar livre.')) return;
     const { error } = await sb.from('agenda_bloqueios').delete().eq('id', b.id);
     if (error) { avisar(explicarErro(error), true); return; }
-    limparCache(); avisar('Bloqueio apagado.'); j.fechar(); aoSalvar();
+    limparCache(); avisarGoogle(); avisar('Bloqueio apagado.'); j.fechar(); aoSalvar();
   });
 }
 
@@ -626,9 +626,11 @@ function abaViagens(ctx, el, d, recarregar) {
 
 // ---------- celular e e-mail ----------
 async function abaCelular(ctx, el, d) {
-  el.innerHTML = `<div class="cartao"><h3>Resumo da semana por e-mail</h3><div id="resumo" class="mt"><p class="peq apagado">Carregando…</p></div></div>
+  el.innerHTML = `<div class="cartao"><h3>Convites na Google Agenda</h3><div id="google-convites" class="mt"><p class="peq apagado">Carregando…</p></div></div>
+    <div class="cartao"><h3>Resumo da semana por e-mail</h3><div id="resumo" class="mt"><p class="peq apagado">Carregando…</p></div></div>
     ${ctx.atende ? '<div id="celular" class="mt"></div>' : ''}`;
   if (ctx.atende) cartaoCelular(ctx, el.querySelector('#celular'));
+  cartaoConvites(ctx, el.querySelector('#google-convites'));
   const box = el.querySelector('#resumo');
   const [{ data: cfg, error }, st] = await Promise.all([
     sb.from('configuracoes').select('valor').eq('chave', 'resumo_semanal').maybeSingle(),
@@ -649,10 +651,86 @@ async function abaCelular(ctx, el, d) {
     avisar(ev.target.checked ? 'Resumo semanal ligado: sai toda sexta às 9h, com a semana seguinte.' : 'Resumo semanal desligado.');
   });
   box.querySelector('#resumo-teste').addEventListener('click', async (ev) => {
-    ev.currentTarget.disabled = true;
+    const btn = ev.currentTarget;
+    btn.disabled = true;
     const r = await api('/api/agenda-email', { acao: 'teste-resumo' });
     avisar(r.ok ? `Enviado para ${ctx.perfil.email}. Confira a caixa de entrada (e o spam).` : (r.mensagem || 'Não foi possível enviar.'), !r.ok);
-    ev.currentTarget.disabled = false;
+    btn.disabled = false;
+  });
+}
+
+// Convites automáticos na Google Agenda (equipe e mentorados) e conferência de convites duplicados.
+async function cartaoConvites(ctx, box) {
+  const st = await api('/api/google-sync', { acao: 'status' });
+  if (!st.ok) { box.innerHTML = `<p class="peq">${esc(st.mensagem || 'Não consegui conferir a ligação com a Google Agenda agora.')}</p>`; return; }
+  if (!st.conectado) { box.innerHTML = '<p class="peq">Primeiro conecte a conta Google da coordenação no <a href="#/painel">Painel</a> (cartão "Google Agenda").</p>'; return; }
+  const u = st.ultimo;
+  const quando = u && u.em ? new Date(u.em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null;
+  box.innerHTML = `
+    <p class="peq">A conta <b>${esc(st.conta || '')}</b> cria um convite para cada compromisso da plataforma e chama os envolvidos. Assim tudo aparece na Google Agenda
+      (e no celular) de cada um. Quando algo muda aqui, o mesmo convite muda junto, sem duplicar. Se algo sai da agenda, o convite é cancelado.</p>
+    <ul class="peq" style="margin:8px 0 0 18px"><li><b>Equipe:</b> sessões que conduz, aulas das turmas, dias de deslocamento, bloqueios, férias, recessos e pré-bloqueios.</li>
+      <li><b>Mentorados:</b> as próprias sessões (só quem tem e-mail na ficha e não recusou e-mails).</li></ul>
+    ${st.script ? '' : '<div class="aviso erro mt">Falta rodar o script <b>17-google-convites.sql</b> no Supabase para ligar os convites.</div>'}
+    <label class="check mt"><input type="checkbox" id="g-equipe"${st.equipe ? ' checked' : ''}${st.script ? '' : ' disabled'}><span><b>Mandar convites para a equipe</b></span></label>
+    <label class="check mt"><input type="checkbox" id="g-mentorados"${st.mentorados ? ' checked' : ''}${st.script ? '' : ' disabled'}><span><b>Mandar convites para os mentorados</b></span></label>
+    <p class="peq apagado mt">Ao ligar, cada pessoa recebe por e-mail um convite para cada compromisso daqui para frente (pode ser bastante coisa de uma vez).
+      Convites que já existiam na agenda da coordenação são aproveitados, não duplicados.</p>
+    ${quando ? `<p class="peq mt"><b>Última conferência:</b> ${quando} · ${u.criados || 0} criados, ${u.atualizados || 0} atualizados, ${u.adotados || 0} aproveitados, ${u.apagados || 0} cancelados${u.pendentes ? ` · ${u.pendentes} ainda na fila` : ''}.</p>
+      ${(u.semPermissao || []).length ? `<div class="aviso mt">${u.semPermissao.length} convite(s) foram criados por outra conta Google e não podem ser mudados por aqui: ${esc([...new Set(u.semPermissao.map((x) => x.organizador))].join(', '))}.</div>` : ''}
+      ${(u.semEmail || []).length ? `<p class="peq apagado mt">Mentorados sem e-mail na ficha (não recebem convite): ${esc(u.semEmail.join(', '))}.</p>` : ''}
+      ${(u.erros || []).length ? `<p class="peq mt" style="color:var(--erro)">${u.erros.length} erro(s): ${esc(u.erros.slice(0, 3).join('; '))}</p>` : ''}` : ''}
+    <div class="linha mt"><button class="btn" type="button" id="g-tudo"${(st.equipe || st.mentorados) ? '' : ' disabled'}>Sincronizar agora</button>
+      <button class="btn" type="button" id="g-conferir">Procurar convites duplicados</button></div>
+    <div id="g-lista" class="mt"></div>`;
+  const salvarCfg = async () => {
+    const equipe = box.querySelector('#g-equipe').checked, mentorados = box.querySelector('#g-mentorados').checked;
+    const ligando = (equipe && !st.equipe) || (mentorados && !st.mentorados);
+    if (ligando && !window.confirm('Ligar os convites? A Google Agenda vai mandar por e-mail um convite para cada compromisso daqui para frente.')) {
+      box.querySelector('#g-equipe').checked = st.equipe; box.querySelector('#g-mentorados').checked = st.mentorados; return;
+    }
+    const { error } = await sb.from('configuracoes').upsert({ chave: 'google_convites', valor: { equipe, mentorados }, atualizado_em: new Date().toISOString() });
+    if (error) { avisar(explicarErro(error), true); return; }
+    st.equipe = equipe; st.mentorados = mentorados;
+    box.querySelector('#g-tudo').disabled = !(equipe || mentorados);
+    if (equipe || mentorados) { await api('/api/google-sync', { acao: 'tudo' }); avisar('Convites ligados. A primeira sincronização leva alguns minutos.'); }
+    else avisar('Convites desligados. Os que já foram enviados continuam na agenda das pessoas.');
+  };
+  box.querySelector('#g-equipe').addEventListener('change', salvarCfg);
+  box.querySelector('#g-mentorados').addEventListener('change', salvarCfg);
+  box.querySelector('#g-tudo').addEventListener('click', async (ev) => {
+    ev.currentTarget.disabled = true;
+    await api('/api/google-sync', { acao: 'tudo' });
+    avisar('Sincronização pedida. Em alguns minutos a Google Agenda fica em dia.');
+  });
+  box.querySelector('#g-conferir').addEventListener('click', async (ev) => {
+    const lista = box.querySelector('#g-lista');
+    const btn = ev.currentTarget;
+    btn.disabled = true;
+    lista.innerHTML = '<p class="peq apagado">Conferindo a Google Agenda (de 30 dias atrás a 4 meses à frente)…</p>';
+    const r = await api('/api/google-sync', { acao: 'conferir' });
+    btn.disabled = false;
+    if (r.erro || !r.ok) { lista.innerHTML = `<div class="aviso erro">${esc(r.erro || r.mensagem || 'Não consegui conferir agora.')}</div>`; return; }
+    if (!r.achados.length) { lista.innerHTML = '<div class="aviso ok">Nenhum convite duplicado ou em horário antigo. Tudo certo.</div>'; return; }
+    const dataHora = (iso) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    lista.innerHTML = `<p class="peq"><b>${r.achados.length} convite(s) para conferir.</b> Marque os que devem ser apagados. Os convidados recebem o aviso de cancelamento.</p>
+      <div class="lista mt">${r.achados.map((x) => `<label class="ag-res-mentor" style="grid-template-columns:auto 1fr">
+        <input type="checkbox" value="${esc(x.id)}"${x.podeApagar ? (x.motivo.startsWith('Repetido') ? ' checked' : '') : ' disabled'}>
+        <span><b>${esc(dataHora(x.inicio))}</b> · ${esc(x.titulo)}${x.recorrente ? ' <span class="selo neutro">recorrente · protegido</span>' : ''}<br>
+          <span class="peq apagado">${esc(x.motivo)}${x.podeApagar || x.recorrente ? '' : ` · criado por ${esc(x.organizador)}: só essa conta apaga`}</span></span></label>`).join('')}</div>
+      <p class="peq apagado mt">Convites recorrentes (as séries semanais dos mentorados) nunca são apagados por aqui.</p>
+      <div class="linha mt"><button class="btn perigo" type="button" id="g-apagar">Apagar os marcados</button></div>`;
+    lista.querySelector('#g-apagar').addEventListener('click', async (e2) => {
+      const ids = [...lista.querySelectorAll('input:checked')].map((c) => c.value);
+      if (!ids.length) { avisar('Marque pelo menos um convite.', true); return; }
+      if (!window.confirm(`Apagar ${ids.length} convite(s) da Google Agenda? Os convidados recebem o cancelamento.`)) return;
+      const btn2 = e2.currentTarget;
+      btn2.disabled = true;
+      const a = await api('/api/google-sync', { acao: 'apagar', ids });
+      if (!a.ok || a.erro) { avisar(a.erro || a.mensagem || 'Não consegui apagar.', true); btn2.disabled = false; return; }
+      avisar(`${a.apagados} convite(s) apagado(s).${a.protegidos && a.protegidos.length ? ` ${a.protegidos.length} recorrente(s) protegido(s), não apagados.` : ''}${a.erros && a.erros.length ? ` ${a.erros.length} não deram certo.` : ''}`);
+      box.querySelector('#g-conferir').click();
+    });
   });
 }
 

@@ -135,6 +135,13 @@ export async function api(caminho, corpo) {
   } catch (_) { return { ok: false, mensagem: 'Sem conexão com o servidor da plataforma.' }; }
 }
 
+// Depois de mudar algo na agenda, pede ao servidor para acertar os convites da Google Agenda (se estiverem ligados).
+let timerGoogle = null;
+export function avisarGoogle() {
+  clearTimeout(timerGoogle);
+  timerGoogle = setTimeout(() => { api('/api/google-sync', {}).catch(() => {}); }, 1500);
+}
+
 // ---------- janela por cima da tela ----------
 export function janela(titulo, html, { largura = 600, aoFechar = null } = {}) {
   const fundo = document.createElement('div');

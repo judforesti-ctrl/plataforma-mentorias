@@ -203,7 +203,7 @@ export async function render(ctx, el, [id]) {
     const iso = quando.trim() ? localParaISO(quando.trim().replace(' ', 'T')) : null;
     const { error: e } = await sb.rpc('criar_sessao_extra', { p_mentorado: m.id, p_data: iso, p_mentor: mentores[0] ? mentores[0].id : null });
     if (e) { avisar(explicarErro(e), true); return; }
-    avisar('Sessão extra criada.'); ctx.irPara(`#/mentorado/${m.id}`);
+    avisar('Sessão extra criada.'); import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle()); ctx.irPara(`#/mentorado/${m.id}`);
   });
 
   // remarcar uma sessão (data e horário, Google Agenda e aviso pelo WhatsApp)

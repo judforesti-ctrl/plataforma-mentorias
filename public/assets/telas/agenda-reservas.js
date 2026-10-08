@@ -3,7 +3,7 @@
 // confirmar ou liberar. Quando o cliente fecha, o pré-bloqueio vira turma com os módulos já nas datas certas.
 import { sb, esc, avatar, avisar, explicarErro } from '../base.js';
 import { PERIODOS, NOME_PERIODO, HORA_PADRAO, hoje, somarDias, diaCurto, ddmm, diasEntre, diaDe, choques, isoDe, horaDoTexto, periodosDoIntervalo } from '../agenda-regras.js';
-import { janela, api, limparCache, faltaScript, primeiroNome, amostra } from './agenda-dados.js';
+import { janela, api, limparCache, faltaScript, primeiroNome, amostra, avisarGoogle } from './agenda-dados.js';
 
 const QUANDO = [['dia', 'Dia inteiro'], ['manha', 'Manhã'], ['tarde', 'Tarde'], ['noite', 'Noite'], ['manha,tarde', 'Manhã e tarde'], ['tarde,noite', 'Tarde e noite'], ['hora', 'Horário exato']];
 const SIT = { pre: ['Pré-bloqueio', 'alerta'], confirmada: ['Reservado: cliente confirmou', ''], convertida: ['Virou turma', 'neutro'], liberada: ['Liberado', 'neutro'] };
@@ -121,7 +121,7 @@ export function abaReservas(ctx, el, d, recarregar) {
     const mud = acao === 'confirmar' ? { situacao: 'confirmada' } : acao === 'adiar' ? { lembrar_em: somarDias(h, 5) } : { situacao: 'liberada' };
     const { error } = await sb.from('agenda_reservas').update(mud).eq('id', r.id);
     if (error) { avisar(explicarErro(error), true); return; }
-    limparCache();
+    limparCache(); avisarGoogle();
     if (acao === 'liberar') { avisarLiberacao(ctx, d, r, recarregar); return; }
     avisar(acao === 'confirmar' ? 'Reservado: o cliente confirmou. Quando quiser, transforme em turma.' : 'Combinado: lembro de novo daqui a 5 dias.');
     recarregar();
@@ -289,7 +289,7 @@ export async function abrirReserva(ctx, d, { reserva = null, dias = [], mentores
         }
         precisam = mudaramDatas ? ids : entrar;
       }
-      limparCache();
+      limparCache(); avisarGoogle();
       salvou = true;
       // e-mail e WhatsApp
       const { data: nova, error: e2 } = await sb.from('agenda_reservas').select('*, empresa:empresas(id, nome), datas:agenda_reserva_datas(*), mentores:agenda_reserva_mentores(*)').eq('id', id).single();
@@ -393,7 +393,7 @@ async function converterEmTurma(ctx, d, r, recarregar) {
       }
       const { error: e3 } = await sb.from('agenda_reservas').update({ situacao: 'convertida', turma_id: turmaId, empresa_id: empresa }).eq('id', r.id);
       if (e3) throw e3;
-      limparCache();
+      limparCache(); avisarGoogle();
       avisar('Turma criada com os módulos nas datas do pré-bloqueio.');
       j.fechar();
       const { conferirModulos, mostrarConflitos } = await import('./agenda-dados.js');
