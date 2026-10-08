@@ -35,7 +35,7 @@ export async function render(ctx, el) {
         <div style="flex:1;min-width:200px"><p class="peq" style="color:var(--lima);font-weight:700;letter-spacing:.06em;text-transform:uppercase">Seu programa de mentoria</p>
           <h1 style="color:#fff">Olá, ${esc(ctx.perfil.nome.split(' ')[0])}</h1>
           <p style="opacity:.8">${m.programa ? `${esc(m.programa.nome)} · ` : ''}Sessões feitas: ${feitas} de ${sess.length}${proxima ? ` · Próxima: ${diaMes(proxima.data_hora)} às ${new Date(proxima.data_hora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })}${proxima.mentor ? ` com ${esc(proxima.mentor.nome)}` : ''}` : ''}</p></div>
-        ${m.sala_meet ? `<a class="btn pri" href="${esc(m.sala_meet)}" target="_blank" rel="noopener">Entrar na sala do Meet</a>` : ''}
+        ${m.sala_meet ? `<a class="btn pri" href="${esc(/^https?:\/\//i.test(m.sala_meet) ? m.sala_meet : `https://${m.sala_meet}`)}" target="_blank" rel="noopener">Entrar na sala do Meet</a>` : ''}
       </div></div>
 
     <div class="grade g2 mt">

@@ -1,4 +1,5 @@
 // Painel da administração: visão geral, empresas e programas, novo programa, novo mentorado e página do programa.
+import { normalizarMeet } from './meet.js';
 import { pendencias } from './pendencias.js';
 import { sb, esc, dataBR, dataHoraBR, avisar, explicarErro, localParaISO, hojeISO } from '../base.js';
 
@@ -220,7 +221,7 @@ async function novoMentorado(ctx, el) {
     if (m2 && m2 === m1) { avisar('Escolha mentores diferentes.', true); return; }
     ev.target.disabled = true;
     try {
-      const { data: novo, error } = await sb.from('mentorados').insert({ nome, email, programa_id, cargo: el.querySelector('#n-cargo').value.trim() || null, sala_meet: el.querySelector('#n-meet').value.trim() || null }).select('id').single();
+      const { data: novo, error } = await sb.from('mentorados').insert({ nome, email, programa_id, cargo: el.querySelector('#n-cargo').value.trim() || null, sala_meet: normalizarMeet(el.querySelector('#n-meet').value) }).select('id').single();
       if (error) throw error;
       const vinc = [{ mentorado_id: novo.id, mentor_id: m1, ordem: 1 }]; if (m2) vinc.push({ mentorado_id: novo.id, mentor_id: m2, ordem: 2 });
       const { error: e2 } = await sb.from('mentor_mentorado').insert(vinc); if (e2) throw e2;

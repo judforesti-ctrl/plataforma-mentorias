@@ -2,7 +2,7 @@
 // roteiro, anotações por voz, campo delicado, notas de evolução, tarefa, ferramentas e resumo para o mentorado.
 // Depois de concluída, só a administração altera.
 import { sb, esc, avatar, dataHoraBR, diaMes, autoSalvar, avisar, explicarErro, hojeISO } from '../base.js';
-import { editarLinkMeet } from './meet.js';
+import { editarLinkMeet, normalizarMeet } from './meet.js';
 
 // Janela flutuante (fica por cima de tudo, até do Meet): Google Chrome e Edge no computador.
 const FLUTUANTE = 'documentPictureInPicture' in window;
@@ -30,6 +30,7 @@ export async function render(ctx, el, [id]) {
   if (error) throw error;
   if (!s) { el.innerHTML = '<div class="vazio">Sessão não encontrada, ou você não tem acesso a ela.</div>'; return; }
   const m = s.mentorado;
+  m.sala_meet = normalizarMeet(m.sala_meet); // link antigo sem "https://" também funciona
   const p = m.perfil || {};
   const [{ data: todas }, { data: plano }, { data: ferramentas }, { data: enviadas }] = await Promise.all([
     sb.from('sessoes').select(SEL_SESSAO).eq('mentorado_id', m.id).order('numero'),
@@ -262,7 +263,7 @@ export async function render(ctx, el, [id]) {
     document.querySelectorAll('link[rel="stylesheet"], style').forEach((x) => d.head.appendChild(x.cloneNode(true)));
     d.title = `Sessão ${s.numero} · ${m.nome}`;
     d.body.className = 'janela-flutuante';
-    d.body.innerHTML = `<div class="linha flutuante-topo"><b style="flex:1">Sessão ${s.numero} · ${esc(m.nome.split(' ')[0])}</b><span class="salvo" id="indicador-f"></span></div>
+    d.body.innerHTML = `<div class="linha flutuante-topo"><b style="flex:1">Sessão ${s.numero} · ${esc(m.nome.split(' ')[0])}</b>${m.sala_meet ? `<a class="btn peq escuro" href="${esc(m.sala_meet)}" target="_blank" rel="noopener">Entrar no Meet</a>` : ''}<span class="salvo" id="indicador-f"></span></div>
       <p class="peq apagado flutuante-dica">Esta janela fica por cima do Meet. Arraste pela borda de cima e mude o tamanho pelos cantos. Tudo salva sozinho.</p>`;
     // o "Salvo às..." da página aparece também na janela
     const ind = el.querySelector('#indicador'), indF = d.getElementById('indicador-f');
@@ -304,16 +305,9 @@ export async function render(ctx, el, [id]) {
   };
   desenharMeet();
   el.querySelector('#meet-area').addEventListener('click', async (ev) => {
-    if (ev.target.closest('#meet')) {
-      if (!FLUTUANTE || !pode || flutuante) return; // o link abre o Meet numa aba nova, normalmente
-      // primeiro as anotações flutuam, depois o Meet abre por baixo delas
-      ev.preventDefault();
-      await abrirFlutuante();
-      const aba = window.open(m.sala_meet, '_blank');
-      if (aba) aba.opener = null;
-      else avisar('As anotações já estão na janela flutuante. Clique de novo em "Entrar no Meet" para abrir a chamada.');
-      return;
-    }
+    // "Entrar no Meet" é um link comum: abre sempre a sala, numa aba nova. (Antes ele abria primeiro a janela
+    // flutuante, e o Chrome bloqueava a sala; agora a janela flutuante tem o próprio botão e o seu link do Meet.)
+    if (ev.target.closest('#meet')) return;
     if (ev.target.closest('#meet-link')) editarLinkMeet(m, (link) => { m.sala_meet = link; desenharMeet(); });
   });
 

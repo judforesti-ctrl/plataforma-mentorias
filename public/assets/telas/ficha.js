@@ -17,6 +17,7 @@ export async function render(ctx, el, [id]) {
     .eq('id', id).maybeSingle();
   if (error) throw error;
   if (!m) { el.innerHTML = '<div class="vazio">Mentorado não encontrado, ou você não tem acesso a esta ficha.</div>'; return; }
+  m.sala_meet = normalizarMeet(m.sala_meet); // link antigo sem "https://" também funciona
   const { data: testes } = await sb.from('testes').select('*').eq('mentorado_id', id).order('criado_em', { ascending: false });
   const { data: enviadas } = await sb.from('ferramentas_enviadas').select('id, enviado_em, ferramenta:ferramentas(nome), por:perfis(nome)').eq('mentorado_id', id).order('enviado_em', { ascending: false });
 
