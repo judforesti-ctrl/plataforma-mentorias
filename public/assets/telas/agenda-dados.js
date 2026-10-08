@@ -34,12 +34,15 @@ export async function carregarAgenda(ctx) {
   let qs = sb.from('sessoes').select('id, numero, data_hora, duracao_min, situacao, mentor_id, mentorado:mentorados(id, nome, status, programa:programas(id, nome, duracao_min, empresa:empresas(id, nome)))')
     .not('data_hora', 'is', null);
   if (!ctx.ehAdmin) qs = qs.eq('mentor_id', eu);
-  const [sessoes, modulosBase, extras, bloqueios, reservas] = await Promise.all([
+  // reuniões (script 18): sem a tabela, a agenda segue sem elas
+  const lerReunioes = async () => { const r = await sb.from('agenda_reunioes').select('*'); return r.error ? null : (r.data || []); };
+  const [sessoes, modulosBase, extras, bloqueios, reservas, reunioes] = await Promise.all([
     tentar(qs),
     tentar(sb.from('modulos').select('id, numero, titulo, data_hora, duracao_min, formato, local, link, turma:turmas(id, nome, status, empresa:empresas(id, nome)), mentores:modulo_mentores(mentor_id)')),
     tentar(sb.from('modulo_mentores').select('modulo_id, mentor_id, com_deslocamento, viagem'), null),
     tentar(sb.from('agenda_bloqueios').select('*')),
     tentar(sb.from('agenda_reservas').select('*, empresa:empresas(id, nome), datas:agenda_reserva_datas(*), mentores:agenda_reserva_mentores(*)')),
+    lerReunioes(),
   ]);
   const extra = new Map((extras || []).map((x) => [`${x.modulo_id}|${x.mentor_id}`, x]));
   // formato e cidade da turma (script 15); sem o script, segue sem essa informação
@@ -50,8 +53,9 @@ export async function carregarAgenda(ctx) {
     mentores: (m.mentores || []).map((v) => ({ com_deslocamento: true, viagem: {}, ...v, ...(extra.get(`${m.id}|${v.mentor_id}`) || {}) })) }));
   // sessão futura de quem foi desligado do programa não ocupa a agenda
   const sess = sessoes.filter((s) => !(s.mentorado && s.mentorado.status === 'desligado' && s.situacao === 'agendada'));
-  const eventos = montarEventos({ sessoes: sess, modulos, bloqueios, reservas });
-  return { mentores, sessoes: sess, modulos, bloqueios, reservas, eventos, idx: indexar(eventos), faltaScript: falta, temExtras: extras !== null };
+  const eventos = montarEventos({ sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [] });
+  return { mentores, sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], temReunioes: reunioes !== null,
+    eventos, idx: indexar(eventos), faltaScript: falta, temExtras: extras !== null };
 }
 
 // Mesma leitura, guardada por um minuto (para conferir choques ao remarcar ou marcar módulos).
@@ -161,7 +165,7 @@ export function janela(titulo, html, { largura = 600, aoFechar = null } = {}) {
 export const primeiroNome = (n) => String(n || '').split(' ')[0];
 export const amostra = (tipo) => `<i class="ag-amostra ag-${tipo}" aria-hidden="true"></i>`;
 
-export function legenda(tipos = ['livre', 'individual', 'turma', 'presencial', 'deslocamento', 'pre', 'reservado', 'bloqueio', 'feriado', 'fora']) {
+export function legenda(tipos = ['livre', 'individual', 'turma', 'presencial', 'reuniao', 'deslocamento', 'pre', 'reservado', 'bloqueio', 'feriado', 'fora']) {
   return `<div class="ag-legenda">${tipos.map((t) => `<span>${amostra(t)}${esc(ESTADOS[t])}</span>`).join('')}</div>`;
 }
 

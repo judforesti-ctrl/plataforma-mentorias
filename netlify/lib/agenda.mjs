@@ -16,23 +16,25 @@ const SEL_MODULO = 'id,numero,titulo,data_hora,duracao_min,formato,local,link,tu
 const SEL_RESERVA = '*,empresa:empresas(id,nome),datas:agenda_reserva_datas(*),mentores:agenda_reserva_mentores(*)';
 
 export async function dadosAgenda() {
-  const [s, m, b, r, p, tf] = await Promise.all([
+  const [s, m, b, r, p, tf, re] = await Promise.all([
     supa(`/rest/v1/sessoes?data_hora=not.is.null&select=${SEL_SESSAO}`),
     supa(`/rest/v1/modulos?select=${SEL_MODULO}`),
     supa('/rest/v1/agenda_bloqueios?select=*'),
     supa(`/rest/v1/agenda_reservas?select=${SEL_RESERVA}`),
     supa('/rest/v1/perfis?ativo=eq.true&select=id,nome,email,whatsapp,papel,tambem_mentor,termo_aceito_em,disponibilidade'),
     supa('/rest/v1/turmas?select=id,formato,local'),
+    supa('/rest/v1/agenda_reunioes?select=*'),                       // script 18; sem ele, segue sem reuniões
   ]);
   for (const x of [s, m, b, r, p]) if (!x.ok) throw new Error(`Falha ao ler a agenda (${x.status}).`);
   const sessoes = s.dados.filter((x) => !(x.mentorado && x.mentorado.status === 'desligado' && x.situacao === 'agendada'));
   // formato e cidade da turma (script 15); sem ele, segue sem essa informação
   const formatos = new Map(((tf.ok && Array.isArray(tf.dados)) ? tf.dados : []).map((t) => [t.id, t]));
   m.dados = m.dados.map((x) => ({ ...x, turma: x.turma ? { ...x.turma, ...(formatos.get(x.turma.id) || {}) } : x.turma }));
-  const eventos = montarEventos({ sessoes, modulos: m.dados, bloqueios: b.dados, reservas: r.dados });
+  const reunioes = (re.ok && Array.isArray(re.dados)) ? re.dados : [];
+  const eventos = montarEventos({ sessoes, modulos: m.dados, bloqueios: b.dados, reservas: r.dados, reunioes });
   const pessoas = p.dados;
   return {
-    sessoes, modulos: m.dados, bloqueios: b.dados, reservas: r.dados, eventos, idx: indexar(eventos), pessoas,
+    sessoes, modulos: m.dados, bloqueios: b.dados, reservas: r.dados, reunioes, eventos, idx: indexar(eventos), pessoas,
     mentores: pessoas.filter((x) => x.papel === 'mentor' || x.tambem_mentor),
   };
 }

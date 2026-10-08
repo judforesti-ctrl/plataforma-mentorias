@@ -14,6 +14,7 @@ export const TIPOS = {
   turma: { nome: 'Turma online', peso: 5, firme: true },
   presencial: { nome: 'Turma presencial', peso: 5, firme: true },
   reservado: { nome: 'Reservado (cliente confirmou)', peso: 5, firme: true },
+  reuniao: { nome: 'Reunião', peso: 5, firme: true },
   pre: { nome: 'Pré-bloqueio', peso: 4, firme: false },
   deslocamento: { nome: 'Deslocamento', peso: 3, firme: false },
   bloqueio: { nome: 'Bloqueio do mentor', peso: 6, firme: true },
@@ -105,7 +106,14 @@ export function rotuloBloqueio(b) {
 // Módulo com local "a definir" segue o formato da turma (quando a turma é toda presencial).
 export const moduloPresencial = (md) => md.formato === 'presencial' || (md.formato === 'indefinido' && !!md.turma && md.turma.formato === 'presencial');
 
-export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], reservas = [] } = {}, { de, ate } = {}) {
+// Quem participa de uma reunião, em texto curto: "Cintia, Juliana + 2 convidados de fora".
+export function quemDaReuniao(r) {
+  const nomes = (r.participantes_nomes || []).map((n) => String(n || '').split(' ')[0]).filter(Boolean);
+  const n = (r.convidados || []).length;
+  return [nomes.join(', '), n ? `${n} convidado${n > 1 ? 's' : ''} de fora` : ''].filter(Boolean).join(' + ');
+}
+
+export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], reservas = [], reunioes = [] } = {}, { de, ate } = {}) {
   de = de || somarDias(hoje(), -400);
   ate = ate || somarDias(hoje(), 400);
   const out = [];
@@ -198,6 +206,17 @@ export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], rese
         }
       }
     }
+  }
+
+  // reuniões marcadas pela plataforma (com clientes, fornecedores ou entre a equipe)
+  for (const r of reunioes) {
+    if (!r.dia || r.situacao === 'cancelada') continue;
+    const hi = horaDoTexto(r.hora_inicio), hf = horaDoTexto(r.hora_fim);
+    if (hi == null) continue;
+    const ini = Date.parse(isoDe(r.dia, r.hora_inicio)), fim = Date.parse(isoDe(r.dia, r.hora_fim || horaTexto(hi + 1)));
+    out.push({ id: `reuniao-${r.id}`, tipo: 'reuniao', origem: r, mentores: r.participantes || [], todos: false, dia: r.dia,
+      periodos: periodosDoIntervalo(hi, hf != null ? hf : hi + 1), ini, fim, diaInteiro: false,
+      titulo: `Reunião · ${r.titulo}`, sub: quemDaReuniao(r), formato: 'online', link: '', horas: Math.max(0, (fim - ini) / 3600000), meet: r.meet_link || '' });
   }
 
   // feriados nacionais (valem para todos)
