@@ -109,6 +109,15 @@ export function rotuloBloqueio(b) {
 // Módulo com local "a definir" segue o formato da turma (quando a turma é toda presencial).
 export const moduloPresencial = (md) => md.formato === 'presencial' || (md.formato === 'indefinido' && !!md.turma && md.turma.formato === 'presencial');
 
+// ---------- checklist ----------
+// Tipo da atividade e como ela entra na agenda (script 27).
+export const CATEGORIAS_ATIVIDADE = { operacional: 'Operacional', gestao: 'De gestão', estrategica: 'Estratégica' };
+export const NA_AGENDA = {
+  prazo: { nome: 'Só o prazo de entrega', dica: 'Aparece no dia da entrega, sem ocupar o horário.' },
+  bloqueio: { nome: 'Bloquear o horário', dica: 'Ocupa o horário na agenda da plataforma de cada responsável.' },
+  convite: { nome: 'Convite com sala do Meet', dica: 'Ocupa o horário e manda o convite da Google Agenda, com sala do Meet, para os responsáveis e convidados de fora.' },
+};
+
 // ---------- viagens ----------
 // Cada item da viagem: chave, nome, como fica pronto e quem cuida dele. Quem paga e quem compra: Mentorei ou empresa.
 // Na viagem (modulo_mentores.viagem) ficam paga_<item> e compra_<item>; vazio = segue o padrão da turma (turmas.viagem_padrao).
@@ -289,14 +298,20 @@ export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], rese
     }
   }
 
-  // entregas do checklist (atividades abertas com data): aparecem no dia para cada responsável, sem ocupar o horário
+  // atividades do checklist (abertas, com data), na agenda de cada responsável:
+  //   prazo = só a entrega no dia, sem ocupar; bloqueio e convite = ocupam do início ao fim (convite tem sala do Meet)
   for (const a of atividades) {
     if (!a.prazo || a.situacao === 'feita' || !(a.responsaveis || []).length) continue;
-    const hora = horaDoTexto(a.prazo_hora);
+    const hora = horaDoTexto(a.prazo_hora), hf = horaDoTexto(a.hora_fim);
+    const ocupa = (a.na_agenda === 'bloqueio' || a.na_agenda === 'convite') && hora != null;
+    const fimHora = hf != null && hf > hora ? hf : hora + 1;
     const ini = hora != null ? Date.parse(isoDe(a.prazo, a.prazo_hora)) : null;
+    const fim = ini == null ? null : ocupa ? Date.parse(isoDe(a.prazo, horaTexto(Math.min(23.99, fimHora)))) : ini + 30 * 60000;
     out.push({ id: `atividade-${a.id}`, tipo: 'atividade', origem: a, mentores: a.responsaveis, todos: false, dia: a.prazo,
-      periodos: hora != null ? [periodoDaHora(hora)] : [...PERIODOS], ini, fim: ini != null ? ini + 30 * 60000 : null, diaInteiro: hora == null, naoOcupa: true,
-      titulo: `Entrega · ${a.titulo}`, sub: [a.grupo, a.vinculo_nome].filter(Boolean).join(' · ') || 'Checklist', formato: '', link: `#/checklist/${a.id}`, horas: 0 });
+      periodos: hora == null ? [...PERIODOS] : ocupa ? periodosDoIntervalo(hora, fimHora) : [periodoDaHora(hora)], ini, fim, diaInteiro: hora == null, naoOcupa: !ocupa,
+      titulo: `${ocupa ? 'Atividade' : 'Entrega'} · ${a.titulo}`,
+      sub: [CATEGORIAS_ATIVIDADE[a.categoria], a.na_agenda === 'convite' && ocupa ? 'com sala do Meet' : '', a.grupo, a.vinculo_nome].filter(Boolean).join(' · ') || 'Checklist',
+      formato: '', link: `#/checklist/${a.id}`, horas: 0, meet: a.meet_link || '' });
   }
 
   // feriados nacionais (valem para todos)

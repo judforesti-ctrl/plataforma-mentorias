@@ -80,6 +80,12 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   horário, link `#/checklist/<id>`). E-mail ao virar responsável (`/api/atividade`, uma vez por pessoa, coluna `avisados`) e lembrete às
   8h para quem tem entrega hoje ou amanhã (`atividades-lembrete`); só para quem já usa a plataforma (termo aceito). Aviso no Painel e em
   Minha agenda (`cartaoChecklist`).
+  Script 27 (pedido dela, 2026-10-09): `categoria` (operacional, gestao, estrategica; filtro e contagem por tipo na tela) e `na_agenda`:
+  prazo (como antes, não ocupa), bloqueio (ocupa do início `prazo_hora` ao fim `hora_fim` na plataforma) ou convite (ocupa e o servidor
+  `/api/atividade` acao `salvo` cria/muda o convite na Google Agenda conectada com sala do Meet para os responsáveis + `convidados` de fora;
+  `google_evento_id`/`meet_link` na atividade, FORA de google_eventos; deixou de ser convite = convite cancelado; `apagar` cancela e apaga).
+  Quem recebe o convite do Google não recebe o e-mail da plataforma. Esses convites ficam fora da leitura da conta da coordenação
+  (contextoLeitura) e da procura de duplicados (marcador "Atividade do checklist da Mentorei" na descrição).
 - RELATÓRIO DAS TURMAS PARA A EMPRESA (2026-10-09, script 25, `relatorios_turmas`, `telas/relatorio-turmas.js`, `#/relatorio-turmas`,
   botões em Relatórios e Turmas): decisão dela: para o CLIENTE, uma empresa por vez com as turmas escolhidas. `/api/relatorio-turmas-gerar`
   (background, Claude com json_schema, fallbacks "default") calcula os números (presença = média de presentes ÷ participantes previstos;

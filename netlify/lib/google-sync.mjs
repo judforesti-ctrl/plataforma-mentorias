@@ -331,6 +331,7 @@ export async function conferirConvites() {
   const achados = [], porHorario = new Map();
   for (const e of eventos) {
     if (!e.start || !e.start.dateTime) continue;
+    if (/Atividade do checklist da Mentorei/i.test(e.description || '')) continue;   // convite do checklist: não é sessão
     const txt = norm(`${e.summary || ''} ${e.description || ''}`);
     const json = JSON.stringify(e).toLowerCase();
     const m = [...porMentorado.values()].find((x) => (x.codigo && json.includes(x.codigo.toLowerCase()))

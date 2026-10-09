@@ -91,15 +91,17 @@ async function todas(caminho) {
   return out;
 }
 export async function contextoLeitura() {
-  const [re, ge, eq, conta] = await Promise.all([
+  const [re, ge, eq, conta, at] = await Promise.all([
     todas('/rest/v1/agenda_reunioes?google_evento_id=not.is.null&select=google_evento_id&order=id'),
     todas('/rest/v1/google_eventos?select=evento_id&order=chave'),
     supa('/rest/v1/perfis?ativo=eq.true&or=(papel.eq.admin,papel.eq.mentor,tambem_mentor.eq.true)&select=email'),
     contaGoogle().catch(() => null),
+    todas('/rest/v1/atividades?google_evento_id=not.is.null&select=google_evento_id&order=id'),   // convites do checklist (script 27)
   ]);
   const ids = new Set();
   for (const x of re) ids.add(String(x.google_evento_id).split('_')[0]);
   for (const x of ge) ids.add(String(x.evento_id).split('_')[0]);
+  for (const x of at) ids.add(String(x.google_evento_id).split('_')[0]);
   const equipe = new Set((eq.ok && Array.isArray(eq.dados) ? eq.dados : []).map((p) => String(p.email || '').toLowerCase()).filter(Boolean));
   if (conta && conta.email) equipe.add(String(conta.email).toLowerCase());
   return { ids, equipe };

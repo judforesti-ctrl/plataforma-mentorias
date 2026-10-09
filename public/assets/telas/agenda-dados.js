@@ -52,8 +52,9 @@ export async function carregarAgenda(ctx) {
   };
   // entregas do checklist (script 25; o mentor recebe só as dele ou as que criou): sem a tabela, segue sem elas
   const lerAtividades = async () => {
-    const r = await sb.from('atividades').select('id, titulo, grupo, vinculo_nome, responsaveis, responsaveis_nomes, prazo, prazo_hora, situacao')
-      .eq('situacao', 'aberta').not('prazo', 'is', null);
+    const base = 'id, titulo, grupo, vinculo_nome, responsaveis, responsaveis_nomes, prazo, prazo_hora, situacao';
+    let r = await sb.from('atividades').select(`${base}, categoria, na_agenda, hora_fim, meet_link`).eq('situacao', 'aberta').not('prazo', 'is', null);
+    if (r.error && faltaScript(r.error)) r = await sb.from('atividades').select(base).eq('situacao', 'aberta').not('prazo', 'is', null);   // sem o script 27
     return r.error ? [] : (r.data || []).filter((a) => ctx.ehAdmin || (a.responsaveis || []).includes(eu));
   };
   const [sessoes, modulosBase, extras, bloqueios, reservas, reunioes, contatos, pessoais, atividades] = await Promise.all([
