@@ -1,30 +1,50 @@
 // Vendas (Fase 4): pipeline de oportunidades em colunas por etapa, ficha da oportunidade (contatos, próximo contato,
-// propostas, histórico, e-mail, WhatsApp e reunião dali mesmo), clientes (empresas e contatos), relatórios e modelos de mensagem.
-// Só a administração entra (script 19).
+// propostas, histórico, e-mail, WhatsApp e reunião dali mesmo), prospecção (listas de cooperativas, em telas/prospeccao.js),
+// clientes (empresas e contatos), relatórios e modelos de mensagem. Só a administração entra (scripts 19 e 23).
 import { sb, esc, avatar, dataBR, dataHoraBR, hojeISO, avisar, explicarErro, localParaISO, isoParaLocal } from '../base.js';
 import { janela, api, primeiroNome, faltaScript } from './agenda-dados.js';
 
-export const ETAPAS = [['contato', 'Contato inicial', 10], ['reuniao', 'Reunião / diagnóstico', 25], ['proposta', 'Proposta enviada', 40], ['negociacao', 'Negociação', 70], ['fechado', 'Fechado', 100], ['perdido', 'Perdido', 0]];
-const NOME_ETAPA = Object.fromEntries(ETAPAS.map(([k, n]) => [k, n]));
+// "A prospectar" = lista de prospecção, ainda sem conversa (fica na aba Prospecção, fora das colunas e das contas do pipeline).
+// O funil anda sozinho pelo histórico (script 23): ligação, e-mail ou WhatsApp → Primeiro contato; reunião → Reunião marcada;
+// apresentação → Apresentação feita; proposta → Proposta enviada. Nunca volta sozinho.
+export const ETAPAS = [['prospectar', 'A prospectar', 0], ['contato', 'Primeiro contato feito', 10], ['reuniao', 'Reunião marcada', 20], ['apresentacao', 'Apresentação feita', 30],
+  ['proposta', 'Proposta enviada', 40], ['negociacao', 'Negociação', 70], ['fechado', 'Fechado', 100], ['perdido', 'Perdido', 0]];
+export const NOME_ETAPA = Object.fromEntries(ETAPAS.map(([k, n]) => [k, n]));
+// etapas antes da proposta: mandar uma proposta leva direto para "Proposta enviada"
+export const ANTES_DA_PROPOSTA = ['prospectar', 'contato', 'reuniao', 'apresentacao'];
 const CHANCE = Object.fromEntries(ETAPAS.map(([k, , c]) => [k, c]));
 export const SERVICOS = { palestra: 'Palestra', treinamento: 'Treinamento', workshop: 'Workshop', mentoria_grupo: 'Mentoria em grupo', mentoria_individual: 'Mentoria individual', diagnostico: 'Diagnóstico', outro: 'Outro' };
 const MOTIVOS = { preco: 'Preço', momento: 'Momento / sem verba agora', concorrente: 'Fechou com outro', sem_resposta: 'Sem resposta', outro: 'Outro' };
-const ORIGENS = ['Indicação', 'LinkedIn', 'Instagram', 'Evento', 'Radar da Liderança', 'Cliente antigo', 'Site', 'Outro'];
-const TIPOS_INTERACAO = { email: 'E-mail', whatsapp: 'WhatsApp', reuniao: 'Reunião', ligacao: 'Ligação', nota: 'Anotação', proposta: 'Proposta', etapa: 'Etapa', sistema: 'Sistema' };
-const ICONE = { email: '✉', whatsapp: '💬', reuniao: '📅', ligacao: '📞', nota: '📝', proposta: '📄', etapa: '➜', sistema: '⚙' };
-const ABAS = [['pipeline', 'Pipeline'], ['clientes', 'Clientes'], ['relatorios', 'Relatórios'], ['modelos', 'Modelos de mensagem']];
-const SEL_OP = '*, empresa:empresas(id, nome, tipo, cidade, uf, origem), contato:contatos(id, nome, email, whatsapp), responsavel:perfis!oportunidades_responsavel_id_fkey(id, nome, foto_url)';
+const ORIGENS = ['Indicação', 'LinkedIn', 'Instagram', 'Evento', 'Radar da Liderança', 'Cliente antigo', 'Site', 'Lista de prospecção', 'Outro'];
+const TIPOS_INTERACAO = { email: 'E-mail', whatsapp: 'WhatsApp', reuniao: 'Reunião marcada', apresentacao: 'Apresentação feita', ligacao: 'Ligação', nota: 'Anotação', proposta: 'Proposta', etapa: 'Etapa', sistema: 'Sistema' };
+const ICONE = { email: '✉', whatsapp: '💬', reuniao: '📅', apresentacao: '🎯', ligacao: '📞', nota: '📝', proposta: '📄', etapa: '➜', sistema: '⚙' };
+const ABAS = [['pipeline', 'Pipeline'], ['prospeccao', 'Prospecção'], ['clientes', 'Clientes'], ['relatorios', 'Relatórios'], ['modelos', 'Modelos de mensagem']];
+// empresas(*): os campos do script 23 (sistema, central, telefone, e-mail, situação) vêm junto quando existem
+const SEL_OP = '*, empresa:empresas(*), contato:contatos(id, nome, email, whatsapp), responsavel:perfis!oportunidades_responsavel_id_fkey(id, nome, foto_url)';
 
 export const dinheiro = (v) => (v == null || v === '' ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }));
 const diasDesde = (iso) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : 9999);
-const aberta = (o) => o.etapa !== 'fechado' && o.etapa !== 'perdido';
+export const aberta = (o) => o.etapa !== 'fechado' && o.etapa !== 'perdido';
+// no funil = em aberto e já com alguma conversa ("A prospectar" fica fora das contas do pipeline)
+export const noFunil = (o) => aberta(o) && o.etapa !== 'prospectar';
 // quente = interação há menos de 20 dias; esfriando = mais de 3 meses sem interação
-export const temperatura = (o) => { if (!aberta(o)) return null; const d = diasDesde(o.ultima_interacao_em); return d < 20 ? 'quente' : d > 90 ? 'esfriando' : 'morno'; };
+export const temperatura = (o) => { if (!noFunil(o)) return null; const d = diasDesde(o.ultima_interacao_em); return d < 20 ? 'quente' : d > 90 ? 'esfriando' : 'morno'; };
 const TEMP = { quente: ['Quente', 'selo', '🔥'], morno: ['Morno', 'selo neutro', ''], esfriando: ['Esfriando', 'selo alerta', '❄'] };
 const seloTemp = (o) => { const t = temperatura(o); return t ? `<span class="${TEMP[t][1]}" title="Última interação há ${diasDesde(o.ultima_interacao_em)} dias">${TEMP[t][2]} ${TEMP[t][0]}</span>` : ''; };
 const chanceDe = (o) => (o.chance == null ? CHANCE[o.etapa] : o.chance);
-const atrasado = (o) => aberta(o) && o.proximo_contato_em && new Date(o.proximo_contato_em).getTime() < Date.now();
-const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+export const atrasado = (o) => aberta(o) && o.proximo_contato_em && new Date(o.proximo_contato_em).getTime() < Date.now();
+// Situação da empresa: a escolhida à mão na ficha vale; sem escolha, a plataforma decide: programa ou turma em andamento
+// (ou venda fechada há menos de 1 ano) = cliente ativa; já teve programa, turma ou venda = ex-cliente; senão, nunca foi.
+export const SITUACOES = { ativa: ['Cliente ativa', 'selo ok'], ex_cliente: ['Ex-cliente', 'selo alerta'], nunca: ['Nunca foi cliente', 'selo neutro'] };
+export function situacaoAuto(empresaId, d) {
+  const progs = d.programas.filter((p) => p.empresa_id === empresaId), turms = d.turmas.filter((t) => t.empresa_id === empresaId);
+  const fechadas = d.oportunidades.filter((o) => o.empresa_id === empresaId && o.etapa === 'fechado');
+  if (progs.some((p) => p.status !== 'concluido') || turms.some((t) => t.status !== 'concluida') || fechadas.some((o) => diasDesde(o.fechado_em) <= 365)) return 'ativa';
+  return progs.length || turms.length || fechadas.length ? 'ex_cliente' : 'nunca';
+}
+export const situacaoDe = (e, d) => (e && e.situacao) || situacaoAuto(e.id, d);
+export const seloSituacao = (s) => `<span class="${SITUACOES[s][1]}">${SITUACOES[s][0]}</span>`;
+export const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 export const limparFone = (t) => String(t || '').replace(/\D/g, '');
 export const linkWhats = (fone, texto) => { let n = limparFone(fone); if (n.length <= 11) n = `55${n}`; return `https://wa.me/${n}?text=${encodeURIComponent(texto)}`; };
 // Retorno depois de mandar uma proposta: 4 dias, pulando o fim de semana, às 9h de Brasília (12h UTC).
@@ -41,16 +61,30 @@ const seloProposta = (p) => (p.status && SELO_PROPOSTA[p.status] ? `<span class=
 const est = { texto: '', responsavel: '', servico: '', soAbertas: true };
 
 // ---------- dados ----------
-async function carregar() {
-  const [emp, con, ops, eq] = await Promise.all([
-    sb.from('empresas').select('*').order('nome'),
-    sb.from('contatos').select('*').order('nome'),
-    sb.from('oportunidades').select(SEL_OP).order('criado_em', { ascending: false }),
+// O Supabase entrega no máximo 1000 linhas por pedido: com as listas de prospecção, lê em páginas.
+async function lerTudo(consulta) {
+  const todas = [];
+  for (let de = 0; ; de += 1000) {
+    const r = await consulta().range(de, de + 999);
+    if (r.error) return r;
+    todas.push(...(r.data || []));
+    if ((r.data || []).length < 1000) return { data: todas, error: null };
+  }
+}
+export async function carregar() {
+  const [emp, con, ops, eq, prog, turm, s23] = await Promise.all([
+    lerTudo(() => sb.from('empresas').select('*').order('nome')),
+    lerTudo(() => sb.from('contatos').select('*').order('nome')),
+    lerTudo(() => sb.from('oportunidades').select(SEL_OP).order('criado_em', { ascending: false })),
     sb.from('perfis').select('id, nome, foto_url, papel, tambem_mentor').eq('ativo', true).or('papel.eq.admin,papel.eq.mentor,tambem_mentor.eq.true').order('nome'),
+    sb.from('programas').select('id, empresa_id, status'),
+    sb.from('turmas').select('id, empresa_id, status'),
+    sb.from('empresas').select('sistema').limit(1),
   ]);
   if (con.error && faltaScript(con.error)) return { falta: true };
   for (const r of [emp, con, ops, eq]) if (r.error) throw r.error;
-  return { falta: false, empresas: emp.data || [], contatos: con.data || [], oportunidades: ops.data || [], equipe: eq.data || [] };
+  return { falta: false, falta23: !!(s23.error && faltaScript(s23.error)), empresas: emp.data || [], contatos: con.data || [], oportunidades: ops.data || [], equipe: eq.data || [],
+    programas: prog.data || [], turmas: turm.data || [] };
 }
 const AVISO_SCRIPT = `<div class="aviso erro">Para o pipeline de vendas funcionar, falta rodar o script <b>19-vendas.sql</b> no Supabase (SQL Editor → New query → colar → Run).</div>`;
 
@@ -72,6 +106,7 @@ export async function render(ctx, el, params) {
   el.querySelector('#nova-op').addEventListener('click', () => { if (d.falta) { avisar('Rode o script 19 no Supabase primeiro.', true); return; } formOportunidade(ctx, d, {}, (o) => ctx.irPara(`#/vendas/oportunidade/${o.id}`)); });
   if (d.falta) return;
   const alvo = el.querySelector('#conteudo');
+  if (aba === 'prospeccao') return (await import('./prospeccao.js')).abaProspeccao(ctx, alvo, d, recarregar, params[1] ? decodeURIComponent(params[1]) : null);
   if (aba === 'clientes') return abaClientes(ctx, alvo, d, recarregar);
   if (aba === 'relatorios') return abaRelatorios(ctx, alvo, d);
   if (aba === 'modelos') return abaModelos(ctx, alvo, recarregar);
@@ -89,11 +124,13 @@ function abaPipeline(ctx, el, d, recarregar) {
       <label class="check" style="align-items:center"><input type="checkbox" id="f-abertas"${est.soAbertas ? ' checked' : ''}><span>Esconder fechados e perdidos com mais de 60 dias</span></label>
     </div>
     <div id="resumo" class="linha peq apagado" style="margin-bottom:10px"></div>
+    ${d.oportunidades.some((o) => o.etapa === 'prospectar') ? `<a class="aviso" href="#/vendas/prospeccao" style="display:block;margin-bottom:10px;text-decoration:none">🎯 <b>${d.oportunidades.filter((o) => o.etapa === 'prospectar').length}</b> empresas em <b>A prospectar</b> (ainda sem conversa). Elas ficam na aba <b>Prospecção</b> e entram nestas colunas no primeiro contato →</a>` : ''}
     <div id="kanban" class="kb"></div>
     <p class="peq apagado mt">Clique no cartão para abrir a oportunidade. Para mudar de etapa, use a caixinha no fim do cartão. 🔥 quente = interação há menos de 20 dias · ❄ esfriando = mais de 3 meses sem interação.</p>`;
   const desenhar = () => {
     const t = norm(est.texto);
     const lista = d.oportunidades.filter((o) => {
+      if (o.etapa === 'prospectar') return false;
       if (est.responsavel && o.responsavel_id !== est.responsavel) return false;
       if (est.servico && o.servico !== est.servico) return false;
       if (est.soAbertas && !aberta(o) && diasDesde(o.fechado_em || o.perdido_em || o.atualizado_em) > 60) return false;
@@ -107,7 +144,7 @@ function abaPipeline(ctx, el, d, recarregar) {
     el.querySelector('#resumo').innerHTML = `<span><b>${abertas.length}</b> em aberto · <b>${dinheiro(abertas.reduce((a, o) => a + Number(o.valor || 0), 0))}</b> no pipeline</span>
       <span>· projeção ponderada <b>${dinheiro(abertas.reduce((a, o) => a + Number(o.valor || 0) * chanceDe(o) / 100, 0))}</b></span>
       <span>· 🔥 ${abertas.filter((o) => temperatura(o) === 'quente').length} quentes · ❄ ${abertas.filter((o) => temperatura(o) === 'esfriando').length} esfriando</span>`;
-    el.querySelector('#kanban').innerHTML = ETAPAS.map(([k, nome]) => {
+    el.querySelector('#kanban').innerHTML = ETAPAS.filter(([k]) => k !== 'prospectar').map(([k, nome]) => {
       const col = lista.filter((o) => o.etapa === k).sort((a, b) => (a.proximo_contato_em || '9').localeCompare(b.proximo_contato_em || '9'));
       return `<div class="kb-col kb-${k}"><div class="kb-topo"><b>${nome}</b><span class="peq apagado">${col.length} · ${dinheiro(col.reduce((a, o) => a + Number(o.valor || 0), 0))}</span></div>
         ${col.map((o) => cartao(o, d)).join('') || '<div class="kb-vazio">—</div>'}</div>`;
@@ -133,7 +170,7 @@ function abaPipeline(ctx, el, d, recarregar) {
 }
 
 // Muda a etapa (perdido pede o motivo; fechado marca a data e oferece criar turma ou programa).
-async function mudarEtapa(ctx, o, etapa, recarregar) {
+export async function mudarEtapa(ctx, o, etapa, recarregar) {
   const gravar = async (extra = {}, textoHist = '') => {
     const corpo = { etapa, chance: null, ...extra };
     if (etapa === 'fechado') { corpo.fechado_em = new Date().toISOString(); corpo.chance = 100; }
@@ -243,6 +280,7 @@ async function paginaOportunidade(ctx, el, id) {
     <div class="linha" style="margin-bottom:18px;gap:8px">
       <button class="btn escuro" type="button" data-acao="email">✉ E-mail</button><button class="btn escuro" type="button" data-acao="whats">💬 WhatsApp</button>
       <button class="btn escuro" type="button" data-acao="reuniao">📅 Agendar reunião</button><button class="btn" type="button" data-acao="registrar">📝 Registrar ligação, reunião ou anotação</button></div>
+    ${ANTES_DA_PROPOSTA.includes(o.etapa) ? '<p class="peq apagado" style="margin:-8px 0 16px">O funil anda sozinho: ligação, e-mail ou WhatsApp → Primeiro contato · reunião agendada → Reunião marcada · reunião registrada como feita → Apresentação feita.</p>' : ''}
     <div class="grade g2" style="align-items:start">
       <div class="grade" style="gap:14px">
         <div class="cartao${atrasado(o) ? ' pend-bloco urgente' : ''}"><h3>Próximo contato ${atrasado(o) ? '<span class="selo erro">atrasado</span>' : ''}</h3>
@@ -252,8 +290,9 @@ async function paginaOportunidade(ctx, el, id) {
             <div class="linha mt"><button class="btn pri" type="button" id="pc-salvar">Salvar</button><span class="peq apagado">Entra na agenda de quem faz e no Painel do dia.</span></div>` : '<p class="peq apagado mt">Oportunidade encerrada.</p>'}</div>
         <div class="cartao"><div class="linha"><h3 style="flex:1">Contatos na ${esc(o.empresa ? o.empresa.nome : 'empresa')}</h3><button class="btn peq" type="button" id="novo-contato">+ Contato</button></div>
           <div class="lista mt" id="lista-contatos">${contatos.length ? contatos.map((c) => htmlContato(c, o)).join('') : '<p class="apagado">Nenhum contato cadastrado. Adicione quem decide e quem acompanha.</p>'}</div></div>
-        <div class="cartao"><h3>Dados da empresa</h3>
-          <p class="peq mt">${[o.empresa && o.empresa.tipo, o.empresa && [o.empresa.cidade, o.empresa.uf].filter(Boolean).join('/'), o.empresa && o.empresa.origem && `veio por ${o.empresa.origem}`].filter(Boolean).map(esc).join(' · ') || 'Sem dados ainda.'}</p>
+        <div class="cartao"><div class="linha"><h3 style="flex:1">Dados da empresa</h3>${o.empresa ? seloSituacao(situacaoDe(o.empresa, d)) : ''}</div>
+          <p class="peq mt">${[o.empresa && o.empresa.tipo, o.empresa && o.empresa.sistema && [o.empresa.sistema, o.empresa.central].filter(Boolean).join(' · central '), o.empresa && [o.empresa.cidade, o.empresa.uf].filter(Boolean).join('/'), o.empresa && o.empresa.porte, o.empresa && o.empresa.origem && `veio por ${o.empresa.origem}`].filter(Boolean).map(esc).join(' · ') || 'Sem dados ainda.'}</p>
+          ${o.empresa && (o.empresa.telefone || o.empresa.email) ? `<p class="peq mt">${o.empresa.telefone ? `📞 <a href="tel:${esc(limparFone(o.empresa.telefone))}">${esc(o.empresa.telefone)}</a>` : ''}${o.empresa.telefone && o.empresa.email ? ' · ' : ''}${o.empresa.email ? `✉ ${esc(o.empresa.email)}` : ''}</p>` : ''}
           ${(prog.data || []).length || (turm.data || []).length ? `<p class="peq mt"><b>Já é cliente:</b> ${(prog.data || []).map((p) => `<a href="#/painel/programa/${p.id}">${esc(p.nome)}</a>`).concat((turm.data || []).map((t) => `<a href="#/turma/${t.id}">${esc(t.nome)}</a>`)).join(', ')}</p>` : ''}
           <a class="btn peq mt" href="#/vendas/empresa/${o.empresa_id}">Abrir ficha da empresa</a></div>
       </div>
@@ -316,7 +355,7 @@ function htmlContato(c, o) {
       ${o && o.contato_id !== c.id ? `<button class="btn peq" type="button" data-c="${c.id}" data-c-acao="principal" title="Tornar contato principal">★</button>` : ''}<button class="btn peq" type="button" data-c="${c.id}" data-c-acao="editar">Editar</button></div></div></div>`;
 }
 
-function formContato(ctx, { contato = null, empresaId = null }, aoSalvar) {
+export function formContato(ctx, { contato = null, empresaId = null }, aoSalvar) {
   const c = contato || {};
   const html = `<form id="f-c" class="grade" style="gap:12px" novalidate>
     <div class="campo"><label for="c-nome">Nome *</label><input type="text" id="c-nome" value="${esc(c.nome || '')}" maxlength="120"></div>
@@ -367,7 +406,7 @@ function formProposta(ctx, o, quantas, aoSalvar) {
     const { error } = await sb.from('propostas').insert(corpo);
     if (error) { avisar(explicarErro(error), true); return; }
     const mud = { ...(corpo.valor != null ? { valor: corpo.valor } : {}) };
-    if (aberta(o) && (o.etapa === 'contato' || o.etapa === 'reuniao')) mud.etapa = 'proposta';
+    if (ANTES_DA_PROPOSTA.includes(o.etapa)) mud.etapa = 'proposta';
     // proposta enviada: o retorno entra na agenda para 4 dias depois
     if (aberta(o)) { mud.proximo_contato_em = retornoEm4Dias(); mud.proximo_contato_por = o.responsavel_id || ctx.perfil.id; mud.proximo_contato_obs = OBS_RETORNO(quantas + 1); }
     if (Object.keys(mud).length) await sb.from('oportunidades').update(mud).eq('id', o.id);
@@ -382,12 +421,20 @@ async function modelos(canal) {
   const { data } = await sb.from('modelos_mensagem').select('*').eq('canal', canal).order('ordem');
   return data || [];
 }
-export const preencher = (texto, o, c, ctx) => String(texto || '').replace(/\{contato\}/g, c ? primeiroNome(c.nome) : '').replace(/\{empresa\}/g, (o.empresa && o.empresa.nome) || '')
-  .replace(/\{responsavel\}/g, primeiroNome((o.responsavel && o.responsavel.nome) || ctx.perfil.nome)).replace(/\{servico\}/g, (SERVICOS[o.servico] || '').toLowerCase()).replace(/\{valor\}/g, dinheiro(o.valor));
+// Sem pessoa (e-mail geral da empresa), "Olá, {contato}!" vira "Olá!".
+export const preencher = (texto, o, c, ctx) => {
+  const nome = c && !c.geral ? primeiroNome(c.nome) : '';
+  return String(texto || '').replace(/,\s*\{contato\}/g, nome ? `, ${nome}` : '').replace(/\{contato\}/g, nome).replace(/\{empresa\}/g, (o.empresa && o.empresa.nome) || '')
+    .replace(/\{responsavel\}/g, primeiroNome((o.responsavel && o.responsavel.nome) || ctx.perfil.nome)).replace(/\{servico\}/g, (SERVICOS[o.servico] || '').toLowerCase()).replace(/\{valor\}/g, dinheiro(o.valor));
+};
 
-async function janelaEmail(ctx, o, contatos, inicial, aoEnviar) {
+export async function janelaEmail(ctx, o, contatos, inicial, aoEnviar) {
   const comEmail = contatos.filter((c) => c.email);
+  // e-mail geral da empresa (listas de prospecção) entra como opção quando nenhuma pessoa usa esse endereço
+  const geral = o.empresa && o.empresa.email && !comEmail.some((c) => norm(c.email) === norm(o.empresa.email));
+  if (geral) comEmail.push({ id: 'geral', geral: true, nome: `${o.empresa.nome} (e-mail geral)`, email: o.empresa.email });
   if (!comEmail.length) { avisar('Nenhum contato com e-mail. Adicione o e-mail no contato.', true); return; }
+  if (!inicial || !inicial.email) inicial = comEmail[0];
   const ms = await modelos('email');
   const html = `<form id="f-e" class="grade" style="gap:12px" novalidate>
     <div class="grade g2" style="gap:10px"><div class="campo"><label for="e-para">Para</label><select id="e-para">${comEmail.map((c) => `<option value="${c.id}"${inicial && c.id === inicial.id ? ' selected' : ''}>${esc(c.nome)} · ${esc(c.email)}</option>`).join('')}</select></div>
@@ -406,14 +453,14 @@ async function janelaEmail(ctx, o, contatos, inicial, aoEnviar) {
     const c = contatoSel(), assunto = f.querySelector('#e-assunto').value.trim(), texto = f.querySelector('#e-texto').value.trim();
     if (!assunto || !texto) { avisar('Preencha assunto e mensagem.', true); return; }
     const b = f.querySelector('button[type=submit]'); b.disabled = true; b.textContent = 'Enviando…';
-    const r = await api('/api/vendas-email', { oportunidade_id: o.id, contato_id: c.id, para: c.email, nome: c.nome, assunto, texto });
+    const r = await api('/api/vendas-email', { oportunidade_id: o.id, contato_id: c.geral ? null : c.id, para: c.email, nome: c.geral ? o.empresa.nome : c.nome, assunto, texto });
     if (!r.ok) { avisar(r.mensagem || 'Não consegui enviar.', true); b.disabled = false; b.textContent = 'Enviar e-mail'; return; }
-    await sb.from('interacoes').insert({ oportunidade_id: o.id, contato_id: c.id, tipo: 'email', texto: `E-mail para ${c.nome}: ${assunto}\n\n${texto}` });
+    await sb.from('interacoes').insert({ oportunidade_id: o.id, contato_id: c.geral ? null : c.id, tipo: 'email', texto: `E-mail para ${c.nome}: ${assunto}\n\n${texto}` });
     avisar(`E-mail enviado para ${c.nome}.`); j.fechar(); if (aoEnviar) aoEnviar();
   });
 }
 
-async function janelaWhats(ctx, o, contatos, inicial, aoEnviar) {
+export async function janelaWhats(ctx, o, contatos, inicial, aoEnviar) {
   const comFone = contatos.filter((c) => limparFone(c.whatsapp).length >= 10);
   if (!comFone.length) { avisar('Nenhum contato com WhatsApp. Adicione o número no contato.', true); return; }
   const ms = await modelos('whatsapp');
@@ -438,12 +485,14 @@ async function janelaWhats(ctx, o, contatos, inicial, aoEnviar) {
   });
 }
 
-function janelaRegistrar(ctx, o, contatos, aoSalvar) {
+const OPCOES_REGISTRO = [['ligacao', 'Ligação'], ['reuniao', 'Reunião marcada'], ['apresentacao', 'Reunião / apresentação feita'], ['nota', 'Anotação (não muda a etapa)'], ['email', 'E-mail mandado por fora'], ['whatsapp', 'WhatsApp mandado por fora']];
+export function janelaRegistrar(ctx, o, contatos, aoSalvar, tipoInicial = 'ligacao') {
   const html = `<form id="f-r" class="grade" style="gap:12px" novalidate>
-    <div class="grade g3" style="gap:10px"><div class="campo"><label for="r-tipo">O que foi</label><select id="r-tipo">${['ligacao', 'reuniao', 'nota', 'email', 'whatsapp'].map((k) => `<option value="${k}">${TIPOS_INTERACAO[k]}</option>`).join('')}</select></div>
+    <div class="grade g3" style="gap:10px"><div class="campo"><label for="r-tipo">O que foi</label><select id="r-tipo">${OPCOES_REGISTRO.map(([k, n]) => `<option value="${k}"${k === tipoInicial ? ' selected' : ''}>${n}</option>`).join('')}</select></div>
       <div class="campo"><label for="r-com">Com quem</label><select id="r-com"><option value="">—</option>${contatos.map((c) => `<option value="${c.id}"${c.id === o.contato_id ? ' selected' : ''}>${esc(c.nome)}</option>`).join('')}</select></div>
       <div class="campo"><label for="r-quando">Quando</label><input type="datetime-local" id="r-quando" value="${isoParaLocal(new Date().toISOString())}"></div></div>
     <div class="campo"><label for="r-texto">O que aconteceu *</label><textarea id="r-texto" placeholder="Resumo da conversa, o que o cliente pediu, próximos passos"></textarea></div>
+    <p class="peq apagado">O funil anda sozinho: ligação, e-mail ou WhatsApp → Primeiro contato · reunião marcada → Reunião marcada · reunião feita → Apresentação feita. Nunca volta para trás.</p>
     <div class="linha"><button class="btn pri" type="submit">Registrar</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`;
   const j = janela('Registrar no histórico', html, { largura: 600 });
   j.corpo.querySelector('#f-r').addEventListener('submit', async (ev) => {
@@ -451,6 +500,7 @@ function janelaRegistrar(ctx, o, contatos, aoSalvar) {
     const f = ev.currentTarget, texto = f.querySelector('#r-texto').value.trim();
     if (!texto) { avisar('Escreva o que aconteceu.', true); return; }
     const { error } = await sb.from('interacoes').insert({ oportunidade_id: o.id, contato_id: f.querySelector('#r-com').value || null, tipo: f.querySelector('#r-tipo').value, texto, quando: localParaISO(f.querySelector('#r-quando').value) || new Date().toISOString() });
+    if (error && /tipo_check/.test(error.message || '')) { avisar('Para registrar "apresentação feita", falta rodar o script 23-prospeccao.sql no Supabase.', true); return; }
     if (error) { avisar(explicarErro(error), true); return; }
     avisar('Registrado.'); j.fechar(); if (aoSalvar) aoSalvar();
   });
@@ -465,8 +515,10 @@ async function paginaEmpresa(ctx, el, id) {
   const contatos = d.contatos.filter((c) => c.empresa_id === id && c.ativo !== false);
   const ops = d.oportunidades.filter((o) => o.empresa_id === id);
   const recarregar = () => ctx.irPara(`#/vendas/empresa/${id}`);
+  const com23 = 'sistema' in e;                                                     // campos do script 23 já existem
+  const auto = situacaoAuto(id, d);
   el.innerHTML = `
-    <div class="cab"><div><a class="peq" href="#/vendas/clientes">← Clientes</a><h1>${esc(e.nome)}</h1><p class="sub">${ops.filter(aberta).length} oportunidade(s) em aberto · ${ops.filter((o) => o.etapa === 'fechado').length} fechada(s)</p></div>
+    <div class="cab"><div><a class="peq" href="#/vendas/clientes">← Clientes</a><h1>${esc(e.nome)}</h1><p class="sub">${seloSituacao(situacaoDe(e, d))} ${ops.filter(aberta).length} oportunidade(s) em aberto · ${ops.filter((o) => o.etapa === 'fechado').length} fechada(s)</p></div>
       <div class="acoes"><button class="btn pri" type="button" id="nova-op">+ Nova oportunidade</button></div></div>
     <div class="grade g2" style="align-items:start">
       <div class="grade" style="gap:14px">
@@ -480,6 +532,17 @@ async function paginaEmpresa(ctx, el, id) {
             <div class="campo"><label for="em-porte">Porte</label><input type="text" id="em-porte" placeholder="Ex.: 200 pessoas" value="${esc(e.porte || '')}"></div>
             <div class="campo"><label for="em-origem">Como chegou</label><select id="em-origem"><option value="">—</option>${ORIGENS.map((x) => `<option${x === e.origem ? ' selected' : ''}>${x}</option>`).join('')}</select></div>
             <div class="campo"><label for="em-site">Site</label><input type="text" id="em-site" value="${esc(e.site || '')}"></div></div>
+          ${com23 ? `<div class="grade g3" style="gap:10px">
+            <div class="campo"><label for="em-telefone">Telefone</label><input type="tel" id="em-telefone" value="${esc(e.telefone || '')}"></div>
+            <div class="campo"><label for="em-email">E-mail geral</label><input type="email" id="em-email" value="${esc(e.email || '')}"></div>
+            <div class="campo"><label for="em-cnpj">CNPJ</label><input type="text" id="em-cnpj" value="${esc(e.cnpj || '')}"></div></div>
+          <div class="grade g3" style="gap:10px">
+            <div class="campo"><label for="em-sistema">Sistema</label><input type="text" id="em-sistema" placeholder="Ex.: Sicoob" value="${esc(e.sistema || '')}"></div>
+            <div class="campo"><label for="em-central">Central</label><input type="text" id="em-central" value="${esc(e.central || '')}"></div>
+            <div class="campo"><label for="em-situacao">Situação</label><select id="em-situacao">
+              <option value="">Automática: ${SITUACOES[auto][0].toLowerCase()}</option>${Object.entries(SITUACOES).map(([k, [n]]) => `<option value="${k}"${k === e.situacao ? ' selected' : ''}>${n}</option>`).join('')}</select>
+              <small>Automática = pelas turmas, programas e vendas fechadas. Escolha à mão só para quem foi cliente antes da plataforma.</small></div></div>
+          ${e.razao_social ? `<p class="peq apagado">Razão social: ${esc(e.razao_social)}</p>` : ''}` : ''}
           <div class="campo"><label for="em-obs">Observações</label><textarea id="em-obs">${esc(e.observacoes || '')}</textarea></div>
           <div class="linha"><button class="btn pri" type="submit">Salvar</button></div></form></div>
         <div class="cartao"><div class="linha"><h3 style="flex:1">Contatos</h3><button class="btn peq" type="button" id="novo-contato">+ Contato</button></div>
@@ -493,7 +556,9 @@ async function paginaEmpresa(ctx, el, id) {
   el.querySelector('#f-emp').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const v = (k) => el.querySelector(`#em-${k}`).value.trim();
-    const { error } = await sb.from('empresas').update({ nome: v('nome') || e.nome, tipo: v('tipo') || null, cidade: v('cidade') || null, uf: v('uf').toUpperCase() || null, porte: v('porte') || null, origem: v('origem') || null, site: v('site') || null, observacoes: v('obs') || null }).eq('id', id);
+    const corpo = { nome: v('nome') || e.nome, tipo: v('tipo') || null, cidade: v('cidade') || null, uf: v('uf').toUpperCase() || null, porte: v('porte') || null, origem: v('origem') || null, site: v('site') || null, observacoes: v('obs') || null };
+    if (com23) Object.assign(corpo, { telefone: v('telefone') || null, email: v('email').toLowerCase() || null, cnpj: v('cnpj') || null, sistema: v('sistema') || null, central: v('central') || null, situacao: v('situacao') || null });
+    const { error } = await sb.from('empresas').update(corpo).eq('id', id);
     if (error) { avisar(explicarErro(error), true); return; }
     avisar('Dados da empresa salvos.'); recarregar();
   });
@@ -509,30 +574,52 @@ async function paginaEmpresa(ctx, el, id) {
 }
 
 // ---------- clientes ----------
+// filtros dos clientes (continuam ao voltar)
+const estC = { texto: '', situacao: '', sistema: '', limite: 200 };
 function abaClientes(ctx, el, d, recarregar) {
-  const h = hojeISO();
-  el.innerHTML = `<div class="linha ag-filtros"><input type="search" id="c-texto" placeholder="Empresa, contato, cidade…" style="width:auto;min-width:240px" aria-label="Procurar"><button class="btn peq" type="button" id="nova-emp">+ Nova empresa</button>
+  const sit = new Map(d.empresas.map((e) => [e.id, situacaoDe(e, d)]));
+  const conta = (s) => d.empresas.filter((e) => sit.get(e.id) === s).length;
+  const sistemas = [...new Set(d.empresas.map((e) => e.sistema).filter(Boolean))].sort();
+  el.innerHTML = `<div class="linha ag-filtros"><input type="search" id="c-texto" placeholder="Empresa, contato, cidade…" value="${esc(estC.texto)}" style="width:auto;min-width:240px" aria-label="Procurar">
+      ${sistemas.length ? `<select id="c-sistema" aria-label="Sistema"><option value="">Todos os sistemas</option>${sistemas.map((s) => `<option${s === estC.sistema ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>` : ''}
+      <button class="btn peq" type="button" id="nova-emp">+ Nova empresa</button>
       <span class="peq apagado">${d.empresas.length} empresas · ${d.contatos.filter((c) => c.ativo !== false).length} contatos · ${d.contatos.filter((c) => c.marketing && c.ativo !== false).length} na lista de marketing</span></div>
-    <div class="tabela cartao" style="padding:0"><table id="tab"><thead><tr><th>Empresa</th><th>Tipo · cidade</th><th>Contatos</th><th>Em aberto</th><th>Fechado</th><th>Último contato</th></tr></thead><tbody></tbody></table></div>`;
+    <div class="chips" id="c-sit" style="margin-bottom:10px">${[['', 'Todas', d.empresas.length], ...Object.entries(SITUACOES).map(([k, [n]]) => [k, n === 'Cliente ativa' ? 'Clientes ativas' : n === 'Ex-cliente' ? 'Ex-clientes' : 'Nunca foram clientes', conta(k)])]
+      .map(([k, n, q]) => `<button type="button" class="btn peq${k === estC.situacao ? ' escuro' : ''}" data-sit="${k}">${n}<span class="n">${q}</span></button>`).join('')}</div>
+    <div class="tabela cartao" style="padding:0"><table id="tab"><thead><tr><th>Empresa</th><th>Situação</th><th>Tipo · cidade</th><th>Contatos</th><th>No funil</th><th>Fechado</th><th>Último contato</th></tr></thead><tbody></tbody></table></div>
+    <div class="linha mt" id="c-mais"></div>`;
   const desenhar = () => {
-    const t = norm(el.querySelector('#c-texto').value);
-    const linhas = d.empresas.filter((e) => {
+    const t = norm(estC.texto);
+    const filtradas = d.empresas.filter((e) => {
+      if (estC.situacao && sit.get(e.id) !== estC.situacao) return false;
+      if (estC.sistema && e.sistema !== estC.sistema) return false;
       if (!t) return true;
       const cs = d.contatos.filter((c) => c.empresa_id === e.id).map((c) => c.nome);
-      return norm([e.nome, e.cidade, e.uf, ...cs].join(' ')).includes(t);
-    }).map((e) => {
+      return norm([e.nome, e.cidade, e.uf, e.sistema, e.central, ...cs].join(' ')).includes(t);
+    });
+    const linhas = filtradas.slice(0, estC.limite).map((e) => {
       const cs = d.contatos.filter((c) => c.empresa_id === e.id && c.ativo !== false);
       const ops = d.oportunidades.filter((o) => o.empresa_id === e.id);
       const ab = ops.filter(aberta), fe = ops.filter((o) => o.etapa === 'fechado');
-      const ult = ops.map((o) => o.ultima_interacao_em).filter(Boolean).sort().pop();
-      return `<tr class="clicavel" data-ir="#/vendas/empresa/${e.id}"><td><b>${esc(e.nome)}</b></td><td class="peq">${[e.tipo, [e.cidade, e.uf].filter(Boolean).join('/')].filter(Boolean).map(esc).join(' · ') || '—'}</td>
-        <td class="peq">${cs.map((c) => esc(c.nome)).join(', ') || '—'}</td><td>${ab.length ? `${ab.length} · ${dinheiro(ab.reduce((a, o) => a + Number(o.valor || 0), 0))}` : '—'}</td>
+      // etapa mais adiantada entre as abertas
+      const etapa = ab.map((o) => o.etapa).sort((a, b) => ETAPAS.findIndex(([k]) => k === b) - ETAPAS.findIndex(([k]) => k === a))[0];
+      const ult = ops.filter(noFunil).concat(fe).map((o) => o.ultima_interacao_em).filter(Boolean).sort().pop();
+      return `<tr class="clicavel" data-ir="#/vendas/empresa/${e.id}"><td><b>${esc(e.nome)}</b></td><td>${seloSituacao(sit.get(e.id))}</td>
+        <td class="peq">${[e.sistema || e.tipo, [e.cidade, e.uf].filter(Boolean).join('/')].filter(Boolean).map(esc).join(' · ') || '—'}</td>
+        <td class="peq">${cs.map((c) => esc(c.nome)).join(', ') || '—'}</td>
+        <td class="peq">${etapa ? `${NOME_ETAPA[etapa]}${ab.some(noFunil) ? ` · ${dinheiro(ab.filter(noFunil).reduce((a, o) => a + Number(o.valor || 0), 0))}` : ''}` : '—'}</td>
         <td>${fe.length ? `${fe.length} · ${dinheiro(fe.reduce((a, o) => a + Number(o.valor || 0), 0))}` : '—'}</td><td class="peq">${ult ? `${dataBR(ult)}${diasDesde(ult) > 90 ? ' ❄' : ''}` : '—'}</td></tr>`;
     });
-    el.querySelector('tbody').innerHTML = linhas.join('') || `<tr><td colspan="6" class="apagado">Nenhuma empresa${t ? ' com esse nome' : ''}.</td></tr>`;
+    el.querySelector('tbody').innerHTML = linhas.join('') || `<tr><td colspan="7" class="apagado">Nenhuma empresa${t ? ' com esse nome' : ''}.</td></tr>`;
+    el.querySelector('#c-mais').innerHTML = filtradas.length > estC.limite ? `<span class="peq apagado">Mostrando ${estC.limite} de ${filtradas.length}.</span><button class="btn peq" type="button" id="c-mais-btn">Mostrar mais</button>` : '';
   };
-  void h;
-  el.querySelector('#c-texto').addEventListener('input', desenhar);
+  el.querySelector('#c-texto').addEventListener('input', (ev) => { estC.texto = ev.target.value; desenhar(); });
+  el.querySelector('#c-sistema')?.addEventListener('input', (ev) => { estC.sistema = ev.target.value; desenhar(); });
+  el.querySelector('#c-sit').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-sit]'); if (!b) return;
+    estC.situacao = b.dataset.sit; el.querySelectorAll('#c-sit [data-sit]').forEach((x) => x.classList.toggle('escuro', x === b)); desenhar();
+  });
+  el.querySelector('#c-mais').addEventListener('click', (ev) => { if (ev.target.closest('#c-mais-btn')) { estC.limite += 200; desenhar(); } });
   el.querySelector('#tab').addEventListener('click', (ev) => { const tr = ev.target.closest('[data-ir]'); if (tr) location.hash = tr.dataset.ir; });
   el.querySelector('#nova-emp').addEventListener('click', async () => {
     const nome = window.prompt('Nome da empresa:'); if (!nome || !nome.trim()) return;
@@ -547,7 +634,14 @@ async function abaRelatorios(ctx, el, d) {
   const ops = d.oportunidades;
   const h = hojeISO(), mes = h.slice(0, 7), ano = h.slice(0, 4);
   const soma = (l) => l.reduce((a, o) => a + Number(o.valor || 0), 0);
-  const abertas = ops.filter(aberta), fechadas = ops.filter((o) => o.etapa === 'fechado'), perdidas = ops.filter((o) => o.etapa === 'perdido');
+  const abertas = ops.filter(noFunil), fechadas = ops.filter((o) => o.etapa === 'fechado'), perdidas = ops.filter((o) => o.etapa === 'perdido');
+  // funil por sistema (cooperativas das listas de prospecção): quantas em cada etapa
+  const comSistema = ops.filter((o) => o.empresa && o.empresa.sistema);
+  const sistemas = [...new Set(comSistema.map((o) => o.empresa.sistema))].sort((a, b) => comSistema.filter((o) => o.empresa.sistema === b).length - comSistema.filter((o) => o.empresa.sistema === a).length);
+  const funilSistemas = sistemas.length ? `<div class="cartao mt"><h3>Prospecção: funil por sistema</h3><p class="peq apagado">Quantas cooperativas de cada sistema estão em cada etapa.</p>
+    <div class="tabela mt"><table><tr><th>Sistema</th>${ETAPAS.map(([, n]) => `<th class="peq">${n}</th>`).join('')}<th>Total</th></tr>
+    ${sistemas.map((s) => { const l = comSistema.filter((o) => o.empresa.sistema === s); return `<tr><td><a href="#/vendas/prospeccao/${encodeURIComponent(s)}"><b>${esc(s)}</b></a></td>${ETAPAS.map(([k]) => { const q = l.filter((o) => o.etapa === k).length; return `<td${q ? '' : ' class="apagado"'}>${q || '—'}</td>`; }).join('')}<td><b>${l.length}</b></td></tr>`; }).join('')}
+    </table></div></div>` : '';
   const fechMes = fechadas.filter((o) => (o.fechado_em || '').slice(0, 7) === mes), fechAno = fechadas.filter((o) => (o.fechado_em || '').slice(0, 4) === ano);
   const { data: metas } = await sb.from('metas_vendas').select('*');
   const meta = (metas || []).find((m) => String(m.mes).slice(0, 7) === mes);
@@ -570,8 +664,9 @@ async function abaRelatorios(ctx, el, d) {
       <div class="cartao numero"><b>${ticket == null ? '—' : dinheiro(ticket)}</b><span>ticket médio das fechadas</span></div>
       <div class="cartao numero"><b>${tempoMedio == null ? '—' : `${tempoMedio} dias`}</b><span>tempo médio para fechar</span></div></div>
     <div class="cartao mt"><div class="linha"><h3 style="flex:1">Meta do mês</h3><input type="number" id="meta-valor" min="0" step="100" placeholder="R$" value="${meta ? meta.valor : ''}" style="width:160px"><button class="btn peq" type="button" id="meta-salvar">Salvar meta de ${nomeMes(mes)}</button></div></div>
+    ${funilSistemas}
     <div class="grade g2 mt" style="align-items:start">
-      ${tabela('Por etapa (em aberto)', ETAPAS.filter(([k]) => k !== 'fechado' && k !== 'perdido').map(([k, n]) => [n, abertas.filter((o) => o.etapa === k)]))}
+      ${tabela('Por etapa (em aberto)', ETAPAS.filter(([k]) => noFunil({ etapa: k })).map(([k, n]) => [n, abertas.filter((o) => o.etapa === k)]))}
       ${tabela('Perdidas: por que não fechou', agrupar(perdidas, (o) => MOTIVOS[o.motivo_perda] || 'Sem motivo'))}
       ${tabela('Por responsável (em aberto)', agrupar(abertas, (o) => (o.responsavel && o.responsavel.nome) || 'Sem responsável'))}
       ${tabela('Fechadas no ano, por responsável', agrupar(fechAno, (o) => (o.responsavel && o.responsavel.nome) || 'Sem responsável'))}
@@ -626,11 +721,15 @@ async function abaModelos(ctx, el, recarregar) {
 
 // ---------- cartão do Painel ----------
 export async function cartaoVendas(ctx, el) {
-  const { data, error } = await sb.from('oportunidades').select('id, titulo, etapa, valor, proximo_contato_em, proximo_contato_obs, ultima_interacao_em, empresa:empresas(nome), quem:perfis!oportunidades_proximo_contato_por_fkey(nome)').not('etapa', 'in', '(fechado,perdido)');
+  // "A prospectar" fica fora das contas; só entra aqui quem já tem próximo contato marcado (ex.: ligar de novo)
+  const SEL = 'id, titulo, etapa, valor, proximo_contato_em, proximo_contato_obs, ultima_interacao_em, empresa:empresas(nome), quem:perfis!oportunidades_proximo_contato_por_fkey(nome)';
+  const [r, rp] = await Promise.all([sb.from('oportunidades').select(SEL).not('etapa', 'in', '(fechado,perdido,prospectar)'),
+    sb.from('oportunidades').select(SEL).eq('etapa', 'prospectar').not('proximo_contato_em', 'is', null)]);
+  const { data, error } = r;
   if (error) { el.innerHTML = ''; return; }
   const ops = data || [];
   const fimHoje = new Date(`${hojeISO()}T23:59:59-03:00`).getTime();
-  const pend = ops.filter((o) => o.proximo_contato_em && new Date(o.proximo_contato_em).getTime() <= fimHoje).sort((a, b) => a.proximo_contato_em.localeCompare(b.proximo_contato_em));
+  const pend = ops.concat(rp.data || []).filter((o) => o.proximo_contato_em && new Date(o.proximo_contato_em).getTime() <= fimHoje).sort((a, b) => a.proximo_contato_em.localeCompare(b.proximo_contato_em));
   const sem = ops.filter((o) => !o.proximo_contato_em);
   const soma = ops.reduce((a, o) => a + Number(o.valor || 0), 0);
   el.innerHTML = `<div class="cartao destaque"><div class="linha"><h3 style="flex:1">Vendas: contatos para fazer ${pend.length ? `<span class="selo ${pend.some(atrasado) ? 'erro' : 'neutro'}">${pend.length}</span>` : ''}</h3><a class="btn peq" href="#/vendas">Abrir o pipeline</a></div>

@@ -182,16 +182,22 @@ async function criarOportunidade(chave, importacaoId, r, arquivo, criadoPor) {
   }
   const valor = typeof c.valor_total === 'number' && c.valor_total > 0 ? Math.round(c.valor_total * 100) / 100 : null;
   const titulo = ((r.turmas || [])[0] && r.turmas[0].nome) || `Proposta · ${r.empresa}`;
-  const abertas = (await ler(`/rest/v1/oportunidades?empresa_id=eq.${empresa.id}&etapa=in.(proposta,negociacao)&select=id,titulo&order=criado_em.desc`)) || [];
+  // a oportunidade aberta da empresa (de "A prospectar" até negociação; a mais adiantada) recebe a proposta em vez de criar outra;
+  // se ela ainda estava antes da proposta, passa para "Proposta enviada" com retorno em 4 dias
+  const ORDEM = ['negociacao', 'proposta', 'apresentacao', 'reuniao', 'contato', 'prospectar'];
+  const abertas = ((await ler(`/rest/v1/oportunidades?empresa_id=eq.${empresa.id}&etapa=in.(${ORDEM.join(',')})&select=id,titulo,etapa&order=criado_em.desc`)) || [])
+    .sort((a, b) => ORDEM.indexOf(a.etapa) - ORDEM.indexOf(b.etapa));
   let op = abertas[0] || null;
   let versao = 1;
+  const prox = new Date(); prox.setUTCDate(prox.getUTCDate() + 4); prox.setUTCHours(12, 0, 0, 0);   // 9h de Brasília, daqui a 4 dias (pula fim de semana)
+  if (prox.getUTCDay() === 6) prox.setUTCDate(prox.getUTCDate() + 2); else if (prox.getUTCDay() === 0) prox.setUTCDate(prox.getUTCDate() + 1);
   if (op) {
     const vs = (await ler(`/rest/v1/propostas?oportunidade_id=eq.${op.id}&select=versao`)) || [];
     versao = vs.reduce((m, v) => Math.max(m, v.versao || 0), 0) + 1;
-    await supa(`/rest/v1/oportunidades?id=eq.${op.id}`, { metodo: 'PATCH', chave, corpo: { ...(valor ? { valor } : {}), importacao_id: importacaoId, ...(contato ? { contato_id: contato.id } : {}) } });
+    const antes = !['proposta', 'negociacao'].includes(op.etapa);
+    await supa(`/rest/v1/oportunidades?id=eq.${op.id}`, { metodo: 'PATCH', chave, corpo: { ...(valor ? { valor } : {}), importacao_id: importacaoId, ...(contato ? { contato_id: contato.id } : {}),
+      ...(antes ? { etapa: 'proposta', chance: null, proximo_contato_em: prox.toISOString(), proximo_contato_por: criadoPor, proximo_contato_obs: 'Confirmar se recebeu a proposta e tirar dúvidas' } : {}) } });
   } else {
-    const prox = new Date(); prox.setUTCDate(prox.getUTCDate() + 4); prox.setUTCHours(12, 0, 0, 0);   // 9h de Brasília, daqui a 4 dias (pula fim de semana)
-    if (prox.getUTCDay() === 6) prox.setUTCDate(prox.getUTCDate() + 2); else if (prox.getUTCDay() === 0) prox.setUTCDate(prox.getUTCDate() + 1);
     op = await gravar('/rest/v1/oportunidades', { empresa_id: empresa.id, titulo: titulo.slice(0, 200), servico: c.servico || 'treinamento', valor, etapa: 'proposta',
       contato_id: contato ? contato.id : null, responsavel_id: criadoPor, proximo_contato_em: prox.toISOString(), proximo_contato_por: criadoPor,
       proximo_contato_obs: 'Confirmar se recebeu a proposta e tirar dúvidas', importacao_id: importacaoId, observacoes: c.condicoes || null, criado_por: criadoPor });

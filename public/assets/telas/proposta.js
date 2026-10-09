@@ -3,7 +3,7 @@
 // o retorno entra sozinho na agenda para 4 dias depois. Só a administração (script 20).
 import { sb, esc, dataBR, dataHoraBR, hojeISO, avisar, explicarErro } from '../base.js';
 import { janela, api, primeiroNome, faltaScript, limparCache, avisarGoogle } from './agenda-dados.js';
-import { dinheiro, SERVICOS, retornoEm4Dias, linkWhats, limparFone, preencher } from './vendas.js';
+import { dinheiro, SERVICOS, retornoEm4Dias, linkWhats, limparFone, preencher, ANTES_DA_PROPOSTA } from './vendas.js';
 
 const STATUS = { gerando: ['Gerando com a IA…', 'selo neutro'], rascunho: ['Rascunho · revisar e aprovar', 'selo alerta'], aprovada: ['Aprovada · pronta para enviar', 'selo'], enviada: ['Enviada', 'selo escuro'], erro: ['Deu erro', 'selo erro'] };
 export const seloStatus = (p) => (p && p.status && STATUS[p.status] ? `<span class="${STATUS[p.status][1]}">${STATUS[p.status][0]}</span>` : '');
@@ -313,7 +313,7 @@ export async function marcarEnviada(ctx, p, o, { canal, contato, mensagem }) {
   const prox = retornoEm4Dias();
   const { error } = await sb.from('propostas').update({ status: 'enviada', enviada_em: hojeISO(), enviada_por: ctx.perfil.id, enviada_para: contato ? contato.id : null, canal, mensagem }).eq('id', p.id);
   if (error) throw error;
-  const etapaNova = o.etapa === 'contato' || o.etapa === 'reuniao' ? 'proposta' : o.etapa;
+  const etapaNova = ANTES_DA_PROPOSTA.includes(o.etapa) ? 'proposta' : o.etapa;
   const mud = { etapa: etapaNova, proximo_contato_em: prox, proximo_contato_por: o.responsavel_id || ctx.perfil.id, proximo_contato_obs: `Confirmar se recebeu a proposta (versão ${p.versao}) e tirar dúvidas` };
   if (etapaNova !== o.etapa) mud.chance = null;
   if (p.valor != null) mud.valor = p.valor;

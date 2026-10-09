@@ -364,9 +364,9 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ng-dica { position: fixed; z-index: 60; background: var(--petroleo); color: #fff; font-size: 12px; line-height: 1.45; padding: 8px 10px; border-radius: 8px; pointer-events: none; max-width: 300px; box-shadow: var(--sombra); }
 
 /* ---------- vendas: pipeline em colunas ---------- */
-.kb { display: grid; grid-template-columns: repeat(6, minmax(210px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 6px; align-items: start; }
+.kb { display: grid; grid-template-columns: repeat(7, minmax(190px, 1fr)); gap: 10px; overflow-x: auto; padding-bottom: 6px; align-items: start; }
 .kb-col { background: var(--bg); border-radius: var(--raio); padding: 8px; min-height: 120px; display: grid; gap: 8px; align-content: start; border-top: 4px solid var(--linha); }
-.kb-contato { border-top-color: #9aa5ab; } .kb-reuniao { border-top-color: var(--ag-individual); } .kb-proposta { border-top-color: var(--ag-pre); }
+.kb-contato { border-top-color: #9aa5ab; } .kb-reuniao { border-top-color: var(--ag-individual); } .kb-apresentacao { border-top-color: var(--ag-presencial); } .kb-proposta { border-top-color: var(--ag-pre); }
 .kb-negociacao { border-top-color: var(--ag-deslocamento); } .kb-fechado { border-top-color: var(--verde); } .kb-perdido { border-top-color: var(--erro); }
 .kb-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 2px 4px 4px; font-family: var(--f-titulo); }
 .kb-topo b { font-size: 13px; }
@@ -383,7 +383,7 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .hist { display: grid; gap: 10px; }
 .hist-item { display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: start; font-size: 14px; border-left: 2px solid var(--linha); padding-left: 10px; }
 .hist-icone { font-size: 16px; line-height: 1.2; }
-@media (max-width: 900px) { .kb { grid-template-columns: repeat(6, 240px); } }
+@media (max-width: 900px) { .kb { grid-template-columns: repeat(7, 240px); } }
 
 /* ---------- visual novo: títulos de seção e cartão de destaque ---------- */
 #tela > div > h2, .pagina > h2 { display: flex; align-items: center; gap: 12px; }

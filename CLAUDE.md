@@ -59,7 +59,7 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
 
 - Vendas / Fase 4 (script 19, `telas/vendas.js`, menu "Vendas", só administração; as sócias entram como administração):
   empresas ganham tipo/cidade/UF/porte/origem; `contatos` (quantos quiser, flag marketing com data e quem marcou, para a Fase 5);
-  `oportunidades` (etapas contato → reuniao → proposta → negociacao → fechado | perdido; chance padrão por etapa; valor; responsável;
+  `oportunidades` (etapas: ver Prospecção abaixo; chance padrão por etapa; valor; responsável;
   próximo contato = data + quem + o que, que vira evento "contato" na agenda da semana e no Painel; ultima_interacao_em define
   🔥 quente < 20 dias e ❄ esfriando > 90 dias); `propostas` (versões); `interacoes` (histórico; trigger atualiza ultima_interacao_em);
   `modelos_mensagem` ({contato} {empresa} {responsavel} {servico} {valor}); `metas_vendas`. Toda proposta importada vira oportunidade
@@ -82,6 +82,23 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   `python ferramentas/modelo-proposta.py` e conferir o MAPA (dump com python-pptx). Modelo atual = proposta Sicoob Unic (provisório).
   Teste local: o Photoshop traz um Node 22 (`C:\Program Files\Adobe\Adobe Photoshop 2026\node.exe`); jszip em node_modules
   (ignorado pelo git) com `main` apontando para `dist/jszip.min.js`; exportar páginas para PNG pelo PowerShell (COM do PowerPoint).
+
+- Prospecção (2026-10-08, script 23, `telas/prospeccao.js`, aba Vendas → Prospecção, rota `#/vendas/prospeccao[/<sistema>]`):
+  listas de cooperativas por sistema (1ª lista: Banco Central set/2026, 457 cooperativas; arquivo único em
+  `Downloads\Cooperativas para importar na plataforma.xlsx`, mesmo modelo das planilhas "importar no RD"). Etapas do funil agora:
+  prospectar (A prospectar) → contato (Primeiro contato feito) → reuniao (Reunião marcada) → apresentacao (Apresentação feita) →
+  proposta → negociacao → fechado | perdido. O funil ANDA SOZINHO pelo trigger `marcar_interacao`: ligação/e-mail/WhatsApp →
+  contato; reunião → reuniao; apresentação → apresentacao; proposta → proposta; só avança, nunca volta; quem registra vira
+  responsável se não houver. "A prospectar" fica FORA das colunas e das contas do pipeline/Painel (`noFunil()`), só na aba.
+  Empresa ganhou cnpj (único), razao_social, sistema, central, telefone, email (geral) e situacao (manual; vazio = automática:
+  programa/turma em andamento ou venda fechada < 1 ano = cliente ativa; já teve = ex-cliente; senão nunca foi). Fechar venda limpa
+  a situação manual. Importação: o navegador lê o .xlsx (SheetJS), compara nomes com as empresas já cadastradas (`conferirCadastradas`:
+  igual = marcada; parecida/sigla de UF repetida = ela confere) e manda em blocos de 100 para `importar_prospeccao` (pula CNPJ
+  já importado: dá para importar de novo). Empresa ligada só ganha "A prospectar" se não tiver venda, programa nem turma.
+  Responsável por sistema: escolhida na importação, guardada em `configuracoes.prospeccao.responsaveis`, trocada por
+  `definir_responsavel_sistema` (só o que está em A prospectar). "📞 Liguei" registra a ligação (ou tentativa = anotação, não anda),
+  cria o contato com quem falou e o próximo passo. E-mail aceita o e-mail geral da empresa ("Olá, {contato}!" vira "Olá!").
+  Relatórios têm "Prospecção: funil por sistema". Proposta importada reaproveita a oportunidade aberta mais adiantada da empresa.
 
 - Visual (2026-10-08, aprovado por prévia): petróleo escuro + branco + bege escuro, contraste alto, SEM mudar layout (ela não quer
   reaprender a navegar). Tudo em `public/assets/app.css`: `--lima`/`--verde` apontam para o bege (código antigo continua valendo);
