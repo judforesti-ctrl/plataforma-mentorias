@@ -11,8 +11,10 @@ export const esc = (v) => String(v == null ? '' : v)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 const TZ = 'America/Sao_Paulo';
-export const dataBR = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
-export const diaMes = (iso) => iso ? new Date(iso).toLocaleDateString('pt-BR', { timeZone: TZ, day: '2-digit', month: 'short' }).replace('.', '') : '—';
+// data sem hora ("2026-11-08") vale o dia inteiro: lida ao meio-dia para não voltar um dia no fuso de Brasília
+const quando = (iso) => new Date(/^\d{4}-\d{2}-\d{2}$/.test(String(iso)) ? `${iso}T12:00:00Z` : iso);
+export const dataBR = (iso) => iso ? quando(iso).toLocaleDateString('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit', year: 'numeric' }) : '—';
+export const diaMes = (iso) => iso ? quando(iso).toLocaleDateString('pt-BR', { timeZone: TZ, day: '2-digit', month: 'short' }).replace('.', '') : '—';
 export const horaBR = (iso) => iso ? new Date(iso).toLocaleTimeString('pt-BR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }) : '';
 export const dataHoraBR = (iso) => iso ? `${dataBR(iso)} · ${horaBR(iso)}` : '—';
 export const hojeISO = () => new Date().toLocaleDateString('sv-SE', { timeZone: TZ }); // AAAA-MM-DD

@@ -75,13 +75,30 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   de clientes ou pessoa nova; e-mail com anexo (`/api/proposta-email`, Brevo) ou WhatsApp (wa.me + baixar arquivo) → enviada:
   etapa "proposta", retorno na agenda 4 dias depois (dia útil, 9h; `retornoEm4Dias()` em vendas.js, também usado por
   "Registrar proposta" e pela importação). Arquivo na pasta privada `propostas/<oportunidade>/<proposta>/<nome>.pptx`.
-  MOTOR: `netlify/lib/proposta-pptx.mjs` edita o XML do .pptx (jszip): `MAPA` = páginas e nomes das caixas ("Text N"/"Shape N")
-  do modelo; duplica a página de módulo por módulo, apaga as páginas de exemplo, repete linhas (visão geral e organização) e
-  remove itens/tópicos que faltam; `conferirTamanhos` avisa textos longos. O modelo é `netlify/lib/modelos/proposta-modelo.pptx`
-  embutido em `proposta-modelo.mjs` (base64): quando a Juliana mandar o modelo oficial, trocar o .pptx, rodar
-  `python ferramentas/modelo-proposta.py` e conferir o MAPA (dump com python-pptx). Modelo atual = proposta Sicoob Unic (provisório).
+  MODELOS OFICIAIS (2026-10-09): dois, CLARO e ESCURO (mesmas peças e nomes, só cores), escolhidos ao gerar e trocáveis no editor.
+  O pedido traz SÓ o conteúdo; páginas institucionais (números da Mentorei, sócias, contatos) são fixas no modelo. Preço em caixa
+  separada (até 3 opções: por módulo, mentoria individual, turma, mentoria em grupo, pessoa, valor fechado ou outro; valor,
+  quantidade opcional → total calculado, nome e detalhe), condições de pagamento e validade (dias; sai no selo do contato em
+  "Próximos passos"). A IA NUNCA escreve valores. Logo do cliente opcional: a tela converte para PNG, corta a margem e guarda na
+  pasta pública `fotos/logos/<empresa>/<data>.png` (oferece o logo da proposta anterior da mesma empresa); sem logo, o espaço some.
+  Tudo isso fica em `propostas.conteudo` (`modelo`, `precos`, `pagamento`, `validade_dias`, `logo`) junto com o texto da IA
+  (`versao: 2`); `OPCOES_DA_TELA`/`separarOpcoes` em `netlify/lib/propostas.mjs`. Regras puras (cobrança, total, ícones, conversão
+  das propostas do modelo provisório) em `public/assets/proposta-comum.js`, usadas pela tela e pelo servidor.
+  MOTOR: `netlify/lib/proposta-pptx.mjs` edita o XML do .pptx (jszip): `MAPA` = páginas e nomes das peças do modelo; títulos com a
+  parte final destacada ({texto, destaque}), tópicos com começo em negrito ({destaque, texto}), ícones escolhidos pela IA (15
+  desenhos do próprio modelo, `ICONE_PECA`), cartões da visão geral para 1 a 6 módulos, página por módulo, 0 a 2 páginas extras,
+  tabela com 1 a 8 linhas (barras por período), investimento com 1 a 3 caixas. Mede cada texto com as larguras reais da Inter
+  (`proposta-letras.mjs`, gerado por `ferramentas/larguras-inter.py`): diminui a letra se não couber e devolve avisos para a tela.
+  Se a IA deixar item vazio, o texto do modelo (Sicoob) é apagado, nunca fica. Modelos em `netlify/lib/modelos/proposta-clara.pptx`
+  e `proposta-escura.pptx`, embutidos em `proposta-modelos.mjs` (`python ferramentas/modelo-proposta.py`).
+  FONTE: os modelos levam a Inter EMBUTIDA (o cliente vê certo sem ter a fonte). O PowerPoint só embute TrueType: a Inter OTF que a
+  Juliana mandou foi convertida (fontTools, subconjunto latino) e a ExtraBold ficou com peso 400 e sem nomes 16/17 para entrar como
+  "Inter ExtraBold" normal (senão os títulos saem finos sem a fonte). Essas TTF estão instaladas no Windows dela (usuário). Para trocar
+  um modelo: abrir no PowerPoint com essas fontes, tirar as anotações do apresentador e salvar com fontes embutidas (todos os
+  caracteres; `embedTrueTypeFonts="1"` sem `saveSubsetFonts`); conferir em presentation.xml que "Inter ExtraBold" está em `<p:regular>`.
+  Conferir a fonte embutida pelo PDF do PowerPoint (o PNG de Slide.Export ignora fonte embutida).
   Teste local: o Photoshop traz um Node 22 (`C:\Program Files\Adobe\Adobe Photoshop 2026\node.exe`); jszip em node_modules
-  (ignorado pelo git) com `main` apontando para `dist/jszip.min.js`; exportar páginas para PNG pelo PowerShell (COM do PowerPoint).
+  (ignorado pelo git) com `main` apontando para `dist/jszip.min.js`; exportar páginas para PNG/PDF pelo PowerShell (COM do PowerPoint).
 
 - Prospecção (2026-10-08, script 23, `telas/prospeccao.js`, aba Vendas → Prospecção, rota `#/vendas/prospeccao[/<sistema>]`):
   listas de cooperativas por sistema (1ª lista: Banco Central set/2026, 457 cooperativas; arquivo único em
