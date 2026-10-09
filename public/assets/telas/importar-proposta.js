@@ -11,7 +11,7 @@ const PDFJS_WORKER = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.
 const FORMATO = { indefinido: 'A definir', meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro' };
 const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
-async function lerTextoPdf(arquivo, aoAvancar) {
+export async function lerTextoPdf(arquivo, aoAvancar) {
   const pdfjs = await import(PDFJS);
   pdfjs.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
   const doc = await pdfjs.getDocument({ data: await arquivo.arrayBuffer() }).promise;
@@ -28,7 +28,7 @@ async function lerTextoPdf(arquivo, aoAvancar) {
 }
 
 // PowerPoint (.pptx): o arquivo é um pacote de textos; lê os slides na ordem da apresentação.
-async function lerTextoPptx(arquivo, aoAvancar) {
+export async function lerTextoPptx(arquivo, aoAvancar) {
   const JSZip = (await import(JSZIP)).default;
   const zip = await JSZip.loadAsync(await arquivo.arrayBuffer());
   const xml = async (nome) => (zip.file(nome) ? new DOMParser().parseFromString(await zip.file(nome).async('string'), 'application/xml') : null);

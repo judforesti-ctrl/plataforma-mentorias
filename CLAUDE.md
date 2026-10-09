@@ -156,6 +156,16 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Teste local: o Photoshop traz um Node 22 (`C:\Program Files\Adobe\Adobe Photoshop 2026\node.exe`); jszip em node_modules
   (ignorado pelo git) com `main` apontando para `dist/jszip.min.js`; exportar páginas para PNG/PDF pelo PowerShell (COM do PowerPoint).
 
+- DESCRITIVO DOS MÓDULOS PELA PROPOSTA (2026-10-09, pedido dela: ao entrar no módulo, ela e o mentor precisam ver o que deve ser
+  abordado, que está na proposta). As turmas da planilha ficaram sem `modulos.tematica`. Botão "Descritivo da proposta" na página da
+  turma (e "Trazer da proposta" no módulo sem descritivo), `telas/descritivo-proposta.js`: proposta já na plataforma
+  (`importacoes_proposta` prontas ou `propostas.conteudo` da IA; as da mesma empresa primeiro) ou arquivo PDF/.pptx (mesma leitura da
+  importação, `lerTextoPdf`/`lerTextoPptx` exportadas de importar-proposta.js) → `/api/proposta-modulos` (background, Claude com
+  json_schema; NÃO cria oportunidade) liga cada parte da proposta ao módulo existente pelo tema → resultado em `importacoes_proposta`
+  (`resultado.tipo = 'modulos'`, fora da lista de propostas) → a administração confere e marca (módulo que já tem texto vem desmarcado)
+  → grava `tematica`, e se marcado `perfil_turma` e `observacoes` da turma. O mentor vê temática e recomendações como texto (não caixa
+  desabilitada) e a metodologia da turma no alto do módulo. Sem script novo.
+
 - Prospecção (2026-10-08, script 23, `telas/prospeccao.js`, aba Vendas → Prospecção, rota `#/vendas/prospeccao[/<sistema>]`):
   listas de cooperativas por sistema (1ª lista: Banco Central set/2026, 457 cooperativas; arquivo único em
   `Downloads\Cooperativas para importar na plataforma.xlsx`, mesmo modelo das planilhas "importar no RD"). Etapas do funil agora:

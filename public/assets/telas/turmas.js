@@ -221,7 +221,8 @@ async function paginaTurma(ctx, el, id) {
               <option value="">Não definido</option>${Object.entries(QUEM_VIAGEM).map(([k, r]) => `<option value="${k}"${(t.viagem_padrao || {})[`${q}_${it.k}`] === k ? ' selected' : ''}>${r}</option>`).join('')}</select></label>`).join('')}</div>`).join('')}</div></div>` : ''}
       </div>
       <div class="cartao" style="margin-top:0">
-        <div class="linha"><h3 style="flex:1">Módulos (${mods.length})</h3>${adm ? '<button class="btn peq escuro" id="novo-mod">+ Novo módulo</button>' : ''}</div>
+        <div class="linha"><h3 style="flex:1">Módulos (${mods.length})</h3>${adm ? `${mods.length ? '<button class="btn peq" id="descritivo">Descritivo da proposta</button>' : ''}<button class="btn peq escuro" id="novo-mod">+ Novo módulo</button>` : ''}</div>
+        ${adm && mods.some((m) => !String(m.tematica || '').trim()) ? `<p class="peq apagado mt">${mods.filter((m) => !String(m.tematica || '').trim()).length} módulo(s) sem o descritivo do que deve ser abordado. Clique em "Descritivo da proposta" para trazer da proposta.</p>` : ''}
         ${adm ? `<form id="f-mod" class="mt" hidden style="background:var(--bg);border-radius:12px;padding:12px">
           <div class="grade g2" style="gap:10px">
             <div class="campo" style="grid-column:1/-1"><label>Título do módulo</label><input type="text" id="m-titulo" placeholder="Ex.: Feedback que desenvolve" required></div>
@@ -236,7 +237,7 @@ async function paginaTurma(ctx, el, id) {
         </form>` : ''}
         <div class="lista mt">${mods.map((m) => `<a class="item" href="#/modulo/${m.id}" style="grid-template-columns:70px 1fr auto">
           <div><b>${m.numero}</b><br><span class="peq apagado">${m.data_hora ? diaMes(m.data_hora) : 'sem data'}</span></div>
-          <div style="min-width:0"><div class="nome">${esc(m.titulo)}</div><div class="info">${esc(nomesMentores(m) || 'Mentor a definir')} · ${FORMATO[m.formato] || ''}${m.data_hora ? ` · ${horaBR(m.data_hora)}` : ''}</div></div>
+          <div style="min-width:0"><div class="nome">${esc(m.titulo)}</div><div class="info">${esc(nomesMentores(m) || 'Mentor a definir')} · ${FORMATO[m.formato] || ''}${m.data_hora ? ` · ${horaBR(m.data_hora)}` : ''}${adm && !String(m.tematica || '').trim() ? ' · <span style="color:#7A4A20">sem descritivo</span>' : ''}</div></div>
           ${m.percepcoes_em ? '<span class="selo">Percepções ✓</span>' : pedePercepcao(m) ? '<span class="selo alerta">Sem percepções</span>' : passou(m) ? '<span class="selo neutro">Realizada</span>' : '<span class="selo neutro">A acontecer</span>'}</a>`).join('')
           || '<p class="apagado">Nenhum módulo ainda.</p>'}</div>
       </div>
@@ -263,6 +264,11 @@ async function paginaTurma(ctx, el, id) {
     if (e) { avisar(/viagem_padrao|schema cache|42703/.test(`${e.code} ${e.message}`) ? 'Falta rodar o script 25 no Supabase para guardar isso.' : explicarErro(e), true); return; }
     avisar('Padrão das viagens salvo.');
   }));
+  el.querySelector('#descritivo')?.addEventListener('click', async () => {
+    await salvador.agora();
+    const { abrirDescritivo } = await import('./descritivo-proposta.js');
+    abrirDescritivo(ctx, id, { aoTerminar: () => ctx.irPara(`#/turma/${id}`) });
+  });
   el.querySelector('#novo-mod').addEventListener('click', () => { const f = el.querySelector('#f-mod'); f.hidden = !f.hidden; });
   el.querySelector('#f-mod').addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -294,6 +300,8 @@ async function paginaTurma(ctx, el, id) {
 const nomeSeguro = (n) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').slice(-90);
 const TIPO_POR_EXT = { pdf: 'application/pdf', ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   odp: 'application/vnd.oasis.opendocument.presentation', key: 'application/vnd.apple.keynote', zip: 'application/zip' };
+// descritivo para quem só lê (mentor): rótulos "Objetivo:" e "Entrega prática:" em negrito
+const textoAula = (t) => esc(t).replace(/^(Objetivo|Entrega prática|Período):/gm, '<b>$1:</b>');
 const tamanho = (b) => (b ? (b > 1048576 ? `${(b / 1048576).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(b / 1024))} KB`) : '');
 
 async function paginaModulo(ctx, el, id) {
@@ -309,7 +317,6 @@ async function paginaModulo(ctx, el, id) {
   const arquivos = (m.arquivos || []).slice().sort((a, b) => new Date(b.enviado_em) - new Date(a.enviado_em));
   const oficiais = arquivos.filter((a) => a.tipo === 'oficial');
   const dosMentores = arquivos.filter((a) => a.tipo === 'mentor');
-  const dis = adm ? '' : ' disabled';
   const linkSala = m.formato === 'presencial' ? '' : (m.link || '');
   const ehUrl = /^https?:\/\//i.test(linkSala);
 
@@ -339,13 +346,19 @@ async function paginaModulo(ctx, el, id) {
         <div class="cartao"><h3>A turma</h3>
           <p class="mt"><b>${esc(m.turma.empresa ? m.turma.empresa.nome : '')}</b> · ${esc(m.turma.nome)}${m.turma.participantes_previstos ? ` · <span class="selo neutro">${m.turma.participantes_previstos} participantes esperados</span>` : ''}</p>
           ${m.turma.perfil_turma ? `<p class="peq mt" style="white-space:pre-wrap">${esc(m.turma.perfil_turma)}</p>` : '<p class="peq apagado mt">Perfil da turma ainda não preenchido.</p>'}
+          ${m.turma.observacoes ? `<p class="peq mt"><b>Metodologia e observações</b></p><p class="peq" style="white-space:pre-wrap">${esc(m.turma.observacoes)}</p>` : ''}
         </div>
         <div class="cartao"><h3>Temática da aula</h3>
-          ${adm ? `<div class="campo mt"><label>Título</label><input type="text" data-mod="titulo" value="${esc(m.titulo)}"></div>` : ''}
-          <textarea class="mt" data-mod="tematica" style="min-height:120px" placeholder="Tema, objetivos de aprendizagem e o que os participantes devem levar da aula."${dis}>${esc(m.tematica || '')}</textarea>
+          <p class="peq apagado">O que deve ser abordado, conforme a proposta.</p>
+          ${adm ? `<div class="campo mt"><label>Título</label><input type="text" data-mod="titulo" value="${esc(m.titulo)}"></div>
+            <textarea class="mt" data-mod="tematica" style="min-height:${m.tematica ? 240 : 120}px" placeholder="Objetivo, entrega prática e tópicos que devem ser abordados na aula.">${esc(m.tematica || '')}</textarea>
+            ${String(m.tematica || '').trim() ? '' : '<div class="aviso mt">Este módulo ainda está sem o descritivo. <button class="btn peq pri" type="button" id="descritivo">Trazer da proposta</button></div>'}`
+          : m.tematica ? `<div class="mt" style="white-space:pre-wrap;line-height:1.55">${textoAula(m.tematica)}</div>`
+            : '<p class="apagado mt">A coordenação ainda não colocou o descritivo deste módulo. Se precisar, clique em "Falar com a Cintia".</p>'}
         </div>
         <div class="cartao"><h3>Recomendações da aula</h3>
-          <textarea class="mt" data-mod="recomendacoes" style="min-height:120px" placeholder="O que enfatizar, cuidados com a turma, combinados com a empresa, dinâmicas sugeridas."${dis}>${esc(m.recomendacoes || '')}</textarea>
+          ${adm ? `<textarea class="mt" data-mod="recomendacoes" style="min-height:120px" placeholder="O que enfatizar, cuidados com a turma, combinados com a empresa, dinâmicas sugeridas.">${esc(m.recomendacoes || '')}</textarea>`
+            : m.recomendacoes ? `<div class="mt peq" style="white-space:pre-wrap;line-height:1.55">${esc(m.recomendacoes)}</div>` : '<p class="apagado mt">Nenhuma recomendação para esta aula.</p>'}
         </div>
         ${adm ? `<div class="cartao"><h3>Quando e onde</h3>
           <div class="grade g2 mt" style="gap:10px">
@@ -403,6 +416,13 @@ async function paginaModulo(ctx, el, id) {
     },
   });
   el.querySelectorAll(adm ? '[data-mod], [data-perc]' : '[data-perc]').forEach((c) => { if (!c.disabled) { c.addEventListener('input', salvador.mudou); c.addEventListener('change', salvador.mudou); } });
+
+  // descritivo do módulo pela proposta (administração, quando o módulo ainda está sem)
+  el.querySelector('#descritivo')?.addEventListener('click', async () => {
+    await salvador.agora();
+    const { abrirDescritivo } = await import('./descritivo-proposta.js');
+    abrirDescritivo(ctx, m.turma.id, { aoTerminar: () => ctx.irPara(`#/modulo/${id}`) });
+  });
 
   // choques com a agenda dos mentores (administração)
   const conferirChoques = async () => {
