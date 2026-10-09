@@ -50,7 +50,13 @@ export async function carregarAgenda(ctx) {
     }
     return out;
   };
-  const [sessoes, modulosBase, extras, bloqueios, reservas, reunioes, contatos, pessoais] = await Promise.all([
+  // entregas do checklist (script 25; o mentor recebe só as dele ou as que criou): sem a tabela, segue sem elas
+  const lerAtividades = async () => {
+    const r = await sb.from('atividades').select('id, titulo, grupo, vinculo_nome, responsaveis, responsaveis_nomes, prazo, prazo_hora, situacao')
+      .eq('situacao', 'aberta').not('prazo', 'is', null);
+    return r.error ? [] : (r.data || []).filter((a) => ctx.ehAdmin || (a.responsaveis || []).includes(eu));
+  };
+  const [sessoes, modulosBase, extras, bloqueios, reservas, reunioes, contatos, pessoais, atividades] = await Promise.all([
     tentar(qs),
     tentar(sb.from('modulos').select('id, numero, titulo, data_hora, duracao_min, formato, local, link, turma:turmas(id, nome, status, empresa:empresas(id, nome)), mentores:modulo_mentores(mentor_id)')),
     tentar(sb.from('modulo_mentores').select('modulo_id, mentor_id, com_deslocamento, viagem'), null),
@@ -59,18 +65,21 @@ export async function carregarAgenda(ctx) {
     lerReunioes(),
     lerContatos(),
     lerPessoais(),
+    lerAtividades(),
   ]);
   const extra = new Map((extras || []).map((x) => [`${x.modulo_id}|${x.mentor_id}`, x]));
   // formato e cidade da turma (script 15); sem o script, segue sem essa informação
-  const tf = await sb.from('turmas').select('id, formato, local');
+  // quem paga e quem compra as viagens, padrão da turma (script 25); sem ele, cada viagem fica só com o que tiver
+  const [tf, tv] = await Promise.all([sb.from('turmas').select('id, formato, local'), sb.from('turmas').select('id, viagem_padrao')]);
   const formatos = new Map(((!tf.error && tf.data) || []).map((t) => [t.id, t]));
+  const padroes = new Map(((!tv.error && tv.data) || []).map((t) => [t.id, t.viagem_padrao || {}]));
   const modulos = modulosBase.map((m) => ({ ...m,
-    turma: m.turma ? { ...m.turma, formato: (formatos.get(m.turma.id) || {}).formato || null, local: (formatos.get(m.turma.id) || {}).local || null } : m.turma,
+    turma: m.turma ? { ...m.turma, formato: (formatos.get(m.turma.id) || {}).formato || null, local: (formatos.get(m.turma.id) || {}).local || null, viagem_padrao: padroes.get(m.turma.id) || {} } : m.turma,
     mentores: (m.mentores || []).map((v) => ({ com_deslocamento: true, viagem: {}, ...v, ...(extra.get(`${m.id}|${v.mentor_id}`) || {}) })) }));
   // sessão futura de quem foi desligado do programa não ocupa a agenda
   const sess = sessoes.filter((s) => !(s.mentorado && s.mentorado.status === 'desligado' && s.situacao === 'agendada'));
-  const eventos = montarEventos({ sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], contatos, pessoais });
-  return { mentores, sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], temReunioes: reunioes !== null, pessoais,
+  const eventos = montarEventos({ sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], contatos, pessoais, atividades });
+  return { mentores, sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], temReunioes: reunioes !== null, pessoais, atividades,
     eventos, idx: indexar(eventos), faltaScript: falta, temExtras: extras !== null };
 }
 
@@ -181,7 +190,7 @@ export function janela(titulo, html, { largura = 600, aoFechar = null } = {}) {
 export const primeiroNome = (n) => String(n || '').split(' ')[0];
 export const amostra = (tipo) => `<i class="ag-amostra ag-${tipo}" aria-hidden="true"></i>`;
 
-export function legenda(tipos = ['livre', 'individual', 'turma', 'presencial', 'reuniao', 'pessoal', 'deslocamento', 'pre', 'reservado', 'bloqueio', 'feriado', 'fora']) {
+export function legenda(tipos = ['livre', 'individual', 'turma', 'presencial', 'reuniao', 'pessoal', 'atividade', 'deslocamento', 'pre', 'reservado', 'bloqueio', 'feriado', 'fora']) {
   return `<div class="ag-legenda">${tipos.map((t) => `<span>${amostra(t)}${esc(ESTADOS[t])}</span>`).join('')}</div>`;
 }
 

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relatório das turmas · Mentorei</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/assets/simbolo-m.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* Relatório das turmas para a empresa: A4, identidade da Mentorei (petróleo escuro, branco e bege). Imprimir = salvar em PDF. */
+  :root { --petroleo: #091216; --petroleo-3: #1C3139; --bege: #C8AE7C; --bege-escuro: #9C7D4C; --bege-claro: #EFE4CF; --bege-texto: #6B5330;
+    --faixa: #F7F3EC; --texto: #0E171B; --apagado: #5F686D; --linha: #E2D8C6; }
+  @page { size: A4; margin: 16mm 17mm 18mm; }
+  @page capa { margin: 0; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; }
+  body { background: #D9D2C4; font-family: 'Inter', Arial, sans-serif; color: var(--texto); font-size: 10.5pt; line-height: 1.6; }
+  h1, h2, h3, h4 { font-family: 'Manrope', Arial, sans-serif; margin: 0; letter-spacing: -.01em; line-height: 1.2; }
+  p { margin: 0 0 8px; }
+
+  /* barra de cima (só na tela) */
+  .barra { position: sticky; top: 0; z-index: 5; background: var(--petroleo); color: #fff; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 10px 18px; font-size: 13px; }
+  .barra a { color: var(--bege); }
+  .barra button { appearance: none; border: 0; border-radius: 999px; background: var(--bege); color: var(--petroleo); font: 700 14px 'Inter', Arial, sans-serif; padding: 9px 18px; cursor: pointer; }
+  .barra span { color: #C6CFD3; }
+
+  /* folhas na tela; na impressão viram páginas A4 */
+  .folha { width: 210mm; max-width: 100%; margin: 18px auto; background: #fff; padding: 16mm 17mm 18mm; box-shadow: 0 10px 30px rgba(9, 18, 22, .18); }
+  .quebra { break-before: page; }
+  @media print {
+    body { background: #fff; }
+    .barra { display: none; }
+    .folha { width: auto; margin: 0; padding: 0; box-shadow: none; }
+  }
+
+  /* capa */
+  .capa { page: capa; break-after: page; width: 210mm; height: 297mm; max-width: 100%; margin: 18px auto; background: var(--petroleo); color: #fff;
+    padding: 26mm 22mm; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden; box-shadow: 0 10px 30px rgba(9, 18, 22, .18); }
+  .capa::after { content: ''; position: absolute; right: -40mm; bottom: -40mm; width: 140mm; height: 140mm; border-radius: 50%; border: 18mm solid rgba(200, 174, 124, .10); }
+  .capa .logo { height: 9mm; width: auto; align-self: flex-start; }
+  .capa .rotulo { color: var(--bege); font: 700 10pt 'Inter', Arial, sans-serif; letter-spacing: .22em; text-transform: uppercase; }
+  .capa h1 { font-size: 34pt; font-weight: 800; margin-top: 6mm; max-width: 150mm; }
+  .capa .titulo { font-size: 14pt; color: #DCE3E6; margin-top: 5mm; max-width: 150mm; }
+  .capa .linha-bege { width: 34mm; height: 2.2mm; background: var(--bege); margin: 10mm 0 6mm; }
+  .capa .periodo { font-size: 12pt; color: #DCE3E6; }
+  .capa .rodape { font-size: 10pt; color: #9FB0B6; position: relative; z-index: 1; }
+  @media print { .capa { margin: 0; box-shadow: none; } }
+
+  /* topo de cada parte */
+  .topo { display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid var(--bege); padding-bottom: 3mm; margin-bottom: 8mm; font-size: 8.5pt; color: var(--apagado); }
+  .topo img { height: 5mm; }
+  .sobre { color: var(--bege-escuro); font: 700 8.5pt 'Inter', Arial, sans-serif; letter-spacing: .18em; text-transform: uppercase; margin-bottom: 2mm; }
+  h2 { font-size: 21pt; font-weight: 800; color: var(--petroleo); margin-bottom: 4mm; }
+  h3 { font-size: 12.5pt; font-weight: 800; color: var(--petroleo); margin: 7mm 0 3mm; }
+  .meta { display: flex; flex-wrap: wrap; gap: 2mm; margin-bottom: 5mm; }
+  .meta span { background: var(--bege-claro); color: var(--bege-texto); border-radius: 99px; padding: 1mm 3.2mm; font-size: 8.5pt; font-weight: 600; }
+  .texto p { text-align: left; }
+
+  /* números */
+  .numeros { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3.5mm; margin: 6mm 0; }
+  .numeros.n3 { grid-template-columns: repeat(3, 1fr); }
+  .numeros.n2 { grid-template-columns: repeat(2, 1fr); }
+  .numero { border: 1.2px solid var(--bege); border-radius: 3mm; padding: 4mm; background: var(--faixa); break-inside: avoid; }
+  .numero b { display: block; font: 800 20pt 'Manrope', Arial, sans-serif; color: var(--petroleo); line-height: 1.1; }
+  .numero span { font-size: 8.5pt; color: var(--apagado); }
+
+  /* tabelas */
+  table { width: 100%; border-collapse: collapse; font-size: 9pt; margin: 2mm 0 4mm; }
+  th { text-align: left; background: var(--petroleo); color: #fff; font-weight: 600; padding: 2mm 3mm; }
+  th:first-child { border-radius: 2mm 0 0 0; } th:last-child { border-radius: 0 2mm 0 0; }
+  td { padding: 2mm 3mm; border-bottom: 1px solid var(--linha); vertical-align: top; }
+  tr { break-inside: avoid; }
+  td.num { text-align: center; width: 14mm; font-weight: 700; color: var(--bege-escuro); }
+
+  /* módulos */
+  .modulo { display: grid; grid-template-columns: 11mm 1fr; gap: 4mm; padding: 3.5mm 0; border-bottom: 1px solid var(--linha); break-inside: avoid; }
+  .modulo .n { width: 11mm; height: 11mm; border-radius: 50%; background: var(--petroleo); color: var(--bege); display: grid; place-items: center; font: 800 11pt 'Manrope', Arial, sans-serif; }
+  .modulo h4 { font-size: 10.5pt; color: var(--petroleo); }
+  .modulo .quando { font-size: 8.5pt; color: var(--apagado); margin: .6mm 0 1.5mm; }
+  .modulo p { margin: 0; }
+
+  /* destaques e pontos de atenção */
+  .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; margin-top: 5mm; }
+  .bloco { border-radius: 3mm; padding: 4.5mm 5mm; break-inside: avoid; }
+  .bloco.claro { background: var(--faixa); border-left: 1.6mm solid var(--bege); }
+  .bloco.escuro { background: var(--petroleo); color: #fff; }
+  .bloco.escuro h4 { color: var(--bege); }
+  .bloco h4 { font-size: 10.5pt; margin-bottom: 2.5mm; color: var(--petroleo); }
+  .bloco ul { margin: 0; padding-left: 4.5mm; }
+  .bloco li { margin-bottom: 1.6mm; }
+  .bloco li::marker { color: var(--bege); }
+  .proximos { font-size: 9pt; color: var(--apagado); margin-top: 4mm; }
+
+  /* recomendações */
+  ol.recs { list-style: none; padding: 0; margin: 4mm 0; counter-reset: r; }
+  ol.recs li { counter-increment: r; display: grid; grid-template-columns: 11mm 1fr; gap: 4mm; align-items: start; padding: 3mm 0; border-bottom: 1px solid var(--linha); break-inside: avoid; }
+  ol.recs li::before { content: counter(r, decimal-leading-zero); font: 800 14pt 'Manrope', Arial, sans-serif; color: var(--bege-escuro); }
+  .assinatura { margin-top: 10mm; background: var(--petroleo); color: #fff; border-radius: 4mm; padding: 7mm 8mm; display: flex; justify-content: space-between; align-items: center; gap: 6mm; break-inside: avoid; }
+  .assinatura img { height: 7mm; }
+  .assinatura div { font-size: 9.5pt; color: #DCE3E6; text-align: right; }
+  .assinatura b { color: var(--bege); }
+  .aviso { max-width: 600px; margin: 60px auto; background: #fff; border-radius: 12px; padding: 24px; font-size: 15px; }
+  @media screen and (max-width: 800px) { .numeros { grid-template-columns: repeat(2, 1fr); } .duas { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="barra"><a id="voltar" href="/app.html#/relatorio-turmas">← Voltar e editar</a>
+  <button type="button" id="pdf">Baixar o PDF</button>
+  <span>Na janela que abrir, em <b>Destino</b>, escolha <b>Salvar como PDF</b> e clique em <b>Salvar</b>.</span></div>
+<div id="doc"><p class="aviso">Carregando o relatório…</p></div>
+<script type="module" src="/assets/relatorio.js"></script>
+</body>
+</html>

@@ -284,6 +284,11 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ag-dia-p .ag-pessoal { color: #fff; }
 .ag-ev.t-pessoal { background: #F8E6F1; border-color: #c2459a; }
 .ag-ev.nao-ocupa { border-left-style: dashed; opacity: .75; }
+/* entrega do checklist: azul-petróleo, tracejada (não ocupa o horário) */
+.ag-atividade { background: #2f6f80; }
+.ag-dia-p .ag-atividade { color: #fff; }
+.ag-ev.t-atividade { background: #E2EEF1; border-color: #2f6f80; }
+.ag-ev.t-atividade.nao-ocupa { opacity: 1; }
 .ag-ev.t-fora { background: #F1F2F1; border-color: #c9cbca; color: var(--apagado); }
 .ag-vistas { display: inline-flex; border: 1px solid var(--linha); border-radius: 10px; overflow: hidden; }
 .ag-vistas button { appearance: none; border: 0; background: var(--papel); padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 600; color: var(--apagado); cursor: pointer; }
@@ -311,7 +316,14 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ag-evento { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: start; font-size: 14px; }
 .ag-evento .ag-amostra { margin-top: 5px; }
 .ag-viagem { display: grid; gap: 8px; background: var(--bg); border-radius: 10px; padding: 10px; }
-.ag-viagem-itens { gap: 8px 16px; }
+.ag-viagem-itens { display: grid; gap: 6px; }
+.ag-viagem-itens[hidden] { display: none; }
+/* cada item: pronto? + quem paga + quem compra (no celular, um embaixo do outro) */
+.ag-viagem-item { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(150px, 1fr) minmax(150px, 1fr); gap: 6px 12px; align-items: center;
+  background: var(--papel); border: 1px solid var(--linha); border-radius: 10px; padding: 6px 10px; }
+.ag-viagem-quem { display: grid; gap: 2px; font-size: 12px; color: var(--apagado); }
+.ag-viagem-quem select { padding: 5px 8px; font-size: 13px; }
+@media (max-width: 700px) { .ag-viagem-item { grid-template-columns: 1fr; } }
 .ag-viagem-linha { border-top: 1px solid var(--linha); padding-top: 10px; }
 .ag-disp { width: auto; } .ag-disp td, .ag-disp th { text-align: center; padding: 6px 10px; } .ag-disp th:first-child { text-align: left; }
 .ag-disp input { width: 18px; height: 18px; accent-color: var(--verde-esc); }
@@ -415,3 +427,19 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .preco-prop .total { font-size: 13.5px; font-weight: 700; color: var(--bege-texto); }
 .logo-prop { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .logo-prop img { max-height: 56px; max-width: 200px; background: #fff; border: 1px solid var(--linha); border-radius: 8px; padding: 6px; }
+
+/* ---------- checklist ---------- */
+.ck-item { grid-template-columns: auto minmax(0, 1fr) auto; padding: 10px 14px; }
+.ck-item.feita .nome { text-decoration: line-through; color: var(--apagado); }
+.ck-marca input { width: 20px; height: 20px; cursor: pointer; accent-color: var(--ok); }
+.ck-abrir { appearance: none; border: 0; background: none; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; display: grid; gap: 2px; min-width: 0; }
+.ck-abrir .nome { font-weight: 700; }
+.ck-abrir .info { font-size: 13px; color: var(--apagado); }
+.ck-abrir:hover .nome { text-decoration: underline; }
+.ck-passos { display: grid; gap: 4px; margin-bottom: 6px; }
+.ck-passo { display: flex; align-items: center; gap: 8px; justify-content: space-between; border-bottom: 1px solid var(--linha); padding: 4px 0; }
+@media (max-width: 640px) { .ck-item { grid-template-columns: auto minmax(0, 1fr); } .ck-item > .selo { grid-column: 2; justify-self: start; } }
+
+/* ---------- relatório das turmas (editor) ---------- */
+.rt-modulo { border-top: 1px solid var(--linha); padding-top: 10px; }
+.rt-modulo details summary { cursor: pointer; color: var(--apagado); }

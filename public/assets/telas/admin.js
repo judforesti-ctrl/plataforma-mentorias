@@ -69,6 +69,7 @@ async function visaoGeral(ctx, el) {
     </div>
     <div id="numeros"></div>
     <div id="agenda-avisos"></div>
+    <div id="checklist" class="mt"></div>
     <div id="vendas" class="mt"></div>
     <div class="cartao mt" id="google"><p class="peq apagado">Verificando a Google Agenda…</p></div>
     <div class="cartao mt" id="backup"><p class="peq apagado">Verificando as cópias de segurança…</p></div>
@@ -136,6 +137,7 @@ async function visaoGeral(ctx, el) {
   pendencias(el.querySelector('#pendencias'), { mostrarMentor: true });
   import('./turmas.js').then(({ resumoGrupo }) => resumoGrupo(el.querySelector('#grupo')));
   import('./agenda.js').then(({ avisosAgenda }) => avisosAgenda(ctx, el.querySelector('#agenda-avisos')));
+  import('./checklist.js').then(({ cartaoChecklist }) => cartaoChecklist(ctx, el.querySelector('#checklist')));
   cartaoGoogle(el.querySelector('#google'));
   import('./backup.js').then(({ cartaoBackup }) => cartaoBackup(ctx, el.querySelector('#backup')));
   import('./vendas.js').then(({ cartaoVendas }) => cartaoVendas(ctx, el.querySelector('#vendas')));

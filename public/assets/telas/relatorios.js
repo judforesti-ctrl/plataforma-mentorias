@@ -48,7 +48,8 @@ export async function render(ctx, el) {
   if (!empresas.length) { el.innerHTML = '<div class="cab"><div><h1>Relatórios</h1></div></div><div class="vazio">Nenhuma empresa cadastrada ainda.</div>'; return; }
 
   el.innerHTML = `
-    <div class="cab"><div><h1>Relatórios</h1><p class="sub">Presença, tarefas, avaliação e evolução de cada mentorado, por empresa e programa.</p></div></div>
+    <div class="cab"><div><h1>Relatórios</h1><p class="sub">Presença, tarefas, avaliação e evolução de cada mentorado, por empresa e programa.</p></div>
+      <div class="acoes"><a class="btn escuro" href="#/relatorio-turmas">Relatório das turmas (PDF para a empresa)</a></div></div>
     <div class="linha" style="margin-bottom:14px">
       <select id="f-empresa" style="width:auto">${empresas.map((e) => `<option value="${e.id}">${esc(e.nome)}</option>`).join('')}</select>
       <select id="f-programa" style="width:auto"></select>

@@ -2,6 +2,7 @@
 // "#/turmas": lista (administração: todas e "Nova turma"; mentor: as dele e as próximas aulas).
 // "#/turma/<id>": dados da turma e módulos. "#/modulo/<id>": tudo o que o mentor precisa para a aula.
 import { sb, esc, avatar, dataBR, dataHoraBR, diaMes, horaBR, autoSalvar, avisar, explicarErro, localParaISO, isoParaLocal } from '../base.js';
+import { ITENS_VIAGEM, QUEM_VIAGEM } from '../agenda-regras.js';
 
 const FORMATO = { meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro', indefinido: 'Local a definir' };
 const STATUS = { planejada: ['Planejada', 'neutro'], em_andamento: ['Em andamento', ''], concluida: ['Concluída', 'neutro'], pausada: ['Pausada', 'alerta'] };
@@ -53,7 +54,7 @@ async function lista(ctx, el) {
 
   el.innerHTML = `
     <div class="cab"><div><h1>${ctx.ehAdmin ? 'Turmas' : 'Minhas turmas'}</h1><p class="sub">Mentoria em grupo: módulos, slides, recomendações e percepções de cada aula.</p></div>
-      ${ctx.ehAdmin ? '<div class="acoes"><a class="btn" href="#/importar-proposta">Importar proposta (PDF)</a><button class="btn escuro" id="nova">+ Nova turma</button></div>' : ''}</div>
+      ${ctx.ehAdmin ? '<div class="acoes"><a class="btn" href="#/relatorio-turmas">Relatório para a empresa</a><a class="btn" href="#/importar-proposta">Importar proposta (PDF)</a><button class="btn escuro" id="nova">+ Nova turma</button></div>' : ''}</div>
     ${ctx.ehAdmin ? `<div class="cartao" id="form-nova" hidden><h3>Nova turma</h3>
       <form class="grade g2 mt" id="f-turma">
         <div class="campo"><label for="t-empresa">Empresa contratante</label><select id="t-empresa" required><option value="">Escolha…</option>${(empresas || []).map((e) => `<option value="${e.id}">${esc(e.nome)}</option>`).join('')}<option value="nova">+ Outra empresa…</option></select></div>
@@ -212,6 +213,12 @@ async function paginaTurma(ctx, el, id) {
         ${adm && !t.formato ? '<div class="aviso mt">Escolha se a turma é <b>online, presencial ou parte de cada</b>: a agenda usa essa informação para reservar os dias de deslocamento.</div>' : ''}
         <div class="campo mt"><label>Perfil da turma</label><textarea data-t="perfil_turma" style="min-height:120px" placeholder="Cargos, nível de liderança, principais desafios, o que a empresa espera."${dis}>${esc(t.perfil_turma || '')}</textarea></div>
         ${adm ? `<div class="campo mt"><label>Metodologia e observações (os mentores veem)</label><textarea data-t="observacoes" style="min-height:100px" placeholder="Como a aula é conduzida, personalização, cuidados com a turma. Não coloque valores nem condições comerciais.">${esc(t.observacoes || '')}</textarea></div>` : (t.observacoes ? `<p class="peq mt"><b>Metodologia e observações</b></p><p class="peq" style="white-space:pre-wrap">${esc(t.observacoes)}</p>` : '')}
+        ${adm && t.formato !== 'online' ? `<div class="mt2"><h4>Viagens das aulas presenciais</h4>
+          <p class="peq apagado">Quem paga e quem compra, para todos os mentores desta turma. Numa viagem específica dá para mudar em <a href="#/agenda/viagens">Agenda → Viagens</a>.</p>
+          ${t.viagem_padrao === undefined ? '<div class="aviso mt">Para guardar isso, falta rodar o script <b>25-viagens-relatorio-checklist.sql</b> no Supabase.</div>' : ''}
+          <div class="ag-viagem-itens mt">${ITENS_VIAGEM.map((it) => `<div class="ag-viagem-item"><b class="peq">${it.nome}</b>
+            ${[['paga', 'Quem paga'], ['compra', it.compra]].map(([q, rotulo]) => `<label class="ag-viagem-quem"><span>${rotulo}</span><select data-vp="${q}_${it.k}">
+              <option value="">Não definido</option>${Object.entries(QUEM_VIAGEM).map(([k, r]) => `<option value="${k}"${(t.viagem_padrao || {})[`${q}_${it.k}`] === k ? ' selected' : ''}>${r}</option>`).join('')}</select></label>`).join('')}</div>`).join('')}</div></div>` : ''}
       </div>
       <div class="cartao" style="margin-top:0">
         <div class="linha"><h3 style="flex:1">Módulos (${mods.length})</h3>${adm ? '<button class="btn peq escuro" id="novo-mod">+ Novo módulo</button>' : ''}</div>
@@ -248,6 +255,14 @@ async function paginaTurma(ctx, el, id) {
     },
   });
   el.querySelectorAll('[data-t]').forEach((c) => { c.addEventListener('input', salvador.mudou); c.addEventListener('change', salvador.mudou); });
+  // padrão das viagens da turma (quem paga e quem compra)
+  el.querySelectorAll('[data-vp]').forEach((c) => c.addEventListener('change', async () => {
+    const viagem_padrao = {};
+    el.querySelectorAll('[data-vp]').forEach((s) => { if (s.value) viagem_padrao[s.dataset.vp] = s.value; });
+    const { error: e } = await sb.from('turmas').update({ viagem_padrao }).eq('id', id);
+    if (e) { avisar(/viagem_padrao|schema cache|42703/.test(`${e.code} ${e.message}`) ? 'Falta rodar o script 25 no Supabase para guardar isso.' : explicarErro(e), true); return; }
+    avisar('Padrão das viagens salvo.');
+  }));
   el.querySelector('#novo-mod').addEventListener('click', () => { const f = el.querySelector('#f-mod'); f.hidden = !f.hidden; });
   el.querySelector('#f-mod').addEventListener('submit', async (ev) => {
     ev.preventDefault();

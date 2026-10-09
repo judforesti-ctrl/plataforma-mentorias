@@ -17,6 +17,7 @@ export const TIPOS = {
   reuniao: { nome: 'Reunião', peso: 5, firme: true },
   pessoal: { nome: 'Agenda pessoal', peso: 5, firme: true },
   contato: { nome: 'Contato de venda', peso: 1, firme: false },
+  atividade: { nome: 'Entrega do checklist', peso: 1, firme: false },
   pre: { nome: 'Pré-bloqueio', peso: 4, firme: false },
   deslocamento: { nome: 'Deslocamento', peso: 3, firme: false },
   bloqueio: { nome: 'Bloqueio do mentor', peso: 6, firme: true },
@@ -108,6 +109,29 @@ export function rotuloBloqueio(b) {
 // Módulo com local "a definir" segue o formato da turma (quando a turma é toda presencial).
 export const moduloPresencial = (md) => md.formato === 'presencial' || (md.formato === 'indefinido' && !!md.turma && md.turma.formato === 'presencial');
 
+// ---------- viagens ----------
+// Cada item da viagem: chave, nome, como fica pronto e quem cuida dele. Quem paga e quem compra: Mentorei ou empresa.
+// Na viagem (modulo_mentores.viagem) ficam paga_<item> e compra_<item>; vazio = segue o padrão da turma (turmas.viagem_padrao).
+export const ITENS_VIAGEM = [
+  { k: 'passagem', nome: 'Passagem', pronto: 'comprada', compra: 'Quem compra' },
+  { k: 'hotel', nome: 'Hotel', pronto: 'reservado', compra: 'Quem reserva' },
+  { k: 'transporte', nome: 'Transporte no local', pronto: 'combinado', compra: 'Quem combina' },
+];
+export const QUEM_VIAGEM = { mentorei: 'Mentorei', empresa: 'Empresa' };
+// { passagem: { paga, compra, pagaPadrao, compraPadrao }, ... } já com o padrão da turma aplicado
+export function quemCuidaDaViagem(viagem, padrao) {
+  const v = viagem || {}, p = padrao || {};
+  return Object.fromEntries(ITENS_VIAGEM.map(({ k }) => [k, {
+    paga: v[`paga_${k}`] || p[`paga_${k}`] || null, compra: v[`compra_${k}`] || p[`compra_${k}`] || null,
+    pagaPadrao: !v[`paga_${k}`] && !!p[`paga_${k}`], compraPadrao: !v[`compra_${k}`] && !!p[`compra_${k}`],
+  }]));
+}
+// "Passagem: paga a empresa, compra a Mentorei" (só o que estiver definido)
+export function textoQuemCuida(item, q) {
+  const partes = [q.paga ? `paga ${q.paga === 'empresa' ? 'a empresa' : 'a Mentorei'}` : '', q.compra ? `${item.compra.split(' ')[1]} ${q.compra === 'empresa' ? 'a empresa' : 'a Mentorei'}` : ''].filter(Boolean);
+  return partes.join(', ');
+}
+
 // Quem participa de uma reunião, em texto curto: "Cintia, Juliana + 2 convidados de fora".
 export function quemDaReuniao(r) {
   const nomes = (r.participantes_nomes || []).map((n) => String(n || '').split(' ')[0]).filter(Boolean);
@@ -122,7 +146,7 @@ export function descreverPessoal(p) {
     .filter(Boolean).join(' · ') || 'Agenda pessoal';
 }
 
-export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], reservas = [], reunioes = [], contatos = [], pessoais = [] } = {}, { de, ate } = {}) {
+export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], reservas = [], reunioes = [], contatos = [], pessoais = [], atividades = [] } = {}, { de, ate } = {}) {
   de = de || somarDias(hoje(), -400);
   ate = ate || somarDias(hoje(), 400);
   const out = [];
@@ -262,6 +286,16 @@ export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], rese
     }
   }
 
+  // entregas do checklist (atividades abertas com data): aparecem no dia para cada responsável, sem ocupar o horário
+  for (const a of atividades) {
+    if (!a.prazo || a.situacao === 'feita' || !(a.responsaveis || []).length) continue;
+    const hora = horaDoTexto(a.prazo_hora);
+    const ini = hora != null ? Date.parse(isoDe(a.prazo, a.prazo_hora)) : null;
+    out.push({ id: `atividade-${a.id}`, tipo: 'atividade', origem: a, mentores: a.responsaveis, todos: false, dia: a.prazo,
+      periodos: hora != null ? [periodoDaHora(hora)] : [...PERIODOS], ini, fim: ini != null ? ini + 30 * 60000 : null, diaInteiro: hora == null, naoOcupa: true,
+      titulo: `Entrega · ${a.titulo}`, sub: [a.grupo, a.vinculo_nome].filter(Boolean).join(' · ') || 'Checklist', formato: '', link: `#/checklist/${a.id}`, horas: 0 });
+  }
+
   // feriados nacionais (valem para todos)
   for (const dia of listaDias(de, ate)) {
     const f = feriadoDe(dia);
@@ -321,7 +355,7 @@ export function situacaoParaEncaixe(idx, mentor, dia, periodos, formato) {
     st.eventos.forEach((e) => { if (!ocupando.includes(e)) ocupando.push(e); });
   }
   // agenda pessoal de dia inteiro marcada como "disponível" (no Google, viagem e férias nascem assim): não ocupa, mas avisa
-  evs.filter((e) => e.naoOcupa && e.diaInteiro).forEach((e) => { const t = `na agenda pessoal: ${e.titulo} (marcado como disponível)`; if (!avisos.includes(t)) avisos.push(t); });
+  evs.filter((e) => e.tipo === 'pessoal' && e.naoOcupa && e.diaInteiro).forEach((e) => { const t = `na agenda pessoal: ${e.titulo} (marcado como disponível)`; if (!avisos.includes(t)) avisos.push(t); });
   if (formato === 'presencial') {
     if (foraTodos === PERIODOS.length) { fora = true; livre = false; } // não atende nesse dia da semana
     for (const [k, nome] of [[-1, 'na véspera'], [1, 'no dia seguinte']]) {
@@ -352,7 +386,7 @@ export function choques(idx, mentor, novo) {
     else if (e.tipo === 'deslocamento') out.push(`${nome} está em deslocamento em ${diaCurto(novo.dia)} (${e.sub}).`);
     else out.push(`${nome} já tem em ${diaCurto(novo.dia)}: ${hora}${e.titulo}${e.tipo === 'bloqueio' || e.tipo === 'ferias' ? ` (${e.sub})` : ''}.`);
   }
-  idx.doDia(mentor.id, novo.dia).filter((e) => e.naoOcupa && e.diaInteiro && !ign(e))
+  idx.doDia(mentor.id, novo.dia).filter((e) => e.tipo === 'pessoal' && e.naoOcupa && e.diaInteiro && !ign(e))
     .forEach((e) => out.push(`${nome} tem na agenda pessoal em ${diaCurto(novo.dia)}, marcado como disponível: ${e.titulo}.`));
   if (presencial) {
     for (const [k, quando] of [[-1, 'Na véspera'], [1, 'No dia seguinte']]) {

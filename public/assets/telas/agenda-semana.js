@@ -41,7 +41,7 @@ export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, recarregar, 
     const f = feriadoDe(dia);
     const ocupam = evs.filter((e) => !e.naoOcupa);   // compromisso pessoal marcado como "disponível" aparece, mas não ocupa
     const foraTodos = !!(mentor && !ocupam.length && PERIODOS.every((p) => estadoPeriodo(todos, p, disp, dia).tipo === 'fora'));
-    const livre = !ocupam.length && !f && !foraTodos && !evs.some((e) => e.naoOcupa && e.diaInteiro);   // viagem "disponível" no Google: não pinta de verde
+    const livre = !ocupam.length && !f && !foraTodos && !evs.some((e) => e.tipo === 'pessoal' && e.naoOcupa && e.diaInteiro);   // viagem "disponível" no Google: não pinta de verde
     const classe = `ag-sem-dia${livre ? ' livre' : ''}${foraTodos ? ' fora' : ''}${dia === h ? ' hoje' : ''}${dia < h ? ' passado' : ''}`;
     const cartoes = evs.map((e) => {
       const quem = e.tipo === 'reuniao' ? e.sub : [...new Set(e.mentores.map(nomeDe).filter(Boolean))].join(', ');

@@ -4,7 +4,7 @@ import { supa, SITE } from './google.mjs';
 import { modeloEmail } from './email.mjs';
 import {
   montarEventos, indexar, ordenar, hoje, somarDias, listaDias, segundaDaSemana, diaCurto, ddmm, diaDe, horaDe, horaTexto,
-  NOME_PERIODO, PERIODOS, feriadoDe, dispDe, estadoPeriodo,
+  NOME_PERIODO, PERIODOS, feriadoDe, dispDe, estadoPeriodo, quemCuidaDaViagem,
 } from '../../public/assets/agenda-regras.js';
 
 // O resumo sai na sexta e fala da semana seguinte (de segunda a domingo).
@@ -30,7 +30,10 @@ export async function dadosAgenda() {
   const sessoes = s.dados.filter((x) => !(x.mentorado && x.mentorado.status === 'desligado' && x.situacao === 'agendada'));
   // formato e cidade da turma (script 15); sem ele, segue sem essa informação
   const formatos = new Map(((tf.ok && Array.isArray(tf.dados)) ? tf.dados : []).map((t) => [t.id, t]));
-  m.dados = m.dados.map((x) => ({ ...x, turma: x.turma ? { ...x.turma, ...(formatos.get(x.turma.id) || {}) } : x.turma }));
+  // quem paga e quem compra as viagens, padrão da turma (script 25); sem ele, segue sem
+  const tv = await supa('/rest/v1/turmas?select=id,viagem_padrao');
+  const padroes = new Map(((tv.ok && Array.isArray(tv.dados)) ? tv.dados : []).map((t) => [t.id, t.viagem_padrao || {}]));
+  m.dados = m.dados.map((x) => ({ ...x, turma: x.turma ? { ...x.turma, ...(formatos.get(x.turma.id) || {}), viagem_padrao: padroes.get(x.turma.id) || {} } : x.turma }));
   const reunioes = (re.ok && Array.isArray(re.dados)) ? re.dados : [];
   const contatos = (op.ok && Array.isArray(op.dados)) ? op.dados : [];
   const eventos = montarEventos({ sessoes, modulos: m.dados, bloqueios: b.dados, reservas: r.dados, reunioes, contatos });
@@ -93,7 +96,12 @@ export function emailResumoCoordenacao(d, seg = proximaSegunda()) {
   const lim = somarDias(h, 15);
   const viagens = d.modulos.filter((m) => m.formato === 'presencial' && m.data_hora && diaDe(m.data_hora) >= h && diaDe(m.data_hora) <= lim)
     .flatMap((m) => (m.mentores || []).filter((v) => v.com_deslocamento !== false && !(v.viagem && v.viagem.passagem && v.viagem.hotel))
-      .map((v) => `${diaCurto(diaDe(m.data_hora))} · ${nome(v.mentor_id)} · ${m.turma ? m.turma.nome : 'turma'}${m.local ? ` (${m.local})` : ''}: ${!(v.viagem && v.viagem.passagem) ? 'passagem' : ''}${!(v.viagem && v.viagem.passagem) && !(v.viagem && v.viagem.hotel) ? ' e ' : ''}${!(v.viagem && v.viagem.hotel) ? 'hotel' : ''} pendente`));
+      .map((v) => {
+        const quem = quemCuidaDaViagem(v.viagem, m.turma && m.turma.viagem_padrao);
+        const falta = ['passagem', 'hotel'].filter((k) => !(v.viagem && v.viagem[k]))
+          .map((k) => `${k}${quem[k].compra === 'empresa' ? ' (a empresa compra)' : quem[k].compra === 'mentorei' ? ' (a Mentorei compra)' : ''}`);
+        return `${diaCurto(diaDe(m.data_hora))} · ${nome(v.mentor_id)} · ${m.turma ? m.turma.nome : 'turma'}${m.local ? ` (${m.local})` : ''}: ${falta.join(' e ')} pendente`;
+      }));
   const dias = listaDias(seg, somarDias(seg, 6));
   const semana = d.mentores.map((m) => {
     const evs = dias.flatMap((dia) => d.idx.doDia(m.id, dia).filter((e) => e.tipo !== 'feriado'));

@@ -3,7 +3,8 @@
 import { sb, esc, avatar, horaBR, avisar, explicarErro, diaMes } from '../base.js';
 import { PERIODOS, NOME_PERIODO, LETRA_PERIODO, ESTADOS, hoje, somarDias, diaDaSemana, listaDias, segundaDaSemana, nomeSemana, nomeMes, ddmm, diaCurto,
   feriadoDe, dispDe, situacaoParaEncaixe, periodosDoIntervalo, horaDoTexto, diasEntre, diaDe, ordenar, indexar,
-  descreverBloqueio, choquesDoBloqueio as choquesBloq, rotuloBloqueio, CATEGORIAS, moduloPresencial, estadoPeriodo } from '../agenda-regras.js';
+  descreverBloqueio, choquesDoBloqueio as choquesBloq, rotuloBloqueio, CATEGORIAS, moduloPresencial, estadoPeriodo,
+  ITENS_VIAGEM, QUEM_VIAGEM, quemCuidaDaViagem, textoQuemCuida } from '../agenda-regras.js';
 import { carregarAgenda, limparCache, janela, api, legenda, amostra, estadosDoDia, dicaEstados, linhaEvento, primeiroNome, faltaScript, avisarGoogle } from './agenda-dados.js';
 import { vistaSemana, abrirFormReuniao, htmlReunioes, ligarReunioes } from './agenda-semana.js';
 import { cartaoAgendaPessoal, cartaoAgendasEquipe, htmlDetalhesPessoal } from './agenda-pessoal.js';
@@ -102,7 +103,7 @@ export async function avisosAgenda(ctx, el) {
 
 // ---------- quadro da equipe e mês de um mentor ----------
 function filtrarEventos(d) {
-  const fixos = ['bloqueio', 'ferias', 'recesso', 'feriado', 'reuniao', 'pessoal'];
+  const fixos = ['bloqueio', 'ferias', 'recesso', 'feriado', 'reuniao', 'pessoal', 'atividade'];
   const passa = (e) => {
     if (fixos.includes(e.tipo)) return true;
     if (est.empresa && e.empresaId !== est.empresa) return false;
@@ -292,16 +293,26 @@ function blocoEvento(ctx, d, e, mentor) {
 // ---------- viagem dos presenciais ----------
 function formViagem(md, v, editavel) {
   const vg = v.viagem || {};
+  const padrao = (md.turma && md.turma.viagem_padrao) || {};
+  const quem = quemCuidaDaViagem(vg, padrao);
   if (!editavel) {
-    return `<p class="peq mt">${v.com_deslocamento === false ? 'Sem deslocamento (mesma cidade).'
-      : `Viagem: passagem ${vg.passagem ? 'comprada ✓' : 'pendente'} · hotel ${vg.hotel ? 'reservado ✓' : 'pendente'} · transporte ${vg.transporte ? 'combinado ✓' : 'pendente'}`}${vg.obs ? `<br>${esc(vg.obs)}` : ''}</p>`;
+    if (v.com_deslocamento === false) return '<p class="peq mt">Sem deslocamento (mesma cidade).</p>';
+    return `<ul class="peq mt" style="margin:8px 0 0 18px">${ITENS_VIAGEM.map((it) => {
+      const t = textoQuemCuida(it, quem[it.k]);
+      return `<li><b>${it.nome}:</b> ${vg[it.k] ? `${it.pronto} ✓` : 'pendente'}${t ? ` · ${esc(t)}` : ''}</li>`;
+    }).join('')}</ul>${vg.obs ? `<p class="peq mt">${esc(vg.obs)}</p>` : ''}`;
   }
+  // "quem paga" e "quem compra": vazio segue o padrão da turma (mostrado na própria opção)
+  const escolha = (campo, rotulo, valor, doPadrao) => `<label class="ag-viagem-quem"><span>${rotulo}</span><select data-v="${campo}">
+    <option value="">${doPadrao ? `Padrão da turma: ${QUEM_VIAGEM[doPadrao]}` : 'Não definido'}</option>
+    ${Object.entries(QUEM_VIAGEM).map(([k, r]) => `<option value="${k}"${valor === k ? ' selected' : ''}>${r}</option>`).join('')}</select></label>`;
   return `<div class="ag-viagem mt" data-modulo="${md.id}" data-mentor="${v.mentor_id}">
     <label class="check"><input type="checkbox" data-v="com_deslocamento"${v.com_deslocamento !== false ? ' checked' : ''}><span>Precisa de deslocamento (pré-bloqueia a véspera e o dia seguinte)</span></label>
-    <div class="linha ag-viagem-itens"${v.com_deslocamento === false ? ' hidden' : ''}>
-      <label class="check"><input type="checkbox" data-v="passagem"${vg.passagem ? ' checked' : ''}><span>Passagem comprada</span></label>
-      <label class="check"><input type="checkbox" data-v="hotel"${vg.hotel ? ' checked' : ''}><span>Hotel reservado</span></label>
-      <label class="check"><input type="checkbox" data-v="transporte"${vg.transporte ? ' checked' : ''}><span>Transporte no local</span></label>
+    <div class="ag-viagem-itens"${v.com_deslocamento === false ? ' hidden' : ''}>
+      ${ITENS_VIAGEM.map((it) => `<div class="ag-viagem-item">
+        <label class="check"><input type="checkbox" data-v="${it.k}"${vg[it.k] ? ' checked' : ''}><span>${it.nome} ${it.pronto}</span></label>
+        ${escolha(`paga_${it.k}`, 'Quem paga', vg[`paga_${it.k}`], padrao[`paga_${it.k}`])}
+        ${escolha(`compra_${it.k}`, it.compra, vg[`compra_${it.k}`], padrao[`compra_${it.k}`])}</div>`).join('')}
     </div>
     <input type="text" data-v="obs" aria-label="Observações da viagem" placeholder="Observações da viagem (voo, hotel, horários)" value="${esc(vg.obs || '')}">
   </div>`;
@@ -883,6 +894,7 @@ async function telaMentor(ctx, el, d) {
     <div class="cab"><div><h1>Minha agenda</h1><p class="sub">Seus compromissos, dias livres, deslocamentos e bloqueios. Só você e a coordenação veem.</p></div>
       <div class="acoes"><button class="btn reuniao" type="button" id="m-reuniao">+ Agendar reunião</button><button class="btn pri" type="button" id="pedir">+ Pedir bloqueio</button></div></div>
     ${d.faltaScript ? '<div class="aviso" style="margin-bottom:14px">A agenda ainda está sendo preparada pela coordenação: por enquanto ela mostra só as suas sessões e aulas.</div>' : ''}
+    <div id="m-checklist"></div>
     ${convites.length ? `<div class="cartao pend-bloco urgente"><h3>Pré-bloqueios esperando a sua resposta <span class="selo erro">${convites.length}</span></h3>
       <p class="peq apagado">A coordenação reservou estas datas na sua agenda para um cliente. Você consegue?</p>
       <div class="lista mt">${convites.map(({ r, x }) => `<div class="item ag-convite" style="grid-template-columns:1fr" data-token="${x.token}">
@@ -912,6 +924,7 @@ async function telaMentor(ctx, el, d) {
     recarregar();
   }));
   desenharMentor();
+  import('./checklist.js').then(({ cartaoChecklist }) => cartaoChecklist(ctx, el.querySelector('#m-checklist')));
   cartaoAgendaPessoal(ctx, el.querySelector('#pessoal'), { aoMudar: async () => { d = await carregarAgenda(ctx); desenharMentor(); } });
   cartaoCelular(ctx, el.querySelector('#celular'));
 }
