@@ -1,0 +1,125 @@
+/* Menu de navegação (menu.js): cabeçalho no topo com menus suspensos OU barra lateral, escolhido por cada pessoa
+   (html[data-menu="topo"|"lateral"]). Abaixo de 900 px os dois viram uma barra com o botão de menu e uma gaveta. */
+:root {
+  --mn-fundo: #091216;            /* fundo do menu */
+  --mn-destaque: #C8F04A;         /* cor de destaque */
+  --mn-sobre-destaque: #091216;   /* texto sobre o destaque */
+  --mn-conteudo: #F3F5F4;         /* fundo do conteúdo */
+  --mn-borda: #E0E1E1;
+  --mn-texto2: #5E6467;           /* texto secundário */
+  --mn-rotulo: #8B9599;           /* rótulos de grupo sobre o fundo escuro */
+  --mn-inativo: rgba(255, 255, 255, .72);
+  --mn-fonte: 'Manrope', Arial, sans-serif;
+}
+/* overflow-x: clip: as faixas de largura total das páginas (50vw) não criam rolagem para o lado quando há barra de rolagem */
+body { background: var(--mn-conteudo); overflow-x: clip; }
+
+.mn-ic { display: block; flex: none; }
+.mn-logo { display: block; flex: none; }
+.mn-logo img { display: block; width: auto; max-width: none; object-fit: contain; }
+.mn-restrito .mn-grupos, .mn-restrito .mn-lat-grupos, .mn-restrito .mn-abrir { visibility: hidden; }
+
+/* área do usuário (nome, papel e avatar com a inicial) */
+.mn-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--mn-destaque); color: var(--mn-sobre-destaque);
+  display: grid; place-items: center; font: 800 16px var(--mn-fonte); flex: none; }
+.mn-quem { display: grid; line-height: 1.25; min-width: 0; }
+.mn-quem b { color: #fff; font: 800 15px var(--mn-fonte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mn-quem span { color: var(--mn-rotulo); font: 600 12px var(--mn-fonte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* seletor do formato (dois ícones) */
+.mn-formato { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 10px; flex: none; }
+.mn-formato button { width: 32px; height: 28px; border: 0; border-radius: 7px; background: transparent; color: var(--mn-inativo); display: grid; place-items: center; cursor: pointer; }
+.mn-formato button:hover { background: rgba(255, 255, 255, .06); color: #fff; }
+.mn-formato button[aria-pressed="true"] { background: var(--mn-destaque); color: var(--mn-sobre-destaque); }
+
+.mn-topo button:focus-visible, .mn-topo a:focus-visible, .mn-lateral button:focus-visible, .mn-lateral a:focus-visible,
+.mn-gaveta button:focus-visible, .mn-gaveta a:focus-visible, .mn-celular button:focus-visible, .mn-celular a:focus-visible {
+  outline: 3px solid var(--mn-destaque); outline-offset: 2px; }
+
+/* ---------- formato 1: cabeçalho no topo com menus suspensos ---------- */
+.mn-topo { position: sticky; top: 0; z-index: 30; background: var(--mn-fundo); font-family: var(--mn-fonte); }
+.mn-topo-in { max-width: 1440px; margin: 0 auto; padding: 0 48px; height: 76px; display: flex; align-items: center; }
+.mn-topo .mn-logo img { height: 20px; }
+.mn-grupos { display: flex; gap: 6px; margin-left: 40px; }
+.mn-grupo { position: relative; }
+.mn-grupo-btn { position: relative; height: 44px; padding: 0 14px; border: 0; border-radius: 12px; background: transparent; color: var(--mn-inativo);
+  font: 700 15px var(--mn-fonte); display: inline-flex; align-items: center; gap: 9px; cursor: pointer; }
+.mn-grupo-btn:hover { background: rgba(255, 255, 255, .06); color: #fff; }
+.mn-grupo-btn[aria-expanded="true"] { background: rgba(255, 255, 255, .09); color: #fff; }
+.mn-seta { transition: transform .15s; opacity: .8; }
+.mn-grupo-btn[aria-expanded="true"] .mn-seta { transform: rotate(180deg); }
+.mn-grupo.atual .mn-grupo-btn { color: #fff; }
+.mn-grupo.atual .mn-grupo-btn::after { content: ''; position: absolute; left: 14px; right: 14px; bottom: -16px; height: 3px; border-radius: 3px 3px 0 0; background: var(--mn-destaque); }
+/* menu aberto */
+.mn-menu { position: absolute; top: calc(100% + 12px); left: 0; width: 300px; z-index: 40; background: #fff; border: 1px solid var(--mn-borda);
+  border-radius: 18px; box-shadow: 0 24px 48px rgba(9, 18, 22, .18); padding: 8px 10px 10px; }
+.mn-menu[hidden] { display: none; }
+.mn-menu-rotulo { padding: 12px 10px 8px; color: var(--mn-texto2); font: 700 11px var(--mn-fonte); letter-spacing: .14em; text-transform: uppercase; }
+.mn-menu a { display: flex; align-items: center; gap: 14px; height: 52px; padding: 0 8px; border-radius: 12px; color: var(--mn-fundo); text-decoration: none; font: 600 15px var(--mn-fonte); }
+.mn-menu a:hover { background: var(--mn-conteudo); }
+.mn-ic-caixa { width: 36px; height: 36px; display: grid; place-items: center; flex: none; border-radius: 10px; background: var(--mn-conteudo); border: 1px solid var(--mn-borda); color: var(--mn-fundo); }
+.mn-menu a.atual { background: color-mix(in srgb, var(--mn-destaque) 22%, #fff); font-weight: 800; }
+.mn-menu a.atual .mn-ic-caixa { background: var(--mn-fundo); border-color: var(--mn-fundo); color: var(--mn-destaque); }
+/* usuário à direita */
+.mn-usuario { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+.mn-usuario .mn-quem { text-align: right; max-width: 220px; }
+.mn-sair-txt { height: 44px; padding: 0 20px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .25); background: transparent; color: #fff; font: 700 14px var(--mn-fonte); cursor: pointer; }
+.mn-sair-txt:hover { background: rgba(255, 255, 255, .06); }
+
+/* ---------- formato 2: barra lateral ---------- */
+.mn-lateral, .mn-gaveta { background: var(--mn-fundo); font-family: var(--mn-fonte); display: flex; flex-direction: column; overflow: hidden; }
+.mn-lateral { position: fixed; top: 0; bottom: 0; left: 0; width: 264px; z-index: 30; padding: 26px 16px 16px; }
+.mn-lateral > .mn-logo { padding: 0 14px; }
+.mn-lateral .mn-logo img, .mn-gaveta .mn-logo img, .mn-celular .mn-logo img { height: 18px; }
+/* as páginas rolam dentro da coluna; o rodapé (formato e usuário) fica sempre visível embaixo */
+.mn-lat-grupos { display: grid; gap: 26px; margin-top: 28px; align-content: start; flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 12px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .2) transparent; }
+.mn-lat-grupo { display: grid; gap: 2px; }
+.mn-lat-rotulo { display: flex; align-items: center; gap: 8px; padding: 0 14px 8px; color: var(--mn-rotulo); font: 700 11px var(--mn-fonte); letter-spacing: .14em; text-transform: uppercase; }
+.mn-lat-grupo.atual .mn-lat-rotulo { color: var(--mn-destaque); }
+.mn-lat-grupo a { display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 14px; border-radius: 12px; color: var(--mn-inativo); text-decoration: none; font: 600 14.5px var(--mn-fonte); }
+.mn-lat-grupo a:hover { background: rgba(255, 255, 255, .06); color: #fff; }
+.mn-lat-grupo a.atual { background: var(--mn-destaque); color: var(--mn-sobre-destaque); font-weight: 800; }
+.mn-lat-rodape { flex: none; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, .12); display: grid; gap: 14px; }
+.mn-lat-rodape .mn-formato { justify-self: start; }
+.mn-lat-usuario { display: flex; align-items: center; gap: 10px; }
+.mn-lat-usuario .mn-quem { flex: 1; }
+.mn-sair-ic { width: 44px; height: 44px; flex: none; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .18); background: transparent; color: #fff; display: grid; place-items: center; cursor: pointer; }
+.mn-sair-ic:hover { background: rgba(255, 255, 255, .06); }
+
+/* qual formato aparece (computador) */
+.mn-celular, .mn-gaveta, .mn-gaveta-fundo { display: none; }
+html[data-menu="lateral"] .mn-topo { display: none; }
+html:not([data-menu="lateral"]) .mn-lateral { display: none; }
+@media (min-width: 900px) { html[data-menu="lateral"] body { padding-left: 264px; } }
+
+/* caminho "Grupo › Página" no topo de cada página */
+.mn-caminho { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; color: var(--mn-texto2); font: 600 13px var(--mn-fonte); }
+.mn-caminho b { color: var(--mn-fundo); font-weight: 700; }
+
+/* ---------- celular e telas pequenas: barra no topo + gaveta pela esquerda ---------- */
+@media (max-width: 899.98px) {
+  .mn-topo, .mn-lateral { display: none !important; }
+  .mn-celular { display: flex; position: sticky; top: 0; z-index: 30; height: 60px; padding: 0 16px; align-items: center; justify-content: space-between; background: var(--mn-fundo); }
+  .mn-abrir, .mn-fechar { width: 44px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: #fff; display: grid; place-items: center; cursor: pointer; }
+  .mn-abrir:hover, .mn-fechar:hover { background: rgba(255, 255, 255, .08); }
+  .mn-gaveta { display: flex; position: fixed; top: 0; bottom: 0; left: 0; width: min(300px, 86vw); z-index: 60; padding: 14px 16px 16px;
+    transform: translateX(-100%); transition: transform .2s ease; }
+  .mn-gaveta.aberta { transform: none; box-shadow: 0 24px 48px rgba(9, 18, 22, .35); }
+  .mn-gaveta-topo { display: flex; align-items: center; justify-content: space-between; padding-left: 14px; }
+  .mn-gaveta .mn-lat-grupos { margin-top: 18px; }
+  .mn-gaveta-fundo { display: block; position: fixed; inset: 0; z-index: 55; background: rgba(9, 18, 22, .5); opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .mn-gaveta-fundo.aberto { opacity: 1; pointer-events: auto; }
+  .mn-formato { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) { .mn-gaveta, .mn-gaveta-fundo, .mn-seta { transition: none; } }
+
+/* o caminho "Grupo › Página" entra na faixa clara do título quando a página começa com ela (.cab) */
+.mn-caminho:has(+ div > .cab:first-child) { margin: -24px calc(50% - 50vw) 0; padding: 18px max(20px, calc(50vw - 570px)) 0; background: var(--faixa); }
+.mn-caminho:has(+ div > .cab:first-child) + div > .cab:first-child { margin-top: 0; padding-top: 6px; }
+@media (max-width: 640px) { .mn-caminho:has(+ div > .cab:first-child) { margin-top: -18px; padding-top: 14px; } }
+/* na barra lateral, as faixas de largura total das páginas ocupam só a área ao lado da barra (sem rolagem para o lado) */
+@media (min-width: 900px) {
+  html[data-menu="lateral"] .cab, html[data-menu="lateral"] .mn-caminho:has(+ div > .cab:first-child) {
+    margin-left: calc(50% - (50vw - 132px)); margin-right: calc(50% - (50vw - 132px));
+    padding-left: max(20px, calc(50vw - 132px - 570px)); padding-right: max(20px, calc(50vw - 132px - 570px)); }
+}

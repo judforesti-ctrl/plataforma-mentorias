@@ -171,6 +171,15 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   reaprender a navegar). Tudo em `public/assets/app.css`: `--lima`/`--verde` apontam para o bege (código antigo continua valendo);
   `--ok` verde só para estados ok; `.cab` é a faixa clara de título; `.cartao.destaque` = cartão petróleo; `.cartao.numero` com borda bege.
   Barra do topo petróleo com `logo-clara.png`. Toda tela nova deve seguir essas classes, não cores soltas.
+- MENU (2026-10-09, pedido dela com as Propostas 3 e 4): 3 grupos (Mentoria, Gestão, Negócio) em DOIS formatos que cada pessoa escolhe
+  (topo com menus suspensos ou barra lateral de 264 px; abaixo de 900 px vira barra + gaveta). UMA lista `GRUPOS` em `app.js`
+  (item: nome, ícone Lucide, rota, `pode` = mesmas permissões do menu antigo; grupo vazio some; mentorado tem Minha mentoria,
+  Ferramentas e Meus dados em Mentoria). Desenho em `public/assets/menu.js` (ícones Lucide embutidos) e `menu.css` (cores em
+  variáveis --mn-*: fundo #091216, destaque LIMA #C8F04A só no menu, conteúdo #F3F5F4). Escolha em localStorage
+  "mentorei.formatoMenu" (topo|lateral, padrão topo), aplicada no <head> do app.html antes de desenhar. Caminho "Grupo › Página"
+  (`.mn-caminho`) entra no começo de cada tela; quando a tela começa com `.cab`, ele fica dentro da faixa clara. Papel embaixo do
+  nome: "Admin · Mentor(a)" (sem gênero no cadastro, então "(a)"). Para achar o item atual, app.js mapeia rotas de detalhe
+  (turma, módulo, sessão, pessoa...) para o item do menu. privacidade.html ainda usa o cabeçalho antigo (.topo em app.css).
 
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.
