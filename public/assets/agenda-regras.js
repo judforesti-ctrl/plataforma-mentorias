@@ -270,9 +270,12 @@ export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], rese
     if (e.ini == null) continue;
     for (const m of e.mentores) { const k = `${m}|${e.dia}`; if (!daPlataforma.has(k)) daPlataforma.set(k, []); daPlataforma.get(k).push(e.ini); }
   }
+  // o mesmo compromisso pode vir do link da pessoa e da conta Google da coordenação: entra uma vez só
+  const vistos = new Set();
   for (const p of pessoais) {
     const ini = Date.parse(p.inicio), fim = Date.parse(p.fim);
     if (!(fim > ini) || !p.perfil_id) continue;
+    if (p.uid) { const k = `${p.perfil_id}|${String(p.uid).split('|')[0]}|${ini}`; if (vistos.has(k)) continue; vistos.add(k); }
     const d0 = diaDe(p.inicio), d1 = diaDe(new Date(fim - 1).toISOString());
     for (const dia of listaDias(d0 > de ? d0 : de, d1 < ate ? d1 : ate).slice(0, 62)) {
       const iniDia = Date.parse(isoDe(dia, '00:00')), fimDia = iniDia + 86400000;

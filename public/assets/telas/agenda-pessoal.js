@@ -6,7 +6,7 @@ import { diaDe, diaCurto } from '../agenda-regras.js';
 import { janela, api, primeiroNome, limparCache } from './agenda-dados.js';
 
 const RESP = { aceito: 'aceito', talvez: 'respondeu "talvez"', sem_resposta: 'convite ainda sem resposta (responda na sua agenda)' };
-const FALTA_SCRIPT = '<div class="aviso erro mt">Falta rodar o script <b>24-agenda-pessoal.sql</b> no Supabase para ligar as agendas pessoais.</div>';
+const FALTA_SCRIPT = '<div class="aviso erro mt">Falta rodar o script <b>26-convites-da-coordenacao.sql</b> no Supabase (ele já traz o 24) para ligar as agendas e os convites.</div>';
 
 const quandoTexto = (iso) => {
   if (!iso) return '';
@@ -136,38 +136,54 @@ export async function cartaoAgendasEquipe(ctx, el, mentores, { aoMudar = null } 
   el.innerHTML = '<div class="cartao"><h3>Agendas pessoais da equipe</h3><p class="peq apagado mt">Carregando…</p></div>';
   const st = await api('/api/agenda-pessoal', { acao: 'status', todos: true });
   const pessoas = (st.ok && st.pessoas) || {};
+  const extra = { coordenacao: st.coordenacao || null, emails: st.emails || null };   // emails null = falta o script 26
   const linhaPessoa = (m) => {
     const s = pessoas[m.id] || { ligada: false };
-    const info = !s.ligada ? '<span class="apagado">Não ligada</span>'
+    const outros = (extra.emails && extra.emails[m.id]) || [];
+    const info = !s.ligada ? '<span class="apagado">Agenda pessoal não ligada</span>'
       : s.erro ? `<span style="color:var(--erro)">Não está sendo lida: ${esc(s.erro)}</span>`
       : `${esc(s.nomeOrigem || 'Agenda')}${s.conta ? ` (${esc(s.conta)})` : ''} · ${s.lido_em ? `lida ${esc(quandoTexto(s.lido_em))} · ${s.total} ${s.total === 1 ? 'compromisso' : 'compromissos'}` : 'ainda não lida'}`;
     return `<div class="item" style="grid-template-columns:auto 1fr auto">${avatar(m)}
       <div style="min-width:0"><div class="nome">${esc(m.nome)}${m.id === ctx.perfil.id ? ' <span class="peq apagado">(você)</span>' : ''}
-        ${s.ligada ? (s.erro ? ' <span class="selo erro">com problema</span>' : ' <span class="selo ok">ligada</span>') : ''}</div><div class="info">${info}</div></div>
-      <div class="linha" style="gap:6px"><button class="btn peq${s.ligada ? '' : ' pri'}" type="button" data-ligar-de="${m.id}">${s.ligada ? 'Trocar link' : 'Ligar'}</button>
+        ${s.ligada ? (s.erro ? ' <span class="selo erro">com problema</span>' : ' <span class="selo ok">ligada</span>') : ''}</div><div class="info">${info}</div>
+        <div class="info">Outros e-mails: ${outros.length ? esc(outros.join(', ')) : '<span class="apagado">nenhum</span>'}</div></div>
+      <div class="linha" style="gap:6px"><button class="btn peq" type="button" data-emails-de="${m.id}">E-mails</button><button class="btn peq${s.ligada ? '' : ' pri'}" type="button" data-ligar-de="${m.id}">${s.ligada ? 'Trocar link' : 'Ligar'}</button>
         ${s.ligada ? `<button class="btn peq" type="button" data-atualizar-de="${m.id}">Atualizar</button><button class="btn peq perigo" type="button" data-desligar-de="${m.id}">Desligar</button>` : ''}</div></div>`;
+  };
+  // convites da conta Google da coordenação: lidos sem link nenhum
+  const htmlCoordenacao = () => {
+    const c = extra.coordenacao;
+    if (extra.emails === null) return '<div class="aviso erro mt">Para os convites da conta Google da coordenação entrarem sozinhos, falta rodar o script <b>26-convites-da-coordenacao.sql</b> no Supabase.</div>';
+    if (!c) return '<div class="aviso mt"><b>Convites da conta Google da coordenação:</b> a primeira leitura acontece em até 15 minutos (ou clique em "Ler todas agora").</div>';
+    if (!c.ok) return `<div class="aviso erro mt"><b>Convites da conta Google da coordenação não estão sendo lidos:</b> ${esc(c.erro || 'erro')}</div>`;
+    return `<div class="aviso ok mt"><b>Convites da conta Google da coordenação${c.conta ? ` (${esc(c.conta)})` : ''}:</b> lidos ${esc(quandoTexto(c.em))} · ${c.total} ${c.total === 1 ? 'compromisso' : 'compromissos'}${c.pessoas ? ` na agenda de ${c.pessoas} ${c.pessoas === 1 ? 'pessoa' : 'pessoas'}` : ''}.</div>`;
   };
   const desenhar = () => {
     const ligadas = mentores.filter((m) => (pessoas[m.id] || {}).ligada).length;
-    el.innerHTML = `<div class="cartao"><h3>Agendas pessoais da equipe</h3>
-      <p class="peq mt">Quando um cliente marca uma reunião direto no e-mail de alguém da equipe, ela aparece aqui na Agenda da equipe, com o nome, e ocupa o horário.
-        Para isso, cada pessoa liga uma vez a própria agenda (Gmail ou Hotmail) em <b>Minha agenda</b>. Se preferir, a pessoa manda o link para você e você cola aqui, em <b>Ligar</b>.</p>
+    el.innerHTML = `<div class="cartao"><h3>Agendas pessoais e convites</h3>
+      <p class="peq mt">Reuniões marcadas fora da plataforma aparecem na Agenda da equipe, com o nome, e ocupam o horário de quem está nelas. De dois jeitos:</p>
+      <ul class="peq" style="margin:6px 0 0 18px"><li><b>Convites que chegam na conta Google da coordenação</b> (a conectada no Painel): entram sozinhos, sem precisar de nada.
+        A plataforma reconhece cada pessoa da equipe pelo e-mail do cadastro e pelos <b>outros e-mails</b> dela (clique em <b>E-mails</b> para colocar o Gmail pessoal, por exemplo).</li>
+        <li><b>A agenda pessoal de cada um</b> (Gmail ou Hotmail): para trazer também as reuniões em que só a pessoa foi convidada. Cada um liga uma vez em <b>Minha agenda</b>, ou manda o link para você colar aqui, em <b>Ligar</b>.</li></ul>
       <p class="peq apagado mt">A plataforma só lê essas agendas (a cada 15 minutos) e nunca muda nada nelas. Convites que a própria plataforma mandou não entram de novo.
         Compromissos marcados como "Particular" aparecem só como "Particular".</p>
       ${!st.ok ? `<p class="peq mt">${esc(st.mensagem || 'Não consegui conferir agora.')}</p>` : st.script === false ? FALTA_SCRIPT : `
-        <p class="peq mt"><b>${ligadas} de ${mentores.length}</b> ${mentores.length === 1 ? 'pessoa ligou' : 'pessoas ligaram'} a agenda.</p>
+        ${htmlCoordenacao()}
+        <p class="peq mt"><b>${ligadas} de ${mentores.length}</b> ${mentores.length === 1 ? 'pessoa ligou' : 'pessoas ligaram'} a agenda pessoal.</p>
         <div class="lista mt">${mentores.map(linhaPessoa).join('') || '<p class="apagado">Ninguém na equipe.</p>'}</div>
-        ${ligadas ? '<div class="linha mt"><button class="btn" type="button" id="ap-todas">Ler todas agora</button></div>' : ''}`}</div>`;
+        <div class="linha mt"><button class="btn" type="button" id="ap-todas">Ler todas agora</button></div>`}</div>`;
     el.querySelector('#ap-todas')?.addEventListener('click', async (ev) => {
       const b = ev.currentTarget;
-      b.disabled = true; b.textContent = 'Lendo as agendas…';
+      b.disabled = true; b.textContent = 'Pedindo a leitura…';
       const r = await api('/api/agenda-pessoal', { acao: 'atualizar', todos: true });
-      avisar(r.ok ? `${r.lidas} ${r.lidas === 1 ? 'agenda lida' : 'agendas lidas'}${r.erros ? `, ${r.erros} com problema` : ''}.` : (r.mensagem || 'Não deu certo agora.'), !r.ok);
+      avisar(r.ok ? 'Leitura pedida: em 1 ou 2 minutos as agendas ficam em dia. Depois, abra a Agenda de novo.' : (r.mensagem || 'Não deu certo agora.'), !r.ok);
       limparCache();
-      await recarregar();
+      setTimeout(() => { if (el.isConnected) recarregar(); }, 60000);
     });
     el.querySelector('.lista')?.addEventListener('click', async (ev) => {
       const lig = ev.target.closest('[data-ligar-de]'), atu = ev.target.closest('[data-atualizar-de]'), des = ev.target.closest('[data-desligar-de]');
+      const em = ev.target.closest('[data-emails-de]');
+      if (em) { abrirEmails(mentores.find((m) => m.id === em.dataset.emailsDe), (extra.emails && extra.emails[em.dataset.emailsDe]) || [], extra.emails === null, async () => { await recarregar(); }); return; }
       if (lig) { abrirLigarPor(ctx, mentores.find((m) => m.id === lig.dataset.ligarDe), async () => { await recarregar(); if (aoMudar) aoMudar(); }); return; }
       const b = atu || des;
       if (!b) return;
@@ -185,10 +201,32 @@ export async function cartaoAgendasEquipe(ctx, el, mentores, { aoMudar = null } 
   };
   const recarregar = async () => {
     const n = await api('/api/agenda-pessoal', { acao: 'status', todos: true });
-    if (n.ok) { Object.keys(pessoas).forEach((k) => delete pessoas[k]); Object.assign(pessoas, n.pessoas || {}); }
+    if (n.ok) { Object.keys(pessoas).forEach((k) => delete pessoas[k]); Object.assign(pessoas, n.pessoas || {}); extra.coordenacao = n.coordenacao || null; extra.emails = n.emails || null; }
     desenhar();
   };
   desenhar();
+}
+
+// Outros e-mails de uma pessoa (Gmail pessoal, e-mail de outra empresa...): servem para reconhecer quem está nos convites.
+function abrirEmails(m, atuais, faltaScript, aoSalvar) {
+  const j = janela(`Outros e-mails · ${m.nome}`, `
+    ${faltaScript ? '<div class="aviso erro">Para guardar, falta rodar o script <b>26-convites-da-coordenacao.sql</b> no Supabase.</div>' : ''}
+    <p class="peq">E-mails que ${esc(primeiroNome(m.nome))} usa além do cadastro (${esc(m.email || 'sem e-mail')}), um por linha. Quando um convite que chega na conta Google da coordenação
+      tiver um desses e-mails, o horário fica ocupado na agenda de ${esc(primeiroNome(m.nome))}.</p>
+    <textarea class="mt" id="ae-lista" placeholder="exemplo@gmail.com">${esc(atuais.join('\n'))}</textarea>
+    <div class="linha mt"><button class="btn pri" type="button" id="ae-salvar"${faltaScript ? ' disabled' : ''}>Salvar</button><button class="btn" type="button" data-fechar>Desistir</button></div>`, { largura: 560 });
+  j.corpo.querySelector('#ae-salvar').addEventListener('click', async (ev) => {
+    const emails = j.corpo.querySelector('#ae-lista').value.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+    const ruim = emails.find((x) => !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(x));
+    if (ruim) { avisar(`"${ruim}" não parece um e-mail.`, true); return; }
+    ev.currentTarget.disabled = true;
+    const r = await api('/api/agenda-pessoal', { acao: 'emails', perfil_id: m.id, emails });
+    if (!r.ok) { avisar(r.mensagem || 'Não consegui guardar agora.', true); ev.currentTarget.disabled = false; return; }
+    avisar('E-mails salvos. Em 1 ou 2 minutos os convites desses e-mails entram na agenda.');
+    limparCache();
+    j.fechar();
+    aoSalvar();
+  });
 }
 
 // A administração cola o link que a pessoa mandou.

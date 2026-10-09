@@ -3,8 +3,8 @@
 // nada na agenda de origem. O que a própria plataforma criou na Google Agenda (convites automáticos, reuniões) fica de fora,
 // senão apareceria duas vezes.
 import { createHmac } from 'node:crypto';
-import { env, supa, contaGoogle } from './google.mjs';
-import { lerAgenda } from './ics.mjs';
+import { env, supa, contaGoogle, acessoGoogle, agenda } from './google.mjs';
+import { lerAgenda, SALA } from './ics.mjs';
 
 const DIA_MS = 86400000;
 export const JANELA = { antes: 30, depois: 180 };
@@ -135,7 +135,7 @@ export async function atualizarPessoa(link, email, contexto, { texto = null } = 
   });
   const r = await supa('/rest/v1/rpc/trocar_agenda_pessoal', { metodo: 'POST', corpo: { p_perfil: link.perfil_id, p_eventos: eventos } });
   if (!r.ok) {
-    const erro = r.status === 404 ? 'Falta rodar o script 24-agenda-pessoal.sql no Supabase.' : `Não consegui guardar os compromissos (${r.status}).`;
+    const erro = r.status === 404 ? 'Falta rodar o script 26-convites-da-coordenacao.sql no Supabase.' : `Não consegui guardar os compromissos (${r.status}).`;
     return { ok: false, erro };
   }
   await supa(`/rest/v1/agenda_pessoal_links?perfil_id=eq.${link.perfil_id}`, { metodo: 'PATCH', prefer: 'return=minimal',
@@ -143,16 +143,18 @@ export async function atualizarPessoa(link, email, contexto, { texto = null } = 
   return { ok: true, total: eventos.length, eventos };
 }
 
-// Todas as agendas ligadas (a cada 15 minutos). Uma que falhe não atrapalha as outras.
+// Todas as agendas (a cada 15 minutos): os convites da conta Google da coordenação e os links de cada um.
+// Uma que falhe não atrapalha as outras.
 export async function atualizarTodas() {
   const [l, p] = await Promise.all([
     supa('/rest/v1/agenda_pessoal_links?select=perfil_id,url'),
     supa('/rest/v1/perfis?select=id,email,ativo'),
   ]);
-  if (!l.ok || !Array.isArray(l.dados)) return { ok: false, erro: l.status === 404 ? 'script 24 não rodado' : `falha ${l.status}` };
-  const perfis = new Map((p.ok && Array.isArray(p.dados) ? p.dados : []).map((x) => [x.id, x]));
   const ctx = await contextoLeitura();
-  const res = { ok: true, lidas: 0, erros: 0 };
+  const coordenacao = await atualizarCoordenacao(ctx).catch((e) => ({ ok: false, erro: e.message }));
+  if (!l.ok || !Array.isArray(l.dados)) return { ok: coordenacao.ok, lidas: 0, erros: 0, coordenacao, erro: l.status === 404 ? 'script 24 não rodado' : `falha ${l.status}` };
+  const perfis = new Map((p.ok && Array.isArray(p.dados) ? p.dados : []).map((x) => [x.id, x]));
+  const res = { ok: true, lidas: 0, erros: 0, coordenacao };
   const fila = l.dados.filter((x) => (perfis.get(x.perfil_id) || {}).ativo !== false);
   await Promise.all([0, 1, 2].map(async () => {
     while (fila.length) {
@@ -162,4 +164,122 @@ export async function atualizarTodas() {
     }
   }));
   return res;
+}
+
+// ---------- convites na conta Google da coordenação (a conectada no Painel) ----------
+// Lê a agenda principal dessa conta pela ligação que já existe (sem link secreto) e põe cada compromisso na agenda de cada
+// pessoa da equipe que está nele: quem marcou e os convidados que não recusaram. Pessoa = e-mail do cadastro, "outros e-mails"
+// (perfis.outros_emails, script 26) ou o e-mail do link do Google que ela ligou. A própria conta conectada vale para quem tem
+// esse e-mail no cadastro. O que a plataforma criou (sessões, aulas, reuniões...) fica de fora, como nos links.
+const RESPOSTA_GOOGLE = { accepted: 'aceito', tentative: 'talvez', needsAction: 'sem_resposta' };
+
+async function lerEventosGoogle(token) {
+  const agora = Date.now();
+  const itens = [];
+  let pagina = '';
+  for (let i = 0; i < 20; i += 1) {
+    const q = new URLSearchParams({ timeMin: new Date(agora - JANELA.antes * DIA_MS).toISOString(), timeMax: new Date(agora + JANELA.depois * DIA_MS).toISOString(),
+      singleEvents: 'true', showDeleted: 'false', maxResults: '2500',
+      fields: 'nextPageToken,items(id,iCalUID,recurringEventId,status,summary,start,end,transparency,visibility,location,description,hangoutLink,conferenceData(entryPoints(uri,entryPointType)),organizer(email,displayName,self),attendees(email,displayName,responseStatus,self))' });
+    if (pagina) q.set('pageToken', pagina);
+    const r = await agenda(token, `/calendars/primary/events?${q}`);
+    if (!r.ok) return { erro: r.status === 401 ? 'A ligação com a Google Agenda expirou. Conecte de novo no Painel.' : `A Google Agenda não respondeu (${r.status}).` };
+    itens.push(...((r.dados && r.dados.items) || []));
+    pagina = r.dados && r.dados.nextPageToken;
+    if (!pagina) break;
+  }
+  return { itens };
+}
+
+// E-mail → pessoa da equipe (cadastro, outros e-mails e o e-mail do link do Google de cada um).
+async function emailsDaEquipe() {
+  let p = await supa('/rest/v1/perfis?ativo=eq.true&or=(papel.eq.admin,papel.eq.mentor,tambem_mentor.eq.true)&select=id,email,outros_emails');
+  if (!p.ok) p = await supa('/rest/v1/perfis?ativo=eq.true&or=(papel.eq.admin,papel.eq.mentor,tambem_mentor.eq.true)&select=id,email');   // sem o script 26
+  const l = await supa('/rest/v1/agenda_pessoal_links?select=perfil_id,url');
+  const mapa = new Map();
+  const por = (email, id) => { const e = String(email || '').trim().toLowerCase(); if (e && !mapa.has(e)) mapa.set(e, id); };
+  const lista = p.ok && Array.isArray(p.dados) ? p.dados : [];
+  for (const x of lista) por(x.email, x.id);                                      // o e-mail do cadastro vale primeiro
+  for (const x of lista) (x.outros_emails || []).forEach((e) => por(e, x.id));
+  for (const x of (l.ok && Array.isArray(l.dados) ? l.dados : [])) donosDe(x.url, '').forEach((e) => por(e, x.perfil_id));
+  return mapa;
+}
+
+const quandoGoogle = (q) => (q && q.dateTime ? new Date(q.dateTime).toISOString() : q && q.date ? new Date(`${q.date}T00:00:00-03:00`).toISOString() : null);
+
+export async function atualizarCoordenacao(contexto = null) {
+  const salvar = (valor) => supa('/rest/v1/configuracoes', { metodo: 'POST', prefer: 'resolution=merge-duplicates,return=minimal',
+    corpo: { chave: 'agenda_coordenacao', valor: { ...valor, em: new Date().toISOString() }, atualizado_em: new Date().toISOString() } });
+  const acesso = await acessoGoogle().catch(() => null);
+  if (!acesso) { await salvar({ ok: false, erro: 'A Google Agenda da coordenação não está conectada no Painel.' }); return { ok: false, erro: 'Google não conectado' }; }
+  if (acesso.erro) { await salvar({ ok: false, erro: acesso.erro }); return { ok: false, erro: acesso.erro }; }
+  const conta = String(acesso.email || '').toLowerCase();
+  const lido = await lerEventosGoogle(acesso.token);
+  if (lido.erro) { await salvar({ ok: false, conta, erro: lido.erro }); return { ok: false, erro: lido.erro }; }
+  const ctx = contexto || await contextoLeitura();
+  const pessoaDe = await emailsDaEquipe();
+  const dono = pessoaDe.get(conta) || null;   // a pessoa da equipe dona da conta conectada (ex.: contato@ = Cintia)
+  // horários de sessões e aulas da plataforma: convite feito à mão na conta da coordenação para a mesma hora é o mesmo compromisso
+  const de = new Date(Date.now() - JANELA.antes * DIA_MS).toISOString(), ate = new Date(Date.now() + JANELA.depois * DIA_MS).toISOString();
+  const [ss, mm] = await Promise.all([
+    todas(`/rest/v1/sessoes?data_hora=gte.${de}&data_hora=lte.${ate}&select=data_hora&order=id`),
+    todas(`/rest/v1/modulos?data_hora=gte.${de}&data_hora=lte.${ate}&select=data_hora&order=id`),
+  ]);
+  const horarios = [...ss, ...mm].map((x) => Date.parse(x.data_hora)).filter(Number.isFinite);
+  const jaNaPlataforma = (iso) => { const t = Date.parse(iso); return horarios.some((h) => Math.abs(h - t) <= 10 * 60000); };
+  const linhas = [];
+  for (const ev of lido.itens) {
+    if (ev.status === 'cancelled') continue;
+    const base = String(ev.recurringEventId || ev.id || '').split('_')[0];
+    if (daPlataforma(ev.iCalUID, ctx.ids) || daPlataforma(base, ctx.ids) || ctx.ids.has(String(ev.id || '').split('_')[0])) continue;
+    const inicio = quandoGoogle(ev.start), fim = quandoGoogle(ev.end);
+    if (!inicio || !fim || !(Date.parse(fim) > Date.parse(inicio))) continue;
+    const org = ev.organizer || {};
+    const orgEmail = String(org.self ? conta : org.email || '').toLowerCase();
+    // quem da equipe está no compromisso (fora a dona da conta conectada), e a resposta de cada um
+    const envolvidos = new Map();
+    const orgPessoa = pessoaDe.get(orgEmail);
+    if (orgPessoa && orgPessoa !== dono) envolvidos.set(orgPessoa, { resposta: null, organizador: true });
+    for (const a of ev.attendees || []) {
+      const id = pessoaDe.get(String(a.self ? conta : a.email || '').toLowerCase());
+      if (!id || id === dono) continue;
+      if (a.responseStatus === 'declined') { if (!(envolvidos.get(id) || {}).organizador) envolvidos.set(id, { recusou: true }); continue; }
+      if (!envolvidos.has(id) || envolvidos.get(id).recusou) envolvidos.set(id, { resposta: RESPOSTA_GOOGLE[a.responseStatus] || null, organizador: false });
+    }
+    // ninguém da equipe reconhecido: fica na agenda da dona da conta (se não for um convite à mão de sessão ou aula da plataforma)
+    if (!envolvidos.size && dono) {
+      const doDono = (ev.attendees || []).find((a) => a.self);
+      if (doDono && doDono.responseStatus === 'declined') continue;
+      const interno0 = !orgEmail || org.self || ctx.equipe.has(orgEmail) || /@mentorei\.com\.br$/.test(orgEmail);
+      if (interno0 && jaNaPlataforma(inicio)) continue;
+      envolvidos.set(dono, { resposta: org.self ? null : RESPOSTA_GOOGLE[(doDono || {}).responseStatus] || null, organizador: !!org.self });
+    }
+    const particular = ['private', 'confidential'].includes(ev.visibility);
+    const local = String(ev.location || '').trim();
+    const entrada = ((ev.conferenceData && ev.conferenceData.entryPoints) || []).find((x) => x.entryPointType === 'video');
+    let link = ev.hangoutLink || (entrada && entrada.uri) || '';
+    if (!link) for (const f of [local, ev.description]) { const m = SALA.exec(String(f || '')); if (m) { link = m[0].replace(/[.,;]+$/, ''); break; } }
+    const interno = !orgEmail || org.self || ctx.equipe.has(orgEmail) || /@mentorei\.com\.br$/.test(orgEmail) || !!orgPessoa;
+    for (const [perfil_id, x] of envolvidos) {
+      if (x.recusou) continue;
+      linhas.push({
+        perfil_id, uid: `${ev.iCalUID || ev.id}|${inicio}`.slice(0, 500),
+        titulo: particular ? 'Particular' : (String(ev.summary || '').trim() || 'Compromisso').slice(0, 300),
+        inicio, fim, dia_inteiro: !!(ev.start && ev.start.date), local: particular ? null : (local && local !== link ? local.slice(0, 300) : null),
+        link: particular ? null : (link ? link.slice(0, 500) : null),
+        organizador: particular || x.organizador ? null : (String(org.displayName || orgEmail).slice(0, 200) || null),
+        organizador_email: x.organizador ? null : (orgEmail || null), resposta: x.organizador ? null : x.resposta,
+        ocupa: ev.transparency !== 'transparent', particular, interno,
+      });
+    }
+  }
+  const r = await supa('/rest/v1/rpc/trocar_agenda_google', { metodo: 'POST', corpo: { p_eventos: linhas.slice(0, 20000) } });
+  if (!r.ok) {
+    const erro = r.status === 404 ? 'Falta rodar o script 26-convites-da-coordenacao.sql no Supabase.' : `Não consegui guardar os convites (${r.status}).`;
+    await salvar({ ok: false, conta, erro });
+    return { ok: false, erro };
+  }
+  const pessoas = new Set(linhas.map((x) => x.perfil_id)).size;
+  await salvar({ ok: true, conta, total: linhas.length, pessoas });
+  return { ok: true, total: linhas.length, pessoas };
 }

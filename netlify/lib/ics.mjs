@@ -22,7 +22,7 @@ const WINDOWS = {
 };
 
 // Salas online reconhecidas (o link vai para o botão "Entrar na reunião").
-const SALA = /https?:\/\/(?:[\w-]+\.)*(?:meet\.google\.com|zoom\.us|zoom\.com|teams\.microsoft\.com|teams\.live\.com|webex\.com|whereby\.com|meet\.jit\.si|gotomeeting\.com|gotomeet\.me|skype\.com)\/[^\s<>"'\\)\]]*/i;
+export const SALA = /https?:\/\/(?:[\w-]+\.)*(?:meet\.google\.com|zoom\.us|zoom\.com|teams\.microsoft\.com|teams\.live\.com|webex\.com|whereby\.com|meet\.jit\.si|gotomeeting\.com|gotomeet\.me|skype\.com)\/[^\s<>"'\\)\]]*/i;
 
 // ---------- linhas e propriedades ----------
 const desdobrar = (texto) => String(texto || '').replace(/^\uFEFF/, '').replace(/\r?\n[ \t]/g, '').split(/\r?\n/);

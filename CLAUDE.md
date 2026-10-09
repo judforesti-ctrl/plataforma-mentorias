@@ -61,6 +61,14 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   convite recusado pelo dono, o que a própria plataforma criou (uid `mnt…`, `google_eventos`, `agenda_reunioes.google_evento_id`) e, na tela,
   compromisso "interno" (marcado pela pessoa ou pela equipe) no mesmo horário (±10 min) de algo da plataforma. Só leitura: nunca muda a
   agenda de origem. NÃO entra no resumo semanal, na agenda do celular nem nos convites do Google (dadosAgenda do servidor não lê).
+  CONVITES DA COORDENAÇÃO (2026-10-09, script 26, que já inclui o 24): a Cláudia marcou reunião no Gmail pessoal convidando o contato@
+  e nada apareceu (ninguém tinha ligado link). Agora `atualizarCoordenacao()` (no mesmo ciclo de 15 min) lê a agenda principal da conta
+  Google conectada pela API (singleEvents, sem link) e grava em `agenda_pessoal` com `fonte='google'` (rpc `trocar_agenda_google`; o link
+  de cada um é `fonte='pessoal'`). Cada evento vai para quem da equipe está nele (organizador + convidados que não recusaram), reconhecido
+  pelo e-mail do cadastro, por `perfis.outros_emails` (botão "E-mails" no quadro da equipe, só administração) ou pelo e-mail do link do
+  Google; a dona da conta (contato@ = Cintia) só fica com o evento quando ninguém da equipe é reconhecido, e nunca se for convite interno
+  no mesmo horário (±10 min) de sessão ou aula. A tela junta as duas fontes sem repetir (perfil + UID + início). "Ler todas agora" e salvar
+  e-mails disparam a função de fundo. Situação da última leitura em `configuracoes.agenda_coordenacao`.
   VIAGENS (2026-10-09, script 25): passagem, hotel e transporte têm "quem paga" e "quem compra/reserva/combina" (Mentorei ou empresa).
   Padrão na turma (`turmas.viagem_padrao`, cartão na página da turma); cada viagem (`modulo_mentores.viagem.paga_<item>`/`compra_<item>`)
   pode mudar, vazio = padrão. Regras em agenda-regras.js (`ITENS_VIAGEM`, `quemCuidaDaViagem`); o mentor vê só leitura no dia; o resumo

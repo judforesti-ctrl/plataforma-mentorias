@@ -42,7 +42,7 @@ export async function carregarAgenda(ctx) {
   const lerPessoais = async () => {
     const out = [];
     for (let de = 0; de < 30000; de += 1000) {   // o Supabase entrega no máximo 1000 linhas por pedido
-      const r = await sb.from('agenda_pessoal').select('id, perfil_id, titulo, inicio, fim, dia_inteiro, local, link, organizador, organizador_email, resposta, ocupa, particular, interno')
+      const r = await sb.from('agenda_pessoal').select('id, perfil_id, uid, titulo, inicio, fim, dia_inteiro, local, link, organizador, organizador_email, resposta, ocupa, particular, interno')
         .gte('fim', isoDe(somarDias(hoje(), -60))).order('inicio').order('id').range(de, de + 999);
       if (r.error) return out;
       out.push(...(r.data || []));
