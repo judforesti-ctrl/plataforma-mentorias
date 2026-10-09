@@ -44,7 +44,13 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (PDF ou .pptx) a plataforma confere a agenda e mostra os conflitos. Bloqueio do mentor tem tipo: pessoal, tempo de criação,
   tempo operacional, reunião entre mentores, férias ou outro (texto dele).
   Vista padrão da aba "Agenda da equipe" é a SEMANA (`telas/agenda-semana.js`): um dia por linha (seg a sáb; domingo só se tiver algo),
-  data grande à esquerda (ela pediu, 2026-10-08), dias livres em verde, filtro por mentor; "Quadro por mentor" é a vista antiga de 3 faixas, e o mês continua lá.
+  data grande à esquerda (ela pediu, 2026-10-08), dias livres em verde; "Quadro por mentor" é a vista antiga de 3 faixas, e o mês continua lá.
+  FLAGS (2026-10-09, pedido dela: "escolher tudo por flag, não por filtro"): no lugar das 4 caixas de seleção, linhas de flags
+  (Mentores, Empresas + "Sem empresa", Tipos com a amostra de cor, Formato), várias ao mesmo tempo, com "Todos" e "Limpar";
+  `flags` em agenda.js (null = todos; Set = marcados), lembradas em localStorage "mentorei.agendaFlags". Nenhum tipo passa mais
+  "por fora" (antes bloqueio, reunião e agenda pessoal sempre apareciam). Vários mentores marcados: "Dia livre para Juliana e Cláudia"
+  (`rotulo` na vistaSemana); um só: comportamento antigo (mês no quadro, "Não atende"). A vista é redesenhada num elemento novo a
+  cada mudança (os cliques não se acumulam).
   Reuniões (script 18, tabela `agenda_reunioes`, função `/api/reuniao`): botão "+ Agendar reunião" na semana e na aba Bloqueios
   (o mentor também tem, em Minha agenda). Aceita gente da equipe e e-mails de fora sem cadastro; o servidor cria o convite na
   Google Agenda conectada com link do Meet (`conferenceDataVersion=1`) e o Google avisa todos. O convite fica em

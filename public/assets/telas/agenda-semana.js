@@ -25,7 +25,7 @@ const horaEv = (e) => {
 
 // ---------- a semana ----------
 // eventos: lista já filtrada; mentor: null = toda a equipe. aoClicarDia(evento, dia) abre os detalhes quando o item não tem link.
-export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, recarregar, aoClicarDia = null, agendar = true } = {}) {
+export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, rotulo = '', recarregar, aoClicarDia = null, agendar = true } = {}) {
   if (!sem.inicio) sem.inicio = segundaDaSemana(hoje());
   const h = hoje();
   const nomeDe = (id) => primeiroNome((d.mentores.find((m) => m.id === id) || {}).nome || '');
@@ -52,7 +52,7 @@ export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, recarregar, 
       return `<button type="button" class="ag-ev t-${e.tipo}${e.naoOcupa ? ' nao-ocupa' : ''}" data-ev="${esc(e.id)}" data-dia="${dia}" title="${esc(dica)}"><b>${hora ? `${esc(hora)} · ` : ''}${esc(e.titulo)}</b>${esc(sub)}</button>`;
     });
     if (f) cartoes.unshift(`<span class="ag-ev t-feriado" style="cursor:default"><b>Feriado</b>${esc(f)}</span>`);
-    if (livre) cartoes.push(`<span class="ag-sem-livre">✓ ${mentor ? `Dia livre para ${esc(primeiroNome(mentor.nome))}` : 'Dia livre para toda a equipe'}</span>`);
+    if (livre) cartoes.push(`<span class="ag-sem-livre">✓ ${mentor ? `Dia livre para ${esc(primeiroNome(mentor.nome))}` : rotulo ? `Dia livre para ${esc(rotulo)}` : 'Dia livre para toda a equipe'}</span>`);
     if (foraTodos) cartoes.push(`<span class="ag-ev t-fora" style="cursor:default"><b>Não atende</b>${esc(primeiroNome(mentor.nome))} não atende neste dia da semana</span>`);
     return `<div class="${classe}"><div class="ag-sem-dt"><b>${dia.slice(8)}</b><span>${nomeSemana(dia)} · ${nomeMes(Number(dia.slice(5, 7))).slice(0, 3)}</span>${f ? '<i>feriado</i>' : ''}</div>
       <div class="ag-sem-evs">${cartoes.join('')}</div></div>`;
@@ -64,14 +64,14 @@ export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, recarregar, 
       <b>${esc(rotuloSemana(dias))}</b>
       <button class="btn peq" type="button" data-nav="7" aria-label="Próxima semana">›</button>
       <button class="btn peq" type="button" data-nav="0">Hoje</button>
-      <span class="peq apagado">${mentor ? `Agenda de ${esc(mentor.nome)}` : 'Toda a equipe'} · clique num compromisso para ver os detalhes.</span>
+      <span class="peq apagado">${mentor ? `Agenda de ${esc(mentor.nome)}` : rotulo ? `Agenda de ${esc(rotulo)}` : 'Toda a equipe'} · clique num compromisso para ver os detalhes.</span>
       ${agendar ? `<div class="ag-sem-dir"><button class="btn reuniao" type="button" id="sem-reuniao">+ Agendar reunião</button></div>` : ''}
     </div>
     <div class="ag-sem">${dias.map(linha).join('')}</div>`;
   alvo.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => {
     const k = Number(b.dataset.nav);
     sem.inicio = k ? somarDias(sem.inicio, k) : segundaDaSemana(hoje());
-    vistaSemana(ctx, alvo, d, eventos, { mentor, recarregar, aoClicarDia, agendar });
+    vistaSemana(ctx, alvo, d, eventos, { mentor, rotulo, recarregar, aoClicarDia, agendar });
   }));
   alvo.querySelector('#sem-reuniao')?.addEventListener('click', () => abrirFormReuniao(ctx, d, { dia: sem.inicio >= h ? sem.inicio : h }, recarregar));
   // onclick (e não addEventListener): ao trocar de semana a vista é redesenhada no mesmo lugar e o clique não pode se acumular

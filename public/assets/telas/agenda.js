@@ -16,7 +16,30 @@ const AVISO_SCRIPT = `<div class="aviso erro" style="margin-bottom:14px">Falta u
   Enquanto isso, a agenda mostra as sessões e as turmas, mas ainda não guarda bloqueios, pré-bloqueios, dias de atendimento nem viagens.</div>`;
 
 // filtros e posição do quadro (continuam iguais ao voltar para a agenda)
-const est = { inicio: null, mes: null, mentor: '', empresa: '', tipo: '', formato: '', vista: 'semana', vistaMentor: 'semana' };
+const est = { inicio: null, mes: null, vista: 'semana', vistaMentor: 'semana' };
+
+// Flags da Agenda da equipe (pedido dela: escolher por flags, várias ao mesmo tempo, em vez de filtros de uma opção só).
+// Cada grupo é null (todos marcados) ou um Set com o que está marcado. Ficam lembradas neste navegador.
+const FLAGS_CHAVE = 'mentorei.agendaFlags';
+const flags = (() => {
+  try {
+    const x = JSON.parse(localStorage.getItem(FLAGS_CHAVE) || '{}');
+    const set = (v) => (Array.isArray(v) ? new Set(v) : null);
+    return { mentores: set(x.mentores), empresas: set(x.empresas), tipos: set(x.tipos), formatos: set(x.formatos) };
+  } catch (_) { return { mentores: null, empresas: null, tipos: null, formatos: null }; }
+})();
+const salvarFlags = () => {
+  try { localStorage.setItem(FLAGS_CHAVE, JSON.stringify(Object.fromEntries(Object.entries(flags).map(([k, v]) => [k, v ? [...v] : null])))); } catch (_) { /* sem armazenamento */ }
+};
+// tipos de compromisso que viram flag (alguns juntam mais de um tipo da agenda)
+const TIPOS_FLAG = [
+  ['individual', 'Mentoria individual', ['individual']], ['turma', 'Turma online', ['turma']], ['presencial', 'Turma presencial', ['presencial']],
+  ['reuniao', 'Reunião', ['reuniao']], ['pessoal', 'Agenda pessoal', ['pessoal']], ['atividade', 'Atividade do checklist', ['atividade']],
+  ['pre', 'Pré-bloqueio e reservado', ['pre', 'reservado']], ['deslocamento', 'Deslocamento', ['deslocamento']],
+  ['bloqueio', 'Bloqueio, férias e recesso', ['bloqueio', 'ferias', 'recesso']], ['contato', 'Contato de venda', ['contato']],
+];
+const FLAG_DO_TIPO = Object.fromEntries(TIPOS_FLAG.flatMap(([k, , tipos]) => tipos.map((t) => [t, k])));
+const FORMATOS_FLAG = [['online', 'Online'], ['presencial', 'Presencial']];
 const enc = { de: null, ate: null, periodos: ['manha', 'tarde'], formato: 'online', quantos: 1, soGrupo: true, dias: [1, 2, 3, 4, 5], soComGente: true };
 
 export async function render(ctx, el, params) {
@@ -24,7 +47,7 @@ export async function render(ctx, el, params) {
   const d = await carregarAgenda(ctx);
   if (!ctx.ehAdmin) return telaMentor(ctx, el, d);
   const aba = ABAS.some(([k]) => k === params[0]) ? params[0] : 'quadro';
-  if (params[0] === 'mentor' && params[1]) est.mentor = params[1];
+  if (params[0] === 'mentor' && params[1]) { flags.mentores = new Set([params[1]]); salvarFlags(); }
   const av = avisos(d);
   av.whatsResumo = await lembrarWhatsHoje();
   el.innerHTML = `
@@ -102,58 +125,96 @@ export async function avisosAgenda(ctx, el) {
 }
 
 // ---------- quadro da equipe e mês de um mentor ----------
+// Um compromisso aparece se passar em todas as flags marcadas: mentor, empresa ("Sem empresa" = bloqueios, reuniões internas,
+// agenda pessoal...), tipo e formato. Feriados aparecem sempre.
 function filtrarEventos(d) {
-  const fixos = ['bloqueio', 'ferias', 'recesso', 'feriado', 'reuniao', 'pessoal', 'atividade'];
   const passa = (e) => {
-    if (fixos.includes(e.tipo)) return true;
-    if (est.empresa && e.empresaId !== est.empresa) return false;
-    if (est.tipo === 'individual' && e.tipo !== 'individual') return false;
-    if (est.tipo === 'turmas' && e.tipo === 'individual') return false;
-    if (est.formato && e.formato !== est.formato) return false;
+    if (e.tipo === 'feriado') return true;
+    if (flags.tipos && FLAG_DO_TIPO[e.tipo] && !flags.tipos.has(FLAG_DO_TIPO[e.tipo])) return false;
+    if (flags.empresas && !flags.empresas.has(e.empresaId || 'sem')) return false;
+    if (flags.formatos && (e.formato === 'online' || e.formato === 'presencial') && !flags.formatos.has(e.formato)) return false;
+    if (flags.mentores && !e.todos && !(e.mentores || []).some((m) => flags.mentores.has(m))) return false;
     return true;
   };
   return d.eventos.filter(passa);
 }
-const filtrar = (d) => indexar(filtrarEventos(d));
 
 async function abaQuadro(ctx, el, d, recarregar) {
   if (!est.inicio) est.inicio = segundaDaSemana(hoje());
-  if (est.mentor && !d.mentores.some((m) => m.id === est.mentor)) est.mentor = '';
   const empresas = [...new Map(d.eventos.filter((e) => e.empresaId).map((e) => [e.empresaId, e.empresa])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
+  // as opções de cada grupo de flags (o que ficou marcado de uma visita anterior e não existe mais é esquecido)
+  const opcoes = {
+    mentores: d.mentores.map((m) => [m.id, m.nome]),
+    empresas: [...empresas, ['sem', 'Sem empresa']],
+    tipos: TIPOS_FLAG.map(([k, n]) => [k, n]),
+    formatos: FORMATOS_FLAG,
+  };
+  for (const [g, lista] of Object.entries(opcoes)) {
+    if (!flags[g]) continue;
+    const validos = new Set(lista.map(([k]) => k));
+    flags[g] = new Set([...flags[g]].filter((k) => validos.has(k)));
+    if (flags[g].size === validos.size) flags[g] = null;
+  }
+  const ROTULO = { mentores: 'Mentores', empresas: 'Empresas', tipos: 'Tipos', formatos: 'Formato' };
+  const marcado = (g, k) => !flags[g] || flags[g].has(k);
+  const htmlFlags = () => Object.entries(opcoes).map(([g, lista]) => {
+    const n = flags[g] ? flags[g].size : lista.length;
+    return `<div class="ag-flag-linha" data-grupo="${g}">
+      <div class="ag-flag-rotulo"><b>${ROTULO[g]} <span class="peq apagado">${n === lista.length ? '· todos' : `· ${n} de ${lista.length}`}</span></b>
+        <div><button type="button" class="ag-flag-acao" data-todos="${g}">Todos</button><button type="button" class="ag-flag-acao" data-nenhum="${g}">Limpar</button></div></div>
+      <div class="ag-flag-opcoes">${lista.map(([k, nome]) => `<button type="button" class="ag-flag" data-flag="${esc(k)}" aria-pressed="${marcado(g, k)}">${g === 'tipos' ? amostra(TIPOS_FLAG.find((t) => t[0] === k)[2][0]) : ''}${esc(nome)}</button>`).join('')}</div></div>`;
+  }).join('');
   el.innerHTML = `
     <div class="linha ag-filtros">
       <div class="ag-vistas" role="group" aria-label="Como ver a agenda"><button type="button" data-vista="semana" class="${est.vista === 'semana' ? 'atual' : ''}">Semana</button><button type="button" data-vista="quadro" class="${est.vista === 'quadro' ? 'atual' : ''}">Quadro por mentor</button></div>
-      <select id="f-mentor" aria-label="Mentor"><option value="">Toda a equipe</option>${d.mentores.map((m) => `<option value="${m.id}"${m.id === est.mentor ? ' selected' : ''}>${esc(m.nome)}</option>`).join('')}</select>
-      <select id="f-empresa" aria-label="Empresa"><option value="">Todas as empresas</option>${empresas.map(([id, n]) => `<option value="${id}"${id === est.empresa ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>
-      <select id="f-tipo" aria-label="Tipo"><option value="">Individual e turmas</option><option value="individual"${est.tipo === 'individual' ? ' selected' : ''}>Só mentoria individual</option><option value="turmas"${est.tipo === 'turmas' ? ' selected' : ''}>Só turmas e pré-bloqueios</option></select>
-      <select id="f-formato" aria-label="Formato"><option value="">Online e presencial</option><option value="online"${est.formato === 'online' ? ' selected' : ''}>Só online</option><option value="presencial"${est.formato === 'presencial' ? ' selected' : ''}>Só presencial</option></select>
+      <span class="peq apagado">Ligue e desligue as flags: dá para marcar várias ao mesmo tempo. "Dia livre" considera só o que está marcado.</span>
     </div>
+    <div class="ag-flags cartao" id="flags">${htmlFlags()}</div>
     <div id="vista"></div>
     ${legenda()}`;
-  const vista = el.querySelector('#vista');
+  let vista = el.querySelector('#vista');
   const desenhar = () => {
+    // cada desenho num elemento novo: os cliques da vista anterior não se acumulam
+    const nova = document.createElement('div');
+    nova.id = 'vista';
+    vista.replaceWith(nova);
+    vista = nova;
+    el.querySelector('#flags').innerHTML = htmlFlags();
     const eventos = filtrarEventos(d);
     const idx = indexar(eventos);
-    const m = d.mentores.find((x) => x.id === est.mentor);
+    const escolhidos = flags.mentores ? d.mentores.filter((x) => flags.mentores.has(x.id)) : d.mentores;
+    const m = flags.mentores && escolhidos.length === 1 ? escolhidos[0] : null;
+    const nomes = escolhidos.map((x) => primeiroNome(x.nome));
+    const rotulo = !flags.mentores ? '' : nomes.length > 1 ? `${nomes.slice(0, -1).join(', ')} e ${nomes[nomes.length - 1]}` : '';
     el.querySelectorAll('[data-vista]').forEach((b) => b.classList.toggle('atual', b.dataset.vista === est.vista));
+    if (flags.mentores && !escolhidos.length) { vista.innerHTML = '<div class="vazio">Marque pelo menos um mentor nas flags.</div>'; return; }
     if (est.vista === 'semana') {
-      vistaSemana(ctx, vista, d, eventos, { mentor: m || null, recarregar,
-        aoClicarDia: (e, dia) => { const quem = m || d.mentores.find((x) => e.mentores.includes(x.id)); if (quem) abrirDia(ctx, d, quem, dia, recarregar); } });
+      vistaSemana(ctx, vista, d, eventos, { mentor: m, rotulo, recarregar,
+        aoClicarDia: (e, dia) => { const quem = m || escolhidos.find((x) => e.mentores.includes(x.id)) || d.mentores.find((x) => e.mentores.includes(x.id)); if (quem) abrirDia(ctx, d, quem, dia, recarregar); } });
       return;
     }
-    if (m) vistaMes(ctx, vista, d, idx, m, { voltar: () => { est.mentor = ''; el.querySelector('#f-mentor').value = ''; desenhar(); }, recarregar });
-    else vistaEquipe(ctx, vista, d, idx, (id) => { est.mentor = id; el.querySelector('#f-mentor').value = id; est.mes = null; desenhar(); }, recarregar);
+    if (m) vistaMes(ctx, vista, d, idx, m, { voltar: () => { flags.mentores = null; salvarFlags(); desenhar(); }, recarregar });
+    else vistaEquipe(ctx, vista, d, idx, (id) => { flags.mentores = new Set([id]); salvarFlags(); est.mes = null; desenhar(); }, recarregar, escolhidos);
   };
   el.querySelectorAll('[data-vista]').forEach((b) => b.addEventListener('click', () => { est.vista = b.dataset.vista; desenhar(); }));
-  el.querySelectorAll('.ag-filtros select').forEach((s) => s.addEventListener('input', () => {
-    est.mentor = el.querySelector('#f-mentor').value; est.empresa = el.querySelector('#f-empresa').value;
-    est.tipo = el.querySelector('#f-tipo').value; est.formato = el.querySelector('#f-formato').value;
+  el.querySelector('#flags').addEventListener('click', (ev) => {
+    const linha = ev.target.closest('[data-grupo]'); if (!linha) return;
+    const g = linha.dataset.grupo, todas = opcoes[g].map(([k]) => k);
+    if (ev.target.closest('[data-todos]')) flags[g] = null;
+    else if (ev.target.closest('[data-nenhum]')) flags[g] = new Set();
+    else {
+      const b = ev.target.closest('[data-flag]'); if (!b) return;
+      const atual = flags[g] ? new Set(flags[g]) : new Set(todas);
+      if (atual.has(b.dataset.flag)) atual.delete(b.dataset.flag); else atual.add(b.dataset.flag);
+      flags[g] = atual.size === todas.length ? null : atual;
+    }
+    salvarFlags();
     desenhar();
-  }));
+  });
   desenhar();
 }
 
-function vistaEquipe(ctx, alvo, d, idx, verMentor, recarregar) {
+function vistaEquipe(ctx, alvo, d, idx, verMentor, recarregar, mentores = d.mentores) {
   const h = hoje();
   const n = window.matchMedia('(max-width: 700px)').matches ? 7 : 14;
   const dias = listaDias(est.inicio, somarDias(est.inicio, n - 1));
@@ -161,12 +222,12 @@ function vistaEquipe(ctx, alvo, d, idx, verMentor, recarregar) {
     <div class="linha ag-nav"><button class="btn peq" type="button" data-nav="-7">‹ Semana anterior</button><button class="btn peq" type="button" data-nav="0">Hoje</button>
       <button class="btn peq" type="button" data-nav="7">Próxima semana ›</button><b>${ddmm(dias[0])} a ${ddmm(dias[dias.length - 1])}</b>
       <span class="peq apagado">Cada dia tem 3 faixas: manhã, tarde e noite. Clique num dia para ver os detalhes, ou no nome para ver o mês do mentor.</span></div>
-    ${d.mentores.length ? `<div class="ag-quadro-caixa"><table class="ag-quadro">
+    ${mentores.length ? `<div class="ag-quadro-caixa"><table class="ag-quadro">
       <thead><tr><th class="ag-q-nome">Mentor</th>${dias.map((dia) => {
         const f = feriadoDe(dia); const fds = [0, 6].includes(diaDaSemana(dia));
         return `<th class="${dia === h ? 'hoje' : ''}${fds ? ' fds' : ''}${f ? ' feriado' : ''}"${f ? ` title="${esc(f)}"` : ''}>${nomeSemana(dia)}<br><span>${ddmm(dia)}</span>${f ? '<i>feriado</i>' : ''}</th>`;
       }).join('')}</tr></thead>
-      <tbody>${d.mentores.map((m) => `<tr><th class="ag-q-nome"><button type="button" class="ag-q-pessoa" data-ver="${m.id}">${avatar(m)}<span>${esc(m.nome)}</span></button></th>
+      <tbody>${mentores.map((m) => `<tr><th class="ag-q-nome"><button type="button" class="ag-q-pessoa" data-ver="${m.id}">${avatar(m)}<span>${esc(m.nome)}</span></button></th>
         ${dias.map((dia) => {
           const st = estadosDoDia(idx, m, dia);
           const dica = `${m.nome} · ${diaCurto(dia)}\n${dicaEstados(st)}`;
@@ -175,13 +236,13 @@ function vistaEquipe(ctx, alvo, d, idx, verMentor, recarregar) {
   alvo.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => {
     const k = Number(b.dataset.nav);
     est.inicio = k ? somarDias(est.inicio, k) : segundaDaSemana(hoje());
-    vistaEquipe(ctx, alvo, d, idx, verMentor, recarregar);
+    vistaEquipe(ctx, alvo, d, idx, verMentor, recarregar, mentores);
   }));
-  alvo.addEventListener('click', (ev) => {
+  alvo.onclick = (ev) => {   // onclick: ao trocar de semana o quadro é redesenhado no mesmo lugar e o clique não se acumula
     const p = ev.target.closest('[data-ver]'); if (p) { verMentor(p.dataset.ver); return; }
     const c = ev.target.closest('.ag-cel'); if (!c) return;
     abrirDia(ctx, d, d.mentores.find((m) => m.id === c.dataset.m), c.dataset.dia, recarregar);
-  });
+  };
 }
 
 function fimDoMes(mes) {
