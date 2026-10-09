@@ -6,6 +6,7 @@ import { PERIODOS, NOME_PERIODO, LETRA_PERIODO, ESTADOS, hoje, somarDias, diaDaS
   descreverBloqueio, choquesDoBloqueio as choquesBloq, rotuloBloqueio, CATEGORIAS, moduloPresencial, estadoPeriodo } from '../agenda-regras.js';
 import { carregarAgenda, limparCache, janela, api, legenda, amostra, estadosDoDia, dicaEstados, linhaEvento, primeiroNome, faltaScript, avisarGoogle } from './agenda-dados.js';
 import { vistaSemana, abrirFormReuniao, htmlReunioes, ligarReunioes } from './agenda-semana.js';
+import { cartaoAgendaPessoal, cartaoAgendasEquipe, htmlDetalhesPessoal } from './agenda-pessoal.js';
 
 const SEMANA_LONGA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const ORDEM_SEMANA = [1, 2, 3, 4, 5, 6, 0];
@@ -101,7 +102,7 @@ export async function avisosAgenda(ctx, el) {
 
 // ---------- quadro da equipe e mês de um mentor ----------
 function filtrarEventos(d) {
-  const fixos = ['bloqueio', 'ferias', 'recesso', 'feriado', 'reuniao'];
+  const fixos = ['bloqueio', 'ferias', 'recesso', 'feriado', 'reuniao', 'pessoal'];
   const passa = (e) => {
     if (fixos.includes(e.tipo)) return true;
     if (est.empresa && e.empresaId !== est.empresa) return false;
@@ -284,6 +285,7 @@ function blocoEvento(ctx, d, e, mentor) {
     extra = `<p class="peq mt">${resp ? `Resposta de ${esc(primeiroNome(mentor.nome))}: <b>${RESP[resp.resposta]}</b>` : ''}${r.observacoes ? ` · ${esc(r.observacoes)}` : ''}</p>
       ${ctx.ehAdmin ? '<button class="btn peq mt" type="button" data-ir="#/agenda/pre">Ver pré-bloqueios</button>' : resp && resp.resposta === 'aguardando' ? '<button class="btn peq mt pri" type="button" data-ir="#/agenda">Responder</button>' : ''}`;
   }
+  if (e.tipo === 'pessoal' && e.origem) extra = htmlDetalhesPessoal(e.origem, { nome: mentor.nome });
   return `<div class="ag-bloco">${linhaEvento(e, { horaFn: horaBR })}${extra}</div>`;
 }
 
@@ -644,10 +646,12 @@ function abaViagens(ctx, el, d, recarregar) {
 
 // ---------- celular e e-mail ----------
 async function abaCelular(ctx, el, d) {
-  el.innerHTML = `<div class="cartao"><h3>Convites na Google Agenda</h3><div id="google-convites" class="mt"><p class="peq apagado">Carregando…</p></div></div>
+  el.innerHTML = `<div id="pessoais"></div>
+    <div class="cartao"><h3>Convites na Google Agenda</h3><div id="google-convites" class="mt"><p class="peq apagado">Carregando…</p></div></div>
     <div class="cartao"><h3>Resumo da semana (e-mail e WhatsApp)</h3><div id="resumo" class="mt"><p class="peq apagado">Carregando…</p></div></div>
     ${ctx.atende ? '<div id="celular" class="mt"></div>' : ''}`;
   if (ctx.atende) cartaoCelular(ctx, el.querySelector('#celular'));
+  cartaoAgendasEquipe(ctx, el.querySelector('#pessoais'), d.mentores);
   cartaoConvites(ctx, el.querySelector('#google-convites'));
   const box = el.querySelector('#resumo');
   const [{ data: cfg, error }, st] = await Promise.all([
@@ -889,6 +893,7 @@ async function telaMentor(ctx, el, d) {
     <div class="ag-vistas mt" role="group" aria-label="Como ver a agenda"><button type="button" data-vista="semana">Semana</button><button type="button" data-vista="mes">Mês</button></div>
     <div id="mes" class="mt"></div>
     ${legenda()}
+    <div id="pessoal" class="mt2"></div>
     <div id="celular" class="mt2"></div>`;
   el.querySelector('#pedir').addEventListener('click', () => abrirBloqueio(ctx, d, { mentorId: eu.id }, recarregar));
   el.querySelector('#m-reuniao').addEventListener('click', () => abrirFormReuniao(ctx, d, {}, recarregar));
@@ -907,5 +912,6 @@ async function telaMentor(ctx, el, d) {
     recarregar();
   }));
   desenharMentor();
+  cartaoAgendaPessoal(ctx, el.querySelector('#pessoal'), { aoMudar: async () => { d = await carregarAgenda(ctx); desenharMentor(); } });
   cartaoCelular(ctx, el.querySelector('#celular'));
 }

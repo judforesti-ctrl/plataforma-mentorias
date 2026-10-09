@@ -50,6 +50,17 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Google Agenda conectada com link do Meet (`conferenceDataVersion=1`) e o Google avisa todos. O convite fica em
   `agenda_reunioes.google_evento_id`, FORA de `google_eventos`: a sincronização automática nunca mexe nele (senão apagaria).
   Sem Google conectado, a reunião fica na agenda e a tela oferece "Enviar convites" depois. Mudar/cancelar só quem marcou ou a administração.
+  AGENDA PESSOAL (2026-10-09, script 24, `telas/agenda-pessoal.js`, `/api/agenda-pessoal`, `netlify/lib/agenda-pessoal.mjs` + `ics.mjs`):
+  pedido da Juliana: reuniões que clientes marcam direto no e-mail de alguém da equipe entram na agenda. Cada pessoa cola o
+  "endereço secreto no formato iCal" (Gmail) ou o link ICS publicado (Hotmail/Outlook) em Minha agenda; a administração vê a equipe e
+  pode colar por alguém em Agenda → Google, celular e e-mail. O link fica em `agenda_pessoal_links` (só o servidor lê; nunca volta à tela).
+  A cada 15 min (`agenda-pessoal-agendada` → `agenda-pessoal-fundo`) lê de 30 dias atrás a 6 meses à frente e troca a lista da pessoa em
+  `agenda_pessoal` (rpc `trocar_agenda_pessoal`). Decisão dela: TUDO aparece com o nome (tipo `pessoal`, rosa), menos o marcado como
+  Particular/Privado na origem (vira "Particular"). Ocupa o horário (choques, encaixe); o que está "disponível" na origem (TRANSP) aparece
+  tracejado e não ocupa, mas dia inteiro assim (viagem no Google nasce "disponível") avisa no encaixe e nos choques. Fica de fora: cancelado,
+  convite recusado pelo dono, o que a própria plataforma criou (uid `mnt…`, `google_eventos`, `agenda_reunioes.google_evento_id`) e, na tela,
+  compromisso "interno" (marcado pela pessoa ou pela equipe) no mesmo horário (±10 min) de algo da plataforma. Só leitura: nunca muda a
+  agenda de origem. NÃO entra no resumo semanal, na agenda do celular nem nos convites do Google (dadosAgenda do servidor não lê).
 - Google Agenda (script 17, `netlify/lib/google-sync.mjs`): a conta conectada no Painel cria um evento por compromisso com os
   envolvidos como convidados; a chave de cada um fica em `google_eventos` (id fixo `mnt`+sha1, nunca duplica). Liga e desliga em
   Agenda → Google, celular e e-mail (equipe e mentorados separados; começam DESLIGADOS). Sincroniza depois de cada mudança nas telas

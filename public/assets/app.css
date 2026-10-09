@@ -279,6 +279,11 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ag-ev.t-feriado { background: #EFEFED; border-color: #a9a7a1; }
 .ag-ev.t-contato { background: #FFF4E0; border-color: #d98c1f; border-left-style: dashed; }
 .ag-contato { background: #d98c1f; }
+/* agenda pessoal (Gmail, Outlook...): rosa; o que está marcado como "disponível" lá aparece tracejado e mais claro */
+.ag-pessoal { background: #c2459a; }
+.ag-dia-p .ag-pessoal { color: #fff; }
+.ag-ev.t-pessoal { background: #F8E6F1; border-color: #c2459a; }
+.ag-ev.nao-ocupa { border-left-style: dashed; opacity: .75; }
 .ag-ev.t-fora { background: #F1F2F1; border-color: #c9cbca; color: var(--apagado); }
 .ag-vistas { display: inline-flex; border: 1px solid var(--linha); border-radius: 10px; overflow: hidden; }
 .ag-vistas button { appearance: none; border: 0; background: var(--papel); padding: 7px 12px; font: inherit; font-size: 13px; font-weight: 600; color: var(--apagado); cursor: pointer; }

@@ -15,6 +15,7 @@ export const TIPOS = {
   presencial: { nome: 'Turma presencial', peso: 5, firme: true },
   reservado: { nome: 'Reservado (cliente confirmou)', peso: 5, firme: true },
   reuniao: { nome: 'Reunião', peso: 5, firme: true },
+  pessoal: { nome: 'Agenda pessoal', peso: 5, firme: true },
   contato: { nome: 'Contato de venda', peso: 1, firme: false },
   pre: { nome: 'Pré-bloqueio', peso: 4, firme: false },
   deslocamento: { nome: 'Deslocamento', peso: 3, firme: false },
@@ -114,7 +115,14 @@ export function quemDaReuniao(r) {
   return [nomes.join(', '), n ? `${n} convidado${n > 1 ? 's' : ''} de fora` : ''].filter(Boolean).join(' + ');
 }
 
-export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], reservas = [], reunioes = [], contatos = [] } = {}, { de, ate } = {}) {
+// Um compromisso da agenda pessoal em texto curto: "marcada por Fulano · Sala 3 · convite ainda sem resposta".
+export function descreverPessoal(p) {
+  const RESP = { talvez: 'respondeu "talvez"', sem_resposta: 'convite ainda sem resposta' };
+  return [p.organizador ? `marcada por ${p.organizador}` : '', p.local || '', RESP[p.resposta] || '', p.ocupa === false ? 'marcado como disponível' : '']
+    .filter(Boolean).join(' · ') || 'Agenda pessoal';
+}
+
+export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], reservas = [], reunioes = [], contatos = [], pessoais = [] } = {}, { de, ate } = {}) {
   de = de || somarDias(hoje(), -400);
   ate = ate || somarDias(hoje(), 400);
   const out = [];
@@ -230,6 +238,30 @@ export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], rese
       sub: `${o.titulo || ''}${o.proximo_contato_obs ? ` · ${o.proximo_contato_obs}` : ''}`, formato: '', link: `#/vendas/oportunidade/${o.id}`, horas: 0 });
   }
 
+  // agenda pessoal (Gmail, Outlook...) que cada um ligou: aparece com o nome e ocupa o horário (menos o que está marcado
+  // como "disponível" lá). Compromisso de vários dias vira um item por dia. Se a própria pessoa ou alguém da Mentorei marcou
+  // na mesma hora de algo que já está na plataforma, é o mesmo compromisso: fica só o da plataforma.
+  const daPlataforma = new Map();
+  for (const e of out) {
+    if (e.ini == null) continue;
+    for (const m of e.mentores) { const k = `${m}|${e.dia}`; if (!daPlataforma.has(k)) daPlataforma.set(k, []); daPlataforma.get(k).push(e.ini); }
+  }
+  for (const p of pessoais) {
+    const ini = Date.parse(p.inicio), fim = Date.parse(p.fim);
+    if (!(fim > ini) || !p.perfil_id) continue;
+    const d0 = diaDe(p.inicio), d1 = diaDe(new Date(fim - 1).toISOString());
+    for (const dia of listaDias(d0 > de ? d0 : de, d1 < ate ? d1 : ate).slice(0, 62)) {
+      const iniDia = Date.parse(isoDe(dia, '00:00')), fimDia = iniDia + 86400000;
+      const a = Math.max(ini, iniDia), b = Math.min(fim, fimDia);
+      const inteiro = !!p.dia_inteiro || (a === iniDia && b === fimDia);
+      if (!inteiro && p.interno && (daPlataforma.get(`${p.perfil_id}|${dia}`) || []).some((x) => Math.abs(x - a) <= 10 * 60000)) continue;
+      out.push({ id: `pessoal-${p.id}-${dia}`, tipo: 'pessoal', origem: p, mentores: [p.perfil_id], todos: false, dia,
+        periodos: inteiro ? [...PERIODOS] : periodosDoIntervalo((a - iniDia) / 3600000, (b - iniDia) / 3600000),
+        ini: inteiro ? null : a, fim: inteiro ? null : b, diaInteiro: inteiro, naoOcupa: p.ocupa === false,
+        titulo: p.titulo || 'Compromisso', sub: descreverPessoal(p), formato: '', link: '', horas: 0, meet: p.link || '' });
+    }
+  }
+
   // feriados nacionais (valem para todos)
   for (const dia of listaDias(de, ate)) {
     const f = feriadoDe(dia);
@@ -257,7 +289,7 @@ export const ordenar = (evs) => evs.slice().sort((a, b) => (a.ini || 0) - (b.ini
 
 // Estado de um período de um mentor num dia: o tipo mais forte do que houver, ou livre / não atende.
 export function estadoPeriodo(eventosDoDia, periodo, disp, dia) {
-  const evs = eventosDoDia.filter((e) => e.periodos.includes(periodo));
+  const evs = eventosDoDia.filter((e) => e.periodos.includes(periodo) && !e.naoOcupa);
   if (evs.length) {
     const top = evs.reduce((a, b) => (TIPOS[b.tipo].peso > TIPOS[a.tipo].peso ? b : a));
     return { tipo: top.tipo, eventos: ordenar(evs) };
@@ -288,10 +320,12 @@ export function situacaoParaEncaixe(idx, mentor, dia, periodos, formato) {
     livre = false;
     st.eventos.forEach((e) => { if (!ocupando.includes(e)) ocupando.push(e); });
   }
+  // agenda pessoal de dia inteiro marcada como "disponível" (no Google, viagem e férias nascem assim): não ocupa, mas avisa
+  evs.filter((e) => e.naoOcupa && e.diaInteiro).forEach((e) => { const t = `na agenda pessoal: ${e.titulo} (marcado como disponível)`; if (!avisos.includes(t)) avisos.push(t); });
   if (formato === 'presencial') {
     if (foraTodos === PERIODOS.length) { fora = true; livre = false; } // não atende nesse dia da semana
     for (const [k, nome] of [[-1, 'na véspera'], [1, 'no dia seguinte']]) {
-      const firmes = idx.doDia(mentor.id, somarDias(dia, k)).filter((e) => TIPOS[e.tipo].firme && e.tipo !== 'recesso');
+      const firmes = idx.doDia(mentor.id, somarDias(dia, k)).filter((e) => TIPOS[e.tipo].firme && e.tipo !== 'recesso' && !e.naoOcupa);
       if (firmes.length) avisos.push(`tem compromisso ${nome} (dia de viagem): ${firmes[0].titulo}`);
     }
   }
@@ -304,7 +338,7 @@ export function choques(idx, mentor, novo) {
   const out = [];
   const nome = (mentor.nome || '').split(' ')[0];
   const ign = (e) => novo.ignorar && e.origem && e.origem.id === novo.ignorar;
-  const evs = idx.doDia(mentor.id, novo.dia).filter((e) => !ign(e));
+  const evs = idx.doDia(mentor.id, novo.dia).filter((e) => !ign(e) && !e.naoOcupa);
   const presencial = novo.formato === 'presencial';
   const sobrepoe = (e) => {
     if (presencial || e.diaInteiro) return e.periodos.some((p) => (presencial ? PERIODOS : novo.periodos).includes(p));
@@ -318,10 +352,12 @@ export function choques(idx, mentor, novo) {
     else if (e.tipo === 'deslocamento') out.push(`${nome} está em deslocamento em ${diaCurto(novo.dia)} (${e.sub}).`);
     else out.push(`${nome} já tem em ${diaCurto(novo.dia)}: ${hora}${e.titulo}${e.tipo === 'bloqueio' || e.tipo === 'ferias' ? ` (${e.sub})` : ''}.`);
   }
+  idx.doDia(mentor.id, novo.dia).filter((e) => e.naoOcupa && e.diaInteiro && !ign(e))
+    .forEach((e) => out.push(`${nome} tem na agenda pessoal em ${diaCurto(novo.dia)}, marcado como disponível: ${e.titulo}.`));
   if (presencial) {
     for (const [k, quando] of [[-1, 'Na véspera'], [1, 'No dia seguinte']]) {
       const dia = somarDias(novo.dia, k);
-      const firmes = idx.doDia(mentor.id, dia).filter((e) => !ign(e) && TIPOS[e.tipo].firme);
+      const firmes = idx.doDia(mentor.id, dia).filter((e) => !ign(e) && TIPOS[e.tipo].firme && !e.naoOcupa);
       firmes.forEach((e) => out.push(`${quando} (${diaCurto(dia)}, dia de deslocamento) ${nome} tem: ${e.titulo}.`));
     }
   }
@@ -354,7 +390,7 @@ export function choquesDoBloqueio(idx, mentores, b) {
   for (const dia of diasDoBloqueio(b)) {
     if (dia < h) continue;
     for (const m of mentores) {
-      const evs = idx.doDia(m.id, dia).filter((e) => !['feriado', 'recesso', 'bloqueio', 'ferias'].includes(e.tipo) && !(e.origem && b.id && e.origem.id === b.id));
+      const evs = idx.doDia(m.id, dia).filter((e) => !['feriado', 'recesso', 'bloqueio', 'ferias'].includes(e.tipo) && !e.naoOcupa && !(e.origem && b.id && e.origem.id === b.id));
       for (const e of ordenar(evs)) {
         const sobre = b.hora_inicio && e.ini ? Date.parse(isoDe(dia, b.hora_inicio)) < e.fim && Date.parse(isoDe(dia, b.hora_fim)) > e.ini : e.periodos.some((p) => pers.includes(p));
         if (sobre) out.push(`${diaCurto(dia)}${mentores.length > 1 ? ` · ${String(m.nome || '').split(' ')[0]}` : ''}: ${e.ini ? `${horaTexto(horaDe(new Date(e.ini).toISOString()))} ` : ''}${e.titulo}`);

@@ -5,6 +5,7 @@ import { esc, avatar, horaBR, avisar } from '../base.js';
 import { PERIODOS, hoje, somarDias, listaDias, segundaDaSemana, nomeSemana, nomeMes, diaCurto, feriadoDe, ordenar,
   estadoPeriodo, dispDe, horaDoTexto, periodosDoIntervalo, choques, quemDaReuniao, isoDe } from '../agenda-regras.js';
 import { janela, api, amostra, primeiroNome, limparCache } from './agenda-dados.js';
+import { abrirPessoal } from './agenda-pessoal.js';
 
 // posição da semana (continua igual ao voltar para a agenda)
 export const sem = { inicio: null };
@@ -38,8 +39,9 @@ export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, recarregar, 
     const todos = doDia(dia);
     const evs = ordenar(todos.filter((e) => e.tipo !== 'feriado'));
     const f = feriadoDe(dia);
-    const foraTodos = !!(mentor && !evs.length && PERIODOS.every((p) => estadoPeriodo(todos, p, disp, dia).tipo === 'fora'));
-    const livre = !evs.length && !f && !foraTodos;
+    const ocupam = evs.filter((e) => !e.naoOcupa);   // compromisso pessoal marcado como "disponível" aparece, mas não ocupa
+    const foraTodos = !!(mentor && !ocupam.length && PERIODOS.every((p) => estadoPeriodo(todos, p, disp, dia).tipo === 'fora'));
+    const livre = !ocupam.length && !f && !foraTodos && !evs.some((e) => e.naoOcupa && e.diaInteiro);   // viagem "disponível" no Google: não pinta de verde
     const classe = `ag-sem-dia${livre ? ' livre' : ''}${foraTodos ? ' fora' : ''}${dia === h ? ' hoje' : ''}${dia < h ? ' passado' : ''}`;
     const cartoes = evs.map((e) => {
       const quem = e.tipo === 'reuniao' ? e.sub : [...new Set(e.mentores.map(nomeDe).filter(Boolean))].join(', ');
@@ -47,7 +49,7 @@ export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, recarregar, 
       const detalhe = hora && /^\d\d:\d\d[–-]/.test(e.sub || '') ? '' : e.sub;   // bloqueio com hora: o horário já está no título
       const sub = e.tipo === 'reuniao' ? quem : [mentor ? '' : quem, detalhe].filter(Boolean).join(' · ');
       const dica = `${e.titulo}${sub ? ` · ${sub}` : ''}`;
-      return `<button type="button" class="ag-ev t-${e.tipo}" data-ev="${esc(e.id)}" data-dia="${dia}" title="${esc(dica)}"><b>${hora ? `${esc(hora)} · ` : ''}${esc(e.titulo)}</b>${esc(sub)}</button>`;
+      return `<button type="button" class="ag-ev t-${e.tipo}${e.naoOcupa ? ' nao-ocupa' : ''}" data-ev="${esc(e.id)}" data-dia="${dia}" title="${esc(dica)}"><b>${hora ? `${esc(hora)} · ` : ''}${esc(e.titulo)}</b>${esc(sub)}</button>`;
     });
     if (f) cartoes.unshift(`<span class="ag-ev t-feriado" style="cursor:default"><b>Feriado</b>${esc(f)}</span>`);
     if (livre) cartoes.push(`<span class="ag-sem-livre">✓ ${mentor ? `Dia livre para ${esc(primeiroNome(mentor.nome))}` : 'Dia livre para toda a equipe'}</span>`);
@@ -72,13 +74,15 @@ export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, recarregar, 
     vistaSemana(ctx, alvo, d, eventos, { mentor, recarregar, aoClicarDia, agendar });
   }));
   alvo.querySelector('#sem-reuniao')?.addEventListener('click', () => abrirFormReuniao(ctx, d, { dia: sem.inicio >= h ? sem.inicio : h }, recarregar));
-  alvo.addEventListener('click', (ev) => {
+  // onclick (e não addEventListener): ao trocar de semana a vista é redesenhada no mesmo lugar e o clique não pode se acumular
+  alvo.onclick = (ev) => {
     const c = ev.target.closest('[data-ev]'); if (!c) return;
     const e = eventos.find((x) => x.id === c.dataset.ev); if (!e) return;
     if (e.tipo === 'reuniao') { abrirReuniao(ctx, d, e.origem, recarregar); return; }
+    if (e.tipo === 'pessoal') { abrirPessoal(e, (d.mentores.find((m) => m.id === e.mentores[0]) || {}).nome || ''); return; }
     if (e.link && e.link !== '#/agenda/pre') { location.hash = e.link; return; }
     if (aoClicarDia) aoClicarDia(e, c.dataset.dia);
-  });
+  };
 }
 
 // ---------- reuniões ----------

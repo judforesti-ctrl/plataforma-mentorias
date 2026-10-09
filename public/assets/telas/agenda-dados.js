@@ -1,7 +1,7 @@
 // Agenda: leitura do banco (cada um só recebe o que as regras de acesso permitem), janelas e peças comuns das telas.
 import { sb, esc, avatar } from '../base.js';
 import { montarEventos, indexar, choques, diaDe, horaDe, periodosDoIntervalo, PERIODOS, NOME_PERIODO, ESTADOS, TIPOS, estadoPeriodo, dispDe, ordenar,
-  feriadoDe, situacaoParaEncaixe, diaCurto, horaTexto, moduloPresencial } from '../agenda-regras.js';
+  feriadoDe, situacaoParaEncaixe, diaCurto, horaTexto, moduloPresencial, isoDe, somarDias, hoje } from '../agenda-regras.js';
 
 // Tabela ou coluna que ainda não existe (o script 14 ainda não foi rodado no Supabase).
 export const faltaScript = (e) => !!e && /does not exist|Could not find|schema cache|42P01|42703|PGRST20[45]/i.test(`${e.code || ''} ${e.message || ''}`);
@@ -38,7 +38,19 @@ export async function carregarAgenda(ctx) {
   const lerReunioes = async () => { const r = await sb.from('agenda_reunioes').select('*'); return r.error ? null : (r.data || []); };
   // próximos contatos de venda (script 19; só a administração enxerga)
   const lerContatos = async () => { if (!ctx.ehAdmin) return []; const r = await sb.from('oportunidades').select('id, titulo, etapa, proximo_contato_em, proximo_contato_por, proximo_contato_obs, empresa:empresas(nome)').not('proximo_contato_em', 'is', null); return r.error ? [] : (r.data || []); };
-  const [sessoes, modulosBase, extras, bloqueios, reservas, reunioes, contatos] = await Promise.all([
+  // agenda pessoal de cada um (script 24; o mentor recebe só a dele): sem a tabela, segue sem ela
+  const lerPessoais = async () => {
+    const out = [];
+    for (let de = 0; de < 30000; de += 1000) {   // o Supabase entrega no máximo 1000 linhas por pedido
+      const r = await sb.from('agenda_pessoal').select('id, perfil_id, titulo, inicio, fim, dia_inteiro, local, link, organizador, organizador_email, resposta, ocupa, particular, interno')
+        .gte('fim', isoDe(somarDias(hoje(), -60))).order('inicio').order('id').range(de, de + 999);
+      if (r.error) return out;
+      out.push(...(r.data || []));
+      if (!r.data || r.data.length < 1000) break;
+    }
+    return out;
+  };
+  const [sessoes, modulosBase, extras, bloqueios, reservas, reunioes, contatos, pessoais] = await Promise.all([
     tentar(qs),
     tentar(sb.from('modulos').select('id, numero, titulo, data_hora, duracao_min, formato, local, link, turma:turmas(id, nome, status, empresa:empresas(id, nome)), mentores:modulo_mentores(mentor_id)')),
     tentar(sb.from('modulo_mentores').select('modulo_id, mentor_id, com_deslocamento, viagem'), null),
@@ -46,6 +58,7 @@ export async function carregarAgenda(ctx) {
     tentar(sb.from('agenda_reservas').select('*, empresa:empresas(id, nome), datas:agenda_reserva_datas(*), mentores:agenda_reserva_mentores(*)')),
     lerReunioes(),
     lerContatos(),
+    lerPessoais(),
   ]);
   const extra = new Map((extras || []).map((x) => [`${x.modulo_id}|${x.mentor_id}`, x]));
   // formato e cidade da turma (script 15); sem o script, segue sem essa informação
@@ -56,8 +69,8 @@ export async function carregarAgenda(ctx) {
     mentores: (m.mentores || []).map((v) => ({ com_deslocamento: true, viagem: {}, ...v, ...(extra.get(`${m.id}|${v.mentor_id}`) || {}) })) }));
   // sessão futura de quem foi desligado do programa não ocupa a agenda
   const sess = sessoes.filter((s) => !(s.mentorado && s.mentorado.status === 'desligado' && s.situacao === 'agendada'));
-  const eventos = montarEventos({ sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], contatos });
-  return { mentores, sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], temReunioes: reunioes !== null,
+  const eventos = montarEventos({ sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], contatos, pessoais });
+  return { mentores, sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], temReunioes: reunioes !== null, pessoais,
     eventos, idx: indexar(eventos), faltaScript: falta, temExtras: extras !== null };
 }
 
@@ -168,7 +181,7 @@ export function janela(titulo, html, { largura = 600, aoFechar = null } = {}) {
 export const primeiroNome = (n) => String(n || '').split(' ')[0];
 export const amostra = (tipo) => `<i class="ag-amostra ag-${tipo}" aria-hidden="true"></i>`;
 
-export function legenda(tipos = ['livre', 'individual', 'turma', 'presencial', 'reuniao', 'deslocamento', 'pre', 'reservado', 'bloqueio', 'feriado', 'fora']) {
+export function legenda(tipos = ['livre', 'individual', 'turma', 'presencial', 'reuniao', 'pessoal', 'deslocamento', 'pre', 'reservado', 'bloqueio', 'feriado', 'fora']) {
   return `<div class="ag-legenda">${tipos.map((t) => `<span>${amostra(t)}${esc(ESTADOS[t])}</span>`).join('')}</div>`;
 }
 
