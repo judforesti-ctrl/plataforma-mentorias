@@ -42,11 +42,13 @@ async function sincronizarConvite(a) {
   if (!acesso) return { google: 'desconectada' };
   if (acesso.erro) return { google: 'erro', mensagem: acesso.erro };
   const conta = String(acesso.email || '').toLowerCase();
-  const ids = (a.responsaveis || []).filter((x) => UUID.test(x));
+  // responsáveis + convidados da equipe (script 28) + participantes de fora com e-mail (e os e-mails antigos do script 27)
+  const ids = [...new Set([...(a.responsaveis || []), ...(a.participantes || [])])].filter((x) => UUID.test(x));
   const p = ids.length ? await supa(`/rest/v1/perfis?id=in.(${ids.join(',')})&select=id,nome,email`) : { ok: true, dados: [] };
   const pessoas = (p.ok && Array.isArray(p.dados)) ? p.dados : [];
   const emails = pessoas.filter((x) => emailReal(x.email)).map((x) => x.email.toLowerCase());
-  const fora = (a.convidados || []).map((x) => String(x).toLowerCase()).filter((x) => EMAIL.test(x));
+  const fora = [...(Array.isArray(a.externos) ? a.externos.map((x) => x && x.email) : []), ...(a.convidados || [])]
+    .map((x) => String(x || '').trim().toLowerCase()).filter((x) => EMAIL.test(x));
   const attendees = [...new Set([...emails, ...fora])].filter((e) => e !== conta).map((email) => ({ email }));
   const hi = String(a.prazo_hora).slice(0, 5);
   const hf = a.hora_fim && String(a.hora_fim).slice(0, 5) > hi ? String(a.hora_fim).slice(0, 5) : null;
@@ -87,6 +89,7 @@ export default async (req) => {
   const a = r.ok && Array.isArray(r.dados) && r.dados[0];
   if (!a) return json({ ok: false, mensagem: 'Atividade não encontrada.' });
   const resp = a.responsaveis || [];
+  const part = (a.participantes || []).filter((id) => !resp.includes(id));   // convidados da equipe (script 28)
   if (eu.papel !== 'admin' && a.criado_por !== eu.id && !resp.includes(eu.id)) return json({ ok: false, mensagem: 'Sem acesso a esta atividade.' }, 403);
 
   if (b.acao === 'apagar') {
@@ -101,24 +104,26 @@ export default async (req) => {
   const convite = await sincronizarConvite(a);
   const recebeuConvite = new Set(convite.google === 'criada' || convite.google === 'atualizada' ? convite.convidados || [] : []);
 
-  // 2. e-mail para quem passou a ser responsável
-  const novos = resp.filter((id) => !(a.avisados || []).includes(id) && id !== eu.id);
+  // 2. e-mail para quem passou a ser responsável ou convidado da equipe (quem recebeu o convite do Google não recebe outro)
+  const novos = [...resp, ...part].filter((id) => !(a.avisados || []).includes(id) && id !== eu.id);
   const enviados = [];
   if (novos.length && a.situacao !== 'feita') {
     const p = await supa(`/rest/v1/perfis?id=in.(${novos.join(',')})&ativo=eq.true&select=id,nome,email,termo_aceito_em`);
     for (const pessoa of (p.ok && Array.isArray(p.dados) ? p.dados : [])) {
       if (!pessoa.termo_aceito_em || !emailReal(pessoa.email) || recebeuConvite.has(pessoa.email.toLowerCase())) continue;
+      const convidado = !resp.includes(pessoa.id);
       const e = modeloEmail({
-        assunto: `Nova atividade para você: ${a.titulo}`,
-        titulo: 'Uma atividade do checklist é sua',
+        assunto: convidado ? `Você foi convidado(a): ${a.titulo}` : `Nova atividade para você: ${a.titulo}`,
+        titulo: convidado ? 'Um convite do checklist' : 'Uma atividade do checklist é sua',
         blocos: [
-          { p: `Olá, ${String(pessoa.nome || '').split(' ')[0]}! ${eu.nome} colocou uma atividade do checklist da Mentorei sob a sua responsabilidade.` },
+          { p: convidado ? `Olá, ${String(pessoa.nome || '').split(' ')[0]}! ${eu.nome} convidou você para uma atividade do checklist da Mentorei.`
+            : `Olá, ${String(pessoa.nome || '').split(' ')[0]}! ${eu.nome} colocou uma atividade do checklist da Mentorei sob a sua responsabilidade.` },
           { lista: [`Atividade: ${a.titulo}`, `${a.na_agenda === 'prazo' || !a.na_agenda ? 'Entrega' : 'Quando'}: ${prazoTexto(a)}`, a.grupo ? `Lista: ${a.grupo}` : '',
             a.vinculo_nome ? `Ligada a: ${a.vinculo_nome}` : '', a.meet_link ? `Sala: ${a.meet_link}` : '',
             (a.responsaveis_nomes || []).length > 1 ? `Junto com: ${a.responsaveis_nomes.filter((n) => n !== pessoa.nome).join(', ')}` : ''].filter(Boolean) },
           ...(a.descricao ? [{ p: a.descricao }] : []),
           { botao: { texto: 'Abrir a atividade', link: `${SITE}/app.html#/checklist/${a.id}` } },
-          { nota: a.prazo ? 'A atividade já aparece na sua agenda da plataforma. Quando terminar, marque como feita no checklist.' : 'Quando terminar, marque como feita no checklist.' },
+          { nota: a.prazo && (a.na_agenda === 'bloqueio' || a.na_agenda === 'convite') ? 'O horário já está na sua agenda da plataforma.' : convidado ? 'A atividade está no checklist da plataforma.' : 'A atividade está no seu checklist da plataforma. Quando terminar, marque como feita.' },
         ],
       });
       const env = await enviarEmail({ para: [{ email: pessoa.email, name: pessoa.nome }], assunto: e.assunto, html: e.html, texto: e.texto });
@@ -126,7 +131,7 @@ export default async (req) => {
     }
   }
   // todos os responsáveis de agora ficam marcados (quem ainda não usa a plataforma não recebe e-mail atrasado depois)
-  const avisados = [...new Set([...(a.avisados || []), ...resp])];
+  const avisados = [...new Set([...(a.avisados || []), ...resp, ...part])];
   if (avisados.length !== (a.avisados || []).length) await gravar(a.id, { avisados });
   return json({ ok: true, enviados, google: convite.google, mensagem: convite.mensagem || '', meet_link: convite.meet_link || a.meet_link || null });
 };

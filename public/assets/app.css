@@ -453,3 +453,21 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ck-opcoes input:disabled + span { opacity: .6; cursor: default; }
 .ck-resumo { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
 .ck-abrir .nome .selo { margin-left: 6px; vertical-align: 1px; }
+/* tipos de atividade: cores categóricas validadas (contraste e daltonismo); texto sempre na cor do texto, a cor só na amostra */
+:root { --ck-operacional: #2a78d6; --ck-gestao: #eb6834; --ck-estrategica: #1baf7a; --ck-sem: #c9cbca; }
+.ck-cor-operacional { background: var(--ck-operacional); } .ck-cor-gestao { background: var(--ck-gestao); }
+.ck-cor-estrategica { background: var(--ck-estrategica); } .ck-cor-sem { background: var(--ck-sem); }
+.ck-ponto { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; vertical-align: 0; flex: none; }
+.ck-barra { display: flex; gap: 2px; height: 12px; border-radius: 4px; overflow: hidden; min-width: 160px; }
+.ck-barra span { min-width: 4px; }
+.ck-barra-rotulos { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 5px; font-size: 12px; color: var(--apagado); }
+.ck-barra-rotulos b { color: var(--texto); }
+.ck-painel td { vertical-align: middle; }
+.ck-painel-detalhe td { background: var(--faixa); }
+.ck-painel-lista { display: grid; gap: 4px; margin-top: 4px; }
+.ck-painel-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; background: var(--papel); text-decoration: none; color: var(--texto); font-size: 13.5px; }
+.ck-painel-item:hover { outline: 2px solid var(--bege); }
+/* convidados de fora da atividade */
+.ck-externos { display: grid; gap: 6px; margin-top: 6px; }
+.ck-externo { display: grid; grid-template-columns: 1fr 1.2fr 1fr auto; gap: 6px; align-items: center; }
+@media (max-width: 640px) { .ck-externo { grid-template-columns: 1fr; } }

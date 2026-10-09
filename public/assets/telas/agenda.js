@@ -894,7 +894,6 @@ async function telaMentor(ctx, el, d) {
     <div class="cab"><div><h1>Minha agenda</h1><p class="sub">Seus compromissos, dias livres, deslocamentos e bloqueios. Só você e a coordenação veem.</p></div>
       <div class="acoes"><button class="btn reuniao" type="button" id="m-reuniao">+ Agendar reunião</button><button class="btn pri" type="button" id="pedir">+ Pedir bloqueio</button></div></div>
     ${d.faltaScript ? '<div class="aviso" style="margin-bottom:14px">A agenda ainda está sendo preparada pela coordenação: por enquanto ela mostra só as suas sessões e aulas.</div>' : ''}
-    <div id="m-checklist"></div>
     ${convites.length ? `<div class="cartao pend-bloco urgente"><h3>Pré-bloqueios esperando a sua resposta <span class="selo erro">${convites.length}</span></h3>
       <p class="peq apagado">A coordenação reservou estas datas na sua agenda para um cliente. Você consegue?</p>
       <div class="lista mt">${convites.map(({ r, x }) => `<div class="item ag-convite" style="grid-template-columns:1fr" data-token="${x.token}">
@@ -924,7 +923,6 @@ async function telaMentor(ctx, el, d) {
     recarregar();
   }));
   desenharMentor();
-  import('./checklist.js').then(({ cartaoChecklist }) => cartaoChecklist(ctx, el.querySelector('#m-checklist')));
   cartaoAgendaPessoal(ctx, el.querySelector('#pessoal'), { aoMudar: async () => { d = await carregarAgenda(ctx); desenharMentor(); } });
   cartaoCelular(ctx, el.querySelector('#celular'));
 }

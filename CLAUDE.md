@@ -86,6 +86,13 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   `google_evento_id`/`meet_link` na atividade, FORA de google_eventos; deixou de ser convite = convite cancelado; `apagar` cancela e apaga).
   Quem recebe o convite do Google não recebe o e-mail da plataforma. Esses convites ficam fora da leitura da conta da coordenação
   (contextoLeitura) e da procura de duplicados (marcador "Atividade do checklist da Mentorei" na descrição).
+  Script 28 + decisões dela (2026-10-09): NA AGENDA SÓ ENTRA bloqueio e reunião com link ("Só no checklist" não aparece na agenda nem em
+  Minha agenda). Convidados (só para bloqueio/reunião): `participantes` da equipe (horário na agenda deles, e-mail ou convite do Google,
+  leem a atividade; filtro "Em que fui convidado(a)") e `externos` [{nome, email, whatsapp}] (e-mail recebe o convite do Google na
+  reunião; WhatsApp e, no bloqueio, e-mail = janela "Avisar quem é de fora" com mensagem pronta via janelaWhatsApp/mailto, aberta depois
+  de salvar). Na aba Checklist CADA UM VÊ SÓ O SEU (inclusive a administração); a visão de todos por pessoa fica SÓ no Painel
+  (`cartaoChecklistEquipe`: a fazer, atrasadas, feitas no período, barra de equilíbrio operacional/gestão/estratégica/sem tipo com %,
+  cores categóricas validadas #2a78d6/#eb6834/#1baf7a + cinza; "Ver" lista as atividades da pessoa).
 - RELATÓRIO DAS TURMAS PARA A EMPRESA (2026-10-09, script 25, `relatorios_turmas`, `telas/relatorio-turmas.js`, `#/relatorio-turmas`,
   botões em Relatórios e Turmas): decisão dela: para o CLIENTE, uma empresa por vez com as turmas escolhidas. `/api/relatorio-turmas-gerar`
   (background, Claude com json_schema, fallbacks "default") calcula os números (presença = média de presentes ÷ participantes previstos;

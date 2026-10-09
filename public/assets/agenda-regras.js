@@ -17,7 +17,7 @@ export const TIPOS = {
   reuniao: { nome: 'Reunião', peso: 5, firme: true },
   pessoal: { nome: 'Agenda pessoal', peso: 5, firme: true },
   contato: { nome: 'Contato de venda', peso: 1, firme: false },
-  atividade: { nome: 'Entrega do checklist', peso: 1, firme: false },
+  atividade: { nome: 'Atividade do checklist', peso: 5, firme: true },
   pre: { nome: 'Pré-bloqueio', peso: 4, firme: false },
   deslocamento: { nome: 'Deslocamento', peso: 3, firme: false },
   bloqueio: { nome: 'Bloqueio do mentor', peso: 6, firme: true },
@@ -110,12 +110,13 @@ export function rotuloBloqueio(b) {
 export const moduloPresencial = (md) => md.formato === 'presencial' || (md.formato === 'indefinido' && !!md.turma && md.turma.formato === 'presencial');
 
 // ---------- checklist ----------
-// Tipo da atividade e como ela entra na agenda (script 27).
+// Tipo da atividade e como ela entra na agenda (scripts 27 e 28). Só bloqueio e reunião aparecem na agenda;
+// "prazo" fica só no checklist de quem é responsável.
 export const CATEGORIAS_ATIVIDADE = { operacional: 'Operacional', gestao: 'De gestão', estrategica: 'Estratégica' };
 export const NA_AGENDA = {
-  prazo: { nome: 'Só o prazo de entrega', dica: 'Aparece no dia da entrega, sem ocupar o horário.' },
-  bloqueio: { nome: 'Bloquear o horário', dica: 'Ocupa o horário na agenda da plataforma de cada responsável.' },
-  convite: { nome: 'Convite com sala do Meet', dica: 'Ocupa o horário e manda o convite da Google Agenda, com sala do Meet, para os responsáveis e convidados de fora.' },
+  prazo: { nome: 'Só no checklist', dica: 'Não aparece na agenda: fica só no checklist de quem é responsável.' },
+  bloqueio: { nome: 'Bloquear na agenda', dica: 'Ocupa o horário na agenda da plataforma dos responsáveis e dos convidados da equipe. Sem link de reunião.' },
+  convite: { nome: 'Reunião com link (Meet)', dica: 'Ocupa o horário e manda o convite da Google Agenda, com link do Meet, para responsáveis e convidados com e-mail. Quem tem só WhatsApp recebe pelo botão do WhatsApp.' },
 };
 
 // ---------- viagens ----------
@@ -298,19 +299,21 @@ export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], rese
     }
   }
 
-  // atividades do checklist (abertas, com data), na agenda de cada responsável:
-  //   prazo = só a entrega no dia, sem ocupar; bloqueio e convite = ocupam do início ao fim (convite tem sala do Meet)
+  // atividades do checklist: só as que bloqueiam o horário ou são reunião com link (abertas, com data, início e fim),
+  // na agenda dos responsáveis e dos convidados da equipe. As outras ficam só no checklist.
   for (const a of atividades) {
-    if (!a.prazo || a.situacao === 'feita' || !(a.responsaveis || []).length) continue;
     const hora = horaDoTexto(a.prazo_hora), hf = horaDoTexto(a.hora_fim);
-    const ocupa = (a.na_agenda === 'bloqueio' || a.na_agenda === 'convite') && hora != null;
+    if (!a.prazo || hora == null || a.situacao === 'feita' || !(a.na_agenda === 'bloqueio' || a.na_agenda === 'convite')) continue;
+    const quem = [...new Set([...(a.responsaveis || []), ...(a.participantes || [])])];
+    if (!quem.length) continue;
     const fimHora = hf != null && hf > hora ? hf : hora + 1;
-    const ini = hora != null ? Date.parse(isoDe(a.prazo, a.prazo_hora)) : null;
-    const fim = ini == null ? null : ocupa ? Date.parse(isoDe(a.prazo, horaTexto(Math.min(23.99, fimHora)))) : ini + 30 * 60000;
-    out.push({ id: `atividade-${a.id}`, tipo: 'atividade', origem: a, mentores: a.responsaveis, todos: false, dia: a.prazo,
-      periodos: hora == null ? [...PERIODOS] : ocupa ? periodosDoIntervalo(hora, fimHora) : [periodoDaHora(hora)], ini, fim, diaInteiro: hora == null, naoOcupa: !ocupa,
-      titulo: `${ocupa ? 'Atividade' : 'Entrega'} · ${a.titulo}`,
-      sub: [CATEGORIAS_ATIVIDADE[a.categoria], a.na_agenda === 'convite' && ocupa ? 'com sala do Meet' : '', a.grupo, a.vinculo_nome].filter(Boolean).join(' · ') || 'Checklist',
+    const ini = Date.parse(isoDe(a.prazo, a.prazo_hora));
+    const fim = Date.parse(isoDe(a.prazo, horaTexto(Math.min(23.99, fimHora))));
+    const reuniao = a.na_agenda === 'convite';
+    out.push({ id: `atividade-${a.id}`, tipo: 'atividade', origem: a, mentores: quem, todos: false, dia: a.prazo,
+      periodos: periodosDoIntervalo(hora, fimHora), ini, fim, diaInteiro: false, naoOcupa: false,
+      titulo: `${reuniao ? 'Reunião' : 'Atividade'} · ${a.titulo}`,
+      sub: [CATEGORIAS_ATIVIDADE[a.categoria], reuniao ? 'com link do Meet' : 'horário bloqueado', a.grupo, a.vinculo_nome].filter(Boolean).join(' · '),
       formato: '', link: `#/checklist/${a.id}`, horas: 0, meet: a.meet_link || '' });
   }
 
