@@ -23,9 +23,27 @@ const horaEv = (e) => {
   return `${ini} às ${horaBR(new Date(e.fim).toISOString())}`;
 };
 
+// O mesmo compromisso na agenda pessoal de várias pessoas (ex.: reunião em que três da equipe foram convidadas) aparece uma vez,
+// com todos os nomes. O clique abre o primeiro (os detalhes são os mesmos).
+function juntarRepetidos(evs, juntar) {
+  if (!juntar) return evs;
+  const vistos = new Map(), out = [];
+  for (const e of evs) {
+    if (e.tipo !== 'pessoal') { out.push(e); continue; }
+    const k = `${String(e.titulo || '').trim().toLowerCase()}|${e.ini}|${e.fim}|${e.diaInteiro ? 1 : 0}`;
+    const ja = vistos.get(k);
+    if (ja) { ja.mentores = [...new Set([...ja.mentores, ...e.mentores])]; continue; }
+    const copia = { ...e, mentores: [...e.mentores] };
+    vistos.set(k, copia); out.push(copia);
+  }
+  return out;
+}
+
 // ---------- a semana ----------
 // eventos: lista já filtrada; mentor: null = toda a equipe. aoClicarDia(evento, dia) abre os detalhes quando o item não tem link.
-export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, rotulo = '', recarregar, aoClicarDia = null, agendar = true } = {}) {
+// semLivre: há filtro de empresa, tipo ou formato, então um dia vazio não quer dizer que a equipe está livre (não pinta de verde).
+// Na equipe toda, o mesmo compromisso da agenda pessoal de várias pessoas (mesmo nome e horário) vira um cartão só, com os nomes.
+export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, rotulo = '', recarregar, aoClicarDia = null, agendar = true, semLivre = false } = {}) {
   if (!sem.inicio) sem.inicio = segundaDaSemana(hoje());
   const h = hoje();
   const nomeDe = (id) => primeiroNome((d.mentores.find((m) => m.id === id) || {}).nome || '');
@@ -37,11 +55,11 @@ export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, rotulo = '',
 
   const linha = (dia) => {
     const todos = doDia(dia);
-    const evs = ordenar(todos.filter((e) => e.tipo !== 'feriado'));
+    const evs = juntarRepetidos(ordenar(todos.filter((e) => e.tipo !== 'feriado')), !mentor);
     const f = feriadoDe(dia);
     const ocupam = evs.filter((e) => !e.naoOcupa);   // compromisso pessoal marcado como "disponível" aparece, mas não ocupa
     const foraTodos = !!(mentor && !ocupam.length && PERIODOS.every((p) => estadoPeriodo(todos, p, disp, dia).tipo === 'fora'));
-    const livre = !ocupam.length && !f && !foraTodos && !evs.some((e) => e.tipo === 'pessoal' && e.naoOcupa && e.diaInteiro);   // viagem "disponível" no Google: não pinta de verde
+    const livre = !semLivre && !ocupam.length && !f && !foraTodos && !evs.some((e) => e.tipo === 'pessoal' && e.naoOcupa && e.diaInteiro);   // viagem "disponível" no Google: não pinta de verde
     const classe = `ag-sem-dia${livre ? ' livre' : ''}${foraTodos ? ' fora' : ''}${dia === h ? ' hoje' : ''}${dia < h ? ' passado' : ''}`;
     const cartoes = evs.map((e) => {
       const quem = e.tipo === 'reuniao' ? e.sub : [...new Set(e.mentores.map(nomeDe).filter(Boolean))].join(', ');
@@ -53,6 +71,7 @@ export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, rotulo = '',
     });
     if (f) cartoes.unshift(`<span class="ag-ev t-feriado" style="cursor:default"><b>Feriado</b>${esc(f)}</span>`);
     if (livre) cartoes.push(`<span class="ag-sem-livre">✓ ${mentor ? `Dia livre para ${esc(primeiroNome(mentor.nome))}` : rotulo ? `Dia livre para ${esc(rotulo)}` : 'Dia livre para toda a equipe'}</span>`);
+    if (semLivre && !evs.length && !f) cartoes.push('<span class="ag-sem-nada">Nada com esse filtro neste dia</span>');
     if (foraTodos) cartoes.push(`<span class="ag-ev t-fora" style="cursor:default"><b>Não atende</b>${esc(primeiroNome(mentor.nome))} não atende neste dia da semana</span>`);
     return `<div class="${classe}"><div class="ag-sem-dt"><b>${dia.slice(8)}</b><span>${nomeSemana(dia)} · ${nomeMes(Number(dia.slice(5, 7))).slice(0, 3)}</span>${f ? '<i>feriado</i>' : ''}</div>
       <div class="ag-sem-evs">${cartoes.join('')}</div></div>`;
@@ -71,7 +90,7 @@ export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, rotulo = '',
   alvo.querySelectorAll('[data-nav]').forEach((b) => b.addEventListener('click', () => {
     const k = Number(b.dataset.nav);
     sem.inicio = k ? somarDias(sem.inicio, k) : segundaDaSemana(hoje());
-    vistaSemana(ctx, alvo, d, eventos, { mentor, rotulo, recarregar, aoClicarDia, agendar });
+    vistaSemana(ctx, alvo, d, eventos, { mentor, rotulo, recarregar, aoClicarDia, agendar, semLivre });
   }));
   alvo.querySelector('#sem-reuniao')?.addEventListener('click', () => abrirFormReuniao(ctx, d, { dia: sem.inicio >= h ? sem.inicio : h }, recarregar));
   // onclick (e não addEventListener): ao trocar de semana a vista é redesenhada no mesmo lugar e o clique não pode se acumular

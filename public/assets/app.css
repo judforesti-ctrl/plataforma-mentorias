@@ -262,6 +262,8 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ag-sem-dia.livre .ag-sem-evs, .ag-sem-dia.livre .ag-sem-dt { background: #EAF3DE; }
 .ag-sem-dia.livre .ag-sem-dt b, .ag-sem-dia.livre .ag-sem-dt span, .ag-sem-livre { color: #27500A; }
 .ag-sem-livre { font-size: 13px; font-weight: 600; }
+.ag-sem-nada { font-size: 13px; color: var(--apagado); font-style: italic; }
+.ag-filtro-aviso { margin: 0 0 12px; }
 .ag-sem-dia.fora .ag-sem-evs, .ag-sem-dia.fora .ag-sem-dt { background: #F7F8F7; }
 .ag-sem-dia.hoje .ag-sem-dt { box-shadow: inset 4px 0 0 var(--verde); }
 .ag-sem-dia.passado .ag-sem-evs { opacity: .75; }

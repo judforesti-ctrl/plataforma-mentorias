@@ -47,6 +47,12 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   data grande à esquerda (ela pediu, 2026-10-08), dias livres em verde; "Quadro por mentor" é a vista antiga de 3 faixas, e o mês continua lá.
   As FLAGS de 2026-10-09 foram DESFEITAS em 2026-10-10 ("não ficou bom, quero voltar como estava"): Semana e Quadro voltaram às
   4 caixas de seleção (mentor, empresa, tipo, formato). A vista é redesenhada num elemento novo a cada mudança (os cliques não se acumulam).
+  Filtro DE VERDADE (2026-10-10, print dela: empresa escolhida e a agenda pessoal de todos continuava aparecendo): nada passa mais
+  "por fora"; empresa/tipo/formato mostram só o que combina (feriado continua). Tipo = `TIPOS_FILTRO` em agenda.js (todos, individual,
+  turmas, pré-bloqueios, reuniões, agenda pessoal, bloqueios, checklist, contatos). Valem na hora (sem botão); com filtro aparecem
+  "Limpar filtros" e a faixa "Filtro ligado: mostrando só…". Com filtro de empresa/tipo/formato a semana não pinta "dia livre"
+  (`semLivre`; dia vazio = "Nada com esse filtro neste dia"). Na equipe toda, o mesmo compromisso da agenda pessoal de várias pessoas
+  (mesmo título e horário) vira um cartão só com os nomes (`juntarRepetidos` em agenda-semana.js).
   PLANILHA (2026-10-10, para a Viviane, que trabalha no Excel online): terceira vista "Planilha" (`telas/agenda-planilha.js`), com a
   cara do Excel: letras das colunas, números das linhas, cabeçalho fixo e, em cada coluna, a setinha do filtro do Excel (classificar
   A→Z/Z→A, "Limpar filtro de…", pesquisar, "(Selecionar tudo)", "(Vazias)", contagem; Data em árvore mês → dia). A lista de cada coluna

@@ -109,13 +109,26 @@ export async function avisosAgenda(ctx, el) {
 }
 
 // ---------- quadro da equipe e mês de um mentor ----------
+// Filtro de verdade (pedido dela, 2026-10-10, com print): escolhida uma empresa, um tipo ou um formato, aparece SÓ o que
+// combina. Antes agenda pessoal, reuniões, bloqueios e checklist passavam "por fora" e enchiam a semana com outras coisas.
+// Os filtros valem na hora em que se escolhe (sem botão). Feriado continua aparecendo (é do dia, não de um compromisso).
+const TIPOS_FILTRO = [
+  ['individual', 'Só mentoria individual', ['individual']],
+  ['turmas', 'Só turmas (online e presencial)', ['turma', 'presencial', 'deslocamento']],
+  ['pre', 'Só pré-bloqueios e reservas', ['pre', 'reservado']],
+  ['reuniao', 'Só reuniões marcadas aqui', ['reuniao']],
+  ['pessoal', 'Só agenda pessoal (Gmail, Outlook)', ['pessoal']],
+  ['bloqueio', 'Só bloqueios, férias e recesso', ['bloqueio', 'ferias', 'recesso']],
+  ['atividade', 'Só checklist', ['atividade']],
+  ['contato', 'Só contatos de venda', ['contato']],
+];
+const filtrando = () => !!(est.empresa || est.tipo || est.formato);
 function filtrarEventos(d) {
-  const fixos = ['bloqueio', 'ferias', 'recesso', 'feriado', 'reuniao', 'pessoal', 'atividade'];
+  const tipos = est.tipo ? (TIPOS_FILTRO.find(([k]) => k === est.tipo) || [])[2] : null;
   const passa = (e) => {
-    if (fixos.includes(e.tipo)) return true;
+    if (e.tipo === 'feriado') return true;
     if (est.empresa && e.empresaId !== est.empresa) return false;
-    if (est.tipo === 'individual' && e.tipo !== 'individual') return false;
-    if (est.tipo === 'turmas' && e.tipo === 'individual') return false;
+    if (tipos && !tipos.includes(e.tipo)) return false;
     if (est.formato && e.formato !== est.formato) return false;
     return true;
   };
@@ -127,6 +140,7 @@ const ICONE_PLANILHA = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hid
 async function abaQuadro(ctx, el, d, recarregar) {
   if (!est.inicio) est.inicio = segundaDaSemana(hoje());
   if (est.mentor && !d.mentores.some((m) => m.id === est.mentor)) est.mentor = '';
+  if (est.tipo && !TIPOS_FILTRO.some(([k]) => k === est.tipo)) est.tipo = '';
   const empresas = [...new Map(d.eventos.filter((e) => e.empresaId).map((e) => [e.empresaId, e.empresa])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
   el.innerHTML = `
     <div class="linha ag-filtros">
@@ -134,10 +148,12 @@ async function abaQuadro(ctx, el, d, recarregar) {
       <span class="linha ag-selects">
       <select id="f-mentor" aria-label="Mentor"><option value="">Toda a equipe</option>${d.mentores.map((m) => `<option value="${m.id}"${m.id === est.mentor ? ' selected' : ''}>${esc(m.nome)}</option>`).join('')}</select>
       <select id="f-empresa" aria-label="Empresa"><option value="">Todas as empresas</option>${empresas.map(([id, n]) => `<option value="${id}"${id === est.empresa ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>
-      <select id="f-tipo" aria-label="Tipo"><option value="">Individual e turmas</option><option value="individual"${est.tipo === 'individual' ? ' selected' : ''}>Só mentoria individual</option><option value="turmas"${est.tipo === 'turmas' ? ' selected' : ''}>Só turmas e pré-bloqueios</option></select>
+      <select id="f-tipo" aria-label="Tipo"><option value="">Todos os tipos</option>${TIPOS_FILTRO.map(([k, n]) => `<option value="${k}"${k === est.tipo ? ' selected' : ''}>${n}</option>`).join('')}</select>
       <select id="f-formato" aria-label="Formato"><option value="">Online e presencial</option><option value="online"${est.formato === 'online' ? ' selected' : ''}>Só online</option><option value="presencial"${est.formato === 'presencial' ? ' selected' : ''}>Só presencial</option></select>
+      <button type="button" class="btn peq" id="f-limpar" hidden>Limpar filtros</button>
       </span>
     </div>
+    <div class="aviso ag-filtro-aviso" id="f-aviso" hidden></div>
     <div id="vista"></div>
     <div id="ag-legenda">${legenda()}</div>`;
   let vista = el.querySelector('#vista');
@@ -162,8 +178,17 @@ async function abaQuadro(ctx, el, d, recarregar) {
     const eventos = filtrarEventos(d);
     const idx = indexar(eventos);
     const m = d.mentores.find((x) => x.id === est.mentor);
+    // o que está filtrado, em palavras, e o botão de limpar (só aparecem com filtro ligado)
+    const sel = (id) => { const s = el.querySelector(id); return s.value ? s.options[s.selectedIndex].text : ''; };
+    const partes = [sel('#f-mentor'), sel('#f-empresa'), sel('#f-tipo'), sel('#f-formato')].filter(Boolean);
+    el.querySelector('#f-limpar').hidden = !partes.length;
+    const aviso = el.querySelector('#f-aviso');
+    aviso.hidden = !filtrando();
+    aviso.innerHTML = filtrando() ? `<b>Filtro ligado:</b> mostrando só ${esc(partes.join(' · '))}. ${est.vista === 'semana'
+      ? 'O verde de "dia livre" fica desligado enquanto houver filtro de empresa, tipo ou formato.'
+      : 'Os períodos livres consideram só o que está filtrado: para ver quem está livre de verdade, clique em "Limpar filtros".'}` : '';
     if (est.vista === 'semana') {
-      vistaSemana(ctx, vista, d, eventos, { mentor: m || null, recarregar,
+      vistaSemana(ctx, vista, d, eventos, { mentor: m || null, recarregar, semLivre: filtrando(),
         aoClicarDia: (e, dia) => { const quem = m || d.mentores.find((x) => e.mentores.includes(x.id)); if (quem) abrirDia(ctx, d, quem, dia, recarregar); } });
       return;
     }
@@ -175,6 +200,11 @@ async function abaQuadro(ctx, el, d, recarregar) {
     try { localStorage.setItem(VISTA_CHAVE, est.vista); } catch (_) { /* sem armazenamento */ }
     desenhar();
   }));
+  el.querySelector('#f-limpar').addEventListener('click', () => {
+    Object.assign(est, { mentor: '', empresa: '', tipo: '', formato: '' });
+    el.querySelectorAll('.ag-filtros select').forEach((s) => { s.value = ''; });
+    desenhar();
+  });
   el.querySelectorAll('.ag-filtros select').forEach((s) => s.addEventListener('input', () => {
     est.mentor = el.querySelector('#f-mentor').value; est.empresa = el.querySelector('#f-empresa').value;
     est.tipo = el.querySelector('#f-tipo').value; est.formato = el.querySelector('#f-formato').value;
