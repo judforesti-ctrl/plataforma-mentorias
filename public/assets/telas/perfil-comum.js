@@ -18,7 +18,7 @@ export function htmlFoto(perfil, { outro = false } = {}) {
 
 // Abre a imagem escolhida. Primeiro do jeito rápido; se o navegador não conseguir (algumas fotos do iPhone, em HEIC),
 // tenta pela imagem comum, que o Safari abre.
-async function abrirImagem(arquivo) {
+export async function abrirImagem(arquivo) {
   try { return await createImageBitmap(arquivo); } catch (_) { /* tenta do outro jeito */ }
   const url = URL.createObjectURL(arquivo);
   try {

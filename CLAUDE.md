@@ -228,6 +228,16 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   de uma vez (reduzidas no navegador: 2000 px + miniatura 480 px) em `turmas/<módulo>/foto/` e `foto-mini/`, linha em
   `modulo_arquivos` com tipo 'foto'. Foto grande com anterior/próxima (setas), Baixar; mentor apaga só as dele. Sem o script 29 a
   tela avisa (administração: "falta rodar o script 29"; mentor: "avise a Cintia"). Os nomes dos mentores no módulo aparecem com foto.
+- QR CODE DE AVALIAÇÃO (2026-10-10, script 30, `telas/qr-avaliacao.js`): pedido dela: no módulo, um lugar para a administração
+  colocar e TROCAR a imagem do QR code de avaliação; os mentores SÓ veem e baixam, para pôr no último slide (ela não mandou o QR:
+  a administração troca quando quiser). Cartão "QR code de avaliação" entre os slides oficiais e os dos mentores, com o aviso fixo
+  "Inclua o QR code de avaliação no último slide", prévia, "Baixar o QR code" (nome "QR code de avaliação - <turma> - Módulo N") e
+  "Copiar o link" (link opcional, para o chat das aulas online). Tabela `qr_avaliacao` com `escopo` modulo | turma | geral (um por
+  nível); o módulo usa o mais específico. A janela "Colocar/Trocar o QR code" escolhe o nível, avisa quando um nível mais
+  específico continua valendo e tem "Tirar" por nível. Imagem em `turmas/avaliacao/<geral|turma-<id>|modulo-<id>>/`; PNG/JPG/WEBP
+  até 5 MB vão como estão, o resto (SVG, foto do iPhone, grande) vira PNG (nunca JPG: borra o QR). O mentor lê a imagem pela regra
+  `turmas_ler_avaliacao` (só o caminho de um QR que ele pode ver). Lembrete também no cartão dos slides dos mentores e uma pergunta
+  ao enviar os slides do mentor ("o QR code está no último slide?"; Cancelar não envia). Sem o script 30 a tela avisa.
 
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.
