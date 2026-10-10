@@ -41,7 +41,7 @@ function usarFormato(f) {
 }
 
 // Monta os dois formatos e a versão de celular dentro de "raiz".
-// grupos: [{ id, nome, icone, itens: [{ nome, icone, rota, pode }] }]; usuario: { nome, papel (texto ou vazio) }.
+// grupos: [{ id, nome, icone, itens: [{ nome, icone, rota, pode }] }]; usuario: { nome, papel (texto ou vazio), foto (endereço ou vazio) }.
 // Devolve { atualizar({ rota, restrito, nome }) } — rota: a do item da página atual (ex.: "#/turmas"); restrito: esconde os grupos
 // (primeiro acesso). atualizar devolve { grupo, item } da página atual, para o caminho "Grupo › Página".
 export function montarMenu(raiz, { grupos, usuario, aoSair }) {
@@ -49,7 +49,8 @@ export function montarMenu(raiz, { grupos, usuario, aoSair }) {
   if (!document.documentElement.dataset.menu) document.documentElement.dataset.menu = formatoSalvo();
 
   const inicial = (n) => (String(n || '?').trim()[0] || '?').toUpperCase();
-  const quem = () => `<span class="mn-avatar" aria-hidden="true">${esc(inicial(usuario.nome))}</span>
+  const rosto = (foto) => (foto ? `<img src="${esc(foto)}" alt="">` : esc(inicial(usuario.nome)));
+  const quem = () => `<span class="mn-avatar" aria-hidden="true">${rosto(usuario.foto)}</span>
     <span class="mn-quem"><b data-nome>${esc(usuario.nome || '')}</b>${usuario.papel ? `<span>${esc(usuario.papel)}</span>` : ''}</span>`;
   const seletor = () => `<div class="mn-formato" role="group" aria-label="Formato do menu">
       <button type="button" data-formato="topo" aria-label="Menu no topo" title="Menu no topo">${svg('panel-top', 16)}</button>
@@ -146,5 +147,7 @@ export function montarMenu(raiz, { grupos, usuario, aoSair }) {
       raiz.querySelectorAll('[data-grupo]').forEach((el) => el.classList.toggle('atual', !restrito && !!achado && el.dataset.grupo === achado.grupo.id));
       return restrito ? null : achado;
     },
+    // troca a inicial pela foto (ou a foto nova) na hora em que a pessoa envia
+    foto(url) { usuario.foto = url; raiz.querySelectorAll('.mn-avatar').forEach((x) => { x.innerHTML = rosto(url); }); },
   };
 }

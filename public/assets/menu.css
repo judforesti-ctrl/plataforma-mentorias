@@ -21,7 +21,8 @@ body { background: var(--mn-conteudo); overflow-x: clip; }
 
 /* área do usuário (nome, papel e avatar com a inicial) */
 .mn-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--mn-destaque); color: var(--mn-sobre-destaque);
-  display: grid; place-items: center; font: 800 16px var(--mn-fonte); flex: none; }
+  display: grid; place-items: center; font: 800 16px var(--mn-fonte); flex: none; overflow: hidden; }
+.mn-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .mn-quem { display: grid; line-height: 1.25; min-width: 0; }
 .mn-quem b { color: #fff; font: 800 15px var(--mn-fonte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mn-quem span { color: var(--mn-rotulo); font: 600 12px var(--mn-fonte); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

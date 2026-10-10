@@ -45,12 +45,17 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   tempo operacional, reunião entre mentores, férias ou outro (texto dele).
   Vista padrão da aba "Agenda da equipe" é a SEMANA (`telas/agenda-semana.js`): um dia por linha (seg a sáb; domingo só se tiver algo),
   data grande à esquerda (ela pediu, 2026-10-08), dias livres em verde; "Quadro por mentor" é a vista antiga de 3 faixas, e o mês continua lá.
-  FLAGS (2026-10-09, pedido dela: "escolher tudo por flag, não por filtro"): no lugar das 4 caixas de seleção, linhas de flags
-  (Mentores, Empresas + "Sem empresa", Tipos com a amostra de cor, Formato), várias ao mesmo tempo, com "Todos" e "Limpar";
-  `flags` em agenda.js (null = todos; Set = marcados), lembradas em localStorage "mentorei.agendaFlags". Nenhum tipo passa mais
-  "por fora" (antes bloqueio, reunião e agenda pessoal sempre apareciam). Vários mentores marcados: "Dia livre para Juliana e Cláudia"
-  (`rotulo` na vistaSemana); um só: comportamento antigo (mês no quadro, "Não atende"). A vista é redesenhada num elemento novo a
-  cada mudança (os cliques não se acumulam).
+  As FLAGS de 2026-10-09 foram DESFEITAS em 2026-10-10 ("não ficou bom, quero voltar como estava"): Semana e Quadro voltaram às
+  4 caixas de seleção (mentor, empresa, tipo, formato). A vista é redesenhada num elemento novo a cada mudança (os cliques não se acumulam).
+  PLANILHA (2026-10-10, para a Viviane, que trabalha no Excel online): terceira vista "Planilha" (`telas/agenda-planilha.js`), com a
+  cara do Excel: letras das colunas, números das linhas, cabeçalho fixo e, em cada coluna, a setinha do filtro do Excel (classificar
+  A→Z/Z→A, "Limpar filtro de…", pesquisar, "(Selecionar tudo)", "(Vazias)", contagem; Data em árvore mês → dia). A lista de cada coluna
+  mostra só o que sobra com os outros filtros. Uma linha por compromisso DE CADA PESSOA (módulo com 2 mentores = 2 linhas; recesso e
+  feriado = "Toda a equipe"; sem mentor = vazia). Colunas: Data, Dia, Horário, Período, Pessoa, Empresa, Turma ou programa, Compromisso
+  (link que abre como na semana), Tipo, Formato, Local, Detalhes. No alto: pesquisa em tudo, período (padrão "De hoje em diante"),
+  Limpar filtros e Baixar em Excel (o filtrado, com filtro do Excel no cabeçalho). Rodapé: "N de M registros" e horas de mentoria e aula.
+  Filtros/ordem/período em localStorage "mentorei.agendaPlanilha"; a vista escolhida em "mentorei.agendaVista" (quem usa a planilha
+  já entra nela). No celular a caixa do filtro vira gaveta embaixo.
   Reuniões (script 18, tabela `agenda_reunioes`, função `/api/reuniao`): botão "+ Agendar reunião" na semana e na aba Bloqueios
   (o mentor também tem, em Minha agenda). Aceita gente da equipe e e-mails de fora sem cadastro; o servidor cria o convite na
   Google Agenda conectada com link do Meet (`conferenceDataVersion=1`) e o Google avisa todos. O convite fica em
@@ -196,6 +201,17 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (`.mn-caminho`) entra no começo de cada tela; quando a tela começa com `.cab`, ele fica dentro da faixa clara. Papel embaixo do
   nome: "Admin · Mentor(a)" (sem gênero no cadastro, então "(a)"). Para achar o item atual, app.js mapeia rotas de detalhe
   (turma, módulo, sessão, pessoa...) para o item do menu. privacidade.html ainda usa o cabeçalho antigo (.topo em app.css).
+- FOTOS (2026-10-10, um mentor não conseguia colocar a foto): o envio usava `upsert: true`, que no Storage exige permissão de SELECT
+  e UPDATE na pasta, e a pasta pública `fotos` (script 03) só tem INSERT da própria pasta → "Você não tem permissão". Agora
+  `enviarFotoPerfil()` em `perfil-comum.js` envia com nome novo SEM upsert e já grava `perfis.foto_url` (não espera o salvamento
+  automático). Abre também foto que o `createImageBitmap` não abre (tenta pela imagem comum) e reduz para 400 px. Incentivo:
+  faixa "Coloque a sua foto" abaixo do título de qualquer tela para quem está sem foto (`telas/foto-lembrete.js`, ligada no app.js;
+  "Agora não" = 3 dias em localStorage), foto no menu (`menu.foto(url)`, evento `mentorei:foto`), e cartão "Fotos de perfil" no
+  Painel (quantos têm foto, quem já entra e está sem, "Lembrar pelo WhatsApp" e "Colocar a foto" pela administração em #/pessoa/id).
+- FOTOS DA AULA (2026-10-10, script 29): cartão "Fotos da aula" no módulo da turma; mentor do módulo e administração colocam várias
+  de uma vez (reduzidas no navegador: 2000 px + miniatura 480 px) em `turmas/<módulo>/foto/` e `foto-mini/`, linha em
+  `modulo_arquivos` com tipo 'foto'. Foto grande com anterior/próxima (setas), Baixar; mentor apaga só as dele. Sem o script 29 a
+  tela avisa (administração: "falta rodar o script 29"; mentor: "avise a Cintia"). Os nomes dos mentores no módulo aparecem com foto.
 
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.

@@ -317,6 +317,8 @@ async function paginaModulo(ctx, el, id) {
   const arquivos = (m.arquivos || []).slice().sort((a, b) => new Date(b.enviado_em) - new Date(a.enviado_em));
   const oficiais = arquivos.filter((a) => a.tipo === 'oficial');
   const dosMentores = arquivos.filter((a) => a.tipo === 'mentor');
+  const fotos = arquivos.filter((a) => a.tipo === 'foto').reverse();   // na ordem em que foram colocadas
+  const podeFotos = adm || souMentor;
   const linkSala = m.formato === 'presencial' ? '' : (m.link || '');
   const ehUrl = /^https?:\/\//i.test(linkSala);
 
@@ -332,7 +334,7 @@ async function paginaModulo(ctx, el, id) {
         <p class="peq apagado"><a href="#/turma/${m.turma.id}">← ${esc(m.turma.empresa ? m.turma.empresa.nome : '')} · ${esc(m.turma.nome)}</a></p>
         <h1>Módulo ${m.numero} · ${esc(m.titulo)}</h1>
         <p class="apagado">${m.data_hora ? dataHoraBR(m.data_hora) : 'Data a definir'}${m.duracao_min ? ` · ${m.duracao_min} min` : ''} · ${FORMATO[m.formato] || ''}${m.formato === 'presencial' && m.local ? ` · ${esc(m.local)}` : ''}</p>
-        <div class="linha mt" style="gap:6px">${(m.mentores || []).map((x) => x.mentor ? `<span class="selo neutro">${esc(x.mentor.nome)}</span>` : '').join('') || '<span class="selo alerta">Mentor a definir</span>'}</div>
+        <div class="linha mt" style="gap:6px">${(m.mentores || []).map((x) => x.mentor ? `<span class="selo neutro com-rosto">${avatar(x.mentor)}${esc(x.mentor.nome)}</span>` : '').join('') || '<span class="selo alerta">Mentor a definir</span>'}</div>
       </div>
       <div class="linha">
         ${ehUrl ? `<a class="btn escuro" href="${esc(linkSala)}" target="_blank" rel="noopener">Entrar na aula (${FORMATO[m.formato] || 'online'})</a>` : ''}
@@ -393,6 +395,14 @@ async function paginaModulo(ctx, el, id) {
           <div class="campo mt" style="max-width:220px"><label>Participantes presentes</label><input type="number" min="0" data-perc="participantes_presentes" value="${esc(m.participantes_presentes ?? '')}"${podePercepcao ? '' : ' disabled'}></div>
           <textarea class="mt" data-perc="percepcoes" style="min-height:180px" placeholder="Como foi a aula?"${podePercepcao ? '' : ' disabled'}>${esc(m.percepcoes || '')}</textarea>
           ${m.percepcoes_em ? `<p class="peq apagado mt">Registradas em ${dataHoraBR(m.percepcoes_em)}.</p>` : ''}
+        </div>
+        <div class="cartao" id="fotos-aula">
+          <div class="linha"><h3 style="flex:1">Fotos da aula</h3>${fotos.length ? `<span class="selo neutro">${fotos.length} foto${fotos.length > 1 ? 's' : ''}</span>` : ''}</div>
+          <p class="peq apagado">${podeFotos ? 'Coloque aqui as fotos do encontro: dá para escolher várias de uma vez. Quem acompanha a turma na Mentorei vê.' : 'Fotos do encontro.'}</p>
+          ${fotos.length ? `<div class="fotos-aula mt">${fotos.map((f) => `<button type="button" class="foto-aula" data-foto="${f.id}" aria-label="Ver a foto ${esc(f.nome)}"><img alt="" data-mini="${f.id}"></button>`).join('')}</div>`
+            : '<p class="apagado mt">Nenhuma foto ainda.</p>'}
+          ${podeFotos ? '<label class="btn peq pri mt" style="cursor:pointer">📷 Colocar fotos<input type="file" id="fotos-enviar" accept="image/*" multiple hidden></label>' : ''}
+          <p class="peq apagado mt" id="fotos-progresso" role="status"></p>
         </div>
       </div>
     </div>`;
@@ -476,7 +486,99 @@ async function paginaModulo(ctx, el, id) {
     } catch (e) { if (prog) prog.textContent = ''; avisar(explicarErro(e), true); }
   }));
 
+  // ---------- fotos da aula (script 29): foto grande em "<módulo>/foto/" e miniatura em "<módulo>/foto-mini/" ----------
+  const miniDe = (c) => c.replace('/foto/', '/foto-mini/');
+  const miniaturas = new Map();   // id da foto → endereço temporário da miniatura
+  if (fotos.length) {
+    sb.storage.from('turmas').createSignedUrls(fotos.map((f) => miniDe(f.caminho)), 3600).then(({ data }) => {
+      fotos.forEach((f, i) => {
+        const img = el.querySelector(`img[data-mini="${f.id}"]`); if (!img) return;
+        const x = (data || [])[i];
+        if (x && x.signedUrl) { img.src = x.signedUrl; miniaturas.set(f.id, x.signedUrl); }
+        else sb.storage.from('turmas').createSignedUrl(f.caminho, 3600).then(({ data: g }) => { if (g) img.src = g.signedUrl; });   // sem miniatura: a grande
+      });
+    });
+  }
+  const explicarFoto = (e) => (/mime|check constraint|row-level security|permission denied|not allowed/i.test(String((e && (e.message || e.error)) || e || ''))
+    ? (adm ? 'Para guardar fotos no módulo, falta rodar o script 29-fotos-das-aulas.sql no Supabase.' : 'As fotos das aulas ainda não foram liberadas na plataforma. Avise a Cintia.')
+    : explicarErro(e));
+  el.querySelector('#fotos-enviar')?.addEventListener('change', async (ev) => {
+    const lista = [...ev.target.files].filter((f) => !f.type || f.type.startsWith('image/'));
+    ev.target.value = '';
+    if (!lista.length) { avisar('Escolha fotos (JPG, PNG ou do celular).', true); return; }
+    const prog = el.querySelector('#fotos-progresso');
+    const { reduzirImagem } = await import('./perfil-comum.js');
+    let feitas = 0;
+    for (const [i, arq] of lista.entries()) {
+      prog.textContent = lista.length > 1 ? `Enviando a foto ${i + 1} de ${lista.length}…` : 'Enviando a foto…';
+      const caminho = `${id}/foto/${Date.now()}-${i}-${nomeSeguro(arq.name.replace(/\.[^.]+$/, '') || 'foto')}.jpg`;
+      try {
+        const grande = await reduzirImagem(arq, 2000, 0.85);   // leve para guardar e abrir, ainda boa para imprimir
+        const mini = await reduzirImagem(arq, 480, 0.8);
+        const up = await sb.storage.from('turmas').upload(caminho, grande, { contentType: 'image/jpeg' });
+        if (up.error) throw up.error;
+        await sb.storage.from('turmas').upload(miniDe(caminho), mini, { contentType: 'image/jpeg' });   // se falhar, a tela usa a grande
+        const r = await sb.from('modulo_arquivos').insert({ modulo_id: id, tipo: 'foto', nome: arq.name, caminho, tamanho: grande.size, enviado_por: ctx.perfil.id });
+        if (r.error) { await sb.storage.from('turmas').remove([caminho, miniDe(caminho)]); throw r.error; }
+        feitas += 1;
+      } catch (e) {
+        const msg = explicarFoto(e);
+        avisar(`${lista.length > 1 ? `Foto ${i + 1} (${arq.name}): ` : ''}${msg}`, true);
+        if (/script 29|liberadas/.test(msg)) break;   // as próximas iam falhar pelo mesmo motivo
+      }
+    }
+    prog.textContent = '';
+    if (feitas) { avisar(feitas === 1 ? 'Foto colocada no módulo.' : `${feitas} fotos colocadas no módulo.`); ctx.irPara(`#/modulo/${id}`); }
+  });
+  // foto grande, com anterior/próxima (botões ou setas do teclado), baixar e apagar
+  const verFoto = async (fotoId) => {
+    const { janela } = await import('./agenda-dados.js');
+    let k = Math.max(0, fotos.findIndex((f) => f.id === fotoId));
+    const j = janela('Fotos da aula', '<div class="foto-grande"><img alt=""></div><div class="linha mt" id="fg-barra"></div>', { largura: 980 });
+    const img = j.corpo.querySelector('.foto-grande img');
+    const mostrar = async () => {
+      const f = fotos[k];
+      img.src = miniaturas.get(f.id) || '';   // a miniatura aparece na hora; a grande entra quando chegar
+      img.alt = `Foto ${k + 1} de ${fotos.length} da aula`;
+      const podeApagar = adm || f.enviado_por === ctx.perfil.id;
+      j.corpo.querySelector('#fg-barra').innerHTML = `
+        ${fotos.length > 1 ? `<button class="btn peq" type="button" data-passo="-1" aria-label="Foto anterior">‹</button><span class="peq">${k + 1} de ${fotos.length}</span><button class="btn peq" type="button" data-passo="1" aria-label="Próxima foto">›</button>` : ''}
+        <span class="peq apagado" style="flex:1;min-width:140px">${f.autor ? `Colocada por ${esc(f.autor.nome)} · ` : ''}${dataBR(f.enviado_em)}</span>
+        <button class="btn peq pri" type="button" data-baixar-foto>Baixar</button>
+        ${podeApagar ? '<button class="btn peq perigo" type="button" data-apagar-foto>Apagar</button>' : ''}`;
+      const { data } = await sb.storage.from('turmas').createSignedUrl(f.caminho, 3600);
+      if (data && fotos[k] === f) img.src = data.signedUrl;
+    };
+    const passo = (n) => { k = (k + n + fotos.length) % fotos.length; mostrar(); };
+    const teclas = (ev) => {
+      if (!j.fundo.isConnected) { document.removeEventListener('keydown', teclas); return; }
+      if (fotos.length > 1 && (ev.key === 'ArrowRight' || ev.key === 'ArrowLeft')) passo(ev.key === 'ArrowRight' ? 1 : -1);
+    };
+    document.addEventListener('keydown', teclas);
+    j.corpo.addEventListener('click', async (ev) => {
+      const p = ev.target.closest('[data-passo]'); if (p) { passo(Number(p.dataset.passo)); return; }
+      const f = fotos[k];
+      if (ev.target.closest('[data-baixar-foto]')) {
+        const aba = window.open('', '_blank');
+        const { data, error: e } = await sb.storage.from('turmas').createSignedUrl(f.caminho, 300, { download: `${f.nome.replace(/\.[^.]+$/, '') || 'foto'}.jpg` });
+        if (e) { if (aba) aba.close(); avisar(explicarErro(e), true); return; }
+        if (aba) aba.location = data.signedUrl; else location.href = data.signedUrl;
+        return;
+      }
+      if (ev.target.closest('[data-apagar-foto]')) {
+        if (!window.confirm('Apagar esta foto do módulo?')) return;
+        const r = await sb.from('modulo_arquivos').delete().eq('id', f.id);
+        if (r.error) { avisar(explicarErro(r.error), true); return; }
+        await sb.storage.from('turmas').remove([f.caminho, miniDe(f.caminho)]);
+        j.fechar(); avisar('Foto apagada.'); ctx.irPara(`#/modulo/${id}`);
+      }
+    });
+    mostrar();
+  };
+
   el.addEventListener('click', async (ev) => {
+    const ft = ev.target.closest('[data-foto]');
+    if (ft) { verFoto(ft.dataset.foto); return; }
     const b = ev.target.closest('[data-baixar]');
     if (b) {
       const a = arquivos.find((x) => x.id === b.dataset.baixar);

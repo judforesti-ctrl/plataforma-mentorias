@@ -26,7 +26,7 @@ export async function render(ctx, el, [id, origem] = []) {
       <div class="acoes"><span class="salvo" id="indicador"></span></div></div>
     <div class="grade g2" style="align-items:start">
       <div>
-        <div class="cartao">${outro || ctx.ehAdmin ? `<div class="campo" style="margin-bottom:14px"><label for="p-nome">Nome e sobrenome</label><input id="p-nome" type="text" data-campo="nome" value="${esc(p.nome)}"></div>` : ''}${htmlFoto(p)}<h4 class="mt2">Contato</h4><div class="mt">${htmlContato(p)}</div></div>
+        <div class="cartao">${outro || ctx.ehAdmin ? `<div class="campo" style="margin-bottom:14px"><label for="p-nome">Nome e sobrenome</label><input id="p-nome" type="text" data-campo="nome" value="${esc(p.nome)}"></div>` : ''}${htmlFoto(p, { outro })}<h4 class="mt2">Contato</h4><div class="mt">${htmlContato(p)}</div></div>
         ${ehMentorado && mentorado ? `<div class="cartao"><h3>Seu trabalho</h3><div class="mt">${htmlDadosMentorado(mentorado)}</div></div>` : ''}
         ${atende && ctx.ehAdmin ? `<div class="cartao"><h3>Tipo de atendimento</h3><p class="peq apagado">Só a administração muda. Define o que aparece no menu desta pessoa.</p>
           <div class="lista mt"><label class="check"><input type="checkbox" data-campo="atende_individual"${p.atende_individual !== false ? ' checked' : ''}><span>Mentoria individual (Meus mentorados)</span></label>
@@ -73,8 +73,8 @@ export async function render(ctx, el, [id, origem] = []) {
       if (!outro) await ctx.recarregarPerfil();
     },
   });
-  el.querySelectorAll('input, textarea').forEach((c) => c.id !== 'apres' && c.addEventListener(c.type === 'checkbox' ? 'change' : 'input', salvador.mudou));
-  ligarFoto(el, p, (url) => { foto = url; salvador.mudou(); });
+  el.querySelectorAll('input, textarea').forEach((c) => c.id !== 'apres' && c.type !== 'file' && c.addEventListener(c.type === 'checkbox' ? 'change' : 'input', salvador.mudou));
+  ligarFoto(el, p, (url) => { foto = url; }, { meu: !outro });
 
   // dar ou tirar o acesso de administração (a pessoa continua mentora)
   el.querySelector('#p-admin')?.addEventListener('change', async (ev) => {

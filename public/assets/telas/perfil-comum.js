@@ -3,38 +3,78 @@ import { sb, esc, avatar, avisar, explicarErro } from '../base.js';
 
 const v = (x) => esc(x == null ? '' : x);
 
-export function htmlFoto(perfil) {
+export const paraQuemAparece = (perfil) => (perfil.papel === 'mentorado' ? 'os seus mentores' : 'os seus mentorados e a equipe da Mentorei');
+
+// outro = a administração está colocando a foto de outra pessoa
+export function htmlFoto(perfil, { outro = false } = {}) {
+  const tem = !!perfil.foto_url;
   return `<div class="linha" style="gap:16px">
     <span id="foto-prev">${avatar(perfil, true)}</span>
-    <div><label class="btn peq" for="foto-arquivo" style="cursor:pointer">Escolher foto</label>
+    <div style="flex:1;min-width:200px"><label class="btn peq${tem ? '' : ' pri'}" for="foto-arquivo" style="cursor:pointer">${tem ? 'Trocar a foto' : outro ? '📷 Colocar a foto' : '📷 Colocar a minha foto'}</label>
       <input id="foto-arquivo" type="file" accept="image/*" hidden>
-      <p class="peq apagado" style="margin-top:6px">Uma foto de rosto, de frente. Ela aparece para ${perfil.papel === 'mentorado' ? 'os seus mentores' : 'os seus mentorados'}.</p></div></div>`;
+      <p class="peq apagado" style="margin-top:6px">${outro ? `Uma foto de rosto, de frente. Aparece para ${perfil.papel === 'mentorado' ? 'os mentores desta pessoa' : 'os mentorados desta pessoa e a equipe'}.`
+        : `Uma foto de rosto, de frente e com boa luz. Ela aparece para ${paraQuemAparece(perfil)}${tem ? '.' : ': com foto, a conexão nasce mais rápido.'}`}</p></div></div>`;
 }
 
-// Reduz a imagem para 400 px antes de enviar (foto leve e rápida).
-async function reduzir(arquivo) {
-  const img = await createImageBitmap(arquivo);
-  const lado = 400, escala = Math.min(1, lado / Math.max(img.width, img.height));
+// Abre a imagem escolhida. Primeiro do jeito rápido; se o navegador não conseguir (algumas fotos do iPhone, em HEIC),
+// tenta pela imagem comum, que o Safari abre.
+async function abrirImagem(arquivo) {
+  try { return await createImageBitmap(arquivo); } catch (_) { /* tenta do outro jeito */ }
+  const url = URL.createObjectURL(arquivo);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    return img;
+  } catch (_) {
+    throw new Error('Este navegador não conseguiu abrir essa foto (fotos do iPhone às vezes vêm num formato diferente). Tire um print da foto ou salve como JPG e tente de novo.');
+  } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
+}
+
+// Reduz a imagem (lado maior com "lado" px) e devolve um JPG leve.
+export async function reduzirImagem(arquivo, lado = 400, qualidade = 0.85) {
+  if (arquivo.type && !arquivo.type.startsWith('image/')) throw new Error('Escolha um arquivo de imagem (foto).');
+  const img = await abrirImagem(arquivo);
+  const w = img.width || img.naturalWidth, h = img.height || img.naturalHeight;
+  const escala = Math.min(1, lado / Math.max(w, h));
   const c = document.createElement('canvas');
-  c.width = Math.round(img.width * escala); c.height = Math.round(img.height * escala);
-  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-  return new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.85));
+  c.width = Math.max(1, Math.round(w * escala)); c.height = Math.max(1, Math.round(h * escala));
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);   // PNG com fundo transparente não fica preto no JPG
+  g.drawImage(img, 0, 0, c.width, c.height);
+  return new Promise((ok, falha) => c.toBlob((b) => (b ? ok(b) : falha(new Error('Não foi possível preparar a foto.'))), 'image/jpeg', qualidade));
 }
 
-export function ligarFoto(raiz, perfil, aoTrocar) {
+// Envia a foto de perfil para a pasta da pessoa e grava no perfil. Devolve o endereço da foto.
+// O nome do arquivo é sempre novo, então NÃO usa "substituir" (upsert): substituir exige uma permissão a mais no banco
+// que a pasta das fotos não tem, e era isso que fazia o envio falhar com "Você não tem permissão".
+export async function enviarFotoPerfil(perfilId, arquivo) {
+  const blob = await reduzirImagem(arquivo, 400);
+  const caminho = `${perfilId}/foto-${Date.now()}.jpg`;
+  const { error } = await sb.storage.from('fotos').upload(caminho, blob, { contentType: 'image/jpeg', upsert: false });
+  if (error) throw error;
+  const url = sb.storage.from('fotos').getPublicUrl(caminho).data.publicUrl;
+  const { error: e2 } = await sb.from('perfis').update({ foto_url: url }).eq('id', perfilId);
+  if (e2) throw e2;
+  return url;
+}
+
+// aoTrocar(url): a tela guarda o endereço novo (a foto já ficou gravada no perfil).
+// meu = a foto é de quem está usando (o menu passa a mostrar a foto na hora).
+export function ligarFoto(raiz, perfil, aoTrocar, { meu = true } = {}) {
   raiz.querySelector('#foto-arquivo').addEventListener('change', async (ev) => {
     const arq = ev.target.files[0];
+    ev.target.value = '';
     if (!arq) return;
     try {
       avisar('Enviando a foto…');
-      const blob = await reduzir(arq);
-      const caminho = `${perfil.id}/foto-${Date.now()}.jpg`;
-      const { error } = await sb.storage.from('fotos').upload(caminho, blob, { contentType: 'image/jpeg', upsert: true });
-      if (error) throw error;
-      const url = sb.storage.from('fotos').getPublicUrl(caminho).data.publicUrl;
+      const url = await enviarFotoPerfil(perfil.id, arq);
       raiz.querySelector('#foto-prev').innerHTML = avatar({ ...perfil, foto_url: url }, true);
+      const rot = raiz.querySelector('label[for="foto-arquivo"]');
+      if (rot) { rot.textContent = 'Trocar a foto'; rot.classList.remove('pri'); }
       aoTrocar(url);
-      avisar('Foto enviada.');
+      if (meu) window.dispatchEvent(new CustomEvent('mentorei:foto', { detail: url }));
+      avisar('Foto salva. 😊');
     } catch (e) { avisar(`Não foi possível enviar a foto: ${explicarErro(e)}`, true); }
   });
 }

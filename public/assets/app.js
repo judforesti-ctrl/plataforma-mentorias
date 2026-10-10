@@ -64,7 +64,7 @@ const GRUPOS = [
 ];
 // papel de quem está usando, em letra pequena embaixo do nome (ex.: "Admin · Mentor(a)")
 const papelTexto = [ehAdmin && 'Admin', atende && 'Mentor(a)', mentorado && 'Mentorado(a)'].filter(Boolean).join(' · ');
-const menu = montarMenu(document.getElementById('navegacao'), { grupos: GRUPOS, usuario: { nome: perfil.nome, papel: papelTexto }, aoSair: sair });
+const menu = montarMenu(document.getElementById('navegacao'), { grupos: GRUPOS, usuario: { nome: perfil.nome, papel: papelTexto, foto: perfil.foto_url }, aoSair: sair });
 
 const inicio = ehAdmin ? '#/painel' : individual ? '#/meus' : grupo ? '#/turmas' : atende ? '#/perfil' : '#/minha-area';
 
@@ -127,6 +127,13 @@ async function abrir() {
   try {
     const mod = await ROTAS[rota]();
     telaAtual = (await mod.render({ ...ctx, rota }, alvo, params)) || null;
+    // quem ainda está sem foto vê o convite para colocar, logo abaixo do título da tela
+    if (!ctx.perfil.foto_url && !precisaPrimeiroAcesso) {
+      const { lembreteFoto } = await import('./telas/foto-lembrete.js');
+      const faixa = lembreteFoto(ctx, rota);
+      const cab = faixa && alvo.querySelector('.cab');
+      if (faixa) { if (cab) cab.after(faixa); else alvo.prepend(faixa); }
+    }
   } catch (e) {
     console.error(e);
     alvo.innerHTML = `<div class="aviso erro">Não foi possível abrir esta tela: ${esc(explicarErro(e))}</div>`;
@@ -134,6 +141,8 @@ async function abrir() {
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', abrir);
+// foto nova de quem está usando (Meu perfil, primeiro acesso ou a faixa de lembrete): vale na hora, no menu e nas telas
+window.addEventListener('mentorei:foto', (ev) => { ctx.perfil.foto_url = ev.detail; menu.foto(ev.detail); });
 ctx.irPara = (h) => { if (location.hash === h) abrir(); else location.hash = h; };
 ctx.inicio = inicio;
 abrir();

@@ -82,6 +82,7 @@ async function visaoGeral(ctx, el) {
     <div class="chips mt">${d.mentores.map((x) => `<a class="btn peq" href="#/pessoa/${x.id}">${esc(x.nome)}</a>`).join('') || '<span class="apagado">Nenhum mentor ativo.</span>'}
       <a class="btn peq escuro" href="#/equipe">+ Convidar mentor</a></div>
     <p class="peq apagado mt">Clique no nome para editar foto, contato, trajetória, sala do Meet e texto de apresentação.</p>
+    <div id="fotos" class="mt"></div>
     <h2 class="mt2">Empresas e programas</h2>
     <div class="linha mt"><button class="btn peq" id="nova-empresa">+ Nova empresa</button></div>
     <div id="empresas" class="mt"></div>`;
@@ -142,6 +143,7 @@ async function visaoGeral(ctx, el) {
   cartaoGoogle(el.querySelector('#google'));
   import('./backup.js').then(({ cartaoBackup }) => cartaoBackup(ctx, el.querySelector('#backup')));
   import('./vendas.js').then(({ cartaoVendas }) => cartaoVendas(ctx, el.querySelector('#vendas')));
+  import('./foto-lembrete.js').then(({ cartaoFotos }) => cartaoFotos(ctx, el.querySelector('#fotos')));
   el.addEventListener('click', async (ev) => {
     const tr = ev.target.closest('[data-ir]'); if (tr) { location.hash = tr.dataset.ir; return; }
     if (ev.target.id === 'nova-empresa') {
