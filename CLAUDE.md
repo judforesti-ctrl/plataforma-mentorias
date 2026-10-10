@@ -127,6 +127,12 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (`avisarGoogle()`), a cada 15 min (agendada → função de fundo) e ao remarcar. Convites feitos à mão são aproveitados (mesmo horário +
   sala do Meet, e-mail ou nome). REGRA: convites RECORRENTES nunca são apagados (nem na limpeza de duplicados, nem quando a sessão some).
   Remarcar nunca cria convite novo sozinho (isso duplicava): se não acha, a tela oferece "Criar convite novo".
+  REMARCAR VÁRIAS (2026-10-10, pedido da Cintia): botão "Remarcar várias de uma vez" no Plano de sessões da ficha (com 2+ sessões em
+  aberto), `telas/remarcar-varias.js`. Regra (novo horário; passar para um dia da semana, na mesma semana de cada sessão; mover ±N
+  semanas) + lista "hoje está → vai ficar" editável à mão por sessão; concluída/cancelada não aparece; já vêm marcadas só as futuras;
+  data que cairia no passado não conta. Confere choques (`choques()` aceita `ignorar` com LISTA de ids, para a hora antiga de uma não
+  chocar com a nova de outra) e repetidos na própria lista; grava uma por uma (+ remarcacoes), chama /api/agenda por sessão (mesmo
+  caminho, sem duplicar; "Criar os convites" para as não achadas) e faz UMA mensagem de WhatsApp para o mentorado e uma por mentor.
 
 - Vendas / Fase 4 (script 19, `telas/vendas.js`, menu "Vendas", só administração; as sócias entram como administração):
   empresas ganham tipo/cidade/UF/porte/origem; `contatos` (quantos quiser, flag marketing com data e quem marcou, para a Fase 5);

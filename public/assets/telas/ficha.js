@@ -90,7 +90,9 @@ export async function render(ctx, el, [id]) {
     <section data-painel="sessoes" hidden>
       <div class="cartao">
         <div class="linha"><h3>Plano de sessões</h3>
-          ${ctx.ehAdmin ? '<button class="btn peq" id="extra" style="margin-left:auto">+ Sessão extra</button>' : ''}</div>
+          <span class="linha" style="margin-left:auto;gap:8px">
+          ${sess.filter((s) => !s.concluida_em && s.situacao !== 'cancelada').length > 1 ? '<button class="btn peq pri" id="remarcar-varias" title="Mudar o horário, o dia da semana ou as datas de várias sessões ao mesmo tempo">Remarcar várias de uma vez</button>' : ''}
+          ${ctx.ehAdmin ? '<button class="btn peq" id="extra">+ Sessão extra</button>' : ''}</span></div>
         <div class="tabela mt"><table>
           <tr><th>Nº</th><th>Data</th><th>Mentor</th><th>Tema</th><th>Tarefa</th><th>Situação</th><th></th></tr>
           ${sess.map((s) => {
@@ -209,6 +211,11 @@ export async function render(ctx, el, [id]) {
 
   // remarcar uma sessão (data e horário, Google Agenda e aviso pelo WhatsApp)
   el.addEventListener('click', async (ev) => {
+    if (ev.target.id === 'remarcar-varias') {   // várias sessões de uma vez (pedido da Cintia)
+      const { abrirRemarcarVarias } = await import('./remarcar-varias.js');
+      abrirRemarcarVarias(ctx, m.id, () => ctx.irPara(`#/mentorado/${m.id}`));
+      return;
+    }
     const b = ev.target.closest('[data-remarcar]'); if (!b) return;
     const { abrirRemarcar } = await import('./remarcar.js');
     abrirRemarcar(ctx, b.dataset.remarcar, () => ctx.irPara(`#/mentorado/${m.id}`));

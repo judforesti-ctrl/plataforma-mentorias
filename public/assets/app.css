@@ -573,3 +573,15 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .foto-aula:hover { border-color: var(--bege-escuro); box-shadow: var(--sombra); }
 .foto-grande { background: #111; border-radius: 10px; display: grid; place-items: center; min-height: 240px; max-height: 70vh; overflow: hidden; }
 .foto-grande img { max-width: 100%; max-height: 70vh; object-fit: contain; display: block; }
+
+/* ---------- remarcar várias sessões de uma vez (telas/remarcar-varias.js) ---------- */
+#rv-hora { width: 100%; border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; background: var(--papel); color: var(--texto); font: inherit; font-size: 15px; }
+.rv-tabela td { vertical-align: middle; padding: 8px 10px; }
+.rv-tabela input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--petroleo); }
+.rv-novo { gap: 6px; flex-wrap: nowrap; }
+.rv-novo input { width: auto; padding: 6px 8px; font-size: 14px; }
+.rv-novo input:disabled { background: var(--faixa); color: var(--apagado); }
+.rv-tabela tr.rv-muda td { background: var(--bege-claro); }
+.rv-tabela tr.rv-muda .rv-novo input { border-color: var(--bege-escuro); font-weight: 600; }
+.rv-obs { color: var(--apagado); margin-top: 2px; min-height: 0; }
+.rv-obs.rv-alerta { color: var(--erro); font-weight: 600; }

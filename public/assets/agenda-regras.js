@@ -388,11 +388,12 @@ export function situacaoParaEncaixe(idx, mentor, dia, periodos, formato) {
 }
 
 // Choques de um novo compromisso (ou de um compromisso mudado) com o que já existe.
-// novo: { dia, ini?, fim? (ms), periodos[], formato, ignorar? (id da sessão, módulo, bloqueio ou pré-bloqueio que está sendo mudado) }
+// novo: { dia, ini?, fim? (ms), periodos[], formato, ignorar? (id da sessão, módulo, bloqueio ou pré-bloqueio que está sendo mudado;
+// ou uma lista de ids, quando várias sessões são remarcadas juntas e a hora antiga de uma não pode "chocar" com a nova de outra) }
 export function choques(idx, mentor, novo) {
   const out = [];
   const nome = (mentor.nome || '').split(' ')[0];
-  const ign = (e) => novo.ignorar && e.origem && e.origem.id === novo.ignorar;
+  const ign = (e) => !!novo.ignorar && !!e.origem && (Array.isArray(novo.ignorar) ? novo.ignorar.includes(e.origem.id) : e.origem.id === novo.ignorar);
   const evs = idx.doDia(mentor.id, novo.dia).filter((e) => !ign(e) && !e.naoOcupa);
   const presencial = novo.formato === 'presencial';
   const sobrepoe = (e) => {

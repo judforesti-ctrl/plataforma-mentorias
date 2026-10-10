@@ -1,5 +1,6 @@
 // Remarcar uma sessão: muda o dia e o horário, acerta o convite da Google Agenda (se estiver conectada)
 // e prepara as mensagens de WhatsApp para o mentorado e para o mentor.
+// Várias sessões do mesmo mentorado de uma vez: remarcar-varias.js.
 import { sb, esc, avisar, explicarErro, isoParaLocal, localParaISO } from '../base.js';
 
 const quando = (iso) => {
