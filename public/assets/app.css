@@ -207,6 +207,9 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ag-legenda { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: 13px; color: var(--apagado); }
 .ag-legenda span { display: inline-flex; align-items: center; }
 .ag-filtros { margin-bottom: 12px; } .ag-filtros select { width: auto; max-width: 100%; }
+.ag-selects { margin-top: 10px; }
+.ag-atalhos { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; }   /* "+ Agendar reunião" e "+ Atividade no checklist", à direita das vistas */
+@media (max-width: 700px) { .ag-atalhos { margin-left: 0; width: 100%; } .ag-atalhos .btn { flex: 1 1 auto; justify-content: center; } }
 .ag-nav { margin-bottom: 10px; } .ag-nav h3 { margin-left: 6px; }
 .ag-aviso { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
 

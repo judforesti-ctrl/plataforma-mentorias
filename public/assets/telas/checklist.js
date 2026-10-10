@@ -159,6 +159,16 @@ export async function render(ctx, el, params) {
   }
 }
 
+// "+ Atividade no checklist" de outra tela (a Agenda): abre o mesmo formulário de criar, ali mesmo, sem sair da tela.
+// aoMudar: o que fazer depois de criar (a Agenda se redesenha para mostrar o bloqueio ou a reunião, se for o caso).
+export async function novaAtividade(ctx, { aoMudar = () => {} } = {}) {
+  const { lista, falta, erro } = await lerAtividades();
+  if (falta || erro) { avisar(falta ? 'Para usar o checklist, falta rodar o script 25-viagens-relatorio-checklist.sql no Supabase.' : explicarErro(erro), true); return; }
+  const equipe = await lerEquipe(ctx);
+  const grupos = [...new Set(lista.map((a) => a.grupo).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'pt-BR'));
+  abrirAtividade(ctx, null, { equipe, grupos, aoMudar });
+}
+
 async function marcarFeita(ctx, a, feita) {
   const mud = feita ? { situacao: 'feita', feita_em: new Date().toISOString(), feita_por: ctx.perfil.id } : { situacao: 'aberta', feita_em: null, feita_por: null };
   const { error } = await sb.from('atividades').update(mud).eq('id', a.id);

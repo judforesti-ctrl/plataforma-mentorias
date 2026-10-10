@@ -53,6 +53,10 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   "Limpar filtros" e a faixa "Filtro ligado: mostrando só…". Com filtro de empresa/tipo/formato a semana não pinta "dia livre"
   (`semLivre`; dia vazio = "Nada com esse filtro neste dia"). Na equipe toda, o mesmo compromisso da agenda pessoal de várias pessoas
   (mesmo título e horário) vira um cartão só com os nomes (`juntarRepetidos` em agenda-semana.js).
+  ATALHOS (2026-10-10, lugar escolhido por ela no print): na linha de "Semana / Quadro por mentor / Planilha", à direita (`.ag-atalhos`),
+  "+ Agendar reunião" (abrirFormReuniao) e "+ Atividade no checklist" (`novaAtividade()` exportada de checklist.js: o mesmo formulário,
+  ali mesmo; depois de criar a agenda se redesenha). Valem nas três vistas; o botão de reunião que ficava na barra da semana da equipe saiu
+  (`agendar: false`) para não repetir. Em Minha agenda do mentor nada mudou.
   PLANILHA (2026-10-10, para a Viviane, que trabalha no Excel online): terceira vista "Planilha" (`telas/agenda-planilha.js`), com a
   cara do Excel: letras das colunas, números das linhas, cabeçalho fixo e, em cada coluna, a setinha do filtro do Excel (classificar
   A→Z/Z→A, "Limpar filtro de…", pesquisar, "(Selecionar tudo)", "(Vazias)", contagem; Data em árvore mês → dia). A lista de cada coluna

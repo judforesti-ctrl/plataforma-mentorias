@@ -143,8 +143,11 @@ async function abaQuadro(ctx, el, d, recarregar) {
   if (est.tipo && !TIPOS_FILTRO.some(([k]) => k === est.tipo)) est.tipo = '';
   const empresas = [...new Map(d.eventos.filter((e) => e.empresaId).map((e) => [e.empresaId, e.empresa])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'pt-BR'));
   el.innerHTML = `
-    <div class="linha ag-filtros">
+    <div class="ag-filtros">
+      <div class="linha ag-linha-vistas">
       <div class="ag-vistas" role="group" aria-label="Como ver a agenda"><button type="button" data-vista="semana">Semana</button><button type="button" data-vista="quadro">Quadro por mentor</button><button type="button" data-vista="planilha" title="Tabela com o filtro do Excel no alto de cada coluna: marque quantos mentores, clientes e tipos quiser">${ICONE_PLANILHA}Planilha</button></div>
+      <div class="ag-atalhos"><button type="button" class="btn reuniao" id="ag-reuniao">+ Agendar reunião</button><button type="button" class="btn escuro" id="ag-atividade">+ Atividade no checklist</button></div>
+      </div>
       <span class="linha ag-selects">
       <select id="f-mentor" aria-label="Mentor"><option value="">Toda a equipe</option>${d.mentores.map((m) => `<option value="${m.id}"${m.id === est.mentor ? ' selected' : ''}>${esc(m.nome)}</option>`).join('')}</select>
       <select id="f-empresa" aria-label="Empresa"><option value="">Todas as empresas</option>${empresas.map(([id, n]) => `<option value="${id}"${id === est.empresa ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select>
@@ -188,7 +191,7 @@ async function abaQuadro(ctx, el, d, recarregar) {
       ? 'O verde de "dia livre" fica desligado enquanto houver filtro de empresa, tipo ou formato.'
       : 'Os períodos livres consideram só o que está filtrado: para ver quem está livre de verdade, clique em "Limpar filtros".'}` : '';
     if (est.vista === 'semana') {
-      vistaSemana(ctx, vista, d, eventos, { mentor: m || null, recarregar, semLivre: filtrando(),
+      vistaSemana(ctx, vista, d, eventos, { mentor: m || null, recarregar, semLivre: filtrando(), agendar: false,   // "+ Agendar reunião" fica no alto (ag-atalhos)
         aoClicarDia: (e, dia) => { const quem = m || d.mentores.find((x) => e.mentores.includes(x.id)); if (quem) abrirDia(ctx, d, quem, dia, recarregar); } });
       return;
     }
@@ -200,6 +203,14 @@ async function abaQuadro(ctx, el, d, recarregar) {
     try { localStorage.setItem(VISTA_CHAVE, est.vista); } catch (_) { /* sem armazenamento */ }
     desenhar();
   }));
+  // atalhos (pedido dela, 2026-10-10): agendar reunião e criar atividade do checklist sem sair da agenda
+  el.querySelector('#ag-reuniao').addEventListener('click', () => abrirFormReuniao(ctx, d, {}, recarregar));
+  el.querySelector('#ag-atividade').addEventListener('click', async (ev) => {
+    const b = ev.currentTarget; b.disabled = true;
+    try { const { novaAtividade } = await import('./checklist.js'); await novaAtividade(ctx, { aoMudar: recarregar }); }
+    catch (e) { avisar(explicarErro(e), true); }
+    b.disabled = false;
+  });
   el.querySelector('#f-limpar').addEventListener('click', () => {
     Object.assign(est, { mentor: '', empresa: '', tipo: '', formato: '' });
     el.querySelectorAll('.ag-filtros select').forEach((s) => { s.value = ''; });
