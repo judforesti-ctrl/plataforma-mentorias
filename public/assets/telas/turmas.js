@@ -3,7 +3,7 @@
 // "#/turma/<id>": dados da turma e módulos. "#/modulo/<id>": tudo o que o mentor precisa para a aula.
 import { sb, esc, avatar, dataBR, dataHoraBR, diaMes, horaBR, autoSalvar, avisar, explicarErro, localParaISO, isoParaLocal } from '../base.js';
 import { ITENS_VIAGEM, QUEM_VIAGEM } from '../agenda-regras.js';
-import { lerQr, cartaoQr, ligarQr } from './qr-avaliacao.js';
+import { cartaoAvaliacao, ligarAvaliacao } from './avaliacao-modulo.js';
 
 const FORMATO = { meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro', indefinido: 'Local a definir' };
 const STATUS = { planejada: ['Planejada', 'neutro'], em_andamento: ['Em andamento', ''], concluida: ['Concluída', 'neutro'], pausada: ['Pausada', 'alerta'] };
@@ -313,10 +313,7 @@ async function paginaModulo(ctx, el, id) {
   const adm = ctx.ehAdmin;
   const souMentor = ministra(m, ctx.perfil.id);
   const podePercepcao = adm || souMentor;
-  const [{ data: equipe }, qr] = await Promise.all([
-    adm ? sb.from('perfis').select('id, nome, atende_grupo').or('papel.eq.mentor,tambem_mentor.eq.true').eq('ativo', true).order('nome') : { data: [] },
-    lerQr(m),
-  ]);
+  const { data: equipe } = adm ? await sb.from('perfis').select('id, nome, atende_grupo').or('papel.eq.mentor,tambem_mentor.eq.true').eq('ativo', true).order('nome') : { data: [] };
   const escolhidos = new Set((m.mentores || []).map((x) => x.mentor && x.mentor.id));
   const arquivos = (m.arquivos || []).slice().sort((a, b) => new Date(b.enviado_em) - new Date(a.enviado_em));
   const oficiais = arquivos.filter((a) => a.tipo === 'oficial');
@@ -387,10 +384,10 @@ async function paginaModulo(ctx, el, id) {
           ${listaArquivos(oficiais, 'Os slides oficiais ainda não foram enviados.')}
           ${adm ? botaoEnvio('oficial', 'Enviar slides oficiais') : ''}
         </div>
-        ${cartaoQr(ctx, m, qr, souMentor)}
+        ${cartaoAvaliacao(ctx, m, souMentor)}
         <div class="cartao"><h3>Slides dos mentores</h3>
           <p class="peq apagado">A versão que ${souMentor ? 'você vai usar' : 'o mentor vai usar'} na aula (PDF ou PowerPoint, até 50 MB).</p>
-          <p class="peq mt">📌 O último slide leva o <a href="#qr-avaliacao" data-ir-qr>QR code de avaliação</a>.</p>
+          <p class="peq mt">📌 O último slide leva o <a href="#avaliacao-turma" data-ir-qr>QR code de avaliação</a>.</p>
           ${listaArquivos(dosMentores, 'Nenhum slide enviado pelos mentores ainda.')}
           ${souMentor || adm ? botaoEnvio('mentor', souMentor ? 'Enviar os meus slides' : 'Enviar slides do mentor') : ''}
           <p class="peq apagado mt" id="progresso"></p>
@@ -471,9 +468,9 @@ async function paginaModulo(ctx, el, id) {
     import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
   });
 
-  // QR code de avaliação (script 30)
-  ligarQr(ctx, el, m, qr, () => ctx.irPara(`#/modulo/${id}`));
-  el.querySelector('[data-ir-qr]')?.addEventListener('click', (ev) => { ev.preventDefault(); el.querySelector('#qr-avaliacao').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
+  // avaliação da turma: QR code feito pela plataforma e respostas do encontro (script 31)
+  ligarAvaliacao(ctx, el, m, souMentor);
+  el.querySelector('[data-ir-qr]')?.addEventListener('click', (ev) => { ev.preventDefault(); el.querySelector('#avaliacao-turma').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 
   // envio de slides
   el.querySelectorAll('[data-enviar]').forEach((inp) => inp.addEventListener('change', async () => {

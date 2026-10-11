@@ -228,16 +228,22 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   de uma vez (reduzidas no navegador: 2000 px + miniatura 480 px) em `turmas/<módulo>/foto/` e `foto-mini/`, linha em
   `modulo_arquivos` com tipo 'foto'. Foto grande com anterior/próxima (setas), Baixar; mentor apaga só as dele. Sem o script 29 a
   tela avisa (administração: "falta rodar o script 29"; mentor: "avise a Cintia"). Os nomes dos mentores no módulo aparecem com foto.
-- QR CODE DE AVALIAÇÃO (2026-10-10, script 30, `telas/qr-avaliacao.js`): pedido dela: no módulo, um lugar para a administração
-  colocar e TROCAR a imagem do QR code de avaliação; os mentores SÓ veem e baixam, para pôr no último slide (ela não mandou o QR:
-  a administração troca quando quiser). Cartão "QR code de avaliação" entre os slides oficiais e os dos mentores, com o aviso fixo
-  "Inclua o QR code de avaliação no último slide", prévia, "Baixar o QR code" (nome "QR code de avaliação - <turma> - Módulo N") e
-  "Copiar o link" (link opcional, para o chat das aulas online). Tabela `qr_avaliacao` com `escopo` modulo | turma | geral (um por
-  nível); o módulo usa o mais específico. A janela "Colocar/Trocar o QR code" escolhe o nível, avisa quando um nível mais
-  específico continua valendo e tem "Tirar" por nível. Imagem em `turmas/avaliacao/<geral|turma-<id>|modulo-<id>>/`; PNG/JPG/WEBP
-  até 5 MB vão como estão, o resto (SVG, foto do iPhone, grande) vira PNG (nunca JPG: borra o QR). O mentor lê a imagem pela regra
-  `turmas_ler_avaliacao` (só o caminho de um QR que ele pode ver). Lembrete também no cartão dos slides dos mentores e uma pergunta
-  ao enviar os slides do mentor ("o QR code está no último slide?"; Cancelar não envia). Sem o script 30 a tela avisa.
+- AVALIAÇÃO DAS TURMAS (2026-10-11, script 31; substitui o Google Forms e o QR colado à mão do script 30, cuja tabela `qr_avaliacao`
+  ficou sem uso). Proposta aprovada: https://claude.ai/artifact/7bBE6Xw7sfgMtnF5tt6JH4. Decisões dela: TUDO ANÔNIMO (não se grava
+  nome, login, IP nem aparelho; nem a Mentorei sabe quem respondeu); o aluno vê no fim a MÉDIA de recomendação 0–10 e o total de
+  avaliações (rpc `avaliacao_contador`); o NPS oficial (−100 a +100) só nos relatórios; comentários vão DIRETO ao mentor (ela não quer
+  ler antes). Ela vai mandar a planilha das respostas antigas do Forms: importar em `avaliacoes` com origem 'google_forms', `formacao`
+  = nome que o aluno escreveu, escalas antigas em `extras` (o NPS antigo ia de 1 a 10, sem o 0).
+  Página pública `public/avaliar.html?m=<módulo>` (sem login; 6 telas: nota geral 0–10, carinhas 1–5 para aula, cada mentor, conteúdo e
+  ferramentas, aprendeu + tempo, NPS 0–10, comentário com pergunta que muda pela nota + atalhos, temas). Grava pela função `/api/avaliar`
+  (`netlify/functions/avaliar.mjs`): aceita do início da aula (−1 h) até 7 dias depois do fim; QR de um módulo de dia anterior cai no
+  módulo da mesma turma que acontece hoje. Textos e contas compartilhados em `public/assets/avaliacao-regras.js`.
+  QR code: desenhado no navegador a partir do link do módulo (`public/assets/vendor/qrcode.js`, qrcode-generator MIT), nada guardado;
+  cartão "Avaliação da turma" no módulo (`telas/avaliacao-modulo.js`): Baixar (PNG 1200×1500 com título e nome do módulo), Copiar o
+  link e o resultado do encontro (mentor vê só a PRÓPRIA nota de mentor pela regra de `avaliacao_mentores`; administração vê cada um).
+  Gestão › Avaliações (`telas/avaliacoes.js`, `#/avaliacoes/<aba>`, só administração): visão geral, por módulo, por mentor,
+  comentários, temas pedidos; filtros período/empresa/turma/mentor; Excel. `avaliacoes-email` (agendada, de hora em hora): 24 h depois
+  do fim do módulo, cada mentor (termo aceito, e-mail real) recebe o resumo com a nota dele; marca `modulos.avaliacao_aviso_em`.
 
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.

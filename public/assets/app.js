@@ -53,6 +53,7 @@ const GRUPOS = [
     { nome: 'Painel', icone: 'layout-dashboard', rota: '#/painel', pode: ehAdmin },
     { nome: 'Mentores', icone: 'graduation-cap', rota: '#/mentores', pode: ehAdmin },
     { nome: 'Checklist', icone: 'list-checks', rota: '#/checklist', pode: ehAdmin || atende },
+    { nome: 'Avaliações', icone: 'star', rota: '#/avaliacoes', pode: ehAdmin },
     { nome: 'Importar planilha', icone: 'file-up', rota: '#/importar', pode: ehAdmin },
     { nome: 'Meu perfil', icone: 'circle-user', rota: '#/perfil', pode: !mentorado },
   ] },
@@ -95,6 +96,7 @@ const ROTAS = {
   vendas: () => import('./telas/vendas.js'),
   checklist: () => import('./telas/checklist.js'),
   'relatorio-turmas': () => import('./telas/relatorio-turmas.js'),
+  avaliacoes: () => import('./telas/avaliacoes.js'),
 };
 
 // Marca no menu a página atual e devolve o caminho "Grupo › Página" (escondido no primeiro acesso, quando o menu fica escondido).

@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Avalie o encontro · Mentorei</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#091216">
+<link rel="icon" href="/assets/simbolo-m.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --petroleo: #091216; --bege-escuro: #9C7D4C; --bege: #C8AE7C; --bege-claro: #EFE4CF; --bege-texto: #6B5330;
+    --fundo: #EAE1D0; --papel: #FFFFFF; --faixa: #F7F3EC; --linha: #D9CEB9; --texto: #0E171B; --apagado: #5F686D; --erro: #B2322A;
+    --f-titulo: 'Manrope', 'Poppins', Arial, sans-serif; --f-texto: 'Inter', Arial, sans-serif; color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--fundo); color: var(--texto); font-family: var(--f-texto); font-size: 15px; line-height: 1.5; min-height: 100vh; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--bege-escuro); outline-offset: 2px; border-radius: 8px; }
+  .caixa { max-width: 480px; margin: 0 auto; padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  .cartao { background: var(--papel); border-radius: 22px; box-shadow: 0 12px 32px rgba(9,18,22,.10); overflow: hidden; display: flex; flex-direction: column; min-height: min(640px, calc(100vh - 40px)); }
+  .topo { background: var(--petroleo); padding: 14px 18px 12px; display: grid; gap: 10px; }
+  .topo-linha { display: flex; justify-content: space-between; align-items: center; color: #C6CFD3; font-size: 12.5px; }
+  .topo img { height: 17px; width: auto; display: block; }
+  .progresso { height: 6px; background: #22383F; border-radius: 99px; overflow: hidden; }
+  .progresso i { display: block; height: 100%; width: 0; background: var(--bege); transition: width .35s ease; }
+  .corpo { flex: 1; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+  .passo { display: flex; flex-direction: column; gap: 14px; flex: 1; animation: entra .3s ease; }
+  @keyframes entra { from { opacity: .3; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .passo { animation: none; } .progresso i, .contador .barra i { transition: none !important; } }
+  h1 { font-family: var(--f-titulo); font-size: 22px; line-height: 1.25; margin: 0; letter-spacing: -.02em; text-wrap: balance; }
+  p { margin: 0; }
+  .ajuda { font-size: 13.5px; color: var(--apagado); }
+  .encontro { background: var(--faixa); border: 1px solid var(--linha); border-radius: 14px; padding: 14px; display: grid; gap: 5px; }
+  .encontro .emp { font-size: 12.5px; color: var(--apagado); }
+  .encontro .tit { font-family: var(--f-titulo); font-weight: 800; font-size: 17px; line-height: 1.3; }
+  .mentores { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+  .mentor { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; }
+  .rosto { width: 34px; height: 34px; border-radius: 50%; background: var(--bege-escuro); color: #fff; display: grid; place-items: center; font-weight: 800; font-size: 14px; overflow: hidden; flex: none; }
+  .rosto.p { width: 26px; height: 26px; font-size: 12px; }
+  .rosto img { width: 100%; height: 100%; object-fit: cover; }
+  .selos { display: flex; gap: 8px; flex-wrap: wrap; }
+  .selo { font-size: 12.5px; font-weight: 600; background: var(--bege-claro); color: var(--bege-texto); border-radius: 999px; padding: 4px 11px; }
+  .notas { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+  .nota { aspect-ratio: 1; border: 1.5px solid var(--linha); background: var(--papel); border-radius: 12px; font-family: var(--f-titulo); font-weight: 800; font-size: 18px; cursor: pointer; font-variant-numeric: tabular-nums; touch-action: manipulation; }
+  .nota.marcada { background: var(--petroleo); color: #fff; border-color: var(--petroleo); }
+  .legenda { display: flex; justify-content: space-between; font-size: 12px; color: var(--apagado); }
+  .linha-cara { display: grid; gap: 7px; padding: 10px 0; border-bottom: 1px solid var(--linha); }
+  .linha-cara:last-child { border-bottom: 0; }
+  .qual { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
+  .qual small { font-weight: 400; color: var(--apagado); font-size: 12.5px; }
+  .caras { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .cara { border: 1.5px solid var(--linha); background: var(--papel); border-radius: 12px; font-size: 25px; padding: 7px 0; cursor: pointer; line-height: 1; filter: grayscale(.7); opacity: .75; touch-action: manipulation; }
+  .cara.marcada { filter: none; opacity: 1; border-color: var(--bege-escuro); background: var(--bege-claro); transform: scale(1.06); }
+  .fichas { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ficha { border: 1.5px solid var(--linha); background: var(--papel); border-radius: 999px; padding: 8px 14px; font-size: 14px; cursor: pointer; font-weight: 500; touch-action: manipulation; }
+  .ficha.marcada { background: var(--petroleo); border-color: var(--petroleo); color: #fff; }
+  .subtit { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--apagado); }
+  textarea, input[type=text] { width: 100%; border: 1.5px solid var(--linha); border-radius: 12px; padding: 11px 12px; font: inherit; font-size: 15px; background: var(--papel); color: var(--texto); }
+  textarea { min-height: 100px; resize: vertical; }
+  .botoes { margin-top: auto; display: flex; gap: 10px; align-items: center; padding-top: 6px; }
+  .btn { border: 0; border-radius: 12px; padding: 14px 18px; font-weight: 700; font-size: 16px; cursor: pointer; background: var(--petroleo); color: #fff; flex: 1; touch-action: manipulation; }
+  .btn[disabled] { opacity: .35; cursor: not-allowed; }
+  .leve { background: transparent; border: 0; color: var(--apagado); font-weight: 600; cursor: pointer; padding: 14px 8px; font-size: 14.5px; }
+  .fim { text-align: center; align-items: center; justify-content: center; }
+  .contador { background: var(--petroleo); color: #fff; border-radius: 18px; padding: 20px 16px; width: 100%; display: grid; gap: 4px; }
+  .contador .num { font-family: var(--f-titulo); font-size: 60px; font-weight: 800; color: var(--bege); line-height: 1; font-variant-numeric: tabular-nums; }
+  .contador .num small { font-size: 22px; color: #9FB0B6; }
+  .contador .leg { font-size: 13.5px; color: #C6CFD3; }
+  .contador .barra { height: 8px; background: #22383F; border-radius: 99px; overflow: hidden; margin-top: 8px; }
+  .contador .barra i { display: block; height: 100%; width: 0; background: var(--bege); transition: width 1.4s ease; }
+  .frase { font-size: 14px; color: var(--apagado); max-width: 34ch; }
+  .erro { color: var(--erro); font-size: 14px; }
+  .carregando { color: var(--apagado); margin: auto; }
+</style>
+</head>
+<body>
+<main class="caixa">
+  <div class="cartao">
+    <div class="topo">
+      <div class="topo-linha"><img src="/assets/logo-clara.png" alt="Mentorei"><span id="conta"></span></div>
+      <div class="progresso"><i id="barra"></i></div>
+    </div>
+    <div class="corpo" id="corpo" aria-live="polite"><p class="carregando">Carregando…</p></div>
+  </div>
+</main>
+<script type="module">
+import { CARAS, POSITIVOS, MELHORAR, TEMAS, APRENDEU, TEMPO, num1 } from '/assets/avaliacao-regras.js';
+
+const corpo = document.getElementById('corpo'), barra = document.getElementById('barra'), conta = document.getElementById('conta');
+const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const idPedido = new URLSearchParams(location.search).get('m') || '';
+const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (_) { /* aparelho sem memória do navegador: segue sem */ } };
+const ler = (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } };
+const TOTAL = 6;   // telas de perguntas
+let mod = null, passo = 0, enviando = false;
+const s = { geral: null, partes: {}, mentores: {}, aprendeu: null, tempo: null, nps: null, marcas: [], comentario: '', temas: [], outro: '' };
+
+const rosto = (m, p) => `<span class="rosto${p ? ' p' : ''}">${m.foto ? `<img src="${esc(m.foto)}" alt="">` : esc((m.nome || '?')[0])}</span>`;
+const dataBR = (iso) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' });
+
+function mensagem(titulo, texto) {
+  barra.style.width = '0'; conta.textContent = '';
+  corpo.innerHTML = `<div class="passo fim"><h1>${esc(titulo)}</h1><p class="frase">${texto}</p></div>`;
+}
+function grade(v, campo) {
+  let h = '<div class="notas">';
+  for (let i = 0; i <= 10; i++) h += `<button type="button" class="nota${v === i ? ' marcada' : ''}" data-nota="${campo}" data-v="${i}" aria-label="Nota ${i}">${i}</button>`;
+  return `${h}</div><div class="legenda"><span>0 = nada</span><span>10 = totalmente</span></div>`;
+}
+const fichas = (lista, marcadas, grupo) => `<div class="fichas">${lista.map((t) => `<button type="button" class="ficha${marcadas.includes(t) ? ' marcada' : ''}" data-ficha="${grupo}" data-v="${esc(t)}" aria-pressed="${marcadas.includes(t)}">${esc(t)}</button>`).join('')}</div>`;
+const opcoes = (mapa, atual, grupo) => `<div class="fichas">${Object.entries(mapa).map(([k, t]) => `<button type="button" class="ficha${atual === k ? ' marcada' : ''}" data-opcao="${grupo}" data-v="${k}" aria-pressed="${atual === k}">${t}</button>`).join('')}</div>`;
+function linhaCaras(onde, chave, titulo, extra) {
+  const v = s[onde][chave];
+  return `<div class="linha-cara"><div class="qual">${titulo}${extra ? ` <small>${extra}</small>` : ''}</div><div class="caras">${CARAS.map((c, i) =>
+    `<button type="button" class="cara${v === i + 1 ? ' marcada' : ''}" data-onde="${onde}" data-chave="${chave}" data-v="${i + 1}" aria-label="${i + 1} de 5">${c}</button>`).join('')}</div></div>`;
+}
+const botoes = (pode, texto = 'Continuar', pular = false) => `<div class="botoes">${passo > 1 ? '<button type="button" class="leve" data-acao="voltar">Voltar</button>' : ''}${pular ? '<button type="button" class="leve" data-acao="seguir">Pular</button>' : ''}<button type="button" class="btn" data-acao="seguir"${pode ? '' : ' disabled'}>${texto}</button></div>`;
+
+function desenhar() {
+  barra.style.width = `${Math.round((passo / TOTAL) * 100)}%`;
+  conta.textContent = passo === 0 ? 'Leva menos de 1 minuto' : `${passo} de ${TOTAL}`;
+  const ms = mod.mentores;
+  let h = '';
+  if (passo === 0) {
+    h = `<h1>Como foi o encontro de hoje?</h1>
+      <div class="encontro"><span class="emp">${esc([mod.empresa, mod.turma].filter(Boolean).join(' · '))}</span>
+        <span class="tit">Módulo ${mod.numero} · ${esc(mod.titulo)}</span>${mod.data_hora ? `<span class="emp">${dataBR(mod.data_hora)}</span>` : ''}
+        ${ms.length ? `<div class="mentores">${ms.map((m) => `<span class="mentor">${rosto(m)}${esc(m.nome)}</span>`).join('')}</div>` : ''}</div>
+      <p class="ajuda">A sua opinião ajuda a Mentorei e ${ms.length > 1 ? 'os mentores' : ms.length ? 'o(a) mentor(a)' : 'a equipe'} a melhorar a cada encontro.</p>
+      <div class="selos"><span class="selo">Menos de 1 minuto</span><span class="selo">Anônimo</span></div>
+      <div class="botoes"><button type="button" class="btn" data-acao="seguir">Começar</button></div>`;
+  } else if (passo === 1) {
+    h = `<h1>No geral, que nota você dá para o encontro de hoje?</h1>${grade(s.geral, 'geral')}<p class="ajuda">Toque numa nota para seguir.</p>${botoes(s.geral !== null)}`;
+  } else if (passo === 2) {
+    const ok = s.partes.aula && s.partes.conteudo && s.partes.ferramentas && ms.every((m) => s.mentores[m.id]);
+    h = `<h1>Agora, rapidinho, cada parte:</h1><div>${linhaCaras('partes', 'aula', 'A aula', 'ritmo e dinâmica')}
+      ${ms.map((m) => linhaCaras('mentores', m.id, `${rosto(m, true)}${esc(m.nome)}`, 'mentor(a)')).join('')}
+      ${linhaCaras('partes', 'conteudo', 'O conteúdo', 'dá para usar no dia a dia?')}${linhaCaras('partes', 'ferramentas', 'Ferramentas e materiais')}</div>${botoes(ok)}`;
+  } else if (passo === 3) {
+    h = `<h1>Duas perguntinhas de um toque</h1><span class="subtit">Quanto você aprendeu de novo hoje?</span>${opcoes(APRENDEU, s.aprendeu, 'aprendeu')}
+      <span class="subtit">O tempo do encontro foi…</span>${opcoes(TEMPO, s.tempo, 'tempo')}${botoes(s.aprendeu && s.tempo)}`;
+  } else if (passo === 4) {
+    h = `<h1>De 0 a 10, quanto você indicaria a Mentorei para um amigo ou colega?</h1>${grade(s.nps, 'nps')}${botoes(s.nps !== null)}`;
+  } else if (passo === 5) {
+    const g = s.geral == null ? 10 : s.geral;
+    const titulo = g >= 9 ? 'Que bom! O que mais fez diferença para você?' : g >= 7 ? 'O que faltou para ser nota 10?' : 'Poxa. Conta pra gente o que não funcionou?';
+    const lista = g >= 9 ? POSITIVOS : [...MELHORAR, ...POSITIVOS.slice(0, 2)];
+    const dica = g >= 9 ? 'Ex.: amanhã já vou usar… / um recado para quem conduziu' : 'Ex.: eu gostaria que… / da próxima vez, seria bom…';
+    h = `<h1>${titulo}</h1><span class="subtit">Toque no que combina</span>${fichas(lista, s.marcas, 'marcas')}
+      <label class="subtit" for="comentario">Quer contar mais? ${ms.length ? (ms.length > 1 ? '(os mentores leem, sem saber quem escreveu)' : '(quem conduziu lê, sem saber quem escreveu)') : ''}</label>
+      <textarea id="comentario" maxlength="3000" placeholder="${dica}">${esc(s.comentario)}</textarea>${botoes(true)}`;
+  } else if (passo === 6) {
+    const comOutro = s.temas.includes('Outro');
+    h = `<h1>Que tema você gostaria de aprender depois?</h1><p class="ajuda">Pode escolher mais de um.</p>${fichas([...TEMAS, 'Outro'], s.temas, 'temas')}
+      ${comOutro ? '<input type="text" id="outro" maxlength="70" placeholder="Qual tema?" value="' + esc(s.outro) + '">' : ''}
+      <p class="erro" id="erro" role="alert"></p>${botoes(!enviando, enviando ? 'Enviando…' : 'Enviar avaliação')}`;
+  }
+  corpo.innerHTML = `<div class="passo">${h}</div>`;
+}
+
+function lerCampos() {
+  const c = document.getElementById('comentario'); if (c) s.comentario = c.value;
+  const o = document.getElementById('outro'); if (o) s.outro = o.value;
+}
+
+async function enviar() {
+  enviando = true; desenhar();
+  const temas = s.temas.filter((t) => t !== 'Outro');
+  if (s.temas.includes('Outro') && s.outro.trim()) temas.push(`Outro: ${s.outro.trim()}`);
+  try {
+    const r = await fetch('/api/avaliar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      m: idPedido, geral: s.geral, aula: s.partes.aula, conteudo: s.partes.conteudo, ferramentas: s.partes.ferramentas, mentores: s.mentores,
+      aprendeu: s.aprendeu, tempo: s.tempo, nps: s.nps, marcas: s.marcas, comentario: s.comentario, temas }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.mensagem || 'Não conseguimos enviar agora. Tente de novo em instantes.');
+    guardar(`mentorei.avaliado.${mod.id}`, '1');
+    obrigado(j.contador);
+  } catch (e) {
+    enviando = false; desenhar();
+    document.getElementById('erro').textContent = e.message || 'Sem conexão. Tente de novo em instantes.';
+  }
+}
+
+function obrigado(c) {
+  barra.style.width = '100%'; conta.textContent = 'Pronto!';
+  const tem = c && c.media != null && c.total > 0;
+  corpo.innerHTML = `<div class="passo fim">
+    <h1>Obrigada por avaliar!</h1>
+    <p class="frase">Você também faz parte do desenvolvimento da Mentorei. Cada resposta muda o próximo encontro.</p>
+    ${tem ? `<div class="contador"><span class="leg">Nossa nota de recomendação hoje</span>
+      <span class="num"><span id="num">0,0</span><small> / 10</small></span><div class="barra"><i id="nbarra"></i></div>
+      <span class="leg">de ${c.total.toLocaleString('pt-BR')} ${c.total === 1 ? 'avaliação' : 'avaliações'}</span></div>
+      <p class="frase">Esse número é a nossa bússola: é olhando para ele que decidimos o que manter e o que melhorar.</p>` : ''}
+  </div>`;
+  if (!tem) return;
+  const alvo = c.media, n = document.getElementById('num'), b = document.getElementById('nbarra');
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { n.textContent = num1(alvo); b.style.width = `${alvo * 10}%`; return; }
+  requestAnimationFrame(() => { b.style.width = `${alvo * 10}%`; });
+  setTimeout(() => { n.textContent = num1(alvo); b.style.width = `${alvo * 10}%`; }, 1600);   // se a animação não rodar (aba em segundo plano)
+  const t0 = performance.now();
+  (function quadro(t) {
+    const p = Math.min(1, (t - t0) / 1400);
+    n.textContent = num1(alvo * (1 - Math.pow(1 - p, 3)));
+    if (p < 1) requestAnimationFrame(quadro);
+  })(t0);
+}
+
+corpo.addEventListener('click', (ev) => {
+  const b = ev.target.closest('button'); if (!b || !mod) return;
+  lerCampos();
+  if (b.dataset.nota) { s[b.dataset.nota] = Number(b.dataset.v); desenhar(); setTimeout(() => { passo += 1; desenhar(); }, 260); return; }
+  if (b.dataset.onde) { s[b.dataset.onde][b.dataset.chave] = Number(b.dataset.v); desenhar(); return; }
+  if (b.dataset.opcao) { s[b.dataset.opcao] = b.dataset.v; desenhar(); return; }
+  if (b.dataset.ficha) {
+    const l = s[b.dataset.ficha], i = l.indexOf(b.dataset.v);
+    if (i >= 0) l.splice(i, 1); else l.push(b.dataset.v);
+    desenhar(); return;
+  }
+  if (b.dataset.acao === 'voltar') { passo = Math.max(0, passo - 1); desenhar(); return; }
+  if (b.dataset.acao === 'seguir' && !b.disabled) { if (passo === TOTAL) enviar(); else { passo += 1; desenhar(); } return; }
+  if (b.dataset.acao === 'outra') { passo = 0; desenhar(); }
+});
+
+(async () => {
+  try {
+    const r = await fetch(`/api/avaliar?m=${encodeURIComponent(idPedido)}`);
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.mensagem || 'Não conseguimos abrir a avaliação.');
+    mod = j.modulo;
+    if (j.estado === 'fechada') return mensagem('Avaliação encerrada', 'A avaliação deste encontro já foi encerrada. Obrigada pela vontade de ajudar!');
+    if (j.estado === 'cedo') return mensagem('Ainda não começou', `A avaliação deste encontro abre no dia${mod.data_hora ? ` ${dataBR(mod.data_hora)}` : ' da aula'}. Volte depois da aula!`);
+    if (ler(`mentorei.avaliado.${mod.id}`)) {
+      barra.style.width = '100%'; conta.textContent = '';
+      corpo.innerHTML = `<div class="passo fim"><h1>Você já avaliou este encontro</h1><p class="frase">Obrigada! A sua resposta já chegou.</p>
+        <button type="button" class="leve" data-acao="outra">Outra pessoa vai avaliar neste celular</button></div>`;
+      return;
+    }
+    desenhar();
+  } catch (e) {
+    mensagem('Não deu para abrir', `${esc(e.message)}<br><br>Se precisar, fale com a Mentorei: contato@mentorei.com.br.`);
+  }
+})();
+</script>
+</body>
+</html>
