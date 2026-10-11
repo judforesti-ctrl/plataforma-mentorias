@@ -3,6 +3,7 @@
 // interno e não sai). Roda em segundo plano: a tela acompanha relatorios_turmas.status (gerando → rascunho | erro).
 // Com "ajustes", a IA muda o texto atual só no que foi pedido. Só a administração usa.
 import Anthropic from '@anthropic-ai/sdk';
+import { motivoClaude } from '../lib/claude-erro.mjs';
 import { supa, env, SUPABASE_URL } from '../lib/google.mjs';
 
 export const config = { path: '/api/relatorio-turmas-gerar', background: true };
@@ -138,8 +139,7 @@ export default async (req) => {
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return falhar('A chave do Claude na Netlify não está valendo.');
     if (e instanceof Anthropic.RateLimitError) return falhar('Muitos pedidos ao mesmo tempo. Espere um minuto e tente de novo.');
-    if (e instanceof Anthropic.APIError && e.status === 402) return falhar('Acabaram os créditos da conta do Claude. Coloque créditos no console da Anthropic.');
-    if (e instanceof Anthropic.APIError) return falhar(`O Claude respondeu com erro (${e.status}). Tente de novo.`);
+    if (e instanceof Anthropic.APIError) return falhar(motivoClaude(e));
     return falhar('Não foi possível falar com o Claude agora. Tente de novo.');
   }
 

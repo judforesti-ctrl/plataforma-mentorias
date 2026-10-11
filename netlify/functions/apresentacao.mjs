@@ -1,6 +1,7 @@
 // Escreve, com o Claude, o resumo de apresentação do mentor para os mentorados, a partir da trajetória que ele preencheu.
 // Não grava nada: o mentor lê, ajusta e aprova na tela "Meu perfil".
 import Anthropic from '@anthropic-ai/sdk';
+import { motivoClaude } from '../lib/claude-erro.mjs';
 
 export const config = { path: '/api/apresentacao', method: 'POST' };
 
@@ -71,7 +72,7 @@ export default async (req) => {
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return resposta({ mensagem: 'A chave do Claude na Netlify não está valendo. Confira a ANTHROPIC_API_KEY.' }, 500);
     if (e instanceof Anthropic.RateLimitError) return resposta({ mensagem: 'Muitos pedidos ao mesmo tempo. Espere um minuto e tente de novo.' }, 429);
-    if (e instanceof Anthropic.APIError) return resposta({ mensagem: `O Claude respondeu com erro (${e.status}). Tente de novo.` }, 502);
+    if (e instanceof Anthropic.APIError) return resposta({ mensagem: motivoClaude(e) }, 502);
     return resposta({ mensagem: 'Não foi possível falar com o Claude agora. Tente de novo.' }, 502);
   }
 };

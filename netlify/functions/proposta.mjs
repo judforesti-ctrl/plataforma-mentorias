@@ -2,6 +2,7 @@
 // Roda em segundo plano (pode levar mais de um minuto): o resultado vai para a tabela importacoes_proposta,
 // que a tela "Importar proposta" acompanha. Só a administração usa.
 import Anthropic from '@anthropic-ai/sdk';
+import { motivoClaude } from '../lib/claude-erro.mjs';
 
 export const config = { path: '/api/proposta', background: true };
 
@@ -148,7 +149,7 @@ export default async (req) => {
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return falhar('A chave do Claude na Netlify não está valendo.');
     if (e instanceof Anthropic.RateLimitError) return falhar('Muitos pedidos ao mesmo tempo. Espere um minuto e tente de novo.');
-    if (e instanceof Anthropic.APIError) return falhar(`O Claude respondeu com erro (${e.status}). Tente de novo.`);
+    if (e instanceof Anthropic.APIError) return falhar(motivoClaude(e));
     return falhar('Não foi possível falar com o Claude agora. Tente de novo.');
   }
 };

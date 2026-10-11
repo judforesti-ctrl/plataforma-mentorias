@@ -4,6 +4,7 @@
 // O que a tela escolhe e a IA NÃO mexe fica em conteudo: modelo (claro/escuro), precos, pagamento, validade_dias e logo.
 // As páginas institucionais (números da Mentorei, sócias, contatos) são fixas no modelo. Só a administração usa.
 import Anthropic from '@anthropic-ai/sdk';
+import { motivoClaude } from '../lib/claude-erro.mjs';
 import { supa, env } from '../lib/google.mjs';
 import { lerProposta, montarEGuardar, OPCOES_DA_TELA, separarOpcoes, temTexto } from '../lib/propostas.mjs';
 import { resumoPreco, precosValidos, valorDaProposta, ICONES } from '../../public/assets/proposta-comum.js';
@@ -137,7 +138,7 @@ export default async (req) => {
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return falhar('A chave do Claude na Netlify não está valendo.');
     if (e instanceof Anthropic.RateLimitError) return falhar('Muitos pedidos ao mesmo tempo. Espere um minuto e tente de novo.');
-    if (e instanceof Anthropic.APIError) return falhar(`O Claude respondeu com erro (${e.status}). Tente de novo.`);
+    if (e instanceof Anthropic.APIError) return falhar(motivoClaude(e));
     return falhar('Não foi possível falar com o Claude agora. Tente de novo.');
   }
 

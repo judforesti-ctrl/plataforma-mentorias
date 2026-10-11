@@ -5,6 +5,7 @@
 // administração confere na tela antes de colocar. Roda em segundo plano (pode levar mais de um minuto).
 // Ao contrário de /api/proposta, NÃO cria oportunidade no pipeline de vendas (a turma já existe).
 import Anthropic from '@anthropic-ai/sdk';
+import { motivoClaude } from '../lib/claude-erro.mjs';
 import { supa, env, quemPede } from '../lib/google.mjs';
 
 export const config = { path: '/api/proposta-modulos', background: true };
@@ -107,7 +108,7 @@ export default async (req) => {
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return falhar('A chave do Claude na Netlify não está valendo.');
     if (e instanceof Anthropic.RateLimitError) return falhar('Muitos pedidos ao mesmo tempo. Espere um minuto e tente de novo.');
-    if (e instanceof Anthropic.APIError) return falhar(`O Claude respondeu com erro (${e.status}). Tente de novo.`);
+    if (e instanceof Anthropic.APIError) return falhar(motivoClaude(e));
     return falhar('Não foi possível falar com o Claude agora. Tente de novo.');
   }
 };
