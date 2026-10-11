@@ -1,7 +1,7 @@
 // Gera o conteúdo de uma proposta comercial com o Claude a partir do pedido colado na tela (só o conteúdo: público,
-// objetivos, módulos...), nos moldes dos modelos de PowerPoint da Mentorei, e monta o arquivo. Roda em segundo plano
+// objetivos, módulos...), nos moldes do modelo de PowerPoint da Mentorei, e monta o arquivo. Roda em segundo plano
 // (pode levar mais de um minuto): a tela acompanha a linha da tabela propostas (status gerando → rascunho | erro).
-// O que a tela escolhe e a IA NÃO mexe fica em conteudo: modelo (claro/escuro), precos, pagamento, validade_dias e logo.
+// O que a tela escolhe e a IA NÃO mexe fica em conteudo: precos, pagamento, validade_dias e logo.
 // As páginas institucionais (números da Mentorei, sócias, contatos) são fixas no modelo. Só a administração usa.
 import Anthropic from '@anthropic-ai/sdk';
 import { motivoClaude } from '../lib/claude-erro.mjs';
@@ -150,7 +150,7 @@ export default async (req) => {
     return falhar('Não foi possível falar com o Claude agora. Tente de novo.');
   }
 
-  // o que a tela escolheu (modelo, preços, pagamento, validade, logo) volta por cima do que a IA escreveu
+  // o que a tela escolheu (preços, pagamento, validade, logo) volta por cima do que a IA escreveu
   const conteudo = { ...gerado, versao: 2 };
   for (const k of OPCOES_DA_TELA) if (opcoes[k] !== undefined) conteudo[k] = opcoes[k];
   const valor = valorDaProposta(conteudo.precos);

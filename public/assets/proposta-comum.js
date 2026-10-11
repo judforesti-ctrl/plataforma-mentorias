@@ -1,9 +1,6 @@
 // Regras puras das propostas geradas pela IA, usadas pela tela (telas/proposta.js) e pelo montador do PowerPoint
-// (netlify/lib/proposta-pptx.mjs): modelos de apresentação, formas de cobrança do investimento, ícones que a IA pode
+// (netlify/lib/proposta-pptx.mjs): formas de cobrança do investimento, ícones que a IA pode
 // escolher e a conversão das propostas antigas (modelo provisório) para o formato atual.
-
-export const MODELOS = { clara: 'Claro', escura: 'Escuro' };
-export const MODELO_PADRAO = 'clara';
 
 // Forma de cobrança: [texto ao lado do valor, singular, plural da quantidade]
 export const COBRANCA = {
@@ -78,7 +75,7 @@ export const precosValidos = (lista) => (Array.isArray(lista) ? lista : []).filt
 // Valor da proposta para o funil de vendas: o total da primeira opção (quando dá para calcular).
 export const valorDaProposta = (lista) => { const p = precosValidos(lista); return p.length ? totalDe(p[0]) : null; };
 
-// Ícones dos modelos que a IA pode escolher (o desenho vem do próprio modelo, nas cores de cada um).
+// Ícones que a IA pode escolher (o desenho vem do próprio modelo).
 export const ICONES = {
   banco: 'banco / instituição', conversa: 'conversa / comunicação', crescimento: 'gráfico subindo / resultado',
   quebra_cabeca: 'quebra-cabeça / encaixe', pessoa_lupa: 'pessoa com lupa / conhecer o cliente', aperto_de_maos: 'aperto de mãos / negociação',

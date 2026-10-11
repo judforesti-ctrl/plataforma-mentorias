@@ -1,4 +1,4 @@
-// Proposta gerada pela IA (Vendas): escolhe o modelo (claro ou escuro), escreve o conteúdo, digita os preços numa caixa
+// Proposta gerada pela IA (Vendas): escreve o conteúdo, digita os preços numa caixa
 // separada (por módulo, mentoria individual, turma, grupo, pessoa, valor fechado ou outro) e, se quiser, envia o logo do
 // cliente → a IA escreve nos moldes do PowerPoint da Mentorei (em segundo plano; números da Mentorei, sócias e contatos
 // são fixos no modelo) → revisão e edição → aprovação (Cintia) → envio do arquivo por e-mail (anexo) ou WhatsApp →
@@ -7,7 +7,7 @@ import { sb, esc, dataBR, dataHoraBR, hojeISO, avisar, explicarErro } from '../b
 import { janela, api, primeiroNome, faltaScript, limparCache, avisarGoogle } from './agenda-dados.js';
 import { dinheiro, SERVICOS, retornoEm4Dias, linkWhats, limparFone, preencher, ANTES_DA_PROPOSTA } from './vendas.js';
 import {
-  MODELOS, MODELO_PADRAO, COBRANCA_ROTULO, descreverPreco, resumoPreco, precosValidos, valorDaProposta, numero, ICONES,
+  COBRANCA_ROTULO, descreverPreco, resumoPreco, precosValidos, valorDaProposta, numero, ICONES,
   normalizarConteudo, topicoDe,
 } from '../proposta-comum.js';
 
@@ -19,11 +19,7 @@ const SEL = '*, enviada_para_contato:contatos!propostas_enviada_para_fkey(nome),
 const temTexto = (c) => !!(c && c.capa && (c.modulos || c.demanda));
 const validadeDe = (dias, base) => { const n = Number(dias) || 0; if (!n) return null; const d = new Date(base || Date.now()); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 
-// ---------- peças da tela: modelo, preços e logo ----------
-const escolhaModelo = (atual, bloqueado) => `<div class="modelos-prop">${Object.entries(MODELOS).map(([k, nome]) => `
-  <label class="modelo-prop"><input type="radio" name="modelo" value="${k}"${k === atual ? ' checked' : ''}${bloqueado ? ' disabled' : ''}>
-    <img src="/assets/propostas/capa-${k}.jpg" alt="Capa no modelo ${nome.toLowerCase()}"><span>Modelo ${nome.toLowerCase()}</span></label>`).join('')}</div>`;
-const modeloEscolhido = (raiz) => (raiz.querySelector('input[name=modelo]:checked') || {}).value || MODELO_PADRAO;
+// ---------- peças da tela: preços e logo ----------
 
 const PRECO_VAZIO = () => ({ nome: '', cobranca: 'pessoa', outro: '', valor: '', quantidade: '', detalhe: '' });
 const EXEMPLO_QTD = { modulo: 'Ex.: 4', individual: 'Ex.: 6 mentorados', turma: 'Ex.: 2', grupo: 'Ex.: 3', pessoa: 'Ex.: 20', outro: 'Ex.: 3' };
@@ -161,11 +157,10 @@ export async function janelaGerar(ctx, o, quantas, aoCriar) {
   const anterior = await logoAnterior(o.empresa_id);
   const html = `<form id="f-g" class="grade" style="gap:16px" novalidate>
     <p class="peq apagado">Escreva só o conteúdo. Os números da Mentorei, as sócias e os contatos já entram sozinhos, e o valor vai na caixa de preços. Depois você revisa, aprova e envia daqui mesmo.</p>
-    <div class="campo"><label>1. Modelo da apresentação</label>${escolhaModelo(MODELO_PADRAO)}</div>
-    <div class="campo"><label for="g-pedido">2. Conteúdo da proposta *</label><textarea id="g-pedido" style="min-height:220px" placeholder="Ex.: Mentoria em grupo para a Cooperativa X. Público: coordenadores de agência (25 pessoas). Objetivo: ... Dores: ... Formato: 4 encontros online de 4 horas, quinzenais. Temas: ... Conduz: Claudia. Datas: a definir."></textarea>
+    <div class="campo"><label for="g-pedido">1. Conteúdo da proposta *</label><textarea id="g-pedido" style="min-height:220px" placeholder="Ex.: Mentoria em grupo para a Cooperativa X. Público: coordenadores de agência (25 pessoas). Objetivo: ... Dores: ... Formato: 4 encontros online de 4 horas, quinzenais. Temas: ... Conduz: Claudia. Datas: a definir."></textarea>
       <small>Quanto mais detalhes (público, objetivo, dores, formato, carga horária, temas, quem conduz, datas), mais pronta a proposta sai. O que faltar fica como "a definir".</small></div>
-    <div class="campo"><label>3. Investimento</label><div id="g-precos"></div></div>
-    <div class="campo"><label>4. Logo do cliente (opcional)</label><div id="g-logo"></div></div>
+    <div class="campo"><label>2. Investimento</label><div id="g-precos"></div></div>
+    <div class="campo"><label>3. Logo do cliente (opcional)</label><div id="g-logo"></div></div>
     <div class="linha"><button class="btn pri" type="submit">✨ Gerar proposta (versão ${quantas + 1})</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`;
   const j = janela('Gerar proposta com a IA', html, { largura: 820 });
   const precos = blocoPrecos(j.corpo.querySelector('#g-precos'), { precos: [], validade_dias: 30 });
@@ -175,14 +170,14 @@ export async function janelaGerar(ctx, o, quantas, aoCriar) {
     const pedido = j.corpo.querySelector('#g-pedido').value.trim();
     if (pedido.length < 20) { avisar('Escreva o conteúdo da proposta (pelo menos algumas linhas).', true); return; }
     const inv = precos.ler();
-    const conteudo = { modelo: modeloEscolhido(j.corpo), precos: inv.precos, pagamento: inv.pagamento, validade_dias: inv.validade_dias, logo: logo.ler() };
+    const conteudo = { precos: inv.precos, pagamento: inv.pagamento, validade_dias: inv.validade_dias, logo: logo.ler() };
     const valor = valorDaProposta(inv.precos);
     const b = ev.currentTarget.querySelector('button[type=submit]'); b.disabled = true; b.textContent = 'Enviando para a IA…';
     const { data, error } = await sb.from('propostas').insert({ oportunidade_id: o.id, versao: quantas + 1, status: 'gerando', pedido, conteudo, valor: valor != null ? valor : o.valor, validade: validadeDe(inv.validade_dias) }).select('id').single();
     if (error) { avisar(faltaScript(error) ? AVISO_SCRIPT : explicarErro(error), true); b.disabled = false; b.textContent = '✨ Gerar proposta'; return; }
     const r = await api('/api/proposta-gerar', { proposta_id: data.id });
     if (!r.ok) { await sb.from('propostas').update({ status: 'erro', erro: r.mensagem || 'O servidor não aceitou o pedido.' }).eq('id', data.id); }
-    await sb.from('interacoes').insert({ oportunidade_id: o.id, tipo: 'sistema', texto: `Proposta (versão ${quantas + 1}) pedida à IA · modelo ${MODELOS[conteudo.modelo].toLowerCase()}${inv.precos.length ? ` · ${inv.precos.map(resumoPreco).join(' | ')}` : ''}.` });
+    await sb.from('interacoes').insert({ oportunidade_id: o.id, tipo: 'sistema', texto: `Proposta (versão ${quantas + 1}) pedida à IA${inv.precos.length ? ` · ${inv.precos.map(resumoPreco).join(' | ')}` : ''}.` });
     j.fechar(); if (aoCriar) aoCriar(data.id);
   });
 }
@@ -201,7 +196,7 @@ export async function paginaProposta(ctx, el, id) {
 
   el.innerHTML = `
     <div class="cab"><div><a class="peq" href="#/vendas/oportunidade/${o.id}">← ${esc(o.titulo || 'Oportunidade')}</a><h1>Proposta · versão ${p.versao}</h1>
-      <p class="sub"><a href="#/vendas/empresa/${o.empresa_id}"><b>${esc(empresa)}</b></a> · ${SERVICOS[o.servico] || o.servico || ''} · <b>${dinheiro(p.valor != null ? p.valor : o.valor)}</b>${p.validade ? ` · vale até ${dataBR(p.validade)}` : ''}${c && MODELOS[c.modelo] ? ` · modelo ${MODELOS[c.modelo].toLowerCase()}` : ''}</p></div>
+      <p class="sub"><a href="#/vendas/empresa/${o.empresa_id}"><b>${esc(empresa)}</b></a> · ${SERVICOS[o.servico] || o.servico || ''} · <b>${dinheiro(p.valor != null ? p.valor : o.valor)}</b>${p.validade ? ` · vale até ${dataBR(p.validade)}` : ''}</p></div>
       <div class="acoes">${seloStatus(p)}${p.arquivo_storage ? '<button class="btn" type="button" id="baixar">⬇ Baixar PowerPoint</button>' : ''}</div></div>
     <div id="corpo"></div>`;
   el.querySelector('#baixar')?.addEventListener('click', () => baixar(p));
@@ -240,7 +235,7 @@ export async function paginaProposta(ctx, el, id) {
     <div class="grade g2" style="align-items:start;grid-template-columns:3fr 2fr">
       <div class="grade" style="gap:14px" id="editor"></div>
       <div class="grade" style="gap:14px">
-        ${!bloqueada && temTexto(c) ? `<div class="cartao"><h3>Pedir ajustes à IA</h3><p class="peq apagado mt">Ela reescreve o texto mantendo o que não foi pedido para mudar. Preço, modelo e logo você muda na caixa "Modelo, investimento e logo".</p>
+        ${!bloqueada && temTexto(c) ? `<div class="cartao"><h3>Pedir ajustes à IA</h3><p class="peq apagado mt">Ela reescreve o texto mantendo o que não foi pedido para mudar. Preço e logo você muda na caixa "Investimento e logo".</p>
           <div class="campo mt"><textarea id="ajustes" placeholder="Ex.: troque o módulo 3 por negociação; tom mais direto na capa; acrescente uma página sobre os produtos da cooperativa"></textarea></div>
           <button class="btn mt" type="button" id="ajustar">Reescrever com a IA</button></div>` : ''}
         <div class="cartao"><h3>Conteúdo enviado</h3><details class="mt"><summary class="peq">Ver o conteúdo</summary><p class="peq mt" style="white-space:pre-wrap">${esc(p.pedido || '—')}</p></details>${p.ajustes ? `<p class="peq mt"><b>Último ajuste:</b> ${esc(p.ajustes)}</p>` : ''}</div>
@@ -295,22 +290,18 @@ const topicosEmLinhas = (lista) => (lista || []).map((t) => (t && typeof t === '
 function desenharEditor(ctx, editor, p, o, bloqueada, recarregar) {
   const c = normalizarConteudo(JSON.parse(JSON.stringify(p.conteudo)));
   c.versao = 2;
-  if (!MODELOS[c.modelo]) c.modelo = MODELO_PADRAO;
+  delete c.modelo;                               // havia modelo claro/escuro até 11/10/2026; agora é um só
   let precos = null, logo = null;
   const desenhar = () => {
     editor.innerHTML = `
       ${!bloqueada ? '<div class="aviso" style="margin:0">Revise o texto abaixo (ou peça ajustes à IA ao lado). Depois clique em <b>Salvar e montar o arquivo de novo</b>.</div>' : ''}
-      ${secaoHtml('Modelo, investimento e logo', `<div class="campo"><label>Modelo da apresentação</label>${escolhaModelo(c.modelo, bloqueada)}</div>
-        <div class="campo"><label>Investimento</label><div id="ed-precos"></div></div>
+      ${secaoHtml('Investimento e logo', `<div class="campo"><label>Investimento</label><div id="ed-precos"></div></div>
         <div class="campo"><label>Logo do cliente</label><div id="ed-logo"></div></div>`)}
       ${secaoHtml('Capa', `${campo('Tipo', 'capa.tipo', c.capa?.tipo, { dica: 'Ex.: Proposta de mentoria em grupo (sai em maiúsculas)' })}${campo('Nome do programa', 'capa.nome', c.capa?.nome)}
         ${campo('Frase principal', 'capa.subtitulo1', c.capa?.subtitulo1)}${campo('Segunda linha', 'capa.subtitulo2', c.capa?.subtitulo2)}
         ${campo('Cliente  •  público', 'capa.linha1', c.capa?.linha1)}${campo('Carga horária  •  formato', 'capa.linha2', c.capa?.linha2)}`)}
       ${secaoHtml('Nomes usados nas páginas', `<div class="grade g2" style="gap:8px">${campo('Etiqueta das páginas', 'secao', c.secao, { dica: 'Ex.: O WORKSHOP, A MENTORIA' })}${campo('Cada parte se chama', 'rotulo_modulo', c.rotulo_modulo, { dica: 'Ex.: PILAR, MÓDULO, ENCONTRO' })}</div>`, false)}
       ${secaoHtml('O que entendemos da sua demanda', `${itens('demanda', c.demanda?.itens)}${campo('Frase de fechamento', 'demanda.frase', c.demanda?.frase)}`)}
-      ${secaoHtml('Quem desenvolve · sócias', `${tituloDuplo('Título', 'quem_titulo', c.quem_titulo)}${campo('Linha abaixo das sócias', 'socias_rodape', c.socias_rodape)}
-        <p class="peq apagado">Os números da Mentorei e os textos das sócias são fixos no modelo.</p>`)}
-      ${secaoHtml('Expertise', `${tituloDuplo('Título', 'expertise.titulo', c.expertise?.titulo)}${itens('expertise', c.expertise?.itens, { icone: true })}`)}
       ${secaoHtml('Visão geral dos módulos', `${tituloDuplo('Título', 'visao.titulo', c.visao?.titulo)}${campo('Rodapé', 'visao.rodape', c.visao?.rodape)}`)}
       ${(c.modulos || []).map((m, i) => secaoHtml(`Módulo ${String(i + 1).padStart(2, '0')} · ${m.titulo || ''}`, `
         <div class="grade g2" style="gap:8px">${campo('Título', `modulos.${i}.titulo`, m.titulo)}${campo('Título curto (página-resumo)', `modulos.${i}.titulo_curto`, m.titulo_curto)}</div>
@@ -332,12 +323,15 @@ function desenharEditor(ctx, editor, p, o, bloqueada, recarregar) {
         ${(c.organizacao?.linhas || []).map((l, i) => `<div class="grade" style="grid-template-columns:1fr 1fr 1fr 2fr;gap:6px">${['c1', 'c2', 'c3', 'c4'].map((k) => campo(`Linha ${i + 1}`, `organizacao.linhas.${i}.${k}`, l[k])).join('')}</div>`).join('')}
         ${!bloqueada ? '<div class="linha"><button class="btn peq" type="button" id="mais-linha">+ Linha</button><button class="btn peq" type="button" id="menos-linha">− Última linha</button></div>' : ''}
         ${campo('Rodapé', 'organizacao.rodape', c.organizacao?.rodape)}`, false)}
-      ${secaoHtml('Investimento · textos', `<p class="peq apagado">Os valores vêm da caixa "Modelo, investimento e logo" lá em cima.</p>
+      ${secaoHtml('Investimento · textos', `<p class="peq apagado">Os valores vêm da caixa "Investimento e logo" lá em cima.</p>
         <div class="grade g2" style="gap:8px">${campo('Nome do que está sendo vendido', 'investimento.nome_oferta', c.investimento?.nome_oferta, { dica: 'Usado quando a opção de preço não tem nome' })}${campo('Descrição (quando não há valor)', 'investimento.descricao_oferta', c.investimento?.descricao_oferta)}</div>
         <div class="grade" style="grid-template-columns:1fr 1fr 2fr;gap:6px">${campo('Caixa da direita · título', 'investimento.escopo.rotulo', c.investimento?.escopo?.rotulo)}${campo('destaque', 'investimento.escopo.destaque', c.investimento?.escopo?.destaque)}${campo('texto', 'investimento.escopo.texto', c.investimento?.escopo?.texto, { area: true })}</div>
         <p class="peq apagado">A caixa da direita só aparece quando há um preço só.</p>
         ${campo('Incluso', 'investimento.incluso', c.investimento?.incluso, { area: true })}${campo('Não incluso', 'investimento.nao_incluso', c.investimento?.nao_incluso)}`, false)}
       ${secaoHtml('Próximos passos', itens('proximos', c.proximos?.itens), false)}
+      ${secaoHtml('Quem desenvolve · sócias', `${tituloDuplo('Título', 'quem_titulo', c.quem_titulo)}${campo('Linha abaixo das sócias', 'socias_rodape', c.socias_rodape)}
+        <p class="peq apagado">Os números da Mentorei e os textos das sócias são fixos no modelo.</p>`, false)}
+      ${secaoHtml('Expertise', `${tituloDuplo('Título', 'expertise.titulo', c.expertise?.titulo)}${itens('expertise', c.expertise?.itens, { icone: true })}`, false)}
       ${secaoHtml('Frase final e mensagens', `<div class="grade" style="grid-template-columns:1fr 1fr 1fr;gap:6px">${campo('Frase final · 1ª linha', 'frase_final.antes', c.frase_final?.antes)}${campo('2ª linha (destacada)', 'frase_final.destaque', c.frase_final?.destaque)}${campo('3ª linha', 'frase_final.depois', c.frase_final?.depois)}</div>
         ${campo('E-mail · assunto', 'mensagem_email.assunto', c.mensagem_email?.assunto)}${campo('E-mail · texto', 'mensagem_email.texto', c.mensagem_email?.texto, { area: true })}${campo('WhatsApp', 'mensagem_whatsapp', c.mensagem_whatsapp, { area: true })}${campo('Resumo para o histórico', 'resumo', c.resumo, { area: true })}`, false)}
       ${!bloqueada ? '<div class="linha"><button class="btn pri" type="button" id="salvar">💾 Salvar e montar o arquivo de novo</button><span class="peq apagado">Leva alguns segundos.</span></div>' : ''}`;
@@ -357,7 +351,6 @@ function desenharEditor(ctx, editor, p, o, bloqueada, recarregar) {
       else if (ult === 'apos_modulo') v = Number(v) || 1;
       alvo[ult] = v;
     });
-    c.modelo = modeloEscolhido(editor);
     if (precos) Object.assign(c, precos.ler());
     if (logo) c.logo = logo.ler();
   };

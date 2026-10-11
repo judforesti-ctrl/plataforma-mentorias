@@ -7,7 +7,8 @@ export const PPTX = 'application/vnd.openxmlformats-officedocument.presentationm
 const semAcento = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
 export const nomeArquivo = (empresa, versao) => `Proposta-Mentorei-${semAcento(empresa).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'Cliente'}-v${versao || 1}.pptx`;
 
-// O que a tela escolhe e a IA não escreve (fica dentro de propostas.conteudo junto com o texto da IA).
+// O que a tela escolhe e a IA não escreve (fica dentro de propostas.conteudo junto com o texto da IA). "modelo"
+// (claro/escuro, até 11/10/2026) continua na lista só para não ir para a IA nas propostas antigas.
 export const OPCOES_DA_TELA = ['modelo', 'precos', 'pagamento', 'validade_dias', 'logo'];
 export function separarOpcoes(c) {
   const opcoes = {}, texto = {};

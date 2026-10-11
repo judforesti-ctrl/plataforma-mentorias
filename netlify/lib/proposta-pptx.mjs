@@ -1,14 +1,14 @@
-// Monta o PowerPoint da proposta comercial a partir de um dos dois modelos da Mentorei (claro ou escuro, embutidos em
-// modelos/proposta-modelos.mjs) e do conteúdo escrito pela IA (ou editado na tela). Trabalha direto no XML do .pptx:
-// troca textos mantendo a formatação, mede cada texto com as larguras reais da fonte Inter (proposta-letras.mjs) para
+// Monta o PowerPoint da proposta comercial a partir do modelo da Mentorei (embutido em modelos/proposta-modelos.mjs)
+// e do conteúdo escrito pela IA (ou editado na tela). Trabalha direto no XML do .pptx: troca textos mantendo a
+// formatação, mede cada texto com as larguras reais das fontes (Inter nos textos, Manrope nos títulos) para
 // diminuir a letra quando não cabe (e avisar), ajusta selos, título da capa, cartões e tabela à quantidade de itens,
 // põe o logo do cliente e monta a página de investimento com os preços digitados na tela (a IA nunca escreve valores).
-// Os dois modelos têm as MESMAS peças com os mesmos nomes (só mudam as cores): MAPA vale para os dois.
-// As páginas institucionais (números da Mentorei, sócias, contatos) ficam como estão no modelo.
+// MAPA guarda as páginas (na ordem do modelo) e os nomes das peças. As páginas institucionais (números da Mentorei,
+// sócias, "Liderar pode ser inspirador", contatos) ficam como estão no modelo.
 import JSZip from 'jszip';
-import { MODELOS_B64 } from './modelos/proposta-modelos.mjs';
+import { MODELO_B64 } from './modelos/proposta-modelos.mjs';
 import { LETRAS } from './proposta-letras.mjs';
-import { descreverPreco, precosValidos, normalizarConteudo, MODELO_PADRAO } from '../../public/assets/proposta-comum.js';
+import { descreverPreco, precosValidos, normalizarConteudo } from '../../public/assets/proposta-comum.js';
 
 const POL = 914400;                                      // 1 polegada em EMU
 const emu = (p) => Math.round(p * POL);
@@ -24,11 +24,15 @@ const RE_PPR = /<a:pPr\b[^>]*?\/>|<a:pPr\b[^>]*>[\s\S]*?<\/a:pPr>/;
 const RELS_VAZIO = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
 const TIPO_IMAGEM = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/image';
 
-// ---------- o modelo: páginas (1 = capa) e peças ----------
+// ---------- o modelo: páginas (1 = capa, na ordem da apresentação) e peças ----------
+// 1 capa · 2 demanda · 3 visão geral · 4–8 moldes (módulo, exemplos e página extra) · 9 metodologia · 10 personalização
+// · 11 organização · 12 investimento · 13 próximos passos · 14 quem somos · 15 expertise · 16 sócias
+// · 17 "Liderar pode ser inspirador" (fixa) · 18 frase final
 export const MAPA = {
-  capa: 1, demanda: 2, quem: 3, expertise: 4, socias: 5, visao: 6, modulo: 7, destaque: 10,
-  apagar: [7, 8, 9, 10, 11],                         // molde do módulo, exemplos e molde da página extra
-  metodologia: 12, personalizacao: 13, organizacao: 14, investimento: 15, proximos: 16, frase: 17,
+  capa: 1, demanda: 2, visao: 3, modulo: 4, destaque: 7,
+  apagar: [4, 5, 6, 7, 8],                           // molde do módulo, exemplos e molde da página extra
+  metodologia: 9, personalizacao: 10, organizacao: 11, investimento: 12, proximos: 13,
+  quem: 14, expertise: 15, socias: 16, frase: 18,
   demandaItens: [['texto-14', 'texto-15'], ['texto-19', 'texto-20'], ['texto-24', 'texto-25'], ['texto-29', 'texto-30']],
   expertiseItens: [['icone-52', 'texto-53', 'texto-54'], ['icone-57', 'texto-58', 'texto-59'], ['icone-62', 'texto-63', 'texto-64'], ['icone-67', 'texto-68', 'texto-69']],
   visaoCartoes: [
@@ -45,13 +49,13 @@ export const MAPA = {
 };
 // Onde está o desenho de cada ícone dentro do modelo (página, peça).
 const ICONE_PECA = {
-  banco: [4, 'icone-52'], conversa: [4, 'icone-57'], crescimento: [4, 'icone-62'], quebra_cabeca: [4, 'icone-67'],
-  pessoa_lupa: [6, 'icone-99'], aperto_de_maos: [6, 'icone-115'], check: [6, 'icone-123'],
-  cofrinho: [10, 'icone-215'], escudo: [10, 'icone-220'], estetoscopio: [10, 'icone-225'], ampulheta: [10, 'icone-230'],
-  pasta: [12, 'icone-264'], pessoas: [12, 'icone-270'], lupa: [12, 'icone-276'], ferramenta: [12, 'icone-282'],
+  banco: [15, 'icone-52'], conversa: [15, 'icone-57'], crescimento: [15, 'icone-62'], quebra_cabeca: [15, 'icone-67'],
+  pessoa_lupa: [3, 'icone-99'], aperto_de_maos: [3, 'icone-115'], check: [3, 'icone-123'],
+  cofrinho: [7, 'icone-215'], escudo: [7, 'icone-220'], estetoscopio: [7, 'icone-225'], ampulheta: [7, 'icone-230'],
+  pasta: [9, 'icone-264'], pessoas: [9, 'icone-270'], lupa: [9, 'icone-276'], ferramenta: [9, 'icone-282'],
 };
 
-// ---------- medida dos textos (larguras reais da Inter) ----------
+// ---------- medida dos textos (larguras reais das fontes, proposta-letras.mjs) ----------
 const FONTES = {};
 for (const [k, f] of Object.entries(LETRAS)) FONTES[k] = { base: f.base.split(',').map(Number), extras: f.extras, linha: f.linha };
 // largura em polegadas; spc = espaçamento entre letras como no XML (centésimos de ponto)
@@ -64,12 +68,15 @@ export function larguraTexto(texto, fonte, pt, spc = 0) {
   }
   return (soma / 1000 * pt + n * spc / 100) / 72;
 }
-// quantas linhas o texto ocupa numa caixa desta largura
+// quantas linhas o texto ocupa numa caixa desta largura; palavra mais larga que a caixa nunca cabe (o PowerPoint a
+// quebraria no meio da palavra), então a letra precisa diminuir
+const NAO_CABE = 99;
 function contarLinhas(texto, largura, fonte, pt, spc) {
   let linhas = 0;
   for (const par of String(texto).split('\n')) {
     linhas += 1; let atual = '';
     for (const p of par.split(/\s+/).filter(Boolean)) {
+      if (larguraTexto(p, fonte, pt, spc) > largura) return NAO_CABE;
       const t = atual ? `${atual} ${p}` : p;
       if (!atual || larguraTexto(t, fonte, pt, spc) <= largura) atual = t; else { linhas += 1; atual = p; }
     }
@@ -324,8 +331,7 @@ const quatro = (lista) => (Array.isArray(lista) ? lista : []).slice(0, 4);
 
 export async function montarProposta(conteudo, { logo = null } = {}) {
   const c = normalizarConteudo(conteudo) || {};
-  const modelo = MODELOS_B64[c.modelo] ? c.modelo : MODELO_PADRAO;
-  const zip = await JSZip.loadAsync(Buffer.from(MODELOS_B64[modelo], 'base64'));
+  const zip = await JSZip.loadAsync(Buffer.from(MODELO_B64, 'base64'));
   const slides = await lerSlides(zip);
   const ctx = { avisos: [], icones: await lerIcones(zip, slides) };
   const pag = (n) => slides[n - 1];
@@ -350,10 +356,10 @@ export async function montarProposta(conteudo, { logo = null } = {}) {
     MAPA.demandaItens.forEach(([t, x], i) => { const it = quatro(d.itens)[i] || {}; T(ctx, p, t, limpo(it.titulo), `Demanda · item ${i + 1} · título`, { linhas: 1 }); T(ctx, p, x, limpo(it.texto), `Demanda · item ${i + 1} · texto`); });
     if (limpo(d.frase)) selo(ctx, p, 'selo-31', 'selo-texto-32', limpo(d.frase), 'Demanda · frase', { max: 9 }); else remover(p, ['selo-31', 'selo-texto-32']);
   });
-  // 3. quem desenvolve (números da Mentorei ficam como no modelo) e 5. sócias
+  // quem desenvolve (números da Mentorei ficam como no modelo) e sócias
   await editar(MAPA.quem, (p) => { if (c.quem_titulo) T(ctx, p, 'Text 0', titulo2(c.quem_titulo), 'Quem desenvolve · título', { min: 0.85 }); });
   await editar(MAPA.socias, (p) => { if (c.socias_rodape) T(ctx, p, 'texto-93', limpo(c.socias_rodape), 'Sócias · linha de baixo', { linhas: 1 }); });
-  // 4. expertise
+  // expertise
   await editar(MAPA.expertise, (p) => {
     const e = g('expertise');
     if (e.titulo) T(ctx, p, 'Text 0', titulo2(e.titulo), 'Expertise · título', { min: 0.85 });
@@ -362,7 +368,7 @@ export async function montarProposta(conteudo, { logo = null } = {}) {
       icone(ctx, p, ic, it.icone); T(ctx, p, t, limpo(it.titulo), `Expertise · item ${i + 1} · título`, { linhas: 1 }); T(ctx, p, x, limpo(it.texto), `Expertise · item ${i + 1} · texto`);
     });
   });
-  // 6. visão geral dos módulos (cartões acompanham a quantidade)
+  // visão geral dos módulos (cartões acompanham a quantidade)
   const mods = (Array.isArray(c.modulos) ? c.modulos : []).slice(0, 6);
   await editar(MAPA.visao, (p) => {
     const v = g('visao');
@@ -371,7 +377,7 @@ export async function montarProposta(conteudo, { logo = null } = {}) {
     T(ctx, p, 'texto-128', limpo(v.rodape), 'Visão geral · rodapé', { linhas: 1 });
     cartoesVisao(ctx, p, mods);
   });
-  // 12–17: metodologia, personalização, organização, investimento, próximos passos, frase
+  // metodologia, personalização, organização, investimento, próximos passos, frase
   await editar(MAPA.metodologia, (p) => {
     if (secao) T(ctx, p, 'secao-261', secao, null);
     MAPA.metodologiaItens.forEach(([ic, t, x], i) => {
@@ -422,7 +428,7 @@ export async function montarProposta(conteudo, { logo = null } = {}) {
     zip.file('docProps/core.xml', x);
   }
   const buffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
-  return { buffer, avisos: ctx.avisos, modelo };
+  return { buffer, avisos: ctx.avisos };
 }
 
 // Título grande da capa: o maior tamanho de letra em que o nome cabe em até 2 linhas (ou 3, em letra menor).
@@ -448,10 +454,10 @@ function tituloCapa(ctx, p, nome) {
   trocar(p, pc, escreverCorpo(pc.bloco, escolha.linhas.join('\n'), escolha.pt));
 }
 
-// Logo do cliente na capa (no espaço do modelo, sobre fundo branco); sem logo, o espaço e o traço somem.
+// Logo do cliente na capa (no espaço do modelo, sobre fundo branco); sem logo, o espaço some.
 function logoCliente(zip, p, logo) {
   const tam = logo && logo.dados ? tamanhoPng(logo.dados) : null;
-  if (!tam) { remover(p, ['logo-cliente-espaco', 'logo-cliente-texto', 'divisor-logos']); return; }
+  if (!tam) { remover(p, ['logo-cliente-espaco', 'logo-cliente-texto']); return; }
   const esp = caixa(p, 'logo-cliente-espaco');
   if (!esp) return;
   remover(p, ['logo-cliente-texto']);
@@ -604,7 +610,7 @@ function organizacao(ctx, p, o, mods) {
 function investimento(ctx, p, c) {
   const inv = c.investimento || {};
   const precos = precosValidos(c.precos);
-  const esq = { painel: 'painel-investimento', rot: 'texto-318', val: 'texto-319', txt: 'texto-320' };
+  const esq = { painel: 'cartao-investimento', rot: 'texto-318', val: 'texto-319', txt: 'texto-320' };
   const dir = { cartao: 'cartao-317', rot: 'texto-321', val: 'texto-322', txt: 'texto-323' };
   const caixaEsq = caixa(p, esq.painel), caixaDir = caixa(p, dir.cartao);
   if (!caixaEsq || !caixaDir) return;
@@ -624,11 +630,6 @@ function investimento(ctx, p, c) {
     const meio = clonar(p, [dir.cartao, dir.rot, dir.val, dir.txt], 'meio');
     const mid = { cartao: meio[0], rot: meio[1], val: meio[2], txt: meio[3] };
     const xs = [caixaEsq.x, caixaEsq.x + W + vao, caixaEsq.x + 2 * (W + vao)];
-    const pcPainel = acharPeca(p.xml, esq.painel);
-    if (pcPainel) {
-      const corte = Math.round((1 - W / caixaEsq.w) * 100000);
-      trocar(p, pcPainel, pcPainel.bloco.replace(/<a:srcRect[^>]*\/>/, '').replace(/(<a:blip\b[^>]*?\/>|<a:blip\b[^>]*>[\s\S]*?<\/a:blip>)/, `$1<a:srcRect r="${corte}"/>`));
-    }
     mover(p, esq.painel, { x: xs[0], w: W });
     [[esq, xs[0]], [mid, xs[1]], [dir, xs[2]]].forEach(([cx, x]) => {
       if (cx.cartao) mover(p, cx.cartao, { x, w: W });
