@@ -8,6 +8,7 @@ import { motivoClaude } from '../lib/claude-erro.mjs';
 import { supa, env } from '../lib/google.mjs';
 import { lerProposta, montarEGuardar, OPCOES_DA_TELA, separarOpcoes, temTexto } from '../lib/propostas.mjs';
 import { resumoPreco, precosValidos, valorDaProposta, ICONES } from '../../public/assets/proposta-comum.js';
+import { moldeDoEsquema, lerJson, encaixar } from '../lib/json-da-ia.mjs';
 
 export const config = { path: '/api/proposta-gerar', background: true };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -74,7 +75,10 @@ Os limites de letras são obrigatórios: o texto precisa caber nas caixas de cad
 Regras de escrita:
 - Use o pedido como fonte principal. O que o pedido não disser: deixe "a definir" (datas, local, quantidade) e não invente números, resultados, depoimentos, nomes de pessoas do cliente nem promessas de promoção ou aumento.
 - Tom consultivo, direto, sem jargão de coaching em inglês (nada de "accountability" ou "follow-up"), frases curtas, verbos no infinitivo nos objetivos. Sem exclamações. Fale do cliente pelo nome e do público pelo cargo.
-- Quando o pedido for um ajuste, mantenha tudo o que não foi pedido para mudar. Pedidos de mudança de preço não são com você: diga no resumo que o valor se muda na caixa "Investimento" da tela.`;
+- Quando o pedido for um ajuste, mantenha tudo o que não foi pedido para mudar. Pedidos de mudança de preço não são com você: diga no resumo que o valor se muda na caixa "Investimento" da tela.
+
+Formato da resposta: devolva SÓ um objeto JSON válido, sem nenhum texto antes ou depois e sem \`\`\`. Use exatamente estes campos, todos obrigatórios, nesta estrutura ("texto" = texto; 0 = número inteiro; "ícone" = uma das chaves de ícone da lista acima; cada lista mostra um item de exemplo e leva a quantidade de itens que as regras acima pedem):
+${JSON.stringify(moldeDoEsquema(ESQUEMA))}`;
 
 export default async (req) => {
   const chave = env('SUPABASE_SECRET_KEY');
@@ -121,20 +125,24 @@ export default async (req) => {
     mensagens.push({ role: 'user', content: `Contexto:\n${contexto}\n\nPedido (conteúdo da proposta):\n${pedido}${ajustes ? `\n\nObservações adicionais: ${ajustes}` : ''}` });
   }
 
-  let gerado;
+  // Sem output_config.format: o esquema das 17 páginas é grande demais para ele ("compiled grammar is too large").
+  // O molde vai nas instruções; se a resposta não vier em JSON legível, pede mais uma vez.
+  let gerado = null;
   try {
     const client = new Anthropic({ apiKey: chaveClaude });
-    const r = await client.messages.create({
-      model: 'claude-opus-5-5',
-      max_tokens: 20000,
-      system: INSTRUCOES,
-      output_config: { format: { type: 'json_schema', schema: ESQUEMA } },
-      messages: mensagens,
-    });
-    if (r.stop_reason === 'refusal') return falhar('A IA não aceitou escrever esta proposta. Reescreva o pedido e tente de novo.');
-    if (r.stop_reason === 'max_tokens') return falhar('A proposta ficou grande demais para uma resposta. Peça menos módulos ou tópicos e tente de novo.');
-    const json = r.content.filter((x) => x.type === 'text').map((x) => x.text).join('');
-    try { gerado = JSON.parse(json); } catch (_) { return falhar('A IA não devolveu a proposta organizada. Tente de novo.'); }
+    for (let tentativa = 0; tentativa < 2 && !gerado; tentativa++) {
+      const r = await client.messages.create({
+        model: 'claude-opus-5-5',
+        max_tokens: 20000,
+        system: INSTRUCOES,
+        messages: mensagens,
+      });
+      if (r.stop_reason === 'refusal') return falhar('A IA não aceitou escrever esta proposta. Reescreva o pedido e tente de novo.');
+      if (r.stop_reason === 'max_tokens') return falhar('A proposta ficou grande demais para uma resposta. Peça menos módulos ou tópicos e tente de novo.');
+      gerado = lerJson(r.content.filter((x) => x.type === 'text').map((x) => x.text).join(''));
+    }
+    if (!gerado) return falhar('A IA não devolveu a proposta organizada. Tente de novo.');
+    gerado = encaixar(gerado, ESQUEMA);
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return falhar('A chave do Claude na Netlify não está valendo.');
     if (e instanceof Anthropic.RateLimitError) return falhar('Muitos pedidos ao mesmo tempo. Espere um minuto e tente de novo.');
