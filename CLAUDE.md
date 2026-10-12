@@ -270,6 +270,15 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Gestão › Avaliações (`telas/avaliacoes.js`, `#/avaliacoes/<aba>`, só administração): visão geral, por módulo, por mentor,
   comentários, temas pedidos; filtros período/empresa/turma/mentor; Excel. `avaliacoes-email` (agendada, de hora em hora): 24 h depois
   do fim do módulo, cada mentor (termo aceito, e-mail real) recebe o resumo com a nota dele; marca `modulos.avaliacao_aviso_em`.
+  HISTÓRICO DO GOOGLE FORMS (2026-10-12, aprovado por ela): 4.197 respostas (03/2023 a 06/10/2026) importadas com origem 'google_forms'
+  por SQL em 4 partes geradas FORA do git (têm comentários): scratchpad da sessão cd1d8727, `historico/gerar.py` (planilha baixada como CSV
+  pelo link compartilhado). A recomendação antiga era de 1 a 5 (apesar do texto "0 a 10"): gravada ×2 em `nps`; relevância→conteudo e
+  materiais→ferramentas convertidas de 1–10 para 1–5 (ceil/2); didática vira nota do mentor (avaliacao_mentores) quando há módulo; tudo o
+  original em `extras.escala_antiga`; `extras.chave` (md5) evita duplicar se importar de novo. 25 nomes de ALUNOS tirados de `formacao`.
+  Ligação a módulo só desde 01/08/2026 (módulos anteriores não existem na plataforma), feita no próprio SQL: módulos até 3 dias antes da
+  resposta, pontos por palavras do título/turma/empresa + apelidos ("desenvolvimento de líderes" = Sicredi Expansão; "trilha"/"lideranças"
+  = Cresol Conexão); sem certeza fica sem módulo. Histórico não dispara e-mail (marca avaliacao_aviso_em). No relatório, respostas sem
+  módulo aparecem agrupadas por mês ("Histórico de <mês>") e a didática conta na nota de mentor da visão geral (`notasDe`).
 
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.

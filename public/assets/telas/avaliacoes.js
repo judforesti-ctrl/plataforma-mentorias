@@ -53,7 +53,7 @@ const media = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : n
 async function carregar() {
   const todas = [];
   for (let de = 0; ; de += 1000) {
-    const { data, error } = await sb.from('avaliacoes').select(`id, origem, formacao, geral, aula, conteudo, ferramentas, aprendeu, tempo, nps, marcas, comentario, temas, criado_em,
+    const { data, error } = await sb.from('avaliacoes').select(`id, origem, formacao, extras, geral, aula, conteudo, ferramentas, aprendeu, tempo, nps, marcas, comentario, temas, criado_em,
       notas:avaliacao_mentores(mentor_id, nota), modulo:modulos(id, numero, titulo, data_hora, participantes_presentes, mentores:modulo_mentores(mentor_id)),
       turma:turmas(id, nome), empresa:empresas(id, nome)`).order('criado_em', { ascending: false }).range(de, de + 999);
     if (error) return { erro: error };
@@ -65,6 +65,10 @@ async function carregar() {
 }
 
 const quando = (a) => (a.modulo && a.modulo.data_hora) || a.criado_em;
+// notas de mentor da resposta; no histórico do Google Forms sem módulo, a nota de didática (1 a 10) vira 1 a 5
+const notasDe = (a) => ((a.notas || []).length ? a.notas.map((n) => n.nota)
+  : a.extras && a.extras.escala_antiga && a.extras.escala_antiga.didatica ? [Math.ceil(a.extras.escala_antiga.didatica / 2)] : []);
+const NOME_MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const mentoresDe = (a) => (a.modulo && a.modulo.mentores ? a.modulo.mentores.map((x) => x.mentor_id) : []);
 
 function filtrar(todas) {
@@ -136,7 +140,7 @@ export async function render(ctx, el, [aba0]) {
 // ---------- visão geral ----------
 function abaGeral(alvo, lista) {
   const r = resumir(lista);
-  const notasMentor = lista.flatMap((a) => (a.notas || []).map((n) => n.nota));
+  const notasMentor = lista.flatMap(notasDe);
   const satMentor = notasMentor.length ? Math.round((notasMentor.filter((x) => x >= 4).length / notasMentor.length) * 100) : null;
   // taxa de resposta: só módulos com presença anotada pelo mentor
   const porModulo = new Map();
@@ -199,8 +203,10 @@ function graficoMeses(lista) {
 function grupos(lista) {
   const g = new Map();
   lista.forEach((a) => {
-    const k = a.modulo ? a.modulo.id : `forms:${a.formacao || 'Sem nome'}`;
-    if (!g.has(k)) g.set(k, { modulo: a.modulo, formacao: a.formacao, empresa: a.empresa, turma: a.turma, quando: quando(a), lista: [] });
+    // sem módulo (histórico do Google Forms): uma linha por mês
+    const mes = new Date(quando(a)).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' }).slice(0, 7);
+    const k = a.modulo ? a.modulo.id : `forms:${mes}`;
+    if (!g.has(k)) g.set(k, { modulo: a.modulo, mes, empresa: a.modulo ? a.empresa : null, turma: a.modulo ? a.turma : null, quando: quando(a), lista: [] });
     g.get(k).lista.push(a);
   });
   return [...g.values()].sort((x, y) => Date.parse(y.quando) - Date.parse(x.quando));
@@ -213,10 +219,10 @@ function abaModulos(alvo, lista, nomes) {
     <tbody>${linhas.map((g) => {
       const r = resumir(g.lista);
       const ids = g.modulo ? (g.modulo.mentores || []).map((x) => x.mentor_id) : [];
-      const notasM = g.lista.flatMap((a) => (a.notas || []).map((n) => n.nota));
+      const notasM = g.lista.flatMap(notasDe);
       const titulo = g.modulo ? `${esc([g.empresa && g.empresa.nome, g.turma && g.turma.nome].filter(Boolean).join(' · '))}<br><b>Módulo ${g.modulo.numero} · ${esc(g.modulo.titulo)}</b>`
-        : `<span class="selo neutro">Google Forms</span> ${esc(g.formacao || 'Sem nome')}`;
-      return `<tr${g.modulo ? ` class="clicavel" data-modulo="${g.modulo.id}"` : ''}><td>${titulo}</td><td class="num">${dataBR(g.quando)}</td>
+        : `<span class="selo neutro">Google Forms</span> <b>Histórico de ${NOME_MES[Number(g.mes.slice(5)) - 1]} de ${g.mes.slice(0, 4)}</b><br><span class="peq apagado">respostas sem módulo cadastrado na plataforma</span>`;
+      return `<tr${g.modulo ? ` class="clicavel" data-modulo="${g.modulo.id}"` : ''}><td>${titulo}</td><td class="num">${g.modulo ? dataBR(g.quando) : `${g.mes.slice(5)}/${g.mes.slice(0, 4)}`}</td>
         <td>${esc(ids.map((id) => String(nomes.get(id) || '').split(' ')[0]).filter(Boolean).join(', ') || '—')}</td>
         <td class="num">${r.total}${g.modulo && g.modulo.participantes_presentes ? ` de ${g.modulo.participantes_presentes}` : ''}</td>
         <td>${pill(r.geral, 10)}</td><td>${pill(r.aula, 5)}</td><td>${pill(media(notasM), 5)}</td><td>${pill(r.conteudo, 5)}</td><td>${pill(r.ferramentas, 5)}</td><td>${pill(r.nps ? r.nps.valor : null, 'nps')}</td></tr>`;
@@ -246,19 +252,20 @@ function abaMentores(alvo, lista, nomes) {
 }
 
 // ---------- comentários ----------
-function abaComentarios(alvo, lista, nomes, recarregar) {
+function abaComentarios(alvo, lista, nomes, recarregar, mostrar = 200) {
   const FILTROS = [['todas', 'Todos'], ['baixas', 'Notas de 0 a 6'], ['medias', 'Notas 7 e 8'], ['altas', 'Notas 9 e 10']];
   const com = lista.filter((a) => String(a.comentario || '').trim()).filter((a) => {
     const g = a.geral != null ? a.geral : a.nps;
     return est.notas === 'todas' || (g != null && (est.notas === 'baixas' ? g <= 6 : est.notas === 'medias' ? g >= 7 && g <= 8 : g >= 9));
   });
   alvo.innerHTML = `<div class="chips" style="margin-bottom:14px">${FILTROS.map(([k, t]) => `<button class="btn peq${est.notas === k ? ' pri' : ''}" type="button" data-notas="${k}">${t}</button>`).join('')}</div>
-    <div class="cartao">${com.length ? `<div style="display:grid;gap:14px">${com.map((a) => {
+    <div class="cartao">${com.length ? `<p class="peq apagado" style="margin-bottom:12px">${com.length} ${com.length === 1 ? 'comentário' : 'comentários'}${com.length > mostrar ? `, mostrando os ${mostrar} mais recentes` : ''}.</p><div style="display:grid;gap:14px">${com.slice(0, mostrar).map((a) => {
       const g = a.geral != null ? a.geral : a.nps;
       const onde = a.modulo ? `${[a.turma && a.turma.nome].filter(Boolean).join('')} · Módulo ${a.modulo.numero} · ${a.modulo.titulo}` : (a.formacao || 'Google Forms');
       return `<div class="av-com${g != null && g <= 6 ? ' baixo' : g >= 9 ? ' alto' : ''}"><p>${esc(a.comentario)}</p>
         <span class="meta">${g != null ? `Nota ${g} · ` : ''}${esc(a.empresa ? `${a.empresa.nome} · ` : '')}${esc(onde)} · ${dataBR(quando(a))}${(a.marcas || []).length ? ` · marcou: ${esc(a.marcas.join(', '))}` : ''}</span></div>`;
-    }).join('')}</div>` : '<p class="apagado">Nenhum comentário com este filtro.</p>'}</div>`;
+    }).join('')}</div>${com.length > mostrar ? '<button class="btn mt" type="button" id="av-mais">Mostrar mais 200</button>' : ''}` : '<p class="apagado">Nenhum comentário com este filtro.</p>'}</div>`;
+  alvo.querySelector('#av-mais')?.addEventListener('click', () => abaComentarios(alvo, lista, nomes, recarregar, mostrar + 200));
   alvo.querySelector('.chips').addEventListener('click', (ev) => { const b = ev.target.closest('[data-notas]'); if (!b) return; est.notas = b.dataset.notas; guardar(); recarregar(); });
 }
 
@@ -284,14 +291,14 @@ async function baixarExcel(lista, nomes) {
     'Ferramentas e materiais (1-5)', 'Aprendeu', 'Tempo', 'Recomendação (0-10)', 'Marcou', 'Comentário', 'Temas pedidos', 'Origem']];
   lista.forEach((a) => respostas.push([dataBR(quando(a)), a.empresa ? a.empresa.nome : '', a.turma ? a.turma.nome : '',
     a.modulo ? `Módulo ${a.modulo.numero} · ${a.modulo.titulo}` : (a.formacao || ''), mentoresDe(a).map((id) => nomes.get(id) || '').join(', '),
-    a.geral, a.aula, (a.notas || []).map((n) => `${String(nomes.get(n.mentor_id) || '').split(' ')[0]}: ${n.nota}`).join(', '), a.conteudo, a.ferramentas,
+    a.geral, a.aula, (a.notas || []).length ? a.notas.map((n) => `${String(nomes.get(n.mentor_id) || '').split(' ')[0]}: ${n.nota}`).join(', ') : notasDe(a).join(''), a.conteudo, a.ferramentas,
     APRENDEU[a.aprendeu] || '', TEMPO[a.tempo] || '', a.nps, (a.marcas || []).join(', '), a.comentario || '', (a.temas || []).join(', '),
     a.origem === 'google_forms' ? 'Google Forms' : 'Plataforma']));
   const porModulo = [['Encontro', 'Data', 'Respostas', 'Presentes', 'Nota geral', 'Aula', 'Mentor', 'Conteúdo', 'Ferramentas', 'NPS']];
   grupos(lista).forEach((g) => {
-    const r = resumir(g.lista), notasM = g.lista.flatMap((a) => (a.notas || []).map((n) => n.nota));
+    const r = resumir(g.lista), notasM = g.lista.flatMap(notasDe);
     const arred = (v) => (v == null ? '' : Math.round(v * 10) / 10);
-    porModulo.push([g.modulo ? `${[g.empresa && g.empresa.nome, g.turma && g.turma.nome].filter(Boolean).join(' · ')} · Módulo ${g.modulo.numero} · ${g.modulo.titulo}` : `Google Forms · ${g.formacao || ''}`,
+    porModulo.push([g.modulo ? `${[g.empresa && g.empresa.nome, g.turma && g.turma.nome].filter(Boolean).join(' · ')} · Módulo ${g.modulo.numero} · ${g.modulo.titulo}` : `Histórico do Google Forms · ${g.mes.slice(5)}/${g.mes.slice(0, 4)}`,
       dataBR(g.quando), r.total, g.modulo ? g.modulo.participantes_presentes || '' : '', arred(r.geral), arred(r.aula), arred(media(notasM)), arred(r.conteudo), arred(r.ferramentas), r.nps ? r.nps.valor : '']);
   });
   const wb = XLSX.utils.book_new();
