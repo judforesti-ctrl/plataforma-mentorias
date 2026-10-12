@@ -230,7 +230,10 @@ corpo.addEventListener('click', (ev) => {
     if (!r.ok) throw new Error(j.mensagem || 'Não conseguimos abrir a avaliação.');
     mod = j.modulo;
     if (j.estado === 'fechada') return mensagem('Avaliação encerrada', 'A avaliação deste encontro já foi encerrada. Obrigada pela vontade de ajudar!');
-    if (j.estado === 'cedo') return mensagem('Ainda não começou', `A avaliação deste encontro abre no dia${mod.data_hora ? ` ${dataBR(mod.data_hora)}` : ' da aula'}. Volte depois da aula!`);
+    if (j.estado === 'cedo') {
+      const abre = j.abre ? new Date(j.abre).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' às') : '';
+      return mensagem('Ainda não começou', `A avaliação deste encontro abre 24 horas antes da aula${abre ? `, em ${abre}` : ''}. Volte depois da aula!`);
+    }
     if (ler(`mentorei.avaliado.${mod.id}`)) {
       barra.style.width = '100%'; conta.textContent = '';
       corpo.innerHTML = `<div class="passo fim"><h1>Você já avaliou este encontro</h1><p class="frase">Obrigada! A sua resposta já chegou.</p>

@@ -3,7 +3,7 @@
 // Embaixo, o resultado do encontro: o mentor vê as notas do módulo e só a PRÓPRIA nota de mentor (regra do banco);
 // a administração vê a de cada mentor. Tudo anônimo.
 import { sb, esc, avisar } from '../base.js';
-import { linkAvaliacao, janelaAvaliacao, resumir, num1, APRENDEU, TEMPO, HORAS_ATE_EMAIL, DIAS_ABERTA } from '../avaliacao-regras.js';
+import { linkAvaliacao, janelaAvaliacao, resumir, num1, APRENDEU, TEMPO, HORAS_ATE_EMAIL, DIAS_ABERTA, HORAS_ANTES } from '../avaliacao-regras.js';
 
 const nomeArquivo = (t) => t.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
 
@@ -63,7 +63,7 @@ export function cartaoAvaliacao(ctx, m, souMentor) {
         <div class="linha" style="gap:6px"><button class="btn peq pri" type="button" data-av-baixar>Baixar o QR code</button><button class="btn peq" type="button" data-av-copiar>Copiar o link</button></div>
         <span class="peq apagado">Aula online: mande o link no chat também.</span>
         <a class="peq" href="${esc(link)}" target="_blank" rel="noopener">Ver como o aluno vê</a>
-        <span class="peq apagado">Aberta do início da aula até ${DIAS_ABERTA} dias depois. ${HORAS_ATE_EMAIL} horas depois do fim, ${ctx.ehAdmin ? 'cada mentor recebe' : 'você recebe'} o resumo por e-mail.</span>
+        <span class="peq apagado">O QR code aceita respostas de ${HORAS_ANTES} horas antes da aula até ${DIAS_ABERTA} dias depois da data do treinamento. ${HORAS_ATE_EMAIL} horas depois do fim, ${ctx.ehAdmin ? 'cada mentor recebe' : 'você recebe'} o resumo por e-mail.</span>
       </div>
     </div>
     <div class="mt2" data-av-resultado><p class="peq apagado">Carregando as respostas…</p></div>

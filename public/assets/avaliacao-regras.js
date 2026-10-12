@@ -13,17 +13,22 @@ export const APRENDEU = { quase_nada: 'Quase nada', um_pouco: 'Um pouco', bastan
 export const TEMPO = { curto: 'Curto', na_medida: 'Na medida', longo: 'Longo' };
 export const PARTES = { aula: 'Aula', conteudo: 'Conteúdo', ferramentas: 'Ferramentas e materiais' };
 
-// Quando a avaliação aceita respostas: do início da aula até 7 dias depois do fim. Módulo sem data fica sempre aberto.
+// Quando a avaliação aceita respostas (decisão da Juliana, 12/10): abre 24 horas antes do início do módulo e fica aberta
+// até o fim do 10º dia depois da data do treinamento (23h59, horário de Brasília). Módulo sem data fica sempre aberto.
 export const DURACAO_PADRAO_MIN = 180;
-export const DIAS_ABERTA = 7;
+export const HORAS_ANTES = 24;
+export const DIAS_ABERTA = 10;
 export const HORAS_ATE_EMAIL = 24;
 export function janelaAvaliacao(m, agora = Date.now()) {
   if (!m || !m.data_hora) return { estado: 'aberta', fim: null };
   const inicio = Date.parse(m.data_hora);
   const fim = inicio + (Number(m.duracao_min) || DURACAO_PADRAO_MIN) * 60000;
-  if (agora < inicio - 60 * 60000) return { estado: 'cedo', inicio, fim };
-  if (agora > fim + DIAS_ABERTA * 86400000) return { estado: 'fechada', inicio, fim };
-  return { estado: 'aberta', inicio, fim };
+  const abre = inicio - HORAS_ANTES * 3600000;
+  const diaFim = new Date(fim).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+  const fecha = Date.parse(`${diaFim}T23:59:59-03:00`) + DIAS_ABERTA * 86400000;
+  if (agora < abre) return { estado: 'cedo', inicio, fim, abre, fecha };
+  if (agora > fecha) return { estado: 'fechada', inicio, fim, abre, fecha };
+  return { estado: 'aberta', inicio, fim, abre, fecha };
 }
 
 const media = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);

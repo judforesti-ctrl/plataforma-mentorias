@@ -246,7 +246,7 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   = nome que o aluno escreveu, escalas antigas em `extras` (o NPS antigo ia de 1 a 10, sem o 0).
   Página pública `public/avaliar.html?m=<módulo>` (sem login; 6 telas: nota geral 0–10, carinhas 1–5 para aula, cada mentor, conteúdo e
   ferramentas, aprendeu + tempo, NPS 0–10, comentário com pergunta que muda pela nota + atalhos, temas). Grava pela função `/api/avaliar`
-  (`netlify/functions/avaliar.mjs`): aceita do início da aula (−1 h) até 7 dias depois do fim; QR de um módulo de dia anterior cai no
+  (`netlify/functions/avaliar.mjs`): aceita de 24 h antes do início até as 23h59 do 10º dia depois da data do treinamento (decisão dela, 12/10; `janelaAvaliacao`); QR de um módulo de dia anterior cai no
   módulo da mesma turma que acontece hoje. Textos e contas compartilhados em `public/assets/avaliacao-regras.js`.
   QR code: desenhado no navegador a partir do link do módulo (`public/assets/vendor/qrcode.js`, qrcode-generator MIT), nada guardado;
   cartão "Avaliação da turma" no módulo (`telas/avaliacao-modulo.js`): Baixar (PNG 1200×1500 com título e nome do módulo), Copiar o

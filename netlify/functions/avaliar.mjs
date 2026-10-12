@@ -54,10 +54,10 @@ export default async (req) => {
   const m = await moduloQueVale(original);
   const janela = janelaAvaliacao(m);
 
-  if (req.method === 'GET') return json({ modulo: publico(m), estado: janela.estado, trocado: m.id !== original.id });
+  if (req.method === 'GET') return json({ modulo: publico(m), estado: janela.estado, abre: janela.abre || null, trocado: m.id !== original.id });
 
   if (janela.estado === 'fechada') return json({ mensagem: 'A avaliação deste encontro já foi encerrada. Obrigada pela vontade de ajudar!' }, 409);
-  if (janela.estado === 'cedo') return json({ mensagem: 'A avaliação abre no dia do encontro.' }, 409);
+  if (janela.estado === 'cedo') return json({ mensagem: 'A avaliação abre 24 horas antes do encontro.' }, 409);
   const resposta = {
     modulo_id: m.id, turma_id: m.turma_id, empresa_id: (m.turma && m.turma.empresa_id) || null, origem: 'plataforma',
     geral: nota(corpo.geral, 0, 10), aula: nota(corpo.aula, 1, 5), conteudo: nota(corpo.conteudo, 1, 5), ferramentas: nota(corpo.ferramentas, 1, 5),
