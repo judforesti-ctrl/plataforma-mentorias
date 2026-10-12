@@ -25,7 +25,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   SUPABASE_SECRET_KEY) em `programacoes sites e radares/backups-plataforma-mentorias/`. Ela decidiu: restauração não sai do PC dela;
   a planilha leva tudo. Passo a passo de restauração em `ferramentas/COMO-RESTAURAR.md`.
 - Variáveis na Netlify: `SUPABASE_SECRET_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BREVO_API_KEY`
-  (e-mails da agenda; sem ela os avisos ficam só na plataforma). Nunca mostrar chaves.
+  (e-mails da agenda; sem ela os avisos ficam só na plataforma), `BREVO_API_KEY_MARKETING` (opcional: conta do Brevo dos funis de
+  listas frias) e `BREVO_REMETENTE_MARKETING` (opcional). Nunca mostrar chaves.
 - Banco: scripts numerados em `supabase/` (01, 02...). A Juliana roda cada script novo no Supabase (SQL Editor → New query → colar → Run):
   entregue o bloco SQL completo na conversa, pronto para copiar. Segurança por Row Level Security (admin vê tudo; mentor só os seus
   mentorados; mentorado só o que é dele). Código novo deve funcionar mesmo antes de ela rodar o script (ou avisar claramente).
@@ -230,6 +231,35 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Ficha da empresa tem o cartão "Notas fiscais". Teste local: launch.json "notas-teste" (porta 8803) do site do Radar,
   scratchpad da sessão 38fee57a (teste/ com `simularNotas` no base-falso.js).
 
+- FUNIS DE E-MAIL (2026-10-12, script 34, `telas/funis.js`, aba Vendas → Funis de e-mail, rotas `#/vendas/funis[/<id>[/pessoas|emails|regras]]`
+  e `#/vendas/funis/atualizar`): substitui o RD Station (pedido dela; RD tinha só 2 meses e os mesmos contatos da plataforma).
+  Funil = sequência de e-mails (`funil_emails`, `dias_depois` = dias depois do anterior; o 1º, depois de entrar) + dias da semana e
+  horário de Brasília. "+ Colocar empresas no funil": filtros situação/lista/sistema/UF/tipo; quem recebe = contatos com e-mail (sem
+  contato, o e-mail geral) ou só os marcados para marketing; quem pediu para sair não entra; e-mail com formato errado vai para
+  `contatos_atualizar`. Tabelas: `funis`, `funil_emails`, `funil_membros` (único funil+email), `funil_envios` (único membro+e-mail;
+  a linha é criada ANTES de mandar: nunca repete), `funil_eventos` (chave única), `descadastros`, `contatos_atualizar`, view
+  `funil_membros_resumo` (recebidos, abertos, automaticos, cliques, leram, sem_sinal_seguidos). Regras puras e montagem do e-mail
+  (texto com **negrito**, [link](url), "## " subtítulo, "- " lista, {nome}, {empresa}, marcador `[continuar lendo]`, rodapé com
+  "sair da lista") em `public/assets/funis-regras.js`, usadas pela tela (prévia) e pelo servidor.
+  SERVIDOR (`netlify/lib/funis.mjs`): `funis-agendada` (minuto 7 de cada hora) → `funis-fundo` (background) → `rodarFunis()`:
+  1) lê no Brevo os eventos dos últimos 3 dias (`/v3/smtp/statistics/events` por tipo) e liga pelo message_id (sem <>);
+  loadedByProxy (iPhone) e clique até 120 s depois do envio (antivírus) = 'automatico', não contam como interesse; hardBounce,
+  invalid, blocked e 3 softBounce seguidos = e-mail errado (sai de todos os funis + `contatos_atualizar`); spam/unsubscribed =
+  descadastro (todos os funis + `contatos.marketing=false`); `recontar_envios` refaz as contas. 2) regras de cada funil:
+  passagem (clique/leitura/abertura N vezes → outro funil; opcional avisar Vendas = interação tipo e-mail na oportunidade aberta
+  ou oportunidade nova "Engajou no funil · X" em Primeiro contato, próximo contato no dia útil seguinte 9h, responsável da regra ou
+  do sistema na Prospecção) e limpeza (N e-mails seguidos sem sinal). 3) envios devidos dentro do horário, limite por dia por conta
+  (`configuracoes.funis`: principal 150, marketing 280; plano grátis do Brevo = 300/dia contando convites). Estado da última rodada em
+  `configuracoes.funis_estado` (cartão "Envio dos e-mails" na lista de funis, botão "Rodar agora").
+  DUAS CONTAS DO BREVO (decisão dela): funil "Clientes e conhecidos" sai pela `BREVO_API_KEY`; "Lista fria" pela
+  `BREVO_API_KEY_MARKETING` (conta separada, para reclamação de spam não derrubar convites e o laudo do Radar; remetente padrão
+  `BREVO_REMETENTE_MARKETING` ou contato@). Sem a chave, os funis frios não enviam e o cartão avisa ("Como ligar").
+  "Leu até o fim": só pela página `public/ler.html?t=` (o e-mail mostra o texto até `[continuar lendo]`); conta 90% da página com
+  tempo mínimo de leitura (palavras/7 s). `public/sair.html?t=` + cabeçalho List-Unsubscribe (1 clique do Gmail, POST
+  `/api/m/sair`). Links assinados com HMAC da SUPABASE_SECRET_KEY (`token('v', envioId)`; `'e'` = prévia do e-mail de teste, não
+  conta nada). Funções: `/api/funis` (admin: situacao, rodar, teste, mover) e `/api/m` (público: ler, progresso, info, sair).
+  Teste local: launch.json "funis-teste" (porta 8805) do site do Radar, scratchpad da sessão 16a45b4a (base-falso.js com funis e
+  `servidor-teste.mjs`, que roda `rodarFunis()` com Supabase e Brevo de mentira no Node do Photoshop).
 - Visual (2026-10-08, aprovado por prévia): petróleo escuro + branco + bege escuro, contraste alto, SEM mudar layout (ela não quer
   reaprender a navegar). Tudo em `public/assets/app.css`: `--lima`/`--verde` apontam para o bege (código antigo continua valendo);
   `--ok` verde só para estados ok; `.cab` é a faixa clara de título; `.cartao.destaque` = cartão petróleo; `.cartao.numero` com borda bege.
@@ -325,3 +355,5 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   (`/api/convidar` acao trocar_email) e só então manda o convite.
 - Revisão das 8 ferramentas PROPOSTA; outras ferramentas online automatizadas a ligar; revisão jurídica do texto de privacidade.
 - "mentorado modelo" de teste criado dentro do programa real da Brasdiesel: apagar depois dos testes.
+- Funis de e-mail (2026-10-12): ela rodar o script 34; criar a conta de MARKETING do Brevo (e-mail diferente), verificar o remetente
+  nela e pôr `BREVO_API_KEY_MARKETING` na Netlify (guiar clique por clique); usar junto com o RD por um mês antes de cancelar.

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sair da lista · Mentorei</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#091216">
+<link rel="icon" href="/assets/simbolo-m.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --petroleo: #091216; --bege-escuro: #9C7D4C; --bege: #C8AE7C; --fundo: #EFE8DA; --texto: #2B3538; --apagado: #6B7579; color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--fundo); color: var(--texto); font-family: 'Inter', Arial, sans-serif; font-size: 16px; line-height: 1.6; }
+  .topo { background: var(--petroleo); border-bottom: 3px solid var(--bege-escuro); padding: 16px; }
+  .topo img { height: 26px; display: block; margin: 0 auto; }
+  main { max-width: 480px; margin: 32px auto; padding: 0 16px; }
+  .cartao { background: #fff; border-radius: 16px; padding: 28px 24px; box-shadow: 0 12px 32px rgba(9,18,22,.08); text-align: center; }
+  h1 { font-family: 'Manrope', Arial, sans-serif; font-size: 22px; color: var(--petroleo); margin: 0 0 12px; }
+  p { margin: 0 0 16px; }
+  button { font: inherit; font-weight: 700; padding: 13px 26px; border-radius: 999px; border: 0; background: var(--petroleo); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .6; cursor: default; }
+  .apagado { color: var(--apagado); font-size: 14px; }
+</style>
+</head>
+<body>
+<header class="topo"><img src="/assets/logo-clara.png" alt="Mentorei"></header>
+<main><div class="cartao" id="caixa"><p class="apagado">Carregando…</p></div></main>
+<script type="module">
+  // Sair da lista de e-mails da Mentorei (o pedido vale na hora para todos os funis).
+  const t = new URLSearchParams(location.search).get('t') || '';
+  const caixa = document.getElementById('caixa');
+  const pedir = async (acao) => { const r = await fetch('/api/m', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t, acao }) }); return { ok: r.ok, ...(await r.json().catch(() => ({}))) }; };
+  const pronto = () => { caixa.innerHTML = '<h1>Pronto, você saiu da lista</h1><p>Você não vai mais receber estes e-mails da Mentorei.</p><p class="apagado">Se foi sem querer, é só responder qualquer e-mail nosso ou escrever para contato@mentorei.com.br.</p>'; };
+  const info = await pedir('info');
+  if (!info.ok) caixa.innerHTML = '<h1>Link inválido</h1><p>Não conseguimos identificar este pedido. Escreva para contato@mentorei.com.br que tiramos você da lista.</p>';
+  else if (info.saiu) pronto();
+  else {
+    caixa.innerHTML = `<h1>Não quer mais receber nossos e-mails?</h1>
+      <p>Vamos tirar <b>${String(info.email).replace(/</g, '&lt;')}</b> da lista de e-mails da Mentorei.</p>
+      ${info.previa ? '<p class="apagado">Este é um e-mail de teste: o botão não faz nada.</p>' : ''}
+      <button type="button" id="sair">Sim, quero sair da lista</button>`;
+    document.getElementById('sair').addEventListener('click', async (ev) => {
+      ev.target.disabled = true; ev.target.textContent = 'Saindo…';
+      const r = info.previa ? { ok: true } : await pedir('sair');
+      if (r.ok) pronto(); else { ev.target.disabled = false; ev.target.textContent = 'Tentar de novo'; }
+    });
+  }
+</script>
+</body>
+</html>

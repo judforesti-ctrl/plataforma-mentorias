@@ -1,6 +1,6 @@
 // Vendas (Fase 4): pipeline de oportunidades em colunas por etapa, ficha da oportunidade (contatos, próximo contato,
 // propostas, histórico, e-mail, WhatsApp e reunião dali mesmo), prospecção (listas de cooperativas, em telas/prospeccao.js),
-// clientes (empresas e contatos), relatórios e modelos de mensagem. Só a administração entra (scripts 19 e 23).
+// clientes (empresas e contatos), funis de e-mail (telas/funis.js, script 34), relatórios e modelos de mensagem. Só a administração entra (scripts 19 e 23).
 import { sb, esc, avatar, dataBR, dataHoraBR, hojeISO, avisar, explicarErro, localParaISO, isoParaLocal } from '../base.js';
 import { janela, api, primeiroNome, faltaScript } from './agenda-dados.js';
 
@@ -18,7 +18,7 @@ const MOTIVOS = { preco: 'Preço', momento: 'Momento / sem verba agora', concorr
 const ORIGENS = ['Indicação', 'LinkedIn', 'Instagram', 'Evento', 'Radar da Liderança', 'Cliente antigo', 'Site', 'Lista de prospecção', 'Outro'];
 const TIPOS_INTERACAO = { email: 'E-mail', whatsapp: 'WhatsApp', reuniao: 'Reunião marcada', apresentacao: 'Apresentação feita', ligacao: 'Ligação', nota: 'Anotação', proposta: 'Proposta', etapa: 'Etapa', sistema: 'Sistema' };
 const ICONE = { email: '✉', whatsapp: '💬', reuniao: '📅', apresentacao: '🎯', ligacao: '📞', nota: '📝', proposta: '📄', etapa: '➜', sistema: '⚙' };
-const ABAS = [['pipeline', 'Pipeline'], ['prospeccao', 'Prospecção'], ['clientes', 'Clientes'], ['relatorios', 'Relatórios'], ['modelos', 'Modelos de mensagem']];
+const ABAS = [['pipeline', 'Pipeline'], ['prospeccao', 'Prospecção'], ['clientes', 'Clientes'], ['funis', 'Funis de e-mail'], ['relatorios', 'Relatórios'], ['modelos', 'Modelos de mensagem']];
 // empresas(*): os campos do script 23 (sistema, central, telefone, e-mail, situação) vêm junto quando existem
 const SEL_OP = '*, empresa:empresas(*), contato:contatos(id, nome, email, whatsapp), responsavel:perfis!oportunidades_responsavel_id_fkey(id, nome, foto_url)';
 
@@ -112,6 +112,7 @@ export async function render(ctx, el, params) {
   const alvo = el.querySelector('#conteudo');
   if (aba === 'prospeccao') return (await import('./prospeccao.js')).abaProspeccao(ctx, alvo, d, recarregar, params[1] ? decodeURIComponent(params[1]) : null);
   if (aba === 'clientes') return abaClientes(ctx, alvo, d, recarregar);
+  if (aba === 'funis') return (await import('./funis.js')).abaFunis(ctx, alvo, d, params.slice(1));
   if (aba === 'relatorios') return abaRelatorios(ctx, alvo, d);
   if (aba === 'modelos') return abaModelos(ctx, alvo, recarregar);
   return abaPipeline(ctx, alvo, d, recarregar);

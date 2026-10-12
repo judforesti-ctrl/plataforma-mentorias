@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mentorei</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#091216">
+<link rel="icon" href="/assets/simbolo-m.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --petroleo: #091216; --bege-escuro: #9C7D4C; --bege: #C8AE7C; --bege-texto: #6B5330; --fundo: #EFE8DA; --papel: #FFFFFF;
+    --texto: #2B3538; --apagado: #6B7579; --f-titulo: 'Manrope', Arial, sans-serif; --f-texto: 'Inter', Arial, sans-serif; color-scheme: light; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--fundo); color: var(--texto); font-family: var(--f-texto); font-size: 17px; line-height: 1.7; }
+  .topo { background: var(--petroleo); border-bottom: 3px solid var(--bege-escuro); padding: 16px; }
+  .topo div { max-width: 680px; margin: 0 auto; }
+  .topo img { height: 28px; width: auto; display: block; }
+  main { max-width: 680px; margin: 24px auto 40px; padding: 0 16px; }
+  article { background: var(--papel); border-radius: 16px; padding: 32px clamp(18px, 5vw, 44px) 24px; box-shadow: 0 12px 32px rgba(9,18,22,.08); overflow-wrap: anywhere; }
+  article h1 { font-family: var(--f-titulo); font-size: clamp(24px, 4.5vw, 32px); line-height: 1.2; color: var(--petroleo); margin: 0 0 22px; letter-spacing: -.02em; }
+  article h2 { font-family: var(--f-titulo) !important; color: var(--petroleo) !important; }
+  article p, article ul { font-size: 17px !important; }
+  article a { color: var(--bege-texto); }
+  .topo-img { display: block; width: calc(100% + 2 * clamp(18px, 5vw, 44px)); max-width: none; margin: -32px calc(-1 * clamp(18px, 5vw, 44px)) 26px; border-radius: 16px 16px 0 0; height: auto; }
+  .rodape { text-align: center; font-size: 13px; color: var(--apagado); margin-top: 18px; }
+  .aviso { background: #FFF6DE; border: 1px solid #E8D9A8; border-radius: 12px; padding: 10px 14px; font-size: 14px; margin-bottom: 14px; }
+  .carregando { color: var(--apagado); text-align: center; padding: 40px 0; }
+</style>
+</head>
+<body>
+<header class="topo"><div><img src="/assets/logo-clara.png" alt="Mentorei"></div></header>
+<main>
+  <div id="aviso"></div>
+  <article id="texto"><p class="carregando">Carregando…</p></article>
+  <p class="rodape">Mentorei · desenvolvimento de líderes · <a href="https://mentorei.com.br">mentorei.com.br</a></p>
+</main>
+<script type="module">
+  // Mostra o texto inteiro do e-mail e conta até onde a pessoa leu (para a Mentorei saber quem leu até o fim).
+  const t = new URLSearchParams(location.search).get('t') || '';
+  const el = document.getElementById('texto');
+  const pedir = (corpo) => fetch('/api/m', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ t, ...corpo }), keepalive: true });
+  try {
+    const r = await pedir({ acao: 'ler' });
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.mensagem || 'Link inválido.');
+    document.title = `${j.titulo || 'Mentorei'} · Mentorei`;
+    el.innerHTML = j.html;
+    if (j.previa) document.getElementById('aviso').innerHTML = '<div class="aviso">Prévia do e-mail de teste: aqui nada é contado.</div>';
+    else medir();
+  } catch (e) {
+    el.innerHTML = `<p>${String(e.message || 'Não foi possível abrir este conteúdo.').replace(/</g, '&lt;')}</p>`;
+  }
+
+  function medir() {
+    const inicio = Date.now();
+    let maior = 0, enviado = -1, ativo = 0, ultimo = Date.now();
+    const pct = () => {
+      const fim = el.getBoundingClientRect().bottom + window.scrollY;     // fim do texto
+      const visto = window.scrollY + window.innerHeight;
+      return Math.max(0, Math.min(100, Math.round((visto / fim) * 100)));
+    };
+    // tempo só conta com a página aberta e visível
+    const tique = () => { const a = Date.now(); if (document.visibilityState === 'visible') ativo += Math.min(a - ultimo, 15000); ultimo = a; };
+    // "leu até o fim" só conta com tempo mínimo de leitura (texto curto que cabe na tela não vira leitura na hora)
+    const palavras = (el.innerText || '').split(/\s+/).filter(Boolean).length;
+    const minimo = Math.max(8, Math.round(palavras / 7));   // ~420 palavras por minuto, leitura rápida
+    const mandar = (forcar) => {
+      tique();
+      maior = Math.max(maior, pct());
+      const valendo = ativo / 1000 < minimo ? Math.min(maior, 89) : maior;
+      if (!forcar && valendo - enviado < 10 && !(valendo >= 90 && enviado < 90)) return;
+      enviado = valendo;
+      pedir({ acao: 'progresso', pct: valendo, seg: Math.round(ativo / 1000) }).catch(() => {});
+    };
+    window.addEventListener('scroll', () => mandar(false), { passive: true });
+    setInterval(() => mandar(false), 5000);
+    setInterval(() => mandar(true), 30000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') mandar(true); else ultimo = Date.now(); });
+    setTimeout(() => mandar(true), 1500 + (Date.now() - inicio));
+  }
+</script>
+</body>
+</html>
