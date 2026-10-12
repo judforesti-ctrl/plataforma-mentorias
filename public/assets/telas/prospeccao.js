@@ -1,12 +1,17 @@
 // Prospecção (Vendas → aba Prospecção, script 23): listas de cooperativas por sistema (ex.: lista do Banco Central) que ainda
-// não viraram conversa. Importar a lista (.xlsx) conferindo as que já estão cadastradas, responsável por sistema, funil por
+// não viraram conversa, e a lista "Clientes inativos" (script 32: já compraram, sem nota fiscal há mais de 1 ano). Importar a lista (.xlsx) conferindo as que já estão cadastradas, responsável por sistema, funil por
 // sistema e o dia a dia: "Liguei", e-mail e ficha. O funil anda sozinho pelo histórico (trigger do script 23).
 import { sb, esc, dataBR, dataHoraBR, avisar, explicarErro, localParaISO, isoParaLocal } from '../base.js';
 import { janela, primeiroNome, faltaScript } from './agenda-dados.js';
-import { ETAPAS, NOME_ETAPA, aberta, atrasado, norm, limparFone, situacaoDe, seloSituacao, janelaEmail } from './vendas.js';
+import { ETAPAS, NOME_ETAPA, aberta, atrasado, norm, limparFone, situacaoDe, seloSituacao, janelaEmail, dinheiro } from './vendas.js';
 
 // filtros (continuam ao voltar para a aba)
-const est = { sistema: '', etapa: 'prospectar', texto: '', central: '', uf: '', porte: '', responsavel: '', limite: 100 };
+const est = { lista: '', sistema: '', etapa: 'prospectar', texto: '', central: '', uf: '', porte: '', responsavel: '', limite: 100 };
+// lista da oportunidade: vazio = lista de prospecção (nunca comprou); "Clientes inativos" = veio das notas fiscais
+const SEM_LISTA = '-';
+const listaDe = (o) => o.lista || SEM_LISTA;
+const NOME_LISTA = (l) => (l === SEM_LISTA ? 'Nunca compraram' : l);
+export function abrirLista(l) { est.lista = l; est.sistema = ''; est.etapa = 'prospectar'; est.central = ''; est.uf = ''; est.porte = ''; est.limite = 100; }
 const SEM_SISTEMA = 'Sem sistema';
 const sistemaDe = (o) => (o.empresa && o.empresa.sistema) || SEM_SISTEMA;
 const AVISO_23 = `<div class="aviso erro">Para a Prospecção funcionar, falta rodar o script <b>23-prospeccao.sql</b> no Supabase (SQL Editor → New query → colar → Run).</div>`;
@@ -14,23 +19,30 @@ const AVISO_23 = `<div class="aviso erro">Para a Prospecção funcionar, falta r
 export async function abaProspeccao(ctx, el, d, recarregar, sistemaInicial = null) {
   if (d.falta23) { el.innerHTML = AVISO_23; return; }
   if (sistemaInicial) { est.sistema = sistemaInicial; est.etapa = ''; }
-  // entra aqui: tudo que está "A prospectar" e tudo das empresas que vieram de uma lista com sistema (cooperativas)
-  const base = d.oportunidades.filter((o) => o.etapa === 'prospectar' || (o.empresa && o.empresa.sistema));
+  // entra aqui: tudo que está "A prospectar" e tudo das empresas que vieram de uma lista (com sistema ou da lista de inativos)
+  const base = d.oportunidades.filter((o) => o.etapa === 'prospectar' || o.lista || (o.empresa && o.empresa.sistema));
+  const importarNotas = async () => (await import('./notas-fiscais.js')).janelaImportarNotas(ctx, d, recarregar);
   if (!base.length) {
     el.innerHTML = `<div class="cartao" style="text-align:center;padding:32px 20px"><h3>Nenhuma lista de prospecção ainda</h3>
       <p class="apagado mt">Importe a planilha das cooperativas: cada uma entra em <b>A prospectar</b> e vai andando no funil conforme vocês ligam, mandam e-mail e marcam reunião.</p>
-      <button class="btn pri mt2" type="button" id="p-importar">Importar lista</button></div>`;
+      <div class="linha mt2" style="justify-content:center"><button class="btn pri" type="button" id="p-importar">Importar lista</button><button class="btn" type="button" id="p-notas">Importar notas fiscais</button></div></div>`;
     el.querySelector('#p-importar').addEventListener('click', () => janelaImportar(ctx, d, recarregar));
+    el.querySelector('#p-notas').addEventListener('click', importarNotas);
     return;
   }
-  const sistemas = [...new Set(base.map(sistemaDe))].sort((a, b) => base.filter((o) => sistemaDe(o) === b).length - base.filter((o) => sistemaDe(o) === a).length);
+  const listas = [...new Set(base.map(listaDe))].sort((a, b) => (a === SEM_LISTA ? -1 : b === SEM_LISTA ? 1 : a.localeCompare(b)));
+  if (est.lista && !listas.includes(est.lista)) est.lista = '';
+  const daLista = base.filter((o) => !est.lista || listaDe(o) === est.lista);
+  const sistemas = [...new Set(daLista.map(sistemaDe))].sort((a, b) => daLista.filter((o) => sistemaDe(o) === b).length - daLista.filter((o) => sistemaDe(o) === a).length);
   if (est.sistema && !sistemas.includes(est.sistema)) est.sistema = '';
   const contatosDe = (empId) => d.contatos.filter((c) => c.empresa_id === empId && c.ativo !== false);
 
   el.innerHTML = `
     <div class="linha" style="margin-bottom:10px;gap:8px;flex-wrap:wrap">
       <p class="peq apagado" style="flex:1;min-width:260px">Cooperativas e empresas que ainda não viraram conversa. Ligou, mandou e-mail ou WhatsApp: vai para <b>Primeiro contato feito</b> e aparece no Pipeline.</p>
-      <button class="btn" type="button" id="p-resp">Responsáveis por sistema</button><button class="btn pri" type="button" id="p-importar">Importar lista</button></div>
+      <button class="btn" type="button" id="p-resp">Responsáveis por sistema</button><button class="btn" type="button" id="p-notas">Importar notas fiscais</button><button class="btn pri" type="button" id="p-importar">Importar lista</button></div>
+    ${listas.length > 1 ? `<div class="chips" id="p-listas" style="margin-bottom:10px;align-items:center"><b class="peq" style="margin-right:4px">Lista:</b>${[['', 'Todas', base.length], ...listas.map((l) => [l, NOME_LISTA(l), base.filter((o) => listaDe(o) === l).length])]
+      .map(([k, n, q]) => `<button type="button" class="btn peq${k === est.lista ? ' escuro' : ''}" data-lista="${esc(k)}">${esc(n)}<span class="n">${q}</span></button>`).join('')}</div>` : ''}
     <div class="chips" id="p-sistemas" style="margin-bottom:10px"></div>
     <div class="cartao" style="padding:12px;margin-bottom:10px"><div class="chips" id="p-funil" style="align-items:center"></div></div>
     <div class="linha ag-filtros">
@@ -40,11 +52,11 @@ export async function abaProspeccao(ctx, el, d, recarregar, sistemaInicial = nul
       <select id="p-porte" aria-label="Porte"></select>
       <select id="p-resp-f" aria-label="Responsável"><option value="">Qualquer responsável</option><option value="-"${est.responsavel === '-' ? ' selected' : ''}>Sem responsável</option>${d.equipe.map((p) => `<option value="${p.id}"${p.id === est.responsavel ? ' selected' : ''}>${esc(p.nome)}</option>`).join('')}</select>
     </div>
-    <div class="tabela cartao" style="padding:0"><table id="p-tab"><thead><tr><th>Cooperativa</th><th>Cidade</th><th>Telefone · e-mail</th><th>Responsável</th><th>Etapa</th><th></th></tr></thead><tbody></tbody></table></div>
+    <div class="tabela cartao" style="padding:0"><table id="p-tab"><thead><tr><th>Empresa</th><th>Cidade</th><th>Telefone · e-mail</th><th>Responsável</th><th>Etapa</th><th></th></tr></thead><tbody></tbody></table></div>
     <div class="linha mt" id="p-mais"></div>
     <p class="peq apagado mt">📞 <b>Liguei</b> registra a ligação (e a pessoa com quem falou). ✉ manda e-mail pela plataforma. Clique no nome para abrir a ficha com o histórico.</p>`;
 
-  const doSistema = () => base.filter((o) => !est.sistema || sistemaDe(o) === est.sistema);
+  const doSistema = () => daLista.filter((o) => !est.sistema || sistemaDe(o) === est.sistema);
   const opcoes = (id, valor, todos, lista) => {
     const s = el.querySelector(id);
     s.innerHTML = `<option value="">${todos}</option>${lista.map((v) => `<option${v === valor ? ' selected' : ''}>${esc(v)}</option>`).join('')}`;
@@ -57,7 +69,7 @@ export async function abaProspeccao(ctx, el, d, recarregar, sistemaInicial = nul
     opcoes('#p-porte', est.porte, 'Todos os portes', unicos((o) => o.empresa && o.empresa.porte));
   };
   const desenhar = () => {
-    el.querySelector('#p-sistemas').innerHTML = [['', 'Todos', base.length], ...sistemas.map((s) => [s, s, base.filter((o) => sistemaDe(o) === s).length])]
+    el.querySelector('#p-sistemas').innerHTML = [['', 'Todos', daLista.length], ...sistemas.map((s) => [s, s, daLista.filter((o) => sistemaDe(o) === s).length])]
       .map(([k, n, q]) => `<button type="button" class="btn peq${k === est.sistema ? ' escuro' : ''}" data-sistema="${esc(k)}">${esc(n)}<span class="n">${q}</span></button>`).join('');
     const l = doSistema();
     const etapas = ETAPAS.map(([k, n]) => `<button type="button" class="btn peq${k === est.etapa ? ' escuro' : ''}" data-etapa="${k}">${n}<span class="n">${l.filter((o) => o.etapa === k).length}</span></button>`);
@@ -73,7 +85,9 @@ export async function abaProspeccao(ctx, el, d, recarregar, sistemaInicial = nul
       if (est.responsavel === '-' ? o.responsavel_id : est.responsavel && o.responsavel_id !== est.responsavel) return false;
       if (t && !norm([e.nome, e.razao_social, e.cidade, e.uf, e.central, e.cnpj, e.cnpj && e.cnpj.replace(/\D/g, ''), ...contatosDe(o.empresa_id).map((c) => c.nome)].join(' ')).includes(t)) return false;
       return true;
-    }).sort((a, b) => (a.proximo_contato_em || '9').localeCompare(b.proximo_contato_em || '9') || norm(a.empresa && a.empresa.nome).localeCompare(norm(b.empresa && b.empresa.nome)));
+    }).sort((a, b) => (a.proximo_contato_em || '9').localeCompare(b.proximo_contato_em || '9')
+      || Number((b.empresa && b.empresa.total_notas) || 0) - Number((a.empresa && a.empresa.total_notas) || 0)   // quem mais comprou primeiro
+      || norm(a.empresa && a.empresa.nome).localeCompare(norm(b.empresa && b.empresa.nome)));
     el.querySelector('#p-tab tbody').innerHTML = filtradas.slice(0, est.limite).map((o) => linha(o, d)).join('')
       || `<tr><td colspan="6" class="apagado">Nenhuma ${est.etapa ? `em <b>${NOME_ETAPA[est.etapa]}</b>` : 'cooperativa'} com esses filtros.</td></tr>`;
     el.querySelector('#p-mais').innerHTML = filtradas.length > est.limite
@@ -92,7 +106,12 @@ export async function abaProspeccao(ctx, el, d, recarregar, sistemaInicial = nul
     el.querySelector(id).addEventListener('input', (ev) => { est[campo] = ev.target.value; desenhar(); });
   }
   el.querySelector('#p-mais').addEventListener('click', (ev) => { if (ev.target.closest('#p-mais-btn')) { est.limite += 100; desenhar(); } });
+  el.querySelector('#p-listas')?.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-lista]'); if (!b) return;
+    abrirLista(b.dataset.lista); recarregar();
+  });
   el.querySelector('#p-importar').addEventListener('click', () => janelaImportar(ctx, d, recarregar));
+  el.querySelector('#p-notas').addEventListener('click', importarNotas);
   el.querySelector('#p-resp').addEventListener('click', () => janelaResponsaveis(ctx, d, base, recarregar));
   el.querySelector('#p-tab').addEventListener('click', (ev) => {
     const b = ev.target.closest('[data-acao]'); if (!b) return;
@@ -116,7 +135,8 @@ function linha(o, d) {
   const resp = d.equipe.find((p) => p.id === o.responsavel_id);
   return `<tr>
     <td><a href="#/vendas/oportunidade/${o.id}"><b>${esc(e.nome || 'Empresa')}</b></a> ${sit !== 'nunca' ? seloSituacao(sit) : ''}
-      <div class="peq apagado">${[e.sistema, e.central && `central ${e.central}`, e.porte].filter(Boolean).map(esc).join(' · ')}</div></td>
+      <div class="peq apagado">${[e.sistema, e.central && `central ${e.central}`, e.porte].filter(Boolean).map(esc).join(' · ')}</div>
+      ${e.qtd_notas ? `<div class="peq">🧾 comprou ${dinheiro(e.total_notas)} · última nota ${dataBR(e.ultima_nota_em)}</div>` : ''}</td>
     <td class="peq">${esc([e.cidade, e.uf].filter(Boolean).join('/')) || '—'}</td>
     <td class="peq">${fone}${e.email ? `<div class="apagado" style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.email)}">${esc(e.email)}</div>` : ''}</td>
     <td class="peq">${resp ? esc(primeiroNome(resp.nome)) : '<span class="apagado">—</span>'}</td>
@@ -231,7 +251,7 @@ const COLUNAS = {
 };
 const limpa = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
 const paraRegex = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const formataCnpj = (v) => { const n = String(v || '').replace(/\D/g, ''); return n.length === 14 ? `${n.slice(0, 2)}.${n.slice(2, 5)}.${n.slice(5, 8)}/${n.slice(8, 12)}-${n.slice(12)}` : limpa(v); };
+export const formataCnpj = (v) => { const n = String(v || '').replace(/\D/g, ''); return n.length === 14 ? `${n.slice(0, 2)}.${n.slice(2, 5)}.${n.slice(5, 8)}/${n.slice(8, 12)}-${n.slice(12)}` : limpa(v); };
 
 export function lerLista(XLSX, wb, nomeArquivo) {
   const itens = [];
@@ -262,12 +282,12 @@ export function lerLista(XLSX, wb, nomeArquivo) {
 // Nomes parecidos entre a lista e as empresas já cadastradas (para não criar a mesma empresa duas vezes).
 const PALAVRAS_VAZIAS = new Set(['cooperativa', 'cooperativas', 'coop', 'de', 'do', 'da', 'dos', 'das', 'e', 'credito', 'ltda', 'economia', 'mutuo', 'livre', 'admissao',
   'investimento', 'investimentos', 'poupanca', 'servicos', 'financeiros', 'sa', 'em', 'no', 'na']);
-const MARCAS = new Set(['sicoob', 'sicredi', 'cresol', 'unicred', 'ailos', 'credisis', 'uniprime', 'central']);
+export const MARCAS = new Set(['sicoob', 'sicredi', 'cresol', 'unicred', 'ailos', 'credisis', 'uniprime', 'central']);
 // sigla de estado no nome não diferencia ("Sicredi Nossa Terra PR/SP" = "Sicredi Nossa Terra")
 const UFS = new Set('ac al am ap ba ce df es go ma mg ms mt pa pb pe pi pr rj rn ro rr rs sc se sp to'.split(' '));
-const palavras = (t) => norm(t).replace(/[^a-z0-9]+/g, ' ').split(' ').filter((p) => p && !PALAVRAS_VAZIAS.has(p) && !UFS.has(p));
+export const palavras = (t) => norm(t).replace(/[^a-z0-9]+/g, ' ').split(' ').filter((p) => p && !PALAVRAS_VAZIAS.has(p) && !UFS.has(p));
 const chave = (t) => [...palavras(t)].sort().join(' ');
-function comparar(a, b) {
+export function comparar(a, b) {
   const pa = palavras(a), pb = palavras(b);
   if (!pa.length || !pb.length) return null;
   if (chave(a) === chave(b)) return 'igual';

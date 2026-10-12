@@ -213,6 +213,22 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   `definir_responsavel_sistema` (só o que está em A prospectar). "📞 Liguei" registra a ligação (ou tentativa = anotação, não anda),
   cria o contato com quem falou e o próximo passo. E-mail aceita o e-mail geral da empresa ("Olá, {contato}!" vira "Olá!").
   Relatórios têm "Prospecção: funil por sistema". Proposta importada reaproveita a oportunidade aberta mais adiantada da empresa.
+- Notas fiscais e CLIENTES INATIVOS (2026-10-12, script 32, `telas/notas-fiscais.js`): botão "Importar notas fiscais" em Vendas →
+  Clientes e → Prospecção. Lê a planilha de controle das notas (aba "Notas fiscais": Número NF, Data emissão, Cliente, CNPJ/CPF,
+  valores e impostos, endereço, Código município, Cidade, UF, CEP, Telefone, E-mail; arquivo pronto em
+  `Downloads\Notas fiscais para importar na plataforma.xlsx`, com a coluna Cidade tirada do código do IBGE). Um cliente por
+  CNPJ/CPF (sem documento = "Cliente sem nome (nota N)", a Juliana completa depois). Nome curto: parte depois do " - " da razão
+  social (o traço às vezes virou dois espaços ou vem depois do LTDA), "Sescoop/UF", ou a razão sem LTDA/S.A. Já cadastrada =
+  mesmo CNPJ ou mesma raiz (matriz/filial), ou nome/domínio do e-mail parecido que ela confirma num select (nunca duplica).
+  Tabela `notas_fiscais` (número único; reimportar não repete) e resumo na empresa (`qtd_notas`, `total_notas`,
+  `primeira_nota_em`, `ultima_nota_em`, por gatilho) + `endereco`, `cep`. Nota há menos de 1 ano = cliente ativo; mais antiga =
+  inativo (situação automática conta as notas; rótulos agora "Cliente ativo / Cliente inativo / Nunca foi cliente", no banco
+  continua `ex_cliente`). Inativo entra em A prospectar com `oportunidades.lista = 'Clientes inativos'` (chips "Lista:" na
+  Prospecção: Nunca compraram × Clientes inativos; ordenada por quem mais comprou); ativo sai de A prospectar se estava lá só por
+  lista (sem nada registrado). E-mail com cara de pessoa (nome.sobrenome) vira contato "confirmar nome e cargo"; e-mail de setor
+  vai para o e-mail geral. Reimportar a planilha atualizada também leva para a lista quem passou de 1 ano sem nota.
+  Ficha da empresa tem o cartão "Notas fiscais". Teste local: launch.json "notas-teste" (porta 8803) do site do Radar,
+  scratchpad da sessão 38fee57a (teste/ com `simularNotas` no base-falso.js).
 
 - Visual (2026-10-08, aprovado por prévia): petróleo escuro + branco + bege escuro, contraste alto, SEM mudar layout (ela não quer
   reaprender a navegar). Tudo em `public/assets/app.css`: `--lima`/`--verde` apontam para o bege (código antigo continua valendo);

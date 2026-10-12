@@ -34,13 +34,17 @@ const seloTemp = (o) => { const t = temperatura(o); return t ? `<span class="${T
 const chanceDe = (o) => (o.chance == null ? CHANCE[o.etapa] : o.chance);
 export const atrasado = (o) => aberta(o) && o.proximo_contato_em && new Date(o.proximo_contato_em).getTime() < Date.now();
 // Situação da empresa: a escolhida à mão na ficha vale; sem escolha, a plataforma decide: programa ou turma em andamento
-// (ou venda fechada há menos de 1 ano) = cliente ativa; já teve programa, turma ou venda = ex-cliente; senão, nunca foi.
-export const SITUACOES = { ativa: ['Cliente ativa', 'selo ok'], ex_cliente: ['Ex-cliente', 'selo alerta'], nunca: ['Nunca foi cliente', 'selo neutro'] };
+// (ou venda fechada / nota fiscal há menos de 1 ano) = cliente ativo; já teve programa, turma, venda ou nota = cliente inativo
+// (no banco continua 'ex_cliente'); senão, nunca foi.
+export const SITUACOES = { ativa: ['Cliente ativo', 'selo ok'], ex_cliente: ['Cliente inativo', 'selo alerta'], nunca: ['Nunca foi cliente', 'selo neutro'] };
+const PLURAL_SITUACAO = { ativa: 'Clientes ativos', ex_cliente: 'Clientes inativos', nunca: 'Nunca foram clientes' };
 export function situacaoAuto(empresaId, d) {
   const progs = d.programas.filter((p) => p.empresa_id === empresaId), turms = d.turmas.filter((t) => t.empresa_id === empresaId);
   const fechadas = d.oportunidades.filter((o) => o.empresa_id === empresaId && o.etapa === 'fechado');
-  if (progs.some((p) => p.status !== 'concluido') || turms.some((t) => t.status !== 'concluida') || fechadas.some((o) => diasDesde(o.fechado_em) <= 365)) return 'ativa';
-  return progs.length || turms.length || fechadas.length ? 'ex_cliente' : 'nunca';
+  const ultNota = (d.empresas.find((e) => e.id === empresaId) || {}).ultima_nota_em;
+  if (progs.some((p) => p.status !== 'concluido') || turms.some((t) => t.status !== 'concluida') || fechadas.some((o) => diasDesde(o.fechado_em) <= 365)
+    || (ultNota && diasDesde(ultNota) <= 365)) return 'ativa';
+  return progs.length || turms.length || fechadas.length || ultNota ? 'ex_cliente' : 'nunca';
 }
 export const situacaoDe = (e, d) => (e && e.situacao) || situacaoAuto(e.id, d);
 export const seloSituacao = (s) => `<span class="${SITUACOES[s][1]}">${SITUACOES[s][0]}</span>`;
@@ -517,6 +521,7 @@ async function paginaEmpresa(ctx, el, id) {
   const recarregar = () => ctx.irPara(`#/vendas/empresa/${id}`);
   const com23 = 'sistema' in e;                                                     // campos do script 23 já existem
   const auto = situacaoAuto(id, d);
+  const comNotas = 'endereco' in e;                                                 // campos do script 32 já existem
   el.innerHTML = `
     <div class="cab"><div><a class="peq" href="#/vendas/clientes">← Clientes</a><h1>${esc(e.nome)}</h1><p class="sub">${seloSituacao(situacaoDe(e, d))} ${ops.filter(aberta).length} oportunidade(s) em aberto · ${ops.filter((o) => o.etapa === 'fechado').length} fechada(s)</p></div>
       <div class="acoes"><button class="btn pri" type="button" id="nova-op">+ Nova oportunidade</button></div></div>
@@ -541,7 +546,10 @@ async function paginaEmpresa(ctx, el, id) {
             <div class="campo"><label for="em-central">Central</label><input type="text" id="em-central" value="${esc(e.central || '')}"></div>
             <div class="campo"><label for="em-situacao">Situação</label><select id="em-situacao">
               <option value="">Automática: ${SITUACOES[auto][0].toLowerCase()}</option>${Object.entries(SITUACOES).map(([k, [n]]) => `<option value="${k}"${k === e.situacao ? ' selected' : ''}>${n}</option>`).join('')}</select>
-              <small>Automática = pelas turmas, programas e vendas fechadas. Escolha à mão só para quem foi cliente antes da plataforma.</small></div></div>
+              <small>Automática = pelas turmas, programas, vendas fechadas e notas fiscais (nota há menos de 1 ano = ativo).</small></div></div>
+          ${comNotas ? `<div class="grade" style="gap:10px;grid-template-columns:3fr 1fr">
+            <div class="campo"><label for="em-endereco">Endereço</label><input type="text" id="em-endereco" value="${esc(e.endereco || '')}"></div>
+            <div class="campo"><label for="em-cep">CEP</label><input type="text" id="em-cep" value="${esc(e.cep || '')}"></div></div>` : ''}
           ${e.razao_social ? `<p class="peq apagado">Razão social: ${esc(e.razao_social)}</p>` : ''}` : ''}
           <div class="campo"><label for="em-obs">Observações</label><textarea id="em-obs">${esc(e.observacoes || '')}</textarea></div>
           <div class="linha"><button class="btn pri" type="submit">Salvar</button></div></form></div>
@@ -551,13 +559,16 @@ async function paginaEmpresa(ctx, el, id) {
       <div class="grade" style="gap:14px">
         <div class="cartao"><h3>Oportunidades</h3><div class="lista mt">${ops.length ? ops.map((o) => `<a class="item" href="#/vendas/oportunidade/${o.id}" style="grid-template-columns:1fr auto"><span><span class="nome">${esc(o.titulo)}</span><br><span class="info">${SERVICOS[o.servico] || ''} · ${dinheiro(o.valor)} · ${NOME_ETAPA[o.etapa]}${o.responsavel ? ` · ${esc(primeiroNome(o.responsavel.nome))}` : ''}</span></span>${seloTemp(o) || `<span class="selo ${o.etapa === 'fechado' ? '' : 'erro'}">${NOME_ETAPA[o.etapa]}</span>`}</a>`).join('') : '<p class="apagado">Nenhuma oportunidade ainda.</p>'}</div></div>
         <div class="cartao"><h3>Programas e turmas na plataforma</h3><div class="lista mt">${[...(prog.data || []).map((p) => `<a class="item" href="#/painel/programa/${p.id}" style="grid-template-columns:1fr auto"><span><span class="nome">${esc(p.nome)}</span><br><span class="info">Mentoria individual · ${dataBR(p.inicio)} a ${dataBR(p.fim_previsto)}</span></span><span class="selo neutro">${esc(p.status)}</span></a>`),
-          ...(turm.data || []).map((t) => `<a class="item" href="#/turma/${t.id}" style="grid-template-columns:1fr auto"><span><span class="nome">${esc(t.nome)}</span><br><span class="info">Turma · ${dataBR(t.inicio)} a ${dataBR(t.fim_previsto)}</span></span><span class="selo neutro">${esc(t.status)}</span></a>`)].join('') || '<p class="apagado">Ainda não é cliente.</p>'}</div></div>
+          ...(turm.data || []).map((t) => `<a class="item" href="#/turma/${t.id}" style="grid-template-columns:1fr auto"><span><span class="nome">${esc(t.nome)}</span><br><span class="info">Turma · ${dataBR(t.inicio)} a ${dataBR(t.fim_previsto)}</span></span><span class="selo neutro">${esc(t.status)}</span></a>`)].join('') || '<p class="apagado">Nenhum programa nem turma na plataforma.</p>'}</div></div>
+        ${e.qtd_notas ? '<div class="cartao" id="notas-fiscais"><p class="apagado">Carregando as notas fiscais…</p></div>' : ''}
       </div></div>`;
+  if (e.qtd_notas) import('./notas-fiscais.js').then(({ cartaoNotas }) => cartaoNotas(el.querySelector('#notas-fiscais'), id));
   el.querySelector('#f-emp').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const v = (k) => el.querySelector(`#em-${k}`).value.trim();
     const corpo = { nome: v('nome') || e.nome, tipo: v('tipo') || null, cidade: v('cidade') || null, uf: v('uf').toUpperCase() || null, porte: v('porte') || null, origem: v('origem') || null, site: v('site') || null, observacoes: v('obs') || null };
     if (com23) Object.assign(corpo, { telefone: v('telefone') || null, email: v('email').toLowerCase() || null, cnpj: v('cnpj') || null, sistema: v('sistema') || null, central: v('central') || null, situacao: v('situacao') || null });
+    if (comNotas) Object.assign(corpo, { endereco: v('endereco') || null, cep: v('cep') || null });
     const { error } = await sb.from('empresas').update(corpo).eq('id', id);
     if (error) { avisar(explicarErro(error), true); return; }
     avisar('Dados da empresa salvos.'); recarregar();
@@ -582,11 +593,11 @@ function abaClientes(ctx, el, d, recarregar) {
   const sistemas = [...new Set(d.empresas.map((e) => e.sistema).filter(Boolean))].sort();
   el.innerHTML = `<div class="linha ag-filtros"><input type="search" id="c-texto" placeholder="Empresa, contato, cidade…" value="${esc(estC.texto)}" style="width:auto;min-width:240px" aria-label="Procurar">
       ${sistemas.length ? `<select id="c-sistema" aria-label="Sistema"><option value="">Todos os sistemas</option>${sistemas.map((s) => `<option${s === estC.sistema ? ' selected' : ''}>${esc(s)}</option>`).join('')}</select>` : ''}
-      <button class="btn peq" type="button" id="nova-emp">+ Nova empresa</button>
+      <button class="btn peq" type="button" id="nova-emp">+ Nova empresa</button><button class="btn peq" type="button" id="importar-notas">Importar notas fiscais</button>
       <span class="peq apagado">${d.empresas.length} empresas · ${d.contatos.filter((c) => c.ativo !== false).length} contatos · ${d.contatos.filter((c) => c.marketing && c.ativo !== false).length} na lista de marketing</span></div>
-    <div class="chips" id="c-sit" style="margin-bottom:10px">${[['', 'Todas', d.empresas.length], ...Object.entries(SITUACOES).map(([k, [n]]) => [k, n === 'Cliente ativa' ? 'Clientes ativas' : n === 'Ex-cliente' ? 'Ex-clientes' : 'Nunca foram clientes', conta(k)])]
+    <div class="chips" id="c-sit" style="margin-bottom:10px">${[['', 'Todas', d.empresas.length], ...Object.keys(SITUACOES).map((k) => [k, PLURAL_SITUACAO[k], conta(k)])]
       .map(([k, n, q]) => `<button type="button" class="btn peq${k === estC.situacao ? ' escuro' : ''}" data-sit="${k}">${n}<span class="n">${q}</span></button>`).join('')}</div>
-    <div class="tabela cartao" style="padding:0"><table id="tab"><thead><tr><th>Empresa</th><th>Situação</th><th>Tipo · cidade</th><th>Contatos</th><th>No funil</th><th>Fechado</th><th>Último contato</th></tr></thead><tbody></tbody></table></div>
+    <div class="tabela cartao" style="padding:0"><table id="tab"><thead><tr><th>Empresa</th><th>Situação</th><th>Tipo · cidade</th><th>Contatos</th><th>No funil</th><th>Fechado</th><th>Notas fiscais</th><th>Último contato</th></tr></thead><tbody></tbody></table></div>
     <div class="linha mt" id="c-mais"></div>`;
   const desenhar = () => {
     const t = norm(estC.texto);
@@ -595,7 +606,7 @@ function abaClientes(ctx, el, d, recarregar) {
       if (estC.sistema && e.sistema !== estC.sistema) return false;
       if (!t) return true;
       const cs = d.contatos.filter((c) => c.empresa_id === e.id).map((c) => c.nome);
-      return norm([e.nome, e.cidade, e.uf, e.sistema, e.central, ...cs].join(' ')).includes(t);
+      return norm([e.nome, e.razao_social, e.cnpj, e.cidade, e.uf, e.sistema, e.central, ...cs].join(' ')).includes(t);
     });
     const linhas = filtradas.slice(0, estC.limite).map((e) => {
       const cs = d.contatos.filter((c) => c.empresa_id === e.id && c.ativo !== false);
@@ -608,9 +619,10 @@ function abaClientes(ctx, el, d, recarregar) {
         <td class="peq">${[e.sistema || e.tipo, [e.cidade, e.uf].filter(Boolean).join('/')].filter(Boolean).map(esc).join(' · ') || '—'}</td>
         <td class="peq">${cs.map((c) => esc(c.nome)).join(', ') || '—'}</td>
         <td class="peq">${etapa ? `${NOME_ETAPA[etapa]}${ab.some(noFunil) ? ` · ${dinheiro(ab.filter(noFunil).reduce((a, o) => a + Number(o.valor || 0), 0))}` : ''}` : '—'}</td>
-        <td>${fe.length ? `${fe.length} · ${dinheiro(fe.reduce((a, o) => a + Number(o.valor || 0), 0))}` : '—'}</td><td class="peq">${ult ? `${dataBR(ult)}${diasDesde(ult) > 90 ? ' ❄' : ''}` : '—'}</td></tr>`;
+        <td>${fe.length ? `${fe.length} · ${dinheiro(fe.reduce((a, o) => a + Number(o.valor || 0), 0))}` : '—'}</td>
+        <td class="peq">${e.qtd_notas ? `${dinheiro(e.total_notas)}<div class="apagado">${e.qtd_notas} · última ${dataBR(e.ultima_nota_em)}</div>` : '—'}</td><td class="peq">${ult ? `${dataBR(ult)}${diasDesde(ult) > 90 ? ' ❄' : ''}` : '—'}</td></tr>`;
     });
-    el.querySelector('tbody').innerHTML = linhas.join('') || `<tr><td colspan="7" class="apagado">Nenhuma empresa${t ? ' com esse nome' : ''}.</td></tr>`;
+    el.querySelector('tbody').innerHTML = linhas.join('') || `<tr><td colspan="8" class="apagado">Nenhuma empresa${t ? ' com esse nome' : ''}.</td></tr>`;
     el.querySelector('#c-mais').innerHTML = filtradas.length > estC.limite ? `<span class="peq apagado">Mostrando ${estC.limite} de ${filtradas.length}.</span><button class="btn peq" type="button" id="c-mais-btn">Mostrar mais</button>` : '';
   };
   el.querySelector('#c-texto').addEventListener('input', (ev) => { estC.texto = ev.target.value; desenhar(); });
@@ -621,6 +633,7 @@ function abaClientes(ctx, el, d, recarregar) {
   });
   el.querySelector('#c-mais').addEventListener('click', (ev) => { if (ev.target.closest('#c-mais-btn')) { estC.limite += 200; desenhar(); } });
   el.querySelector('#tab').addEventListener('click', (ev) => { const tr = ev.target.closest('[data-ir]'); if (tr) location.hash = tr.dataset.ir; });
+  el.querySelector('#importar-notas').addEventListener('click', async () => (await import('./notas-fiscais.js')).janelaImportarNotas(ctx, d, recarregar));
   el.querySelector('#nova-emp').addEventListener('click', async () => {
     const nome = window.prompt('Nome da empresa:'); if (!nome || !nome.trim()) return;
     const { data, error } = await sb.from('empresas').insert({ nome: nome.trim() }).select('id').single();

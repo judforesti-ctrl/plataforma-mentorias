@@ -20,7 +20,7 @@ export const TABELAS = [
   ['modulo_arquivos', 'Arquivos das aulas'], ['agenda_bloqueios', 'Agenda - bloqueios'], ['agenda_reservas', 'Agenda - pré-bloqueios'],
   ['agenda_reserva_datas', 'Pré-bloqueios - datas'], ['agenda_reserva_mentores', 'Pré-bloqueios - mentores'], ['agenda_reunioes', 'Agenda - reuniões'],
   ['perfis', 'Equipe e logins'], ['convites', 'Convites'], ['ferramentas', 'Arsenal'], ['arsenal_tags', 'Arsenal - temas'],
-  ['ferramentas_enviadas', 'Ferramentas enviadas'], ['importacoes_proposta', 'Propostas importadas'], ['configuracoes', 'Configurações'],
+  ['ferramentas_enviadas', 'Ferramentas enviadas'], ['importacoes_proposta', 'Propostas importadas'], ['notas_fiscais', 'Notas fiscais'], ['configuracoes', 'Configurações'],
 ];
 
 // Lê uma tabela inteira, de 1000 em 1000 linhas (limite do Supabase por pedido).
