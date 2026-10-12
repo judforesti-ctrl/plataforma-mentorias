@@ -280,6 +280,20 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   resposta, pontos por palavras do título/turma/empresa + apelidos ("desenvolvimento de líderes" = Sicredi Expansão; "trilha"/"lideranças"
   = Cresol Conexão); sem certeza fica sem módulo. Histórico não dispara e-mail (marca avaliacao_aviso_em). No relatório, respostas sem
   módulo aparecem agrupadas por mês ("Histórico de <mês>") e a didática conta na nota de mentor da visão geral (`notasDe`).
+- LINK DE CONVITE QUE NÃO EXPIRA (2026-10-12, reclamação: quem não entrava na hora mandava "link expirado"): o código do Supabase
+  vence em horas, então o convite (e-mail e WhatsApp) leva `definir-senha.html?c=<código nosso>` assinado com HMAC da
+  SUPABASE_SECRET_KEY (`netlify/lib/acesso.mjs`; trocar a chave invalida os links). Ao abrir, `/api/acesso` acao `abrir` confere,
+  gera na hora um código de recuperação do Supabase e a página entra com ele. Tipo 'c' (convite) vale até a pessoa criar a senha;
+  tipo 's' (Esqueci minha senha) vale 7 dias. Ao salvar a senha a página chama acao `senha_criada` (app_metadata.senha_criada_em,
+  hora do servidor): links anteriores passam a mostrar "Você já criou a sua senha". Perfil desativado ou login apagado bloqueia.
+  E-mail do convite sai pelo Brevo (`enviarLinkPorEmail`); sem Brevo, cai no e-mail do Supabase (que vence). "Esqueci minha senha"
+  e a página de link vencido usam acao `pedir` (resposta sempre igual; no máximo 1 e-mail a cada 2 min por pessoa).
+- VÁRIAS TAREFAS POR SESSÃO (2026-10-12, script 33, tabela `tarefas`; helper `public/assets/tarefas.js` com `juntarTarefas()`,
+  que põe `s.tarefas` em cada sessão e, sem a tabela, usa a tarefa única antiga `sessoes.tarefa*`): na sessão, "+ Adicionar tarefa"
+  (texto + prazo por linha, ✕ tira; salva junto com o resto). Mentorado vê só as de sessão concluída e marca cada uma como feita;
+  sessão concluída só a administração muda (trigger `protege_tarefa`). O script copia as tarefas antigas uma vez (tabela vazia).
+  Ficha, Painel, Meus mentorados, lembretes, relatórios/Excel, resumo com IA e WhatsApp já leem a lista.
+  Teste local: launch.json "tarefas-teste" (porta 8804) do site do Radar, scratchpad da sessão b18f9662 (?sem33 = sem o script).
 
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.
