@@ -52,6 +52,7 @@ const GRUPOS = [
   { id: 'gestao', nome: 'Gestão', icone: 'sliders-horizontal', itens: [
     { nome: 'Painel', icone: 'layout-dashboard', rota: '#/painel', pode: ehAdmin },
     { nome: 'Mentores', icone: 'graduation-cap', rota: '#/mentores', pode: ehAdmin },
+    { nome: 'Convites', icone: 'mail', rota: '#/convites', pode: ehAdmin },
     { nome: 'Checklist', icone: 'list-checks', rota: '#/checklist', pode: ehAdmin || atende },
     { nome: 'Avaliações', icone: 'star', rota: '#/avaliacoes', pode: ehAdmin },
     { nome: 'Importar planilha', icone: 'file-up', rota: '#/importar', pode: ehAdmin },
@@ -97,6 +98,7 @@ const ROTAS = {
   checklist: () => import('./telas/checklist.js'),
   'relatorio-turmas': () => import('./telas/relatorio-turmas.js'),
   avaliacoes: () => import('./telas/avaliacoes.js'),
+  convites: () => import('./telas/convites.js'),
 };
 
 // Marca no menu a página atual e devolve o caminho "Grupo › Página" (escondido no primeiro acesso, quando o menu fica escondido).

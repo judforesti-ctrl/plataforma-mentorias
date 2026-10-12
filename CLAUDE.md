@@ -288,6 +288,10 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   hora do servidor): links anteriores passam a mostrar "Você já criou a sua senha". Perfil desativado ou login apagado bloqueia.
   E-mail do convite sai pelo Brevo (`enviarLinkPorEmail`); sem Brevo, cai no e-mail do Supabase (que vence). "Esqueci minha senha"
   e a página de link vencido usam acao `pedir` (resposta sempre igual; no máximo 1 e-mail a cada 2 min por pessoa).
+- CONVITES EM LOTE (2026-10-12, `telas/convites.js`, Gestão → Convites, só administração): mentorados + equipe numa lista com a
+  situação (já entrou / ainda não entrou / não convidado / sem e-mail) e "Enviar convite por e-mail para N pessoas" (um /api/convidar
+  por pessoa, resultado em cada linha). `#/convites/brasdiesel,lorena` filtra e já marca: pela empresa/programa só quem ainda não
+  entrou; pelo nome da pessoa marca mesmo se já entrou; nunca marca sem e-mail, inativo ou nome com "modelo"/"teste".
 - VÁRIAS TAREFAS POR SESSÃO (2026-10-12, script 33, tabela `tarefas`; helper `public/assets/tarefas.js` com `juntarTarefas()`,
   que põe `s.tarefas` em cada sessão e, sem a tabela, usa a tarefa única antiga `sessoes.tarefa*`): na sessão, "+ Adicionar tarefa"
   (texto + prazo por linha, ✕ tira; salva junto com o resto). Mentorado vê só as de sessão concluída e marca cada uma como feita;
