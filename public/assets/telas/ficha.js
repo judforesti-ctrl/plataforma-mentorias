@@ -1,9 +1,10 @@
 // Ficha do mentorado: visão geral (objetivo, pontos, duas visões, SWOT), plano de sessões e dados.
 // Mentor e administração editam; o salvamento é automático.
-import { sb, esc, avatar, dataHoraBR, autoSalvar, avisar, explicarErro, localParaISO, hojeISO } from '../base.js';
+import { sb, esc, avatar, dataHoraBR, autoSalvar, avisar, explicarErro, localParaISO } from '../base.js';
 import { htmlResultado } from '../ferramentas-online.js';
 import { editarLinkMeet, normalizarMeet } from './meet.js';
 import { redes, linkRede, gravarComRedes } from './perfil-comum.js';
+import { juntarTarefas, seloResumo } from '../tarefas.js';
 
 const SITUACAO = { agendada: ['Agendada', 'neutro'], realizada: ['Feita', ''], falta_avisada: ['Falta avisada', 'alerta'],
   falta_sem_aviso: ['Falta sem aviso', 'erro'], remarcada: ['Remarcada', 'alerta'], cancelada: ['Cancelada', 'neutro'] };
@@ -22,6 +23,7 @@ export async function render(ctx, el, [id]) {
   const { data: enviadas } = await sb.from('ferramentas_enviadas').select('id, enviado_em, ferramenta:ferramentas(nome), por:perfis(nome)').eq('mentorado_id', id).order('enviado_em', { ascending: false });
 
   const sess = (m.sessoes || []).sort((a, b) => a.numero - b.numero);
+  await juntarTarefas(sess, (q) => q.eq('mentorado_id', id));
   const mentores = (m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor).filter(Boolean);
   const p = m.perfil || {};
   const feitas = sess.filter((s) => s.situacao === 'realizada').length;
@@ -94,10 +96,10 @@ export async function render(ctx, el, [id]) {
           ${sess.filter((s) => !s.concluida_em && s.situacao !== 'cancelada').length > 1 ? '<button class="btn peq pri" id="remarcar-varias" title="Mudar o horário, o dia da semana ou as datas de várias sessões ao mesmo tempo">Remarcar várias de uma vez</button>' : ''}
           ${ctx.ehAdmin ? '<button class="btn peq" id="extra">+ Sessão extra</button>' : ''}</span></div>
         <div class="tabela mt"><table>
-          <tr><th>Nº</th><th>Data</th><th>Mentor</th><th>Tema</th><th>Tarefa</th><th>Situação</th><th></th></tr>
+          <tr><th>Nº</th><th>Data</th><th>Mentor</th><th>Tema</th><th>Tarefas</th><th>Situação</th><th></th></tr>
           ${sess.map((s) => {
             const [rot, cls] = SITUACAO[s.situacao] || [s.situacao, 'neutro'];
-            const tarefa = s.tarefa ? (s.tarefa_feita_em ? '<span class="selo">Entregue</span>' : (s.tarefa_prazo && s.tarefa_prazo < hojeISO() ? '<span class="selo alerta">Atrasada</span>' : '<span class="selo neutro">Pendente</span>')) : '';
+            const tarefa = seloResumo(s.tarefas);
             return `<tr><td>${s.numero}${s.extra ? ' <span class="selo neutro">extra</span>' : ''}</td><td>${dataHoraBR(s.data_hora)}</td>
               <td>${esc(s.mentor ? s.mentor.nome : '—')}</td><td>${esc(s.tema || '—')}</td><td>${tarefa}</td>
               <td><span class="selo ${cls}">${rot}</span>${s.concluida_em ? ' <span class="selo neutro">🔒</span>' : ''}</td>

@@ -15,7 +15,7 @@ export const chaveBackup = () => createHmac('sha256', env('SUPABASE_SECRET_KEY')
 // google_eventos (chaves técnicas), acessos e historico (registros de uso, grandes e sem valor para ler).
 export const TABELAS = [
   ['empresas', 'Empresas'], ['programas', 'Programas'], ['programa_temas', 'Temas dos programas'], ['mentorados', 'Mentorados'],
-  ['mentor_mentorado', 'Mentor x mentorado'], ['sessoes', 'Sessões'], ['sessoes_interno', 'Sessões - interno'], ['avaliacoes_sessao', 'Avaliações'],
+  ['mentor_mentorado', 'Mentor x mentorado'], ['sessoes', 'Sessões'], ['sessoes_interno', 'Sessões - interno'], ['tarefas', 'Tarefas'], ['avaliacoes_sessao', 'Avaliações'],
   ['testes', 'Testes e ferramentas online'], ['turmas', 'Turmas'], ['modulos', 'Aulas das turmas'], ['modulo_mentores', 'Mentores das aulas'],
   ['modulo_arquivos', 'Arquivos das aulas'], ['agenda_bloqueios', 'Agenda - bloqueios'], ['agenda_reservas', 'Agenda - pré-bloqueios'],
   ['agenda_reserva_datas', 'Pré-bloqueios - datas'], ['agenda_reserva_mentores', 'Pré-bloqueios - mentores'], ['agenda_reunioes', 'Agenda - reuniões'],

@@ -66,7 +66,7 @@ export async function conviteWhatsApp({ email, nome, papel, tambem_mentor = fals
 
   const primeiro = String(nome || '').split(' ')[0];
   const quem = remetente ? `Aqui é ${remetente.split(' ')[0]}, da Mentorei.` : 'Aqui é da Mentorei.';
-  const texto = `Olá, ${primeiro}! ${quem} Seu acesso à plataforma de mentorias está pronto.${contexto ? `\n\n${contexto}` : ''}\n\nPara entrar, crie sua senha neste link:\n${j.link}\n\nSeu login é este e-mail: ${email}\n\nO link vale por tempo limitado. Se expirar, me avise que eu mando outro.`;
+  const texto = `Olá, ${primeiro}! ${quem} Seu acesso à plataforma de mentorias está pronto.${contexto ? `\n\n${contexto}` : ''}\n\nPara entrar, crie sua senha neste link:\n${j.link}\n\nSeu login é este e-mail: ${email}\n\nO link não expira: pode usar quando puder. Ele vale até você criar a sua senha; depois é só entrar com o e-mail e a senha.`;
   janelaWhatsApp({ titulo: `Convite por WhatsApp · ${nome}`, nota: 'O link foi gerado e nenhum e-mail foi enviado. Confira a mensagem e mande pelo seu WhatsApp.', whatsapp, texto });
   return true;
 }

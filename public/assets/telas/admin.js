@@ -1,6 +1,7 @@
 // Painel da administração: visão geral, empresas e programas, novo programa, novo mentorado e página do programa.
 import { normalizarMeet } from './meet.js';
 import { pendencias } from './pendencias.js';
+import { juntarTarefas, atrasada as tarefaAtrasada } from '../tarefas.js';
 import { sb, esc, dataBR, dataHoraBR, avisar, explicarErro, localParaISO, hojeISO } from '../base.js';
 
 const FREQ = { semanal: 'Semanal', quinzenal: 'Quinzenal', mensal: 'Mensal' };
@@ -32,6 +33,7 @@ async function carregarTudo() {
     sb.from('modulos').select('id, turma_id, data_hora, percepcoes_em, mentores:modulo_mentores(mentor_id)'),
   ]);
   for (const r of [emp, prog, ment, sess, mentores]) if (r.error) throw r.error;
+  await juntarTarefas(sess.data);
   // Turmas e módulos são opcionais (o script 11 pode não ter sido rodado): sem eles o painel continua funcionando.
   return { empresas: emp.data, programas: prog.data, mentorados: ment.data, sessoes: sess.data, mentores: mentores.data,
     turmas: turmas.error ? [] : turmas.data, modulos: modulos.error ? [] : modulos.data };
@@ -47,12 +49,12 @@ function numerosGrupo(turmas, modulos) {
 }
 
 function numeros(sessoes) {
-  const agora = Date.now(), hoje = hojeISO();
+  const agora = Date.now();
   const passadas = sessoes.filter((s) => s.data_hora && new Date(s.data_hora).getTime() < agora);
   const feitas = sessoes.filter((s) => s.situacao === 'realizada').length;
   const faltas = sessoes.filter((s) => s.situacao.startsWith('falta')).length;
   const semRegistro = passadas.filter((s) => s.situacao === 'agendada' && new Date(s.data_hora).getTime() < agora - 48 * 3600 * 1000).length;
-  const atrasadas = sessoes.filter((s) => s.tarefa && s.tarefa_prazo && !s.tarefa_feita_em && s.tarefa_prazo < hoje).length;
+  const atrasadas = sessoes.reduce((n, s) => n + (s.tarefas || []).filter(tarefaAtrasada).length, 0);
   const presenca = feitas + faltas ? Math.round((feitas / (feitas + faltas)) * 100) : null;
   return { total: sessoes.length, feitas, faltas, semRegistro, atrasadas, presenca };
 }

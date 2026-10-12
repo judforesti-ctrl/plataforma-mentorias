@@ -1,6 +1,7 @@
 // Área do mentorado: programa, próxima sessão, tarefas, resumos liberados e os mentores.
-import { sb, esc, avatar, dataHoraBR, diaMes, avisar, explicarErro, hojeISO } from '../base.js';
+import { sb, esc, avatar, dataHoraBR, diaMes, avisar, explicarErro } from '../base.js';
 import { ONLINE, linkOnline, htmlResultado } from '../ferramentas-online.js';
+import { juntarTarefas, prazoBR, atrasada } from '../tarefas.js';
 
 export async function render(ctx, el) {
   const { data: m, error } = await sb.from('mentorados').select(`id, nome, sala_meet,
@@ -24,7 +25,10 @@ export async function render(ctx, el) {
   const agora = Date.now();
   const proxima = sess.find((s) => !s.concluida_em && s.data_hora && new Date(s.data_hora).getTime() > agora - 2 * 3600 * 1000);
   const feitas = sess.filter((s) => s.situacao === 'realizada').length;
-  const tarefas = sess.filter((s) => s.tarefa && s.concluida_em);
+  await juntarTarefas(sess, (q) => q.eq('mentorado_id', m.id));
+  // as que faltam fazer primeiro (pelo prazo); as feitas no fim
+  const tarefas = sess.filter((s) => s.concluida_em).flatMap((s) => s.tarefas.map((t) => ({ ...t, numero: s.numero })))
+    .sort((a, b) => (!!a.feita_em - !!b.feita_em) || String(a.prazo || '9999').localeCompare(String(b.prazo || '9999')) || b.numero - a.numero);
   const resumos = sess.filter((s) => s.concluida_em && s.resumo_mentorado).reverse();
   const mentores = (m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor).filter(Boolean);
 
@@ -40,11 +44,11 @@ export async function render(ctx, el) {
 
     <div class="grade g2 mt">
       <div class="cartao"><h3>Suas tarefas</h3>
-        ${tarefas.length ? `<div class="lista mt">${tarefas.slice().reverse().map((s) => `<div class="cartao" style="background:var(--bg);border:0">
-          <p><b>${esc(s.tarefa)}</b></p>
-          <p class="peq apagado">Sessão ${s.numero}${s.tarefa_prazo ? ` · prazo ${new Date(`${s.tarefa_prazo}T12:00:00`).toLocaleDateString('pt-BR')}` : ''}
-            ${s.tarefa_feita_em ? ' · <span class="selo">Feita</span>' : (s.tarefa_prazo && s.tarefa_prazo < hojeISO() ? ' · <span class="selo alerta">Atrasada</span>' : '')}</p>
-          ${s.tarefa_feita_em ? '' : `<div class="linha mt"><button class="btn peq pri" data-feita="${s.id}">Marcar como feita</button></div>`}</div>`).join('')}</div>`
+        ${tarefas.length ? `<div class="lista mt">${tarefas.map((t) => `<div class="cartao" style="background:var(--bg);border:0">
+          <p style="white-space:pre-wrap"><b>${esc(t.texto)}</b></p>
+          <p class="peq apagado">Sessão ${t.numero}${t.prazo ? ` · prazo ${prazoBR(t.prazo)}` : ''}
+            ${t.feita_em ? ' · <span class="selo">Feita</span>' : (atrasada(t) ? ' · <span class="selo alerta">Atrasada</span>' : '')}</p>
+          ${t.feita_em ? '' : `<div class="linha mt"><button class="btn peq pri" data-feita="${t.id || `sessao:${t.sessao_id}`}">Marcar como feita</button></div>`}</div>`).join('')}</div>`
           : '<p class="apagado mt">Quando o seu mentor passar uma tarefa, ela aparece aqui.</p>'}</div>
       <div class="cartao"><h3>${mentores.length > 1 ? 'Seus mentores' : 'Seu mentor'}</h3>
         <div class="lista mt">${mentores.map((x) => {
@@ -101,7 +105,11 @@ export async function render(ctx, el) {
     }
     const b = ev.target.closest('[data-feita]'); if (!b) return;
     b.disabled = true;
-    const { error: e } = await sb.from('sessoes').update({ tarefa_feita_em: new Date().toISOString() }).eq('id', b.dataset.feita);
+    const agoraISO = new Date().toISOString();
+    const [tipo, sessaoId] = b.dataset.feita.split(':');
+    const { error: e } = sessaoId // tarefa única antiga (antes do script 33)
+      ? await sb.from('sessoes').update({ tarefa_feita_em: agoraISO }).eq('id', sessaoId)
+      : await sb.from('tarefas').update({ feita_em: agoraISO }).eq('id', tipo);
     if (e) { avisar(explicarErro(e), true); b.disabled = false; return; }
     avisar('Tarefa marcada como feita. Seu mentor vai ver.'); ctx.irPara('#/minha-area');
   });

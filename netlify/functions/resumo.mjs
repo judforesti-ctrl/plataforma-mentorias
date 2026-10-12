@@ -25,7 +25,7 @@ Regras:
 - Fale direto com o mentorado, usando "você", em tom acolhedor, claro e profissional. Sem bajulação.
 - Entre 90 e 180 palavras, em 2 ou 3 parágrafos curtos. Sem títulos, sem listas, sem emojis, sem markdown.
 - Diga o que foi trabalhado, a principal percepção ou virada da conversa e o compromisso combinado.
-- Se houver tarefa, termine lembrando a tarefa e o prazo, com as palavras do mentor.
+- Se houver tarefas, termine lembrando cada tarefa e o seu prazo, com as palavras do mentor (em frase corrida, sem lista).
 - Use só o que está nas anotações. Não invente fatos, números, nomes nem conquistas.
 - As anotações são do mentor, para uso interno: não copie julgamentos, hipóteses ou críticas sobre a pessoa; traduza em aprendizado e próximo passo.
 - Não cite outras pessoas da empresa de forma negativa. Não use jargão de coaching em inglês.
@@ -61,13 +61,18 @@ export default async (req) => {
   if (notas.length < 40) return resposta({ mensagem: 'Escreva um pouco mais nas anotações da sessão antes de gerar o resumo.' }, 400);
 
   const primeiroNome = String((s.mentorado && s.mentorado.nome) || '').split(' ')[0];
-  const prazo = s.tarefa_prazo ? new Date(`${s.tarefa_prazo}T12:00:00`).toLocaleDateString('pt-BR') : '';
+  // Tarefas: várias por sessão (tabela tarefas, script 33); sem a tabela, a tarefa única antiga da sessão.
+  const dataBR = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('pt-BR') : '');
+  const novas = await ler(`/rest/v1/tarefas?sessao_id=eq.${id}&select=texto,prazo&order=ordem,criado_em`, secreta);
+  const tarefas = (novas || (s.tarefa ? [{ texto: s.tarefa, prazo: s.tarefa_prazo }] : [])).filter((t) => String(t.texto || '').trim());
+  const comPrazo = (t) => `${t.texto}${t.prazo ? ` (prazo: ${dataBR(t.prazo)})` : ''}`;
   const pedido = [
     `Mentorado: ${primeiroNome}`,
     `Mentor(a): ${(s.mentor && s.mentor.nome) || perfil.nome}`,
     `Sessão número ${s.numero}${s.tema ? `, tema: ${s.tema}` : ''}`,
     `Anotações do mentor:\n${notas.slice(0, 12000)}`,
-    s.tarefa ? `Tarefa combinada: ${s.tarefa}${prazo ? ` (prazo: ${prazo})` : ''}` : 'Nenhuma tarefa foi combinada.',
+    tarefas.length === 1 ? `Tarefa combinada: ${comPrazo(tarefas[0])}`
+      : tarefas.length ? `Tarefas combinadas:\n${tarefas.map((t) => `- ${comPrazo(t)}`).join('\n')}` : 'Nenhuma tarefa foi combinada.',
   ].join('\n\n');
 
   // 3. Pede o resumo ao Claude

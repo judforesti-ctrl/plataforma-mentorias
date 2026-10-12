@@ -2,6 +2,7 @@
 // Exporta para Excel: versão para o RH (só indicadores) e versão completa de uso interno.
 // Nenhuma versão leva anotações do mentor nem informações delicadas.
 import { sb, esc, dataBR, hojeISO, avisar, explicarErro } from '../base.js';
+import { juntarTarefas, atrasada } from '../tarefas.js';
 
 const SIT = { agendada: 'Agendada', realizada: 'Realizada', falta_avisada: 'Falta avisada', falta_sem_aviso: 'Falta sem aviso', remarcada: 'Remarcada', cancelada: 'Cancelada' };
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : null);
@@ -10,14 +11,13 @@ const fmtPct = (x) => (x == null ? '—' : `${x}%`);
 const fmtNum = (x) => (x == null ? '—' : String(x).replace('.', ','));
 
 function indicadores(m) {
-  const hoje = hojeISO();
   const sess = (m.sessoes || []).slice().sort((a, b) => a.numero - b.numero);
   const feitas = sess.filter((s) => s.situacao === 'realizada').length;
   const faltasAv = sess.filter((s) => s.situacao === 'falta_avisada').length;
   const faltasSem = sess.filter((s) => s.situacao === 'falta_sem_aviso').length;
-  const tarefas = sess.filter((s) => s.tarefa && s.concluida_em);
-  const entregues = tarefas.filter((s) => s.tarefa_feita_em).length;
-  const atrasadas = tarefas.filter((s) => !s.tarefa_feita_em && s.tarefa_prazo && s.tarefa_prazo < hoje).length;
+  const tarefas = sess.filter((s) => s.concluida_em).flatMap((s) => s.tarefas || []);
+  const entregues = tarefas.filter((t) => t.feita_em).length;
+  const atrasadas = tarefas.filter(atrasada).length;
   const notas = sess.map((s) => s.avaliacao && s.avaliacao.nota).filter(Boolean);
   const pontos = (Array.isArray(m.pontos_desenvolver) ? m.pontos_desenvolver : []).map((x) => (typeof x === 'string' ? x : x.ponto)).filter(Boolean);
   const evolucao = pontos.map((pt) => {
@@ -40,10 +40,11 @@ export async function render(ctx, el) {
     sb.from('programas').select('id, nome, empresa_id, sessoes_por_mentorado, inicio, fim_previsto').order('criado_em', { ascending: false }),
     sb.from('mentorados').select(`id, nome, cargo, status, programa_id, pontos_desenvolver,
       vinculos:mentor_mentorado(ordem, mentor:perfis(nome)),
-      sessoes(numero, data_hora, tema, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em, resumo_mentorado,
+      sessoes(id, numero, data_hora, tema, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em, resumo_mentorado,
         mentor:perfis!sessoes_mentor_id_fkey(nome), interno:sessoes_interno(notas_evolucao), avaliacao:avaliacoes_sessao(nota))`).order('nome'),
   ]);
   for (const r of [emp, prog, ment]) if (r.error) throw r.error;
+  await juntarTarefas((ment.data || []).flatMap((m) => m.sessoes || []));
   const empresas = emp.data || [], programas = prog.data || [], mentorados = ment.data || [];
   if (!empresas.length) { el.innerHTML = '<div class="cab"><div><h1>Relatórios</h1></div></div><div class="vazio">Nenhuma empresa cadastrada ainda.</div>'; return; }
 
@@ -145,10 +146,11 @@ export async function render(ctx, el) {
     linhas.forEach((_, i) => { const c = wsM[`J${i + 2}`]; if (c && typeof c.v === 'number') c.z = '0%'; });
 
     if (interno) {
-      const linhasSess = [['Mentorado', 'Nº', 'Data', 'Mentor', 'Tema', 'Situação', 'Tarefa', 'Prazo', 'Tarefa entregue em', 'Nota do mentorado', 'Resumo enviado ao mentorado']];
+      const linhasSess = [['Mentorado', 'Nº', 'Data', 'Mentor', 'Tema', 'Situação', 'Tarefas', 'Prazos', 'Tarefas entregues em', 'Nota do mentorado', 'Resumo enviado ao mentorado']];
       linhas.forEach(({ m, k }) => k.sess.forEach((s) => linhasSess.push([m.nome, s.numero, s.data_hora ? dataBR(s.data_hora) : '', s.mentor ? s.mentor.nome : '',
-        s.tema || '', SIT[s.situacao] || s.situacao, s.tarefa || '', s.tarefa_prazo ? dataBR(`${s.tarefa_prazo}T12:00:00-03:00`) : '',
-        s.tarefa_feita_em ? dataBR(s.tarefa_feita_em) : '', s.avaliacao ? s.avaliacao.nota : '', s.concluida_em ? (s.resumo_mentorado || '') : ''])));
+        s.tema || '', SIT[s.situacao] || s.situacao, (s.tarefas || []).map((t) => t.texto).join('\n'),
+        (s.tarefas || []).map((t) => (t.prazo ? dataBR(`${t.prazo}T12:00:00-03:00`) : '—')).join('\n'),
+        (s.tarefas || []).map((t) => (t.feita_em ? dataBR(t.feita_em) : '—')).join('\n'), s.avaliacao ? s.avaliacao.nota : '', s.concluida_em ? (s.resumo_mentorado || '') : ''])));
       folha('Sessões', linhasSess, [28, 5, 11, 20, 30, 16, 40, 11, 12, 10, 80]);
     }
     const limpo = (x) => String(x || '').replace(/[\\/:*?"<>|]/g, '').trim();

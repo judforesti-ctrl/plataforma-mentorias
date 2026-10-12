@@ -1,8 +1,9 @@
 // Tela da sessão: antes de começar (sessões anteriores, pontos delicados, tarefa anterior, evolução),
 // roteiro, anotações por voz, campo delicado, notas de evolução, tarefa, ferramentas e resumo para o mentorado.
 // Depois de concluída, só a administração altera.
-import { sb, esc, avatar, dataHoraBR, diaMes, autoSalvar, avisar, explicarErro, hojeISO } from '../base.js';
+import { sb, esc, avatar, dataHoraBR, diaMes, autoSalvar, avisar, explicarErro } from '../base.js';
 import { editarLinkMeet, normalizarMeet } from './meet.js';
+import { juntarTarefas, htmlTarefas, seloTarefa, textoTarefas } from '../tarefas.js';
 
 // Janela flutuante (fica por cima de tudo, até do Meet): Google Chrome e Edge no computador.
 const FLUTUANTE = 'documentPictureInPicture' in window;
@@ -13,7 +14,6 @@ const ROT_SIT = Object.fromEntries(SITUACOES);
 const COR_SIT = { realizada: '', falta_avisada: 'alerta', falta_sem_aviso: 'erro', remarcada: 'alerta', cancelada: 'neutro', agendada: 'neutro' };
 const NOTAS = ['', 'Começando', 'Em construção', 'Praticando', 'Consistente', 'Referência'];
 const umaLinha = (s) => String(s || '').trim();
-const prazoBR = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('pt-BR') : '');
 
 const SEL_SESSAO = `id, numero, extra, data_hora, tema, roteiro, situacao, motivo_falta, duracao_min, resumo_mentorado,
   tarefa, tarefa_prazo, tarefa_feita_em, tarefa_comentario, concluida_em, mentorado_id,
@@ -38,6 +38,8 @@ export async function render(ctx, el, [id]) {
     sb.from('ferramentas').select('id, nome, arquivo').order('nome'),
     sb.from('ferramentas_enviadas').select('id, ferramenta:ferramentas(nome)').eq('sessao_id', s.id),
   ]);
+  // várias tarefas por sessão (script 33); sem a tabela, a tarefa única antiga
+  const multiplas = await juntarTarefas([s, ...(todas || [])], (q) => q.eq('mentorado_id', m.id));
   const interno = s.interno || {};
   const notasEvol = { ...(interno.notas_evolucao || {}) };
   const anteriores = (todas || []).filter((x) => x.numero < s.numero && (x.concluida_em || x.situacao !== 'agendada'));
@@ -52,12 +54,10 @@ export async function render(ctx, el, [id]) {
   const aceitaWhats = !!(p.autorizacoes && p.autorizacoes.whatsapp && whats);
 
   // ---------- antes de começar ----------
-  const ultimaComTarefa = anteriores.slice().reverse().find((x) => x.tarefa);
+  const ultimaComTarefa = anteriores.slice().reverse().find((x) => x.tarefas.length);
   const delicados = anteriores.filter((x) => x.interno && umaLinha(x.interno.informacoes_delicadas));
   const evolucao = pontos.map((pt) => ({ pt, serie: anteriores.map((x) => x.interno && x.interno.notas_evolucao && x.interno.notas_evolucao[pt]).filter(Boolean) }))
     .filter((x) => x.serie.length);
-  const estadoTarefa = (x) => (x.tarefa_feita_em ? `<span class="selo">Feita em ${diaMes(x.tarefa_feita_em)}</span>`
-    : x.tarefa_prazo && x.tarefa_prazo < hojeISO() ? '<span class="selo alerta">Atrasada</span>' : '<span class="selo neutro">Pendente</span>');
 
   // ---------- quem é o mentorado (para não precisar voltar à ficha) ----------
   const sw = m.swot || {};
@@ -91,10 +91,8 @@ export async function render(ctx, el, [id]) {
       ${delicados.length ? `<div class="delicado mt"><b>🔒 Pontos delicados já registrados</b>
         ${delicados.map((x) => `<p class="mt"><span class="peq apagado">Sessão ${x.numero} · ${diaMes(x.data_hora)}${x.mentor ? ` · ${esc(x.mentor.nome)}` : ''}</span><br>${esc(x.interno.informacoes_delicadas)}</p>`).join('')}</div>` : ''}
       <div class="grade g2 mt">
-        <div><h4>Tarefa da sessão anterior</h4>
-          ${ultimaComTarefa ? `<p class="mt">${esc(ultimaComTarefa.tarefa)}</p>
-            <p class="peq mt">${estadoTarefa(ultimaComTarefa)}${ultimaComTarefa.tarefa_prazo ? ` <span class="apagado">prazo ${prazoBR(ultimaComTarefa.tarefa_prazo)}</span>` : ''}</p>
-            ${ultimaComTarefa.tarefa_comentario ? `<p class="peq apagado mt">Comentário do mentorado: “${esc(ultimaComTarefa.tarefa_comentario)}”</p>` : ''}`
+        <div><h4>${ultimaComTarefa && ultimaComTarefa.tarefas.length > 1 ? 'Tarefas' : 'Tarefa'} da sessão anterior</h4>
+          ${ultimaComTarefa ? `<p class="peq apagado mt">Sessão ${ultimaComTarefa.numero}</p>${htmlTarefas(ultimaComTarefa.tarefas)}`
             : '<p class="apagado mt">Nenhuma tarefa nas sessões anteriores.</p>'}</div>
         <div><h4>Evolução</h4>
           ${evolucao.length ? `<div class="lista mt">${evolucao.map(({ pt, serie }) => `<div class="peq"><b>${esc(pt)}</b>: ${serie.map((n) => `<span class="nota-mini">${n}</span>`).join(' → ')}</div>`).join('')}</div>`
@@ -113,11 +111,21 @@ export async function render(ctx, el, [id]) {
             ${x.motivo_falta ? `<p class="peq">Motivo: ${esc(x.motivo_falta)}</p>` : ''}
             ${umaLinha(it.resumo_mentor) ? `<p class="mt" style="white-space:pre-wrap">${esc(it.resumo_mentor)}</p>` : '<p class="peq apagado mt">Sem anotações.</p>'}
             ${umaLinha(it.informacoes_delicadas) ? `<div class="delicado mt"><b>🔒 Delicado:</b> ${esc(it.informacoes_delicadas)}</div>` : ''}
-            ${x.tarefa ? `<p class="peq mt"><b>Tarefa:</b> ${esc(x.tarefa)} ${estadoTarefa(x)}</p>` : ''}
+            ${x.tarefas.length ? `<div class="peq mt"><b>${x.tarefas.length > 1 ? 'Tarefas' : 'Tarefa'}:</b>${htmlTarefas(x.tarefas)}</div>` : ''}
             ${x.avaliacao && x.avaliacao.comentario ? `<p class="peq apagado mt">O mentorado comentou: “${esc(x.avaliacao.comentario)}”</p>` : ''}
           </div></details>`;
       }).join('')}</div>
     </div>` : `<div class="cartao"><h3>Antes de começar</h3><p class="apagado mt">Esta é a primeira sessão registrada de ${esc(m.nome.split(' ')[0])}.${m.objetivo_principal ? '' : ' Lembre de combinar o objetivo principal da mentoria e anotar na ficha.'}</p></div>`;
+
+  // uma tarefa no cartão "Tarefas para o mentorado" (o id nasce aqui, para o salvamento automático achar a mesma linha)
+  function linhaTarefa(t) {
+    const tid = t.id || crypto.randomUUID();
+    return `<div class="tarefa-linha" data-tid="${tid}"${t.id ? ' data-gravada' : ''}>
+      <div class="campo"><label>Tarefa</label><textarea data-t="texto" style="min-height:60px" placeholder="O que ele vai fazer"${dis}>${esc(t.texto || '')}</textarea></div>
+      <div class="campo"><label>Prazo</label><input type="date" data-t="prazo" value="${esc(t.prazo || '')}"${dis}></div>
+      <div class="tarefa-acoes">${t.feita_em ? seloTarefa(t) : ''}${pode ? '<button type="button" class="btn peq" data-tirar-tarefa title="Tirar esta tarefa" aria-label="Tirar esta tarefa">✕</button>' : ''}</div>
+    </div>`;
+  }
 
   el.innerHTML = `
     <div class="linha" style="align-items:flex-start;gap:16px">
@@ -189,13 +197,19 @@ export async function render(ctx, el, [id]) {
             : `<p class="apagado mt">Cadastre os pontos a desenvolver na <a href="#/mentorado/${m.id}">ficha do mentorado</a> para dar notas de evolução.</p>`}
         </div>
 
-        <div class="cartao" id="c-tarefa">
+        ${multiplas ? `<div class="cartao" id="c-tarefa">
+          <h3>Tarefas para o mentorado</h3>
+          <p class="peq apagado">Coloque quantas quiser, cada uma com o seu prazo. O mentorado vê todas na área dele quando a sessão for concluída.</p>
+          <div class="lista mt" data-tarefas>${(s.tarefas.length || !pode ? s.tarefas : [{}]).map(linhaTarefa).join('') || '<p class="peq apagado">Nenhuma tarefa nesta sessão.</p>'}</div>
+          ${pode ? '<div class="linha mt"><button type="button" class="btn peq" data-nova-tarefa>+ Adicionar tarefa</button></div>' : ''}
+        </div>` : `<div class="cartao" id="c-tarefa">
           <h3>Tarefa para o mentorado</h3>
           <div class="grade mt" style="grid-template-columns:1fr 180px;gap:10px">
             <div class="campo"><label>O que ele vai fazer até a próxima sessão</label><textarea data-s="tarefa" style="min-height:70px"${dis}>${esc(s.tarefa || '')}</textarea></div>
             <div class="campo"><label>Prazo</label><input type="date" data-s="tarefa_prazo" value="${esc(s.tarefa_prazo || '')}"${dis}></div>
           </div>
-        </div>
+          ${ctx.ehAdmin ? '<p class="peq apagado mt">Para dar várias tarefas por sessão, rode no Supabase o script 33-varias-tarefas.sql.</p>' : ''}
+        </div>`}
 
         <div class="cartao">
           <h3>Ferramentas enviadas nesta sessão</h3>
@@ -330,11 +344,64 @@ export async function render(ctx, el, [id]) {
       camposI.forEach((c) => { it[c.dataset.i] = c.value.trim() || null; });
       const r1 = await sb.from('sessoes').update(mud).eq('id', s.id); if (r1.error) throw r1.error;
       const r2 = await sb.from('sessoes_interno').upsert(it, { onConflict: 'sessao_id' }); if (r2.error) throw r2.error;
+      if (multiplas) await salvarTarefas();
     },
   });
   if (pode) {
     [...camposS, ...camposI].forEach((c) => {
       c.addEventListener('input', salvador.mudou); c.addEventListener('change', salvador.mudou);
+    });
+  }
+
+  // ---------- várias tarefas ----------
+  // O cartão pode estar na janela flutuante: tudo é procurado a partir dele, não da página.
+  const cartaoTarefa = el.querySelector('#c-tarefa');
+  const caixaTarefas = cartaoTarefa.querySelector('[data-tarefas]');
+  const tiradas = new Set();
+  const numerarTarefas = () => {
+    const linhas = caixaTarefas.querySelectorAll('[data-tid]');
+    linhas.forEach((l, i) => { l.querySelector('label').textContent = linhas.length > 1 ? `Tarefa ${i + 1}` : 'Tarefa'; });
+  };
+  async function salvarTarefas() {
+    const gravar = [], vazias = [];
+    caixaTarefas.querySelectorAll('[data-tid]').forEach((l, i) => {
+      const texto = l.querySelector('[data-t="texto"]').value.trim();
+      if (!texto) { if (l.hasAttribute('data-gravada')) vazias.push(l); return; }
+      gravar.push({ id: l.dataset.tid, sessao_id: s.id, mentorado_id: m.id, texto, prazo: l.querySelector('[data-t="prazo"]').value || null, ordem: i });
+    });
+    const apagar = [...tiradas, ...vazias.map((l) => l.dataset.tid)];
+    if (apagar.length) {
+      const { error: e } = await sb.from('tarefas').delete().in('id', apagar); if (e) throw e;
+      apagar.forEach((x) => tiradas.delete(x)); vazias.forEach((l) => l.removeAttribute('data-gravada'));
+    }
+    if (gravar.length) {
+      const { error: e } = await sb.from('tarefas').upsert(gravar, { onConflict: 'id' }); if (e) throw e;
+      gravar.forEach((t) => caixaTarefas.querySelector(`[data-tid="${t.id}"]`)?.setAttribute('data-gravada', ''));
+    }
+  }
+  if (multiplas && pode) {
+    numerarTarefas();
+    const mexeu = (ev) => { if (ev.target.closest('[data-t]')) salvador.mudou(); };
+    cartaoTarefa.addEventListener('input', mexeu);
+    cartaoTarefa.addEventListener('change', mexeu);
+    cartaoTarefa.addEventListener('click', (ev) => {
+      if (ev.target.closest('[data-nova-tarefa]')) {
+        caixaTarefas.querySelector(':scope > p')?.remove();
+        caixaTarefas.insertAdjacentHTML('beforeend', linhaTarefa({}));
+        numerarTarefas();
+        caixaTarefas.lastElementChild.querySelector('textarea').focus();
+        return;
+      }
+      const tirar = ev.target.closest('[data-tirar-tarefa]');
+      if (!tirar) return;
+      const linha = tirar.closest('[data-tid]');
+      const texto = linha.querySelector('[data-t="texto"]').value.trim();
+      if (texto && !window.confirm(`Tirar a tarefa "${texto.length > 60 ? `${texto.slice(0, 60)}…` : texto}"?`)) return;
+      if (linha.hasAttribute('data-gravada')) tiradas.add(linha.dataset.tid);
+      linha.remove();
+      if (!caixaTarefas.querySelector('[data-tid]')) caixaTarefas.insertAdjacentHTML('beforeend', linhaTarefa({}));
+      numerarTarefas();
+      salvador.mudou();
     });
   }
 
@@ -447,7 +514,7 @@ export async function render(ctx, el, [id]) {
   if (w) {
     const primeiro = m.nome.split(' ')[0];
     const texto = [`Olá, ${primeiro}! Segue o resumo da nossa sessão ${s.numero}:`, s.resumo_mentorado,
-      s.tarefa ? `Sua tarefa: ${s.tarefa}${s.tarefa_prazo ? ` (até ${prazoBR(s.tarefa_prazo)})` : ''}` : '',
+      s.tarefas.length ? textoTarefas(s.tarefas) : '',
       `Tudo fica guardado na sua área: ${location.origin}/app.html#/minha-area`].filter(Boolean).join('\n\n');
     w.href = `https://wa.me/55${whats.replace(/^55/, '')}?text=${encodeURIComponent(texto)}`;
   }

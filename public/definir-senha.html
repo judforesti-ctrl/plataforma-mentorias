@@ -26,6 +26,14 @@
       <button class="btn pri" type="submit" style="justify-content:center">Salvar senha e entrar</button>
       <p class="peq apagado" id="msg" role="status"></p>
     </form>
+    <form class="caixa" id="f-novo" novalidate hidden>
+      <h2 id="novo-titulo">Receber um link novo</h2>
+      <p class="peq" id="novo-texto"></p>
+      <div class="campo"><label for="novo-email">Seu e-mail</label><input id="novo-email" type="email" autocomplete="email" required></div>
+      <button class="btn pri" type="submit" style="justify-content:center">Mandar link para o meu e-mail</button>
+      <a class="btn" href="/" style="justify-content:center">Ir para a tela de entrada</a>
+      <p class="peq apagado" id="novo-msg" role="status"></p>
+    </form>
   </section>
 </main>
 <script type="module">
@@ -33,10 +41,57 @@ import { sb, explicarErro } from '/assets/base.js';
 
 const msg = document.getElementById('msg');
 const form = document.getElementById('f-senha');
+const formNovo = document.getElementById('f-novo');
 
-// Link novo dos e-mails: plataforma.mentorei.com.br/definir-senha.html?token_hash=...&type=invite|recovery.
-// O código só é usado aqui, quando a pessoa abre a página (os robôs que conferem links nos e-mails não o gastam).
+// Sem acesso: esconde a criação de senha e oferece um link novo por e-mail (ou a tela de entrada).
+function semAcesso(titulo, texto, { pedir = true } = {}) {
+  form.hidden = true; formNovo.hidden = false;
+  document.getElementById('novo-titulo').textContent = titulo;
+  document.getElementById('novo-texto').textContent = texto;
+  if (!pedir) formNovo.querySelectorAll('.campo, button').forEach((x) => { x.hidden = true; });
+}
+formNovo.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const m = document.getElementById('novo-msg');
+  const email = document.getElementById('novo-email').value.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { m.textContent = 'Confira o e-mail.'; return; }
+  m.textContent = 'Enviando…';
+  try {
+    const r = await fetch('/api/acesso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'pedir', email }) });
+    const j = await r.json().catch(() => ({}));
+    m.textContent = j.mensagem || 'Pedido enviado.';
+  } catch (_) { m.textContent = 'Sem conexão. Confira a internet e tente de novo.'; }
+});
+
+// Link do convite (não expira): definir-senha.html?c=... O servidor confere e devolve, na hora, o código do Supabase.
 const q = new URLSearchParams(location.search);
+let parar = false;
+if (q.get('c')) {
+  msg.textContent = 'Abrindo o seu acesso…';
+  let j = {};
+  try {
+    const r = await fetch('/api/acesso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'abrir', c: q.get('c') }) });
+    j = await r.json().catch(() => ({}));
+    if (!r.ok && !j.estado) j = { estado: 'erro', mensagem: j.mensagem };
+  } catch (_) { j = { estado: 'erro', mensagem: 'Sem conexão. Confira a internet e abra o link de novo.' }; }
+  msg.textContent = '';
+  if (j.estado === 'ok') {
+    const { error } = await sb.auth.verifyOtp({ token_hash: j.token_hash, type: 'recovery' });
+    if (error) { parar = true; semAcesso('Não deu certo desta vez', 'Abra o link de novo daqui a um minutinho. Se continuar, peça um link novo aqui embaixo.'); }
+    else history.replaceState(null, '', location.pathname);
+  } else {
+    parar = true;
+    if (j.estado === 'ja_usado') semAcesso('Você já criou a sua senha', `Entre na plataforma com o seu e-mail (${j.email || ''}) e a sua senha. Esqueceu a senha? Peça um link novo aqui.`);
+    else if (j.estado === 'desativado') semAcesso('Acesso desativado', 'Este acesso foi desativado pela Mentorei. Se for um engano, fale com a sua mentora.', { pedir: false });
+    else if (j.estado === 'cancelado') semAcesso('Convite cancelado', 'Este convite não vale mais. Peça um novo à Mentorei.', { pedir: false });
+    else if (j.estado === 'vencido') semAcesso('Este link venceu', 'Links de nova senha valem 7 dias. Escreva o seu e-mail e mandamos outro.');
+    else if (j.estado === 'invalido') semAcesso('Link incompleto', 'O endereço parece ter sido cortado ao copiar. Abra pelo botão da mensagem ou peça um link novo aqui.');
+    else semAcesso('Não deu certo desta vez', j.mensagem || 'Tente de novo em alguns minutos.');
+  }
+}
+
+// Link antigo (código do Supabase, que vence): definir-senha.html?token_hash=...&type=invite|recovery.
+// O código só é usado aqui, quando a pessoa abre a página (os robôs que conferem links nos e-mails não o gastam).
 if (q.get('token_hash')) {
   const tipo = ['invite', 'recovery', 'email', 'magiclink', 'signup'].includes(q.get('type')) ? q.get('type') : 'invite';
   await sb.auth.verifyOtp({ token_hash: q.get('token_hash'), type: tipo });
@@ -52,10 +107,9 @@ async function esperarSessao() {
   }
   return null;
 }
-const sessao = await esperarSessao();
-if (!sessao) {
-  form.querySelectorAll('input,button').forEach((el) => { el.disabled = true; });
-  msg.textContent = 'Este link expirou ou já foi usado. Volte à tela de entrada e clique em "Esqueci minha senha" para receber outro.';
+const sessao = parar ? null : await esperarSessao();
+if (parar) { /* a mensagem já está na tela */ } else if (!sessao) {
+  semAcesso('Este link já foi usado ou venceu', 'Não tem problema: escreva o seu e-mail e mandamos um link novo.');
 } else {
   document.getElementById('quem').textContent = sessao.user.email;
 }
@@ -66,9 +120,13 @@ form.addEventListener('submit', async (ev) => {
   if (a.length < 8) { msg.textContent = 'A senha precisa ter pelo menos 8 caracteres.'; return; }
   if (a !== b) { msg.textContent = 'As duas senhas não estão iguais.'; return; }
   msg.textContent = 'Salvando…';
-  const { error } = await sb.auth.updateUser({ password: a });
+  const { data: feito, error } = await sb.auth.updateUser({ password: a, data: { senha_criada_em: new Date().toISOString() } });
   if (error) { msg.textContent = explicarErro(error); return; }
-  location.replace('/app.html');
+  // a partir de agora o link do convite deixa de abrir a conta (quem tiver a mensagem não entra sem a senha)
+  const { data: { session } } = await sb.auth.getSession();
+  await fetch('/api/acesso', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session ? session.access_token : ''}` },
+    body: JSON.stringify({ acao: 'senha_criada' }) }).catch(() => null);
+  if (feito) location.replace('/app.html');
 });
 </script>
 </body>

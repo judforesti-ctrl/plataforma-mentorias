@@ -1,6 +1,7 @@
 // Lista de mentorados. "#/meus": os do mentor logado. "#/mentorados": todos (administração), com filtro por empresa e programa.
 import { pendencias } from './pendencias.js';
 import { sb, esc, avatar, diaMes, horaBR, hojeISO, mesmoDia } from '../base.js';
+import { juntarTarefas, atrasada as tarefaAtrasada } from '../tarefas.js';
 
 const SELECT = `id, nome, cargo, status, sala_meet,
   programa:programas(id, nome, sessoes_por_mentorado, empresa:empresas(id, nome)),
@@ -25,13 +26,15 @@ export async function render(ctx, el) {
   if (error) throw error;
   const hoje = hojeISO();
   const agora = Date.now();
+  const ids = (data || []).map((m) => m.id);
+  await juntarTarefas((data || []).flatMap((m) => m.sessoes || []), (q) => (meus ? q.in('mentorado_id', ids) : q));
 
   const linhas = (data || []).map((m) => {
     const sess = (m.sessoes || []).slice().sort((a, b) => a.numero - b.numero);
     const feitas = sess.filter((s) => s.situacao === 'realizada').length;
     const proxima = sess.find((s) => !s.concluida_em && s.data_hora && new Date(s.data_hora).getTime() > agora - 3 * 3600 * 1000);
     const deHoje = sess.find((s) => mesmoDia(s.data_hora, hoje) && (!meus || s.mentor_id === ctx.perfil.id));
-    const atrasada = sess.some((s) => s.tarefa && s.tarefa_prazo && !s.tarefa_feita_em && s.tarefa_prazo < hoje);
+    const atrasada = sess.some((s) => s.concluida_em && s.tarefas.some(tarefaAtrasada));
     const mentores = (m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((x) => x.mentor && x.mentor.nome).filter(Boolean);
     return { m, sess, feitas, proxima, deHoje, atrasada, mentores };
   });

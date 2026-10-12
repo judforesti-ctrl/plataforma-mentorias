@@ -1,6 +1,7 @@
 // Lembretes: sessões de hoje, sessões que já passaram sem registro, tarefas atrasadas e mentorados sem próxima sessão marcada.
 // Usado no Painel (administração, tudo) e em Meus mentorados (só os do mentor).
 import { sb, esc, diaMes, horaBR, hojeISO, mesmoDia } from '../base.js';
+import { juntarTarefas, atrasada } from '../tarefas.js';
 
 const MAX = 8;
 const lista = (itens) => `${itens.slice(0, MAX).join('')}${itens.length > MAX ? `<p class="peq apagado">e mais ${itens.length - MAX}.</p>` : ''}`;
@@ -12,6 +13,7 @@ export async function pendencias(el, { mentoradoIds = null, mostrarMentor = true
   const { data, error } = await q;
   if (error) { el.innerHTML = ''; return; }
   const sess = (data || []).filter((s) => s.mentorado && s.mentorado.status === 'ativo');
+  await juntarTarefas(sess, (q) => (mentoradoIds ? q.in('mentorado_id', mentoradoIds) : q));
   const agora = Date.now(), hoje = hojeISO();
   const quem = (s) => `${esc(s.mentorado.nome)} · sessão ${s.numero}${mostrarMentor && s.mentor ? ` · ${esc(s.mentor.nome)}` : ''}`;
 
@@ -21,9 +23,9 @@ export async function pendencias(el, { mentoradoIds = null, mostrarMentor = true
   const semRegistro = sess.filter((s) => !s.concluida_em && s.data_hora && new Date(s.data_hora).getTime() < agora - 3 * 3600 * 1000 && !mesmoDia(s.data_hora, hoje))
     .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))
     .map((s) => `<a class="pend" href="#/sessao/${s.id}"><b>${diaMes(s.data_hora)}</b><span>${quem(s)}</span></a>`);
-  const atrasadas = sess.filter((s) => s.concluida_em && s.tarefa && !s.tarefa_feita_em && s.tarefa_prazo && s.tarefa_prazo < hoje)
-    .sort((a, b) => a.tarefa_prazo.localeCompare(b.tarefa_prazo))
-    .map((s) => `<a class="pend" href="#/mentorado/${s.mentorado.id}"><b>${diaMes(`${s.tarefa_prazo}T12:00:00-03:00`)}</b><span>${esc(s.mentorado.nome)} · ${esc(s.tarefa.length > 60 ? `${s.tarefa.slice(0, 60)}…` : s.tarefa)}</span></a>`);
+  const atrasadas = sess.filter((s) => s.concluida_em).flatMap((s) => s.tarefas.filter(atrasada).map((t) => ({ s, t })))
+    .sort((a, b) => a.t.prazo.localeCompare(b.t.prazo))
+    .map(({ s, t }) => `<a class="pend" href="#/mentorado/${s.mentorado.id}"><b>${diaMes(`${t.prazo}T12:00:00-03:00`)}</b><span>${esc(s.mentorado.nome)} · ${esc(t.texto.length > 60 ? `${t.texto.slice(0, 60)}…` : t.texto)}</span></a>`);
   const porMentorado = new Map();
   sess.forEach((s) => { if (!porMentorado.has(s.mentorado.id)) porMentorado.set(s.mentorado.id, []); porMentorado.get(s.mentorado.id).push(s); });
   const semProxima = [...porMentorado.values()].filter((ss) => {

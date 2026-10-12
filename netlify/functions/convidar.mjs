@@ -1,5 +1,8 @@
 // Envia o convite de acesso (e-mail com link para criar a senha).
 // Só a administração pode chamar. A chave secreta do Supabase fica nas variáveis de ambiente da Netlify.
+// O link do convite NÃO expira (netlify/lib/acesso.mjs): vale até a pessoa criar a senha.
+import { linkDeAcesso, enviarLinkPorEmail } from '../lib/acesso.mjs';
+
 export const config = { path: '/api/convidar', method: 'POST' };
 
 const SUPABASE_URL = 'https://mixnubenhaleohkcanma.supabase.co';
@@ -22,6 +25,22 @@ async function chamar(caminho, { metodo = 'GET', chave, token, corpo, prefer } =
   const texto = await r.text();
   let dados = null; try { dados = texto ? JSON.parse(texto) : null; } catch (_) { dados = texto; }
   return { ok: r.ok, status: r.status, dados };
+}
+
+// Garante o login (sem mandar e-mail) e devolve o id dele.
+async function garantirLogin(secreta, email, nome) {
+  const cria = await chamar('/auth/v1/admin/users', { metodo: 'POST', chave: secreta, corpo: { email, email_confirm: true, user_metadata: { nome } } });
+  if (cria.ok && cria.dados && cria.dados.id) return { id: cria.dados.id };
+  if (!(cria.status === 422 || /already|exists|registered/i.test(JSON.stringify(cria.dados || '')))) {
+    return { erro: JSON.stringify(cria.dados || '').slice(0, 300) };
+  }
+  // já existia: o perfil tem o mesmo id do login
+  const p = await chamar(`/rest/v1/perfis?email=eq.${encodeURIComponent(email)}&select=id`, { chave: secreta });
+  if (p.ok && p.dados && p.dados[0]) return { id: p.dados[0].id };
+  // sem perfil (raro): o gerador de link do Supabase devolve o login junto
+  const gl = await chamar('/auth/v1/admin/generate_link', { metodo: 'POST', chave: secreta, corpo: { type: 'recovery', email } });
+  const id = gl.dados && (gl.dados.id || (gl.dados.user && gl.dados.user.id));
+  return id ? { id } : { erro: JSON.stringify(gl.dados || '').slice(0, 300) };
 }
 
 export default async (req) => {
@@ -120,19 +139,13 @@ export default async (req) => {
   });
   if (!conv.ok) return resposta('Não foi possível gravar o convite.', 500, { detalhe: conv.dados && conv.dados.message });
 
-  // 4a. Link para mandar por WhatsApp: garante o login (sem e-mail) e gera um link de criar senha.
+  const site = (env('URL') || new URL(req.url).origin).replace(/\/$/, '');
+
+  // 4a. Link para mandar por WhatsApp: garante o login (sem e-mail) e gera o link de criar senha (não expira).
   if (b.canal === 'link') {
-    const cria = await chamar('/auth/v1/admin/users', {
-      metodo: 'POST', chave: secreta, corpo: { email, email_confirm: true, user_metadata: { nome } },
-    });
-    if (!cria.ok && !(cria.status === 422 || /already|exists|registered/i.test(JSON.stringify(cria.dados || '')))) {
-      return resposta('Não foi possível preparar o acesso.', 502, { detalhe: JSON.stringify(cria.dados || '').slice(0, 300) });
-    }
-    const gl = await chamar('/auth/v1/admin/generate_link', { metodo: 'POST', chave: secreta, corpo: { type: 'recovery', email } });
-    const hash = gl.dados && (gl.dados.hashed_token || (gl.dados.properties && gl.dados.properties.hashed_token));
-    if (!gl.ok || !hash) return resposta('Não foi possível gerar o link de acesso.', 502, { detalhe: JSON.stringify(gl.dados || '').slice(0, 300) });
-    const origem = new URL(req.url).origin;
-    return resposta('Link de acesso gerado. Nenhum e-mail foi enviado.', 200, { link: `${origem}/definir-senha.html?token_hash=${encodeURIComponent(hash)}&type=recovery` });
+    const login = await garantirLogin(secreta, email, nome);
+    if (!login.id) return resposta('Não foi possível preparar o acesso.', 502, { detalhe: login.erro });
+    return resposta('Link de acesso gerado. Nenhum e-mail foi enviado.', 200, { link: linkDeAcesso(site, login.id) });
   }
 
   // 4b. Só preparar: cria o acesso sem mandar e-mail (a pessoa ainda não consegue entrar).
@@ -147,8 +160,15 @@ export default async (req) => {
     return resposta('Não foi possível preparar o acesso.', 502, { detalhe: JSON.stringify(cria.dados || '').slice(0, 300) });
   }
 
-  // 4c. Envia o e-mail de convite
-  const site = (env('URL') || new URL(req.url).origin).replace(/\/$/, '');
+  // 4c. Envia o e-mail de convite pelo Brevo, com o link que não expira.
+  const login = await garantirLogin(secreta, email, nome);
+  if (login.id) {
+    const envio = await enviarLinkPorEmail({ email, nome, link: linkDeAcesso(site, login.id) });
+    if (envio.enviado) return resposta(`Convite enviado para ${email}. O link não expira: vale até a pessoa criar a senha.`);
+    console.warn('Convite pelo Brevo não saiu:', envio.mensagem);
+  }
+
+  // Sem o Brevo: o e-mail do próprio Supabase (esse link vence em algumas horas).
   const destino = encodeURIComponent(`${site}/definir-senha.html`);
   const inv = await chamar(`/auth/v1/invite?redirect_to=${destino}`, { metodo: 'POST', chave: secreta, corpo: { email, data: { nome } } });
   if (inv.ok) return resposta(`Convite enviado para ${email}.`);

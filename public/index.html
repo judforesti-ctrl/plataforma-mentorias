@@ -8,7 +8,7 @@
 <link rel="icon" href="/assets/simbolo-m.png">
 <script>
   // Link de convite ou de nova senha que caiu na página inicial: leva para a tela de criar senha.
-  if (/type=(invite|recovery|signup|magiclink)/.test(location.hash) || /[?&](code|token_hash)=/.test(location.search)) {
+  if (/type=(invite|recovery|signup|magiclink)/.test(location.hash) || /[?&](code|token_hash|c)=/.test(location.search)) {
     location.replace('/definir-senha.html' + location.search + location.hash);
   }
 </script>
@@ -58,8 +58,15 @@ document.getElementById('esqueci').addEventListener('click', async () => {
   const email = document.getElementById('email').value.trim().toLowerCase();
   if (!email) { msg.textContent = 'Escreva o seu e-mail no campo acima e clique de novo.'; return; }
   msg.textContent = 'Enviando…';
-  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/definir-senha.html` });
-  msg.textContent = error ? explicarErro(error) : 'Se este e-mail tiver convite, você vai receber um link para criar uma nova senha.';
+  // link pelo servidor: vale 7 dias (o do Supabase vencia em poucas horas)
+  try {
+    const r = await fetch('/api/acesso', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ acao: 'pedir', email }) });
+    const j = await r.json().catch(() => ({}));
+    msg.textContent = j.mensagem || 'Se este e-mail tiver acesso, você vai receber um link para criar uma nova senha.';
+  } catch (_) {
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}/definir-senha.html` });
+    msg.textContent = error ? explicarErro(error) : 'Se este e-mail tiver acesso, você vai receber um link para criar uma nova senha.';
+  }
 });
 </script>
 </body>
