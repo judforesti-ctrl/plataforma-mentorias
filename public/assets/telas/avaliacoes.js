@@ -40,6 +40,23 @@ const ESTILO = `<style id="av-estilo">
   .av-com p { white-space: pre-wrap; } .av-com .meta { font-size: 12px; color: var(--apagado); }
   .av-grafico text { fill: var(--apagado); font-size: 11px; font-family: var(--f-texto); }
   td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .av-topo { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 2fr); gap: 14px; }
+  @media (max-width: 860px) { .av-topo { grid-template-columns: minmax(0, 1fr); } }
+  .av-destaque { background: var(--petroleo); color: #fff; border-radius: 16px; padding: 18px 20px; display: grid; gap: 10px; align-content: start; }
+  .av-destaque .rot { font-size: 13px; color: #C6CFD3; font-weight: 600; }
+  .av-destaque .grande { font-family: var(--f-titulo); font-size: 56px; font-weight: 800; line-height: 1; color: var(--bege); font-variant-numeric: tabular-nums; }
+  .av-destaque .grande small { font-size: 20px; color: #9FB0B6; }
+  .av-destaque .linha-nps { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; font-size: 14px; color: #C6CFD3; }
+  .av-destaque .linha-nps b { font-family: var(--f-titulo); font-size: 26px; color: #fff; }
+  .av-destaque .av-leg { color: #C6CFD3; }
+  .av-notas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr)); gap: 12px; }
+  .av-nota { background: var(--papel); border: 1px solid var(--linha); border-top: 4px solid var(--bege-escuro); border-radius: 14px; padding: 12px 14px; display: grid; gap: 4px; min-width: 0; align-content: start; }
+  .av-nota .rot { font-size: 13.5px; font-weight: 700; }
+  .av-nota b { font-family: var(--f-titulo); font-size: 32px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .av-nota b small { font-size: 14px; color: var(--apagado); font-weight: 700; }
+  .av-nota .base { font-size: 12px; color: var(--apagado); }
+  .av-nota.vazia b { color: var(--apagado); font-size: 20px; }
+  .av-aviso-novo { font-size: 12.5px; color: var(--apagado); background: var(--faixa); border-radius: 10px; padding: 8px 10px; }
 </style>`;
 
 // cor da nota: escala 0–10, 1–5 ou NPS
@@ -82,7 +99,8 @@ function filtrar(todas) {
 export async function render(ctx, el, [aba0]) {
   if (!ctx.ehAdmin) { el.innerHTML = '<div class="vazio">Só a administração vê as avaliações de todas as turmas.</div>'; return; }
   const aba = ABAS.some(([k]) => k === aba0) ? aba0 : 'geral';
-  el.innerHTML = `${document.getElementById('av-estilo') ? '' : ESTILO}
+  if (!document.getElementById('av-estilo')) document.head.insertAdjacentHTML('beforeend', ESTILO);   // no <head>: trocar filtro não apaga
+  el.innerHTML = `
     <div class="cab"><div><h1>Avaliações</h1><p class="sub">Como as turmas avaliaram cada encontro: aula, mentor, conteúdo, ferramentas, nota geral e recomendação. Tudo anônimo.</p></div>
       <div class="acoes"><button class="btn" type="button" id="av-excel">Baixar em Excel</button></div></div>
     <p class="carregando">Carregando as avaliações…</p>`;
@@ -142,35 +160,51 @@ function abaGeral(alvo, lista) {
   const r = resumir(lista);
   const notasMentor = lista.flatMap(notasDe);
   const satMentor = notasMentor.length ? Math.round((notasMentor.filter((x) => x >= 4).length / notasMentor.length) * 100) : null;
+  const quantas = (k) => lista.filter((a) => a[k] != null).length;
+  const novas = lista.filter((a) => a.origem !== 'google_forms').length;   // as perguntas novas só existem no formulário da plataforma
   // taxa de resposta: só módulos com presença anotada pelo mentor
   const porModulo = new Map();
   lista.forEach((a) => { if (a.modulo && a.modulo.participantes_presentes) porModulo.set(a.modulo.id, { pres: a.modulo.participantes_presentes, n: (porModulo.get(a.modulo.id)?.n || 0) + 1 }); });
   const somaPres = [...porModulo.values()].reduce((s, x) => s + x.pres, 0), somaResp = [...porModulo.values()].reduce((s, x) => s + x.n, 0);
   const taxa = somaPres ? Math.min(100, Math.round((somaResp / somaPres) * 100)) : null;
   const n = r.nps;
-  const kpi = (l, v, s, escuro) => `<div class="av-kpi${escuro ? ' escuro' : ''}"><span class="l">${l}</span><b>${v}</b><span class="s">${s}</span></div>`;
-  const barras = (pares, total, cls = () => '') => `<div class="av-barras">${pares.slice(0, 8).map(([k, q]) => `<div class="av-barra"><span>${esc(k)}</span><span class="t"><i class="${cls(k)}" style="width:${total ? Math.round((q / total) * 100) : 0}%"></i></span><b>${q}</b></div>`).join('')}</div>`;
+  const fmt = (q) => `${q.toLocaleString('pt-BR')} ${q === 1 ? 'resposta' : 'respostas'}`;
+  const pct = (q, total) => (total ? Math.round((q / total) * 100) : 0);
+  const nota = (rot, v, escala, base, extra = '') => `<div class="av-nota${v == null ? ' vazia' : ''}"><span class="rot">${rot}</span>
+    <b>${v == null ? 'sem respostas' : `${num1(v)} <small>/ ${escala}</small>`}</b><span class="base">${v == null ? '' : `${extra}${extra ? ' · ' : ''}${fmt(base)}`}</span></div>`;
+  const barras = (pares, total, cls = () => '') => `<div class="av-barras">${pares.slice(0, 8).map(([k, q]) => `<div class="av-barra"><span>${esc(k)}</span>
+    <span class="t"><i class="${cls(k)}" style="width:${pct(q, total)}%"></i></span><b>${pct(q, total)}%</b></div>`).join('')}</div>`;
+  const respAprendeu = quantas('aprendeu'), respTempo = quantas('tempo'), respMarcas = lista.filter((a) => (a.marcas || []).length).length;
   alvo.innerHTML = `
-    <div class="av-kpis">
-      ${kpi('NPS da Mentorei', n ? n.valor : '—', n ? `vai de −100 a +100 · ${n.total} ${n.total === 1 ? 'resposta' : 'respostas'}` : 'sem notas de recomendação', true)}
-      ${kpi('Recomendação média', n ? `${num1(n.media)} <small>/ 10</small>` : '—', 'é o número que o aluno vê no fim')}
-      ${kpi('Nota geral dos encontros', r.geral == null ? '—' : `${num1(r.geral)} <small>/ 10</small>`, `${r.total} ${r.total === 1 ? 'avaliação' : 'avaliações'}`)}
-      ${kpi('Aula', r.aula == null ? '—' : `${num1(r.aula)} <small>/ 5</small>`, r.satisfeitos.aula == null ? '' : `${r.satisfeitos.aula}% satisfeitos`)}
-      ${kpi('Mentor', notasMentor.length ? `${num1(media(notasMentor))} <small>/ 5</small>` : '—', satMentor == null ? '' : `${satMentor}% satisfeitos`)}
-      ${kpi('Conteúdo', r.conteudo == null ? '—' : `${num1(r.conteudo)} <small>/ 5</small>`, r.satisfeitos.conteudo == null ? '' : `${r.satisfeitos.conteudo}% satisfeitos`)}
-      ${kpi('Ferramentas e materiais', r.ferramentas == null ? '—' : `${num1(r.ferramentas)} <small>/ 5</small>`, r.satisfeitos.ferramentas == null ? '' : `${r.satisfeitos.ferramentas}% satisfeitos`)}
-      ${kpi('Taxa de resposta', taxa == null ? '—' : `${taxa}%`, taxa == null ? 'o mentor anota os presentes no módulo' : 'respostas ÷ presentes')}
-    </div>
-    <div class="grade g2 mt2" style="align-items:start">
-      <div class="cartao"><h3>Recomendação (NPS)</h3>
-        ${n ? `<div class="av-nps mt">${[['av-pro', n.promotores], ['av-neu', n.neutros], ['av-det', n.detratores]].filter(([, q]) => q).map(([c, q]) => `<div class="${c}" style="width:${(q / n.total) * 100}%">${Math.round((q / n.total) * 100)}%</div>`).join('')}</div>
-          <div class="av-leg mt"><span><i class="av-pro"></i>Promotores, 9 e 10 (${n.promotores})</span><span><i class="av-neu"></i>Neutros, 7 e 8 (${n.neutros})</span><span><i class="av-det"></i>Detratores, 0 a 6 (${n.detratores})</span></div>
-          <p class="peq apagado mt">NPS = % de promotores menos % de detratores.</p>${graficoMeses(lista)}` : '<p class="apagado mt">Sem notas de recomendação no período.</p>'}
+    <div class="av-topo">
+      <div class="av-destaque">
+        <span class="rot">Nota de recomendação (o número que o aluno vê no fim)</span>
+        ${n ? `<span class="grande">${num1(n.media)}<small> / 10</small></span>
+          <span class="linha-nps">NPS <b>${n.valor}</b> (vai de −100 a +100) · ${fmt(n.total)}</span>
+          <div class="av-nps">${[['av-pro', n.promotores], ['av-neu', n.neutros], ['av-det', n.detratores]].filter(([, q]) => q).map(([c, q]) => `<div class="${c}" style="width:${(q / n.total) * 100}%">${pct(q, n.total) >= 6 ? `${pct(q, n.total)}%` : ''}</div>`).join('')}</div>
+          <div class="av-leg"><span><i class="av-pro"></i>Indicariam (9 e 10): ${pct(n.promotores, n.total)}%</span><span><i class="av-neu"></i>Neutros (7 e 8): ${pct(n.neutros, n.total)}%</span><span><i class="av-det"></i>Não indicariam (0 a 6): ${pct(n.detratores, n.total)}%</span></div>`
+          : '<span class="grande">—</span><span class="linha-nps">Sem notas de recomendação no período.</span>'}
       </div>
-      <div class="cartao"><h3>O que a turma marcou</h3>
-        ${r.marcas.length ? barras(r.marcas, r.total, (k) => (MELHORAR.includes(k) ? 'melhorar' : '')) : '<p class="apagado mt">Nenhum atalho marcado.</p>'}
-        <h3 class="mt2">Quanto aprenderam</h3>${barras(r.aprendeu.map(([k, q]) => [APRENDEU[k], q]), r.total)}
-        <h3 class="mt2">Tempo do encontro</h3>${barras(r.tempo.map(([k, q]) => [TEMPO[k], q]), r.total)}
+      <div class="av-notas">
+        ${nota('Mentor', notasMentor.length ? media(notasMentor) : null, 5, notasMentor.length, satMentor == null ? '' : `${satMentor}% satisfeitos`)}
+        ${nota('Conteúdo', r.conteudo, 5, quantas('conteudo'), r.satisfeitos.conteudo == null ? '' : `${r.satisfeitos.conteudo}% satisfeitos`)}
+        ${nota('Ferramentas e materiais', r.ferramentas, 5, quantas('ferramentas'), r.satisfeitos.ferramentas == null ? '' : `${r.satisfeitos.ferramentas}% satisfeitos`)}
+        ${nota('Aula (ritmo e dinâmica)', r.aula, 5, quantas('aula'))}
+        ${nota('Nota geral do encontro', r.geral, 10, quantas('geral'))}
+        <div class="av-nota${taxa == null ? ' vazia' : ''}"><span class="rot">Taxa de resposta</span><b>${taxa == null ? 'sem dados' : `${taxa}%`}</b>
+          <span class="base">${taxa == null ? 'o mentor anota os presentes no módulo' : 'respostas ÷ presentes'}</span></div>
+      </div>
+    </div>
+    <p class="peq apagado mt">${fmt(r.total)} no período. Aula e nota geral do encontro são perguntas novas: só aparecem nas avaliações feitas pelo QR code da plataforma.</p>
+    <div class="grade g2 mt2" style="align-items:start">
+      <div class="cartao"><h3>Recomendação mês a mês (NPS)</h3>
+        ${n ? graficoMeses(lista) || '<p class="apagado mt">Precisa de pelo menos dois meses com respostas.</p>' : '<p class="apagado mt">Sem notas de recomendação no período.</p>'}
+      </div>
+      <div class="cartao"><h3>O que a turma disse</h3>
+        <p class="av-aviso-novo mt">Perguntas novas: ${novas ? `${fmt(novas)} pelo QR code da plataforma` : 'ainda sem respostas pelo QR code da plataforma'}.</p>
+        ${respMarcas ? `<p class="rotulo mt2">O que mais marcaram</p>${barras(r.marcas, respMarcas, (k) => (MELHORAR.includes(k) ? 'melhorar' : ''))}` : ''}
+        ${respAprendeu ? `<p class="rotulo mt2">Quanto aprenderam</p>${barras(r.aprendeu.map(([k, q]) => [APRENDEU[k], q]), respAprendeu)}` : ''}
+        ${respTempo ? `<p class="rotulo mt2">Tempo do encontro</p>${barras(r.tempo.map(([k, q]) => [TEMPO[k], q]), respTempo)}` : ''}
       </div>
     </div>`;
 }
