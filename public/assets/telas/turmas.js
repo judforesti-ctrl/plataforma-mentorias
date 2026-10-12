@@ -338,7 +338,7 @@ async function paginaModulo(ctx, el, id) {
         <div class="linha mt" style="gap:6px">${(m.mentores || []).map((x) => x.mentor ? `<span class="selo neutro com-rosto">${avatar(x.mentor)}${esc(x.mentor.nome)}</span>` : '').join('') || '<span class="selo alerta">Mentor a definir</span>'}</div>
       </div>
       <div class="linha">
-        ${ehUrl ? `<a class="btn escuro" href="${esc(linkSala)}" target="_blank" rel="noopener">Entrar na aula (${FORMATO[m.formato] || 'online'})</a>` : ''}
+        ${ehUrl ? `<a class="btn escuro" href="${esc(linkSala)}" target="_blank" rel="noopener">Link para entrar na aula</a>` : ''}
         <button class="btn" id="cintia">Falar com a Cintia</button>
         <span class="salvo" id="indicador"></span>
       </div>
