@@ -31,7 +31,8 @@ const ROTULOS = { media: 'Média', faixa: 'Faixa', plano: 'Plano de ação', not
   pontuacao: 'Pontuação por estilo', retorno: 'Quem vai dar retorno',
   area_que_sustenta: 'Área que sustenta hoje', area_para_acolher: 'Área para acolher melhor', cuidar_primeiro: 'Área que escolheu cuidar primeiro',
   proximo_passo: 'Pequeno próximo passo', quando_e_onde: 'Quando e onde vai começar', apoio: 'De quem vai pedir apoio',
-  dificuldade: 'O que pode dificultar e como contornar', reflexoes: 'O que a roda está contando' };
+  dificuldade: 'O que pode dificultar e como contornar', reflexoes: 'O que a roda está contando',
+  respostas_por_area: 'Respostas de cada afirmativa (de 1 a 5)' };
 const rotulo = (k) => ROTULOS[k] || (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ');
 
 // Mostra o resultado guardado de uma ferramenta online, qualquer que seja ela.

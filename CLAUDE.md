@@ -339,6 +339,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   da Juliana ficam em `public/ferramentas/<nome>/` e são ligadas em `public/assets/ferramentas-online.js` (resultado vai para `testes`).
   Roda da Vida (2026-10-12): MNT-AUT-10, ficha nova no script 35 (não existia); as reflexões só vão para a plataforma se o
   mentorado marcar a caixa (o mapa é pessoal); notas e próximo cuidado vão sempre.
+  Versão 2 (2026-10-13, pedido de um mentor): 40 afirmativas (5 por área, escritas pelo Claude a pedido da Juliana) com régua de
+  arrastar de 1 a 5 (só inteiros, começa sem resposta, encaixa no número); média por área com 1 casa decimal forma a roda; ranking.
 - Linguagem da Mentorei: sem jargão de coaching em inglês ("accountability", "follow-up", "macaco nas costas").
 
 ## Testar antes de publicar
