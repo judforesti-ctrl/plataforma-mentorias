@@ -342,6 +342,11 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
 - Linguagem da Mentorei: sem jargão de coaching em inglês ("accountability", "follow-up", "macaco nas costas").
 
 ## Testar antes de publicar
+CRÉDITOS DA NETLIFY (2026-10-13): a conta é por créditos e CADA publicação (push no `main`) gasta 15 créditos; no plano grátis
+(300/mês, sem compra extra) os créditos acabaram em 12/10 e as publicações ficaram "Skipped due to account credit usage exceeded"
+(o site seguiu no ar com a reserva "créditos operacionais"; se ela acaba, TODOS os sites da conta saem do ar até o próximo ciclo).
+Por isso: juntar as mudanças e fazer UM push por pedido (nada de vários commits publicados em sequência, nem commit vazio para
+"republicar"). Depois de um push, conferir se entrou no ar (ex.: WebFetch de um arquivo de `public/` com `?v=<commit>`).
 Não há servidor de desenvolvimento: para testar uma tela, servir `public/` localmente e trocar `/assets/base.js` por um
 arquivo de dados falsos (import map), conferir no navegador e apagar os arquivos de teste antes do commit.
 Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe Photoshop 2026\node.exe`, v22): serve para
