@@ -337,6 +337,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
 - Arsenal: 68 ferramentas (pacote de lotes em `Downloads\Arsenal_Mentorei_Lotes_1-11`, modelo em `Downloads\Arsenal_Mentorei_Trabalho`).
   8 ferramentas com questionário "PROPOSTA" aguardam validação dela (doc de revisão no Claude). Ferramentas online automatizadas
   da Juliana ficam em `public/ferramentas/<nome>/` e são ligadas em `public/assets/ferramentas-online.js` (resultado vai para `testes`).
+  Roda da Vida (2026-10-12): MNT-AUT-10, ficha nova no script 35 (não existia); as reflexões só vão para a plataforma se o
+  mentorado marcar a caixa (o mapa é pessoal); notas e próximo cuidado vão sempre.
 - Linguagem da Mentorei: sem jargão de coaching em inglês ("accountability", "follow-up", "macaco nas costas").
 
 ## Testar antes de publicar

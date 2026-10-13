@@ -10,6 +10,7 @@ export const ONLINE = {
   'MNT-PES-08': { interna: true, url: '/ferramentas/swot-do-time/' },
   'MNT-COM-07': { interna: true, url: '/ferramentas/voce-e-assertivo/' },
   'MNT-COM-08': { interna: true, url: '/ferramentas/roda-da-diplomacia/' },
+  'MNT-AUT-10': { interna: true, url: '/ferramentas/roda-da-vida/' },
   'MNT-JOR-06': { interna: false, url: 'https://radardalideranca.netlify.app' },
 };
 
@@ -27,7 +28,10 @@ const ROTULOS = { media: 'Média', faixa: 'Faixa', plano: 'Plano de ação', not
   mapa: 'Mapa da delegação', regra: 'Regra combinada', time: 'Time', colaboradores: 'Pessoas analisadas',
   forcas_frequentes: 'Forças mais frequentes', fraquezas_frequentes: 'Fraquezas mais frequentes', pontos_de_atencao: 'Pontos de atenção',
   duplas: 'Duplas de aprendizado', swot_individual: 'SWOT de cada pessoa', estilo_predominante: 'Estilo predominante',
-  pontuacao: 'Pontuação por estilo', retorno: 'Quem vai dar retorno' };
+  pontuacao: 'Pontuação por estilo', retorno: 'Quem vai dar retorno',
+  area_que_sustenta: 'Área que sustenta hoje', area_para_acolher: 'Área para acolher melhor', cuidar_primeiro: 'Área que escolheu cuidar primeiro',
+  proximo_passo: 'Pequeno próximo passo', quando_e_onde: 'Quando e onde vai começar', apoio: 'De quem vai pedir apoio',
+  dificuldade: 'O que pode dificultar e como contornar', reflexoes: 'O que a roda está contando' };
 const rotulo = (k) => ROTULOS[k] || (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ');
 
 // Mostra o resultado guardado de uma ferramenta online, qualquer que seja ela.
