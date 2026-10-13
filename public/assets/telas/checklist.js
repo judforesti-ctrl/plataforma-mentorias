@@ -204,14 +204,14 @@ async function abrirAtividade(ctx, a, { equipe, grupos, aoMudar, grupoInicial = 
     <div class="campo"><span class="rotulo">Tipo da atividade</span><div class="ck-opcoes" role="radiogroup" aria-label="Tipo da atividade">
       ${Object.entries(CATEGORIAS_ATIVIDADE).map(([k, n]) => `<label><input type="radio" name="a-tipo" value="${k}"${at.categoria === k ? ' checked' : ''}${dis}><span>${n}</span></label>`).join('')}</div></div>
     <div class="campo"><label for="a-desc">Detalhes</label><textarea id="a-desc" maxlength="4000" placeholder="O que precisa ser feito, links, combinados"${dis}>${esc(at.descricao || '')}</textarea></div>
-    <div class="campo"><span class="rotulo">Quem é responsável</span><div class="ag-pessoas" id="a-resp">${pessoas.map((x) => `<label class="check"><input type="checkbox" value="${x.id}"${marcados.has(x.id) ? ' checked' : ''}${dis}>${avatar(x)}<span>${esc(x.nome)}${x.id === ctx.perfil.id ? ' <span class="peq apagado">(você)</span>' : ''}</span></label>`).join('')}</div></div>
+    <div class="campo"><span class="rotulo">Quem é responsável <span class="peq apagado">(sem ninguém marcado, fica com você)</span></span><div class="ag-pessoas" id="a-resp">${pessoas.map((x) => `<label class="check"><input type="checkbox" value="${x.id}"${marcados.has(x.id) ? ' checked' : ''}${dis}>${avatar(x)}<span>${esc(x.nome)}${x.id === ctx.perfil.id ? ' <span class="peq apagado">(você)</span>' : ''}</span></label>`).join('')}</div></div>
     <div class="campo"><span class="rotulo">Na agenda</span><div class="ck-opcoes" role="radiogroup" aria-label="Como entra na agenda">
       ${Object.entries(NA_AGENDA).map(([k, x]) => `<label title="${esc(x.dica)}"><input type="radio" name="a-agenda" value="${k}"${modo0 === k ? ' checked' : ''}${dis}><span>${x.nome}</span></label>`).join('')}</div>
       <small id="a-agenda-dica">${esc(NA_AGENDA[modo0].dica)}</small></div>
     <div class="grade g4" style="gap:10px">
       <div class="campo"><label for="a-prazo" id="a-prazo-rot">Data</label><input type="date" id="a-prazo" value="${esc(at.prazo || '')}"${dis}></div>
       <div class="campo"><label for="a-hora" id="a-hora-rot">Horário (opcional)</label><input type="time" id="a-hora" step="300" value="${esc(hora5(at.prazo_hora))}"${dis}></div>
-      <div class="campo" id="a-fim-caixa"><label for="a-fim">Fim *</label><input type="time" id="a-fim" step="300" value="${esc(hora5(at.hora_fim))}"${dis}></div>
+      <div class="campo" id="a-fim-caixa"><label for="a-fim">Fim</label><input type="time" id="a-fim" step="300" value="${esc(hora5(at.hora_fim))}"${dis}></div>
       <div class="campo"><label for="a-grupo">Lista ou projeto</label><input type="text" id="a-grupo" list="a-grupos" maxlength="80" placeholder="Ex.: Turma Sicredi" value="${esc(at.grupo || '')}"${dis}>
         <datalist id="a-grupos">${grupos.map((g) => `<option value="${esc(g)}">`).join('')}</datalist></div></div>
     <p class="peq apagado" id="a-data-dica" style="margin-top:-6px">A data pode ficar em branco e ser colocada depois. Com data, a entrega aparece na agenda de cada responsável.</p>
@@ -244,13 +244,13 @@ async function abrirAtividade(ctx, a, { equipe, grupos, aoMudar, grupoInicial = 
   const ajustarModo = () => {
     const m = modo(), ocupa = m !== 'prazo';
     f.querySelector('#a-agenda-dica').textContent = NA_AGENDA[m].dica;
-    f.querySelector('#a-prazo-rot').textContent = ocupa ? 'Data *' : 'Data da entrega';
-    f.querySelector('#a-hora-rot').textContent = ocupa ? 'Início *' : 'Horário (opcional)';
+    f.querySelector('#a-prazo-rot').textContent = ocupa ? 'Data' : 'Data da entrega';
+    f.querySelector('#a-hora-rot').textContent = ocupa ? 'Início' : 'Horário (opcional)';
     f.querySelector('#a-fim-caixa').hidden = !ocupa;
     f.querySelector('#a-conv-caixa').hidden = !ocupa;
     f.querySelector('#a-data-dica').textContent = ocupa
-      ? (m === 'convite' ? 'O convite sai pela Google Agenda da coordenação, com link do Meet, para responsáveis e convidados com e-mail. Mudou a data? O mesmo convite muda junto.'
-        : 'O horário fica ocupado na agenda da plataforma dos responsáveis e dos convidados da equipe. Sem convite do Google e sem link.')
+      ? `${m === 'convite' ? 'O convite sai pela Google Agenda da coordenação, com link do Meet, para responsáveis e convidados com e-mail. Mudou a data? O mesmo convite muda junto.'
+        : 'O horário fica ocupado na agenda da plataforma dos responsáveis e dos convidados da equipe. Sem convite do Google e sem link.'} Ainda sem data, início e fim? Pode salvar: fica só no checklist e entra na agenda quando você completar.`
       : 'Não aparece na agenda: fica só no seu checklist. A data é opcional e pode ser colocada depois.';
     f.querySelector('#a-ext-dica').textContent = m === 'convite'
       ? 'Quem tem e-mail recebe o convite do Google com o link. Para quem tem WhatsApp, depois de salvar a plataforma abre a mensagem pronta para você enviar.'
@@ -326,16 +326,19 @@ async function abrirAtividade(ctx, a, { equipe, grupos, aoMudar, grupoInicial = 
   f.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const titulo = f.querySelector('#a-titulo').value.trim();
-    const responsaveis = [...f.querySelectorAll('#a-resp input:checked')].map((c) => c.value);
+    const marcadosResp = [...f.querySelectorAll('#a-resp input:checked')].map((c) => c.value);
+    // ninguém marcado: fica com quem está criando (ou, numa atividade já existente, com quem já era responsável)
+    const responsaveis = marcadosResp.length ? marcadosResp : (nova || !(at.responsaveis || []).length ? [ctx.perfil.id] : at.responsaveis);
     if (!titulo) { avisar('Escreva o que é a atividade.', true); f.querySelector('#a-titulo').focus(); return; }
-    if (!responsaveis.length) { avisar('Marque pelo menos uma pessoa responsável.', true); return; }
     const pendente = f.querySelector('#a-passo') && f.querySelector('#a-passo').value.trim();
     if (pendente) { passos.push({ texto: pendente, feito: false }); f.querySelector('#a-passo').value = ''; }
     const v = vinculos.find((x) => x.valor === sel.value);
     const prazo = f.querySelector('#a-prazo').value || null;
-    const naAgenda = modo(), ocupa = naAgenda !== 'prazo';
     const inicio = f.querySelector('#a-hora').value || null, fimH = f.querySelector('#a-fim').value || null;
-    if (ocupa && (!prazo || !inicio || !fimH)) { avisar(`Para ${naAgenda === 'convite' ? 'mandar o convite' : 'bloquear o horário'}, preencha a data, o início e o fim.`, true); return; }
+    // bloqueio ou reunião sem data, início e fim: salva assim mesmo, só no checklist (entra na agenda quando completar)
+    const pediuAgenda = modo();
+    const incompleta = pediuAgenda !== 'prazo' && (!prazo || !inicio || !fimH);
+    const naAgenda = incompleta ? 'prazo' : pediuAgenda, ocupa = naAgenda !== 'prazo';
     if (ocupa && horaDoTexto(fimH) <= horaDoTexto(inicio)) { avisar('O fim precisa ser depois do início.', true); return; }
     // convidados (só para bloqueio e reunião): da equipe e de fora, com e-mail e/ou WhatsApp
     const participantes = ocupa ? [...f.querySelectorAll('#a-part input:checked')].map((c) => c.value).filter((id) => !responsaveis.includes(id)) : [];
@@ -374,7 +377,8 @@ async function abrirAtividade(ctx, a, { equipe, grupos, aoMudar, grupoInicial = 
       cancelada: ' O convite da Google Agenda foi cancelado.', desconectada: ' Atenção: o convite não saiu, porque a Google Agenda não está conectada no Painel. O horário ficou bloqueado na plataforma.',
       erro: ` Atenção: o convite não saiu (${res.mensagem || 'a Google Agenda não respondeu'}). O horário ficou bloqueado na plataforma; clique em Salvar de novo para tentar.`,
     }[res.google] || '';
-    avisar(`${nova ? 'Atividade criada' : 'Atividade salva'}.${sobreConvite}${enviados.length ? ` ${enviados.map(primeiroNome).join(', ')} ${enviados.length > 1 ? 'receberam' : 'recebeu'} um e-mail.` : ''}`,
+    const soChecklist = incompleta ? ` Ficou só no checklist: para ${pediuAgenda === 'convite' ? 'mandar o convite' : 'bloquear na agenda'}, abra de novo e complete a data, o início e o fim.` : '';
+    avisar(`${nova ? 'Atividade criada' : 'Atividade salva'}.${soChecklist}${sobreConvite}${enviados.length ? ` ${enviados.map(primeiroNome).join(', ')} ${enviados.length > 1 ? 'receberam' : 'recebeu'} um e-mail.` : ''}`,
       res.google === 'erro' || res.google === 'desconectada');
     j.fechar();
     aoMudar();
@@ -382,6 +386,11 @@ async function abrirAtividade(ctx, a, { equipe, grupos, aoMudar, grupoInicial = 
     avisarExternos({ ...at, ...dados, id: r.data.id, meet_link: res.meet_link || at.meet_link || null }, { soNovos: nova ? null : externosAntes });
   });
   f.querySelector('#a-avisar-fora')?.addEventListener('click', () => avisarExternos(at));
+  // "Tipo da atividade" é opcional: clicar de novo na opção marcada tira a marcação
+  f.querySelectorAll('input[name="a-tipo"]').forEach((r) => {
+    (r.closest('label') || r).addEventListener('pointerdown', () => { r.dataset.estava = r.checked ? '1' : ''; });
+    r.addEventListener('click', () => { if (r.dataset.estava) { r.checked = false; r.dataset.estava = ''; } });
+  });
   if (p.mudar && nova) f.querySelector('#a-titulo').focus();
 }
 
