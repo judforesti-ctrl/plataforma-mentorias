@@ -345,6 +345,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
 CRÉDITOS DA NETLIFY (2026-10-13): a conta é por créditos e CADA publicação (push no `main`) gasta 15 créditos; no plano grátis
 (300/mês, sem compra extra) os créditos acabaram em 12/10 e as publicações ficaram "Skipped due to account credit usage exceeded"
 (o site seguiu no ar com a reserva "créditos operacionais"; se ela acaba, TODOS os sites da conta saem do ar até o próximo ciclo).
+Em 13/10 ela assinou o plano Pro (US$ 20/mês, 3.000 créditos; a mesma conta tem o Radar e o Calendário). Publicação pulada
+("Skipped") NÃO é refeita sozinha depois: é preciso um push novo ou "Trigger deploy" na Netlify.
 Por isso: juntar as mudanças e fazer UM push por pedido (nada de vários commits publicados em sequência, nem commit vazio para
 "republicar"). Depois de um push, conferir se entrou no ar (ex.: WebFetch de um arquivo de `public/` com `?v=<commit>`).
 Não há servidor de desenvolvimento: para testar uma tela, servir `public/` localmente e trocar `/assets/base.js` por um
