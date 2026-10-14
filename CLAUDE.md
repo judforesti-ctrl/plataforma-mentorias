@@ -328,11 +328,18 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   sessão concluída só a administração muda (trigger `protege_tarefa`). O script copia as tarefas antigas uma vez (tabela vazia).
   Ficha, Painel, Meus mentorados, lembretes, relatórios/Excel, resumo com IA e WhatsApp já leem a lista.
   Teste local: launch.json "tarefas-teste" (porta 8804) do site do Radar, scratchpad da sessão b18f9662 (?sem33 = sem o script).
+- EDITAR SESSÃO CONCLUÍDA (2026-10-14, pedido dos mentores: voltam no fim do dia para completar): script 36 troca
+  `trava_sessao_concluida` e `protege_tarefa`: o mentor do mentorado completa e corrige por 7 dias depois de concluir (não muda
+  `concluida_em`/`concluida_por`); depois, só a administração. `DIAS_EDITAR` em `telas/sessao.js` tem de bater com o script.
+  Sem o script 36 o salvamento do mentor mostra "falta rodar o script 36". O WhatsApp do resumo monta a mensagem no clique (texto atual).
+  A tela da sessão também mostra "Ferramentas que <nome> respondeu" (tabela `testes`, as mesmas da ficha; "novo" = depois da última
+  sessão concluída). Teste local: o "tarefas-teste" (8804) serve (concluir s4 como ?quem=u-isaac; testes inseridos pelo `sb` falso).
 
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.
 - Informações delicadas: campo trancado da sessão, só mentores do mentorado e administração; nunca em relatório, Excel ou IA.
-- Sessão concluída fica trancada; só a administração altera (fica no histórico).
+- Sessão concluída: o mentor ainda completa e corrige por 7 dias (script 36); depois fica trancada e só a administração altera
+  (mudanças depois de concluída ficam no histórico).
 - Excel do RH: só números (presença, faltas, tarefas, avaliação). Nada do conteúdo das conversas.
 - Arsenal: 68 ferramentas (pacote de lotes em `Downloads\Arsenal_Mentorei_Lotes_1-11`, modelo em `Downloads\Arsenal_Mentorei_Trabalho`).
   8 ferramentas com questionário "PROPOSTA" aguardam validação dela (doc de revisão no Claude). Ferramentas online automatizadas
