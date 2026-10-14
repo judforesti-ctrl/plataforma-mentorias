@@ -1,7 +1,9 @@
-// Lembretes: sessões de hoje, sessões que já passaram sem registro, tarefas atrasadas e mentorados sem próxima sessão marcada.
+// Lembretes: sessões de hoje, sessões que já passaram sem registro, tarefas atrasadas, mentorados sem próxima sessão marcada
+// e documentos novos que os mentorados enviaram (script 37).
 // Usado no Painel (administração, tudo) e em Meus mentorados (só os do mentor).
 import { sb, esc, diaMes, horaBR, hojeISO, mesmoDia } from '../base.js';
 import { juntarTarefas, atrasada } from '../tarefas.js';
+import { carregarEntregas } from '../entregas.js';
 
 const MAX = 8;
 const lista = (itens) => `${itens.slice(0, MAX).join('')}${itens.length > MAX ? `<p class="peq apagado">e mais ${itens.length - MAX}.</p>` : ''}`;
@@ -33,13 +35,21 @@ export async function pendencias(el, { mentoradoIds = null, mostrarMentor = true
     return abertas.length && !abertas.some((s) => s.data_hora && new Date(s.data_hora).getTime() > agora);
   }).map((ss) => { const n = ss.filter((s) => !s.concluida_em).length; return `<a class="pend" href="#/mentorado/${ss[0].mentorado.id}"><b>${n}</b><span>${esc(ss[0].mentorado.nome)} · ${n === 1 ? 'falta 1 sessão' : `faltam ${n} sessões`}</span></a>`; });
 
-  if (!deHoje.length && !semRegistro.length && !atrasadas.length && !semProxima.length) {
+  // documentos que o mentorado mandou e nenhum mentor abriu ainda
+  const { lista: entregas } = await carregarEntregas((q) => (mentoradoIds ? q.in('mentorado_id', mentoradoIds) : q).is('visto_em', null));
+  const nomes = new Map(sess.map((s) => [s.mentorado.id, s.mentorado.nome]));
+  const ROT = { tarefa: 'tarefa', ferramenta: 'ferramenta preenchida', documento: 'documento' };
+  const novos = entregas.filter((e) => nomes.has(e.mentorado_id))
+    .map((e) => `<a class="pend" href="#/mentorado/${e.mentorado_id}"><b>${diaMes(e.enviado_em)}</b><span>${esc(nomes.get(e.mentorado_id))} · ${ROT[e.tipo] || 'documento'}${e.titulo ? `: ${esc(e.titulo.length > 50 ? `${e.titulo.slice(0, 50)}…` : e.titulo)}` : ''}</span></a>`);
+
+  if (!deHoje.length && !semRegistro.length && !atrasadas.length && !semProxima.length && !novos.length) {
     el.innerHTML = '<div class="aviso ok">Nada pendente: nenhuma sessão hoje, nenhuma sessão sem registro e nenhuma tarefa atrasada.</div>';
     return;
   }
   const bloco = (titulo, dica, itens, cls = '') => (itens.length ? `<div class="cartao pend-bloco ${cls}"><h3>${titulo} <span class="selo ${cls === 'urgente' ? 'erro' : 'neutro'}">${itens.length}</span></h3>
     <p class="peq apagado">${dica}</p><div class="lista mt">${lista(itens)}</div></div>` : '');
   el.innerHTML = `<div class="grade g2">
+    ${bloco('Documentos novos dos mentorados', 'Enviados pela área do mentorado e ainda não abertos. Clique para ver na ficha.', novos)}
     ${bloco('Sessões de hoje', 'Clique para abrir a tela da sessão.', deHoje)}
     ${bloco('Sessões sem registro', 'Já passaram e não foram concluídas. Registre o que aconteceu ou marque a falta.', semRegistro, 'urgente')}
     ${bloco('Tarefas atrasadas', 'O mentorado ainda não marcou como feita.', atrasadas)}

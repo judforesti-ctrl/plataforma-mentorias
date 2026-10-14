@@ -328,17 +328,27 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   sessão concluída só a administração muda (trigger `protege_tarefa`). O script copia as tarefas antigas uma vez (tabela vazia).
   Ficha, Painel, Meus mentorados, lembretes, relatórios/Excel, resumo com IA e WhatsApp já leem a lista.
   Teste local: launch.json "tarefas-teste" (porta 8804) do site do Radar, scratchpad da sessão b18f9662 (?sem33 = sem o script).
-- EDITAR SESSÃO CONCLUÍDA (2026-10-14, pedido dos mentores: voltam no fim do dia para completar): script 36 troca
-  `trava_sessao_concluida` e `protege_tarefa`: o mentor do mentorado completa e corrige por 7 dias depois de concluir (não muda
-  `concluida_em`/`concluida_por`); depois, só a administração. `DIAS_EDITAR` em `telas/sessao.js` tem de bater com o script.
-  Sem o script 36 o salvamento do mentor mostra "falta rodar o script 36". O WhatsApp do resumo monta a mensagem no clique (texto atual).
+- EDITAR SESSÃO CONCLUÍDA (2026-10-14, pedido dos mentores: voltam no fim do dia para completar): no mesmo dia a Juliana pediu
+  SEM PRAZO (o script 36 dava 7 dias; o 37 substitui). `trava_sessao_concluida` e `protege_tarefa`: o mentor do mentorado completa e
+  corrige qualquer sessão concluída (não muda `concluida_em`/`concluida_por`). Sem o script 37 o salvamento do mentor mostra
+  "falta rodar o script 37". O WhatsApp do resumo monta a mensagem no clique (texto atual).
   A tela da sessão também mostra "Ferramentas que <nome> respondeu" (tabela `testes`, as mesmas da ficha; "novo" = depois da última
-  sessão concluída). Teste local: o "tarefas-teste" (8804) serve (concluir s4 como ?quem=u-isaac; testes inseridos pelo `sb` falso).
+  sessão concluída).
+- ENVIOS DO MENTORADO (2026-10-14, script 37, tabela `entregas` + pasta privada `entregas` em `<mentorado>/<envio>/<n>-<arquivo>`,
+  helper `public/assets/entregas.js`): pedido dela: o mentorado anexa documentos e manda tarefas e ferramentas preenchidas aos mentores.
+  Em Minha mentoria: "Enviar a tarefa" em cada tarefa (com "Marcar a tarefa como feita" já marcado), "Enviar preenchida" nas ferramentas
+  em PDF (as online não têm: o resultado já chega pela tabela `testes`) e "+ Enviar um documento"; lista do que mandou com "Visto pelo
+  mentor"/"Ainda não visto" e ✕ para apagar. Arquivos: PDF, Word, Excel, PowerPoint, LibreOffice, texto, fotos (até 25 MB cada) ou só
+  recado. Equipe: cartão "Documentos enviados por <nome>" na ficha e na tela da sessão; o primeiro MENTOR DO MENTORADO que baixa um
+  arquivo marca `visto_em` (administração só olhando não marca); bloco "Documentos novos dos mentorados" nas pendências (Meus mentorados
+  e Painel). E-mail aos mentores por `/api/entrega` (uma vez por envio, `avisado_em`; só quem aceitou o termo e tem e-mail real; sem
+  anexo). Sem o script 37 os botões não aparecem. Teste local: o "tarefas-teste" (8804) serve, criando `window.__T.entregas = []`
+  (e `mentor_mentorado`) e trocando de tela.
 
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.
 - Informações delicadas: campo trancado da sessão, só mentores do mentorado e administração; nunca em relatório, Excel ou IA.
-- Sessão concluída: o mentor ainda completa e corrige por 7 dias (script 36); depois fica trancada e só a administração altera
+- Sessão concluída: os mentores do mentorado completam e corrigem sem prazo (script 37); só a administração muda a conclusão
   (mudanças depois de concluída ficam no histórico).
 - Excel do RH: só números (presença, faltas, tarefas, avaliação). Nada do conteúdo das conversas.
 - Arsenal: 68 ferramentas (pacote de lotes em `Downloads\Arsenal_Mentorei_Lotes_1-11`, modelo em `Downloads\Arsenal_Mentorei_Trabalho`).

@@ -1,10 +1,11 @@
 // Tela da sessão: antes de começar (sessões anteriores, pontos delicados, tarefa anterior, evolução),
 // roteiro, anotações por voz, campo delicado, notas de evolução, tarefa, ferramentas e resumo para o mentorado.
-// Depois de concluída, o mentor ainda completa e corrige por DIAS_EDITAR dias (pedido dos mentores, script 36); depois, só a administração.
+// Depois de concluída, os mentores do mentorado continuam completando e corrigindo quando quiserem (script 37); a conclusão, só a administração.
 import { sb, esc, avatar, dataHoraBR, diaMes, autoSalvar, avisar, explicarErro } from '../base.js';
 import { editarLinkMeet, normalizarMeet } from './meet.js';
 import { juntarTarefas, htmlTarefas, seloTarefa, textoTarefas } from '../tarefas.js';
 import { htmlResultado } from '../ferramentas-online.js';
+import { carregarEntregas, htmlEntregas, ligarEntregas } from '../entregas.js';
 
 // Janela flutuante (fica por cima de tudo, até do Meet): Google Chrome e Edge no computador.
 const FLUTUANTE = 'documentPictureInPicture' in window;
@@ -15,7 +16,6 @@ const ROT_SIT = Object.fromEntries(SITUACOES);
 const COR_SIT = { realizada: '', falta_avisada: 'alerta', falta_sem_aviso: 'erro', remarcada: 'alerta', cancelada: 'neutro', agendada: 'neutro' };
 const NOTAS = ['', 'Começando', 'Em construção', 'Praticando', 'Consistente', 'Referência'];
 const umaLinha = (s) => String(s || '').trim();
-const DIAS_EDITAR = 7; // o mesmo prazo do script 36-editar-sessao-concluida.sql
 
 const SEL_SESSAO = `id, numero, extra, data_hora, tema, roteiro, situacao, motivo_falta, duracao_min, resumo_mentorado,
   tarefa, tarefa_prazo, tarefa_feita_em, tarefa_comentario, concluida_em, mentorado_id,
@@ -34,13 +34,16 @@ export async function render(ctx, el, [id]) {
   const m = s.mentorado;
   m.sala_meet = normalizarMeet(m.sala_meet); // link antigo sem "https://" também funciona
   const p = m.perfil || {};
-  const [{ data: todas }, { data: plano }, { data: ferramentas }, { data: enviadas }, { data: testes }] = await Promise.all([
+  const [{ data: todas }, { data: plano }, { data: ferramentas }, { data: enviadas }, { data: testes }, { lista: entregas }, { data: vinculos }] = await Promise.all([
     sb.from('sessoes').select(SEL_SESSAO).eq('mentorado_id', m.id).order('numero'),
     sb.from('programa_temas').select('tema, roteiro, ferramentas').eq('programa_id', m.programa_id).eq('numero', s.numero).maybeSingle(),
     sb.from('ferramentas').select('id, nome, arquivo').order('nome'),
     sb.from('ferramentas_enviadas').select('id, ferramenta:ferramentas(nome)').eq('sessao_id', s.id),
     sb.from('testes').select('*').eq('mentorado_id', m.id).order('criado_em', { ascending: false }),
+    carregarEntregas((q) => q.eq('mentorado_id', m.id)),
+    sb.from('mentor_mentorado').select('mentor_id').eq('mentorado_id', m.id),
   ]);
+  const souMentor = (vinculos || []).some((v) => v.mentor_id === ctx.perfil.id);
   // várias tarefas por sessão (script 33); sem a tabela, a tarefa única antiga
   const multiplas = await juntarTarefas([s, ...(todas || [])], (q) => q.eq('mentorado_id', m.id));
   const interno = s.interno || {};
@@ -48,9 +51,8 @@ export async function render(ctx, el, [id]) {
   const anteriores = (todas || []).filter((x) => x.numero < s.numero && (x.concluida_em || x.situacao !== 'agendada'));
   const total = (todas || []).length;
   const concluida = !!s.concluida_em;
-  // depois de concluída: o mentor completa e corrige até DIAS_EDITAR dias; a administração, sempre
-  const editavelAte = concluida ? new Date(new Date(s.concluida_em).getTime() + DIAS_EDITAR * 864e5) : null;
-  const mentorCompleta = concluida && !ctx.ehAdmin && ctx.perfil.papel !== 'mentorado' && Date.now() < editavelAte.getTime();
+  // depois de concluída: o mentor completa e corrige quando quiser (pedido dos mentores, script 37); a administração, sempre
+  const mentorCompleta = concluida && !ctx.ehAdmin && ctx.perfil.papel !== 'mentorado';
   const pode = !concluida || ctx.ehAdmin || mentorCompleta;
   const dis = pode ? '' : ' disabled';
   const pontos = (Array.isArray(m.pontos_desenvolver) ? m.pontos_desenvolver : []).map((x) => (typeof x === 'string' ? x : x.ponto)).filter(Boolean);
@@ -137,6 +139,15 @@ export async function render(ctx, el, [id]) {
       }).join('')}</div>
     </div>` : '';
 
+  // documentos que o mentorado mandou pela área dele (script 37); os novos primeiro aberto
+  const novasEntregas = entregas.filter((e) => !e.visto_em).length;
+  const blocoEntregas = entregas.length ? `
+    <div class="cartao" id="entregas">
+      <h3>Documentos que ${esc(m.nome.split(' ')[0])} enviou${novasEntregas ? ` <span class="selo">${novasEntregas} novo${novasEntregas > 1 ? 's' : ''}</span>` : ''}</h3>
+      <p class="peq apagado">Tarefas, ferramentas preenchidas e documentos mandados pela área do mentorado. Ao abrir um arquivo, ele vê que você recebeu.</p>
+      ${htmlEntregas(entregas, { mentor: true })}
+    </div>` : '';
+
   // uma tarefa no cartão "Tarefas para o mentorado" (o id nasce aqui, para o salvamento automático achar a mesma linha)
   function linhaTarefa(t) {
     const tid = t.id || crypto.randomUUID();
@@ -165,13 +176,14 @@ export async function render(ctx, el, [id]) {
     ${concluida ? `<div class="aviso ${pode ? '' : 'ok'} mt">${ctx.ehAdmin
       ? `<b>Sessão concluída em ${dataHoraBR(s.concluida_em)}.</b> Você está como administração e pode corrigir; cada mudança fica guardada no histórico.`
       : mentorCompleta
-        ? `<b>✏️ Sessão concluída em ${dataHoraBR(s.concluida_em)}.</b> Você ainda pode completar e corrigir até <b>${dataHoraBR(editavelAte.toISOString())}</b>. O mentorado já vê o resumo e as tarefas, e as mudanças aparecem para ele na hora. Depois desse prazo, só a administração altera.`
-        : `<b>🔒 Sessão concluída em ${dataHoraBR(s.concluida_em)}.</b> O prazo de ${DIAS_EDITAR} dias para completar já passou. Se precisar corrigir algo, fale com a administração.`}</div>` : ''}
+        ? `<b>✏️ Sessão concluída em ${dataHoraBR(s.concluida_em)}.</b> Você pode completar e corrigir quando precisar. O mentorado já vê o resumo e as tarefas, e as mudanças aparecem para ele na hora.`
+        : `<b>🔒 Sessão concluída em ${dataHoraBR(s.concluida_em)}.</b> Se precisar corrigir algo, fale com a administração.`}</div>` : ''}
 
     <div class="sessao-grade mt2">
       <div class="sessao-col">
         ${blocoSobre}
         ${blocoAnteriores}
+        ${blocoEntregas}
         ${blocoResultados}
       </div>
 
@@ -253,7 +265,7 @@ export async function render(ctx, el, [id]) {
             ${aceitaWhats && s.resumo_mentorado ? '<div class="linha mt"><a class="btn pri" id="whats" target="_blank" rel="noopener">Enviar resumo pelo WhatsApp</a></div>'
               : `<p class="peq apagado mt">${!p.termo_aceito_em ? 'O mentorado ainda não tem acesso à plataforma; ele vai ver o resumo quando entrar.' : !aceitaWhats ? 'O mentorado não autorizou mensagens por WhatsApp. O resumo e a tarefa já estão na área dele.' : 'O resumo e a tarefa já estão na área do mentorado.'}</p>`}`
             : `<h3>Concluir a sessão</h3>
-            <p class="peq apagado">Ao concluir, o resumo e a tarefa aparecem para o mentorado. Se não der tempo de escrever tudo agora, você ainda pode completar e corrigir por ${DIAS_EDITAR} dias; depois disso, só a administração altera.</p>
+            <p class="peq apagado">Ao concluir, o resumo e a tarefa aparecem para o mentorado. Se não der tempo de escrever tudo agora, você pode voltar depois para completar e corrigir.</p>
             <div class="linha mt"><button type="button" class="btn pri" id="concluir">Concluir sessão</button></div>`}
         </div>
       </div>
@@ -265,6 +277,9 @@ export async function render(ctx, el, [id]) {
   const campoS = (k) => camposS.find((c) => c.dataset.s === k);
   const campoI = (k) => camposI.find((c) => c.dataset.i === k);
   const avisosVoz = Object.fromEntries([...el.querySelectorAll('[data-ouvindo]')].map((x) => [x.dataset.ouvindo, x]));
+
+  const caixaEntregas = el.querySelector('#entregas');
+  if (caixaEntregas) ligarEntregas(caixaEntregas, entregas, { marcarVisto: souMentor, perfilId: ctx.perfil.id });
 
   // ---------- resumo do mentorado: abrir e diminuir ----------
   const sobre = el.querySelector('#sobre');
@@ -370,9 +385,9 @@ export async function render(ctx, el, [id]) {
         const r2 = await sb.from('sessoes_interno').upsert(it, { onConflict: 'sessao_id' }); if (r2.error) throw r2.error;
         if (multiplas) await salvarTarefas();
       } catch (e) {
-        // antes do script 36 o banco ainda tranca a sessão concluída para o mentor
+        // antes do script 37 o banco ainda tranca a sessão concluída para o mentor
         if (mentorCompleta && /só (o administrador|a administração) pode/i.test(e.message || '')) {
-          throw new Error('Ainda não dá para mudar sessão concluída: avise a administração (falta rodar o script 36 no Supabase).');
+          throw new Error('Ainda não dá para mudar sessão concluída: avise a administração (falta rodar o script 37 no Supabase).');
         }
         throw e;
       }
@@ -529,7 +544,7 @@ export async function render(ctx, el, [id]) {
     const resumo = campoS('resumo_mentorado').value.trim();
     if (situacao === 'agendada' && !window.confirm('A situação ainda está "Agendada". Concluir marcando como "Realizada"?')) return;
     if ((situacao === 'agendada' || situacao === 'realizada') && !resumo && !window.confirm('Ainda não há resumo para o mentorado. Concluir mesmo assim?')) return;
-    if (!window.confirm(`Ao concluir, o resumo e as tarefas aparecem para o mentorado. Você ainda pode completar e corrigir por ${DIAS_EDITAR} dias; depois, só a administração altera. Concluir agora?`)) return;
+    if (!window.confirm(`Ao concluir, o resumo e as tarefas aparecem para o mentorado. Você pode voltar depois para completar e corrigir. Concluir agora?`)) return;
     btn.disabled = true;
     pararVoz(); salvador.mudou(); await salvador.agora();
     const { error: e } = await sb.from('sessoes').update({ situacao: situacao === 'agendada' ? 'realizada' : situacao,

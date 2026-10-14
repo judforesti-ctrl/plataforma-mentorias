@@ -5,6 +5,7 @@ import { htmlResultado } from '../ferramentas-online.js';
 import { editarLinkMeet, normalizarMeet } from './meet.js';
 import { redes, linkRede, gravarComRedes } from './perfil-comum.js';
 import { juntarTarefas, seloResumo } from '../tarefas.js';
+import { carregarEntregas, htmlEntregas, ligarEntregas } from '../entregas.js';
 
 const SITUACAO = { agendada: ['Agendada', 'neutro'], realizada: ['Feita', ''], falta_avisada: ['Falta avisada', 'alerta'],
   falta_sem_aviso: ['Falta sem aviso', 'erro'], remarcada: ['Remarcada', 'alerta'], cancelada: ['Cancelada', 'neutro'] };
@@ -25,6 +26,8 @@ export async function render(ctx, el, [id]) {
   const sess = (m.sessoes || []).sort((a, b) => a.numero - b.numero);
   await juntarTarefas(sess, (q) => q.eq('mentorado_id', id));
   const mentores = (m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor).filter(Boolean);
+  // documentos que o mentorado mandou (script 37); "novo" até um mentor dele abrir
+  const { existe: temEntregas, lista: entregas } = await carregarEntregas((q) => q.eq('mentorado_id', id));
   const p = m.perfil || {};
   const feitas = sess.filter((s) => s.situacao === 'realizada').length;
   const proxima = sess.find((s) => !s.concluida_em);
@@ -82,6 +85,9 @@ export async function render(ctx, el, [id]) {
           : '<p class="apagado mt">Nenhuma ferramenta enviada ainda. No arsenal, use o botão "Enviar".</p>'}</div>
       <div class="cartao mt"><h3>Resultados das ferramentas online</h3>
         ${(testes || []).length ? `<div class="lista mt">${testes.map(htmlResultado).join('')}</div>` : '<p class="apagado mt">Quando o mentorado responder uma ferramenta online, como a Roda do Comunicador, o resultado aparece aqui.</p>'}</div>
+      ${temEntregas ? `<div class="cartao mt" id="entregas"><h3>Documentos enviados por ${esc(m.nome.split(' ')[0])}${entregas.some((e) => !e.visto_em) ? ` <span class="selo">${entregas.filter((e) => !e.visto_em).length} novo${entregas.filter((e) => !e.visto_em).length > 1 ? 's' : ''}</span>` : ''}</h3>
+        <p class="peq apagado">Tarefas, ferramentas preenchidas e documentos que o mentorado mandou pela área dele. Ao abrir um arquivo, ele vê que você recebeu.</p>
+        ${entregas.length ? htmlEntregas(entregas, { mentor: true }) : '<p class="apagado mt">Nada enviado ainda.</p>'}</div>` : ''}
       <div class="cartao mt"><h3>SWOT</h3>
         <div class="grade g2 mt">
           ${[['forcas', 'Forças'], ['fraquezas', 'Fraquezas'], ['oportunidades', 'Oportunidades'], ['ameacas', 'Ameaças']]
@@ -135,6 +141,9 @@ export async function render(ctx, el, [id]) {
              ${ctx.ehAdmin ? `<div class="linha mt"><button class="btn pri peq" data-convite-whats>Convite por WhatsApp</button><button class="btn peq" id="convidar">Convite por e-mail</button><span class="peq apagado">O e-mail acima vira o login.</span></div>` : ''}`}
       </div>
     </section>`;
+
+  const caixaEntregas = el.querySelector('#entregas');
+  if (caixaEntregas) ligarEntregas(caixaEntregas, entregas, { marcarVisto: mentores.some((x) => x.id === ctx.perfil.id), perfilId: ctx.perfil.id });
 
   // abas
   el.querySelectorAll('[data-aba]').forEach((b) => b.addEventListener('click', () => {
