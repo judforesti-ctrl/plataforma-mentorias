@@ -188,6 +188,20 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Teste local: o Photoshop traz um Node 22 (`C:\Program Files\Adobe\Adobe Photoshop 2026\node.exe`); jszip em node_modules
   (ignorado pelo git) com `main` apontando para `dist/jszip.min.js`; exportar páginas para PNG/PDF pelo PowerShell (COM do PowerPoint).
 
+- ENVIO DE PROPOSTAS (2026-10-15, script 38, tabela `proposta_envios`; reclamação dela: gerava a proposta e não conseguia enviar).
+  Antes: a importada não guardava o arquivo e já nascia "enviada"; a gerada só mostrava "Enviar" depois de "Aprovar"; um destinatário só.
+  Agora: a importação guarda o arquivo original em `propostas/importadas/<importação>/<arquivo>` (`guardarOriginal` em
+  importar-proposta.js; o servidor só aceita esse caminho) e a proposta nasce `status='aprovada'` ("Pronta para enviar"), sem
+  enviada_em; a oportunidade NÃO muda de etapa na importação (nova = "contato"; próximo contato "Enviar a proposta" se não houver
+  outro). "✉ Enviar proposta" aparece em rascunho, pronta e enviada ("Enviar de novo": só histórico, sem mexer em etapa/retorno);
+  "Aprovar" continua opcional. Janela (`janelaEnviar` em proposta.js): contatos da empresa com e-mail em caixinhas (o principal já
+  marcado), "Outros e-mails" (viram contatos da empresa com nome tirado do e-mail e "Confirmar nome e cargo", se marcado), "Mandar uma
+  cópia para mim" (cópia oculta pelo Brevo), mensagem padrão se não houver modelo; proposta sem arquivo (antigas/registradas) pede o
+  PDF ou .pptx ali e guarda em `<oportunidade>/<proposta>/`. `/api/proposta-email` aceita `para` em lista (até 15), anexa até 4 MB
+  e acima disso (ou se o Brevo recusar o anexo) manda botão com link assinado de 60 dias (`linkAssinado` em lib/propostas.mjs), e grava
+  `proposta_envios` (e-mail); WhatsApp e "mandei por fora" a tela grava. Cartão "Envios desta proposta" na página da proposta; a
+  oportunidade tem no histórico "Proposta importada… Pronta para enviar", "Proposta (versão N) pedida à IA" e "Proposta enviada… para
+  Fulano <e-mail>, …". Teste local: "tarefas-teste" (8804), propostas pr1/pr2 do base-falso (pôr status e `__T.proposta_envios = []`).
 - DESCRITIVO DOS MÓDULOS PELA PROPOSTA (2026-10-09, pedido dela: ao entrar no módulo, ela e o mentor precisam ver o que deve ser
   abordado, que está na proposta). As turmas da planilha ficaram sem `modulos.tematica`. Botão "Descritivo da proposta" na página da
   turma (e "Trazer da proposta" no módulo sem descritivo), `telas/descritivo-proposta.js`: proposta já na plataforma

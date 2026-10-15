@@ -11,7 +11,7 @@ import {
   normalizarConteudo, topicoDe,
 } from '../proposta-comum.js';
 
-const STATUS = { gerando: ['Gerando com a IA…', 'selo neutro'], rascunho: ['Rascunho · revisar e aprovar', 'selo alerta'], aprovada: ['Aprovada · pronta para enviar', 'selo'], enviada: ['Enviada', 'selo escuro'], erro: ['Deu erro', 'selo erro'] };
+const STATUS = { gerando: ['Gerando com a IA…', 'selo neutro'], rascunho: ['Rascunho · revisar e enviar', 'selo alerta'], aprovada: ['Pronta para enviar', 'selo'], enviada: ['Enviada', 'selo escuro'], erro: ['Deu erro', 'selo erro'] };
 export const seloStatus = (p) => (p && p.status && STATUS[p.status] ? `<span class="${STATUS[p.status][1]}">${STATUS[p.status][0]}</span>` : '');
 const CANAL = { email: 'por e-mail', whatsapp: 'pelo WhatsApp', outro: 'por outro meio' };
 const AVISO_SCRIPT = 'Para gerar propostas com a IA, falta rodar o script 20-propostas-ia.sql no Supabase (SQL Editor → New query → colar → Run).';
@@ -192,12 +192,13 @@ export async function paginaProposta(ctx, el, id) {
   const status = p.status || 'enviada';
   const bloqueada = status === 'enviada';
   const c = p.conteudo || null;
+  const rotuloBaixar = /\.pdf$/i.test(p.arquivo || '') ? '⬇ Baixar o PDF' : '⬇ Baixar o arquivo';
   const precosTexto = c && precosValidos(c.precos).length ? precosValidos(c.precos).map(resumoPreco).join(' · ') : '';
 
   el.innerHTML = `
     <div class="cab"><div><a class="peq" href="#/vendas/oportunidade/${o.id}">← ${esc(o.titulo || 'Oportunidade')}</a><h1>Proposta · versão ${p.versao}</h1>
       <p class="sub"><a href="#/vendas/empresa/${o.empresa_id}"><b>${esc(empresa)}</b></a> · ${SERVICOS[o.servico] || o.servico || ''} · <b>${dinheiro(p.valor != null ? p.valor : o.valor)}</b>${p.validade ? ` · vale até ${dataBR(p.validade)}` : ''}</p></div>
-      <div class="acoes">${seloStatus(p)}${p.arquivo_storage ? '<button class="btn" type="button" id="baixar">⬇ Baixar PowerPoint</button>' : ''}</div></div>
+      <div class="acoes">${seloStatus(p)}${p.arquivo_storage ? '<button class="btn" type="button" id="baixar">' + rotuloBaixar + '</button>' : ''}</div></div>
     <div id="corpo"></div>`;
   el.querySelector('#baixar')?.addEventListener('click', () => baixar(p));
   const corpo = el.querySelector('#corpo');
@@ -220,17 +221,26 @@ export async function paginaProposta(ctx, el, id) {
   }
 
   const avisos = Array.isArray(p.avisos) ? p.avisos : [];
+  // cada envio feito pela plataforma (script 38); sem o script, só o resumo da proposta
+  const { data: envios } = await sb.from('proposta_envios').select('*, por:perfis!proposta_envios_enviado_por_fkey(nome)').eq('proposta_id', id).order('enviado_em', { ascending: false });
+  const quemRecebeu = (e) => (e.para || []).map((x) => [x.nome, x.email || x.whatsapp].filter(Boolean).join(' · ')).join('; ');
+  const blocoEnvios = `<div class="cartao"><h3>Envios desta proposta</h3>
+    ${(envios || []).length ? `<div class="hist mt">${envios.map((e) => `<div class="hist-item"><span class="hist-icone">${e.canal === 'whatsapp' ? '💬' : e.canal === 'outro' ? '📝' : '✉'}</span>
+      <div><div class="peq apagado">${dataHoraBR(e.enviado_em)} · ${CANAL[e.canal] || ''}${e.por ? ` · por ${esc(primeiroNome(e.por.nome))}` : ''}${e.como === 'link' ? ' · arquivo grande: foi um link para baixar' : ''}</div>
+        <div>${esc(quemRecebeu(e) || '—')}</div>${e.copia_para ? `<div class="peq apagado">Cópia para ${esc(e.copia_para)}</div>` : ''}
+        ${e.assunto || e.mensagem ? `<details class="mt"><summary class="peq">Ver a mensagem</summary>${e.assunto ? `<p class="peq mt"><b>${esc(e.assunto)}</b></p>` : ''}<p class="peq mt" style="white-space:pre-wrap">${esc(e.mensagem || '')}</p></details>` : ''}</div></div>`).join('')}</div>`
+      : `<p class="peq apagado mt">${status === 'enviada' ? `Enviada em ${dataBR(p.enviada_em)} ${CANAL[p.canal] || ''} (antes do registro de envios).` : 'Ainda não foi enviada.'}</p>`}</div>`;
   corpo.innerHTML = `
     ${status === 'erro' ? `<div class="aviso erro" style="margin-bottom:14px"><b>Não deu certo:</b> ${esc(p.erro || 'erro desconhecido')} <button class="btn peq" type="button" id="de-novo">Tentar de novo</button></div>` : ''}
     ${status !== 'erro' && p.erro ? `<div class="aviso erro" style="margin-bottom:14px">${esc(p.erro)} <button class="btn peq" type="button" id="montar-de-novo">Montar o arquivo</button></div>` : ''}
     ${status === 'enviada' ? `<div class="aviso ok" style="margin-bottom:14px">Enviada em ${dataBR(p.enviada_em)} ${CANAL[p.canal] || ''}${p.enviada_para_contato && p.enviada_para_contato.nome ? ` para ${esc(p.enviada_para_contato.nome)}` : ''}. ${o.proximo_contato_em ? `Retorno marcado para <b>${dataHoraBR(o.proximo_contato_em)}</b>.` : ''}</div>` : ''}
-    ${status === 'aprovada' ? `<div class="aviso ok" style="margin-bottom:14px">Aprovada em ${dataHoraBR(p.aprovada_em)}. Agora é só enviar.</div>` : ''}
+    ${status === 'aprovada' ? `<div class="aviso ok" style="margin-bottom:14px">${p.importacao_id ? 'Proposta importada' : 'Aprovada'}${p.aprovada_em ? ` em ${dataHoraBR(p.aprovada_em)}` : ''}. Agora é só clicar em <b>Enviar proposta</b>.</div>` : ''}
     ${avisos.length && !bloqueada ? `<div class="aviso" style="margin-bottom:14px"><b>Alguns textos ficaram grandes para o espaço da página</b> (a letra já foi diminuída um pouco). Encurte e clique em "Salvar e montar o arquivo de novo":<ul class="peq" style="margin:6px 0 0 18px">${avisos.map((a) => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
     <div class="linha" style="margin-bottom:18px;gap:8px">
-      ${status === 'rascunho' ? '<button class="btn pri" type="button" id="aprovar">✔ Aprovar proposta</button>' : ''}
-      ${status === 'aprovada' ? '<button class="btn pri" type="button" id="enviar">✉ Enviar proposta</button>' : ''}
+      ${status === 'rascunho' || status === 'aprovada' || status === 'enviada' ? `<button class="btn pri" type="button" id="enviar">✉ ${status === 'enviada' ? 'Enviar de novo' : 'Enviar proposta'}</button>` : ''}
+      ${status === 'rascunho' ? '<button class="btn" type="button" id="aprovar">✔ Aprovar proposta</button>' : ''}
       ${status === 'rascunho' || status === 'aprovada' ? '<button class="btn" type="button" id="enviada-fora">Marcar como enviada (mandei por fora)</button>' : ''}
-      ${p.arquivo_storage ? '<button class="btn escuro" type="button" id="baixar2">⬇ Baixar PowerPoint</button>' : ''}
+      ${p.arquivo_storage ? '<button class="btn escuro" type="button" id="baixar2">' + rotuloBaixar + '</button>' : ''}
       ${status === 'enviada' ? `<a class="btn" href="#/vendas/oportunidade/${o.id}">Voltar à oportunidade</a>` : ''}</div>
     <div class="grade g2" style="align-items:start;grid-template-columns:3fr 2fr">
       <div class="grade" style="gap:14px" id="editor"></div>
@@ -238,7 +248,8 @@ export async function paginaProposta(ctx, el, id) {
         ${!bloqueada && temTexto(c) ? `<div class="cartao"><h3>Pedir ajustes à IA</h3><p class="peq apagado mt">Ela reescreve o texto mantendo o que não foi pedido para mudar. Preço e logo você muda na caixa "Investimento e logo".</p>
           <div class="campo mt"><textarea id="ajustes" placeholder="Ex.: troque o módulo 3 por negociação; tom mais direto na capa; acrescente uma página sobre os produtos da cooperativa"></textarea></div>
           <button class="btn mt" type="button" id="ajustar">Reescrever com a IA</button></div>` : ''}
-        <div class="cartao"><h3>Conteúdo enviado</h3><details class="mt"><summary class="peq">Ver o conteúdo</summary><p class="peq mt" style="white-space:pre-wrap">${esc(p.pedido || '—')}</p></details>${p.ajustes ? `<p class="peq mt"><b>Último ajuste:</b> ${esc(p.ajustes)}</p>` : ''}</div>
+        ${blocoEnvios}
+        ${p.pedido ? `<div class="cartao"><h3>Conteúdo enviado</h3><details class="mt"><summary class="peq">Ver o conteúdo</summary><p class="peq mt" style="white-space:pre-wrap">${esc(p.pedido)}</p></details>${p.ajustes ? `<p class="peq mt"><b>Último ajuste:</b> ${esc(p.ajustes)}</p>` : ''}</div>` : ''}
         ${c && c.mensagem_email ? `<div class="cartao"><h3>Mensagem sugerida para o envio</h3><p class="peq mt"><b>${esc(c.mensagem_email.assunto)}</b></p><p class="peq mt" style="white-space:pre-wrap">${esc(c.mensagem_email.texto)}</p><p class="peq apagado mt">Dá para mudar na hora de enviar.</p></div>` : ''}
       </div>
     </div>`;
@@ -254,12 +265,21 @@ export async function paginaProposta(ctx, el, id) {
     avisar('Proposta aprovada.');
     janelaEnviar(ctx, { ...p, status: 'aprovada' }, o, recarregar, () => recarregar());
   });
+  // proposta sem o texto da IA (importada ou registrada): mostra o arquivo e o resumo no lugar do editor
+  if (!temTexto(c)) {
+    const editor = corpo.querySelector('#editor');
+    editor.innerHTML = `<div class="cartao"><h3>${p.importacao_id ? 'Proposta importada' : 'Proposta registrada'}</h3>
+      ${p.arquivo ? `<p class="mt">📎 <b>${esc(p.arquivo)}</b></p>` : ''}
+      ${p.arquivo_storage ? '<p class="peq apagado">O arquivo está guardado na plataforma e vai junto no envio.</p>'
+        : '<p class="peq mt"><span class="selo alerta">Sem arquivo guardado</span> Na hora de enviar, a plataforma pede o arquivo (PDF ou PowerPoint).</p>'}
+      ${p.resumo ? `<p class="peq mt" style="white-space:pre-wrap">${esc(p.resumo)}</p>` : ''}</div>`;
+  }
   corpo.querySelector('#enviar')?.addEventListener('click', () => janelaEnviar(ctx, p, o, recarregar));
   corpo.querySelector('#enviada-fora')?.addEventListener('click', () => janelaEnviadaFora(ctx, p, o, recarregar));
 
   // editor do conteúdo
   const editor = corpo.querySelector('#editor');
-  if (!temTexto(c)) { editor.innerHTML = '<div class="cartao"><p class="apagado">Sem conteúdo ainda.</p></div>'; return; }
+  if (!temTexto(c)) return;   // importada ou registrada: o cartão do arquivo já está no lugar do editor
   desenharEditor(ctx, editor, p, o, bloqueada, recarregar);
 }
 
@@ -376,93 +396,153 @@ function desenharEditor(ctx, editor, p, o, bloqueada, recarregar) {
 }
 
 // ---------- 4. envio ----------
+// Pedido da Juliana (2026-10-15): gerar ou importar a proposta e clicar em "Enviar proposta"; puxa o e-mail dos contatos do
+// cliente (já marca o principal), aceita outros e-mails (que podem virar contatos da empresa), manda cópia para quem envia e
+// registra cada envio (proposta_envios, script 38) e o histórico da oportunidade. Sem arquivo guardado, pede o arquivo aqui.
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const TIPO_ARQ = { pdf: 'application/pdf', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
+const nomeSeguro = (n) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').slice(-90);
+// "maria.souza@x.com" → "Maria Souza" (nome provisório do contato novo)
+const nomeDoEmail = (e) => e.split('@')[0].split(/[._-]+/).filter(Boolean).map((x) => x.charAt(0).toUpperCase() + x.slice(1)).join(' ') || e;
+const juntarNomes = (l) => (l.length <= 1 ? l.join('') : `${l.slice(0, -1).join(', ')} e ${l[l.length - 1]}`);
+
 async function janelaEnviar(ctx, p, o, recarregar, aoFechar) {
   const empresaId = o.empresa_id;
-  const [cs, todos, ms] = await Promise.all([
+  const empresaNome = (o.empresa && o.empresa.nome) || 'empresa';
+  const [cs, ms] = await Promise.all([
     sb.from('contatos').select('*').eq('empresa_id', empresaId).eq('ativo', true).order('nome'),
-    sb.from('contatos').select('id, nome, cargo, email, whatsapp, empresa_id, empresa:empresas(nome)').eq('ativo', true).order('nome'),
     sb.from('modelos_mensagem').select('*').eq('canal', 'email').order('ordem'),
   ]);
   const contatos = cs.data || [];
-  const lista = todos.data || [];
+  const comEmail = contatos.filter((x) => x.email);
+  const comWhats = contatos.filter((x) => limparFone(x.whatsapp).length >= 10);
   const c = p.conteudo || {};
   const modelo = (ms.data || []).find((m) => /arquivo/i.test(m.nome)) || (ms.data || []).find((m) => m.etapa === 'proposta');
-  const oComEmpresa = { ...o, empresa: o.empresa, responsavel: o.responsavel };
-  const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-  let escolhido = contatos.find((x) => x.id === o.contato_id) || contatos[0] || null;
+  const principal = comEmail.find((x) => x.id === o.contato_id) || comEmail.find((x) => x.decisor) || comEmail[0] || null;
+  const reenvio = p.status === 'enviada';
 
   const html = `<div class="grade" style="gap:12px">
-    <div class="cartao" style="padding:12px"><b>Para quem</b>
-      <div class="grade g2 mt" style="gap:8px">
-        <div class="campo"><label for="e-cont">Contato da ${esc((o.empresa && o.empresa.nome) || 'empresa')}</label><select id="e-cont">${contatos.map((x) => `<option value="${x.id}"${escolhido && x.id === escolhido.id ? ' selected' : ''}>${esc(x.nome)}${x.cargo ? ` · ${esc(x.cargo)}` : ''}</option>`).join('')}<option value="">Outra pessoa…</option></select></div>
-        <div class="campo"><label for="e-busca">Procurar na lista de clientes</label><input type="search" id="e-busca" placeholder="Nome ou empresa" autocomplete="off"><div id="e-res" class="lista" style="max-height:160px;overflow:auto"></div></div></div>
-      <div id="e-novo" class="grade" style="grid-template-columns:2fr 2fr 1.5fr;gap:8px" hidden>
-        <div class="campo"><label>Nome</label><input type="text" id="n-nome"></div><div class="campo"><label>E-mail</label><input type="email" id="n-email"></div><div class="campo"><label>WhatsApp</label><input type="tel" id="n-whats"></div></div>
-      <p class="peq mt" id="e-quem"></p></div>
-    <div class="linha" style="gap:14px"><label class="check"><input type="radio" name="canal" value="email" checked><span>✉ E-mail (o PowerPoint vai em anexo)</span></label><label class="check"><input type="radio" name="canal" value="whatsapp"><span>💬 WhatsApp (abre com a mensagem; você anexa o arquivo)</span></label></div>
-    <div id="bloco-email" class="grade" style="gap:8px">
+    ${p.arquivo_storage ? `<p class="peq">📎 Vai junto: <b>${esc(p.arquivo || 'arquivo da proposta')}</b></p>`
+      : `<div class="cartao" style="padding:12px"><b>Arquivo da proposta</b><p class="peq apagado">Esta proposta ainda não tem o arquivo guardado na plataforma. Escolha o PDF ou o PowerPoint que vai para o cliente.</p>
+        <input type="file" id="e-arq" class="mt" accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"></div>`}
+    <div class="linha" style="gap:14px"><label class="check"><input type="radio" name="canal" value="email" checked><span>✉ E-mail (a proposta vai junto)</span></label><label class="check"><input type="radio" name="canal" value="whatsapp"><span>💬 WhatsApp (abre com a mensagem; você anexa o arquivo)</span></label></div>
+    <div id="bloco-email" class="grade" style="gap:10px">
+      <div class="cartao" style="padding:12px"><b>Para quem</b>
+        ${comEmail.length ? `<div class="grade mt" style="gap:6px">${comEmail.map((x) => `<label class="check"><input type="checkbox" data-ct="${x.id}"${principal && x.id === principal.id ? ' checked' : ''}><span><b>${esc(x.nome)}</b>${x.cargo ? ` · ${esc(x.cargo)}` : ''}${x.decisor ? ' <span class="selo neutro">decide</span>' : ''}<br><span class="peq apagado">${esc(x.email)}</span></span></label>`).join('')}</div>`
+          : `<p class="peq apagado mt">Nenhum contato da ${esc(empresaNome)} tem e-mail cadastrado. Escreva o e-mail abaixo.</p>`}
+        ${contatos.length > comEmail.length ? `<p class="peq apagado mt">Sem e-mail cadastrado: ${contatos.filter((x) => !x.email).map((x) => esc(x.nome)).join(', ')}.</p>` : ''}
+        <div class="campo mt"><label for="e-outros">Outros e-mails</label><input type="text" id="e-outros" placeholder="fulana@empresa.com.br, ciclano@empresa.com.br" autocomplete="off"><small>Separe por vírgula. Pode ser gente de outra empresa também.</small></div>
+        <label class="check mt"><input type="checkbox" id="e-guardar" checked><span>Guardar os outros e-mails como contatos da ${esc(empresaNome)}</span></label>
+        <label class="check mt"><input type="checkbox" id="e-copia" checked><span>Mandar uma cópia para mim</span></label>
+        <p class="peq mt" id="e-quem"></p></div>
       <div class="campo"><label for="e-assunto">Assunto</label><input type="text" id="e-assunto" maxlength="200"></div>
-      <div class="campo"><label for="e-texto">Mensagem</label><textarea id="e-texto" style="min-height:190px"></textarea><small>Sai de contato@mentorei.com.br com o arquivo ${esc(p.arquivo || '.pptx')} em anexo.</small></div>
-      <div class="linha"><button class="btn pri" type="button" id="e-enviar">Enviar e-mail com a proposta</button><button class="btn" type="button" data-fechar>Depois</button></div></div>
+      <div class="campo"><label for="e-texto">Mensagem</label><textarea id="e-texto" style="min-height:190px"></textarea><small>Sai de contato@mentorei.com.br com a proposta junto (arquivo grande vai como link para baixar). As respostas chegam no contato@.</small></div>
+      <div class="linha"><button class="btn pri" type="button" id="e-enviar">✉ Enviar a proposta</button><button class="btn" type="button" data-fechar>Depois</button></div></div>
     <div id="bloco-whats" class="grade" style="gap:8px" hidden>
+      <div class="grade g2" style="gap:8px"><div class="campo"><label for="w-cont">Para quem</label><select id="w-cont">${comWhats.map((x) => `<option value="${x.id}"${principal && x.id === principal.id ? ' selected' : ''}>${esc(x.nome)} · ${esc(x.whatsapp)}</option>`).join('')}<option value="">Outro número…</option></select></div>
+        <div class="campo" id="w-outro-campo"${comWhats.length ? ' hidden' : ''}><label for="w-outro">WhatsApp com DDD</label><input type="tel" id="w-outro" placeholder="(54) 99999-0000"></div></div>
       <div class="campo"><label for="w-texto">Mensagem</label><textarea id="w-texto" style="min-height:140px"></textarea></div>
-      <div class="linha"><button class="btn" type="button" id="w-baixar">1. Baixar o arquivo</button><button class="btn pri" type="button" id="w-abrir">2. Abrir o WhatsApp e marcar como enviada</button><button class="btn" type="button" data-fechar>Depois</button></div>
+      <div class="linha"><button class="btn" type="button" id="w-baixar">1. Baixar o arquivo</button><button class="btn pri" type="button" id="w-abrir">2. Abrir o WhatsApp e registrar o envio</button><button class="btn" type="button" data-fechar>Depois</button></div>
       <small>No WhatsApp, anexe o arquivo baixado junto com a mensagem.</small></div>
-    <p class="peq apagado">Ao enviar, a proposta fica marcada como enviada e o retorno entra na agenda para daqui a 4 dias (dia útil).</p></div>`;
-  const j = janela(`Enviar a proposta · versão ${p.versao}`, html, { largura: 760, aoFechar });
+    <p class="peq apagado">${reenvio ? 'É um novo envio da mesma proposta: fica registrado no histórico, sem mudar a etapa nem o retorno.' : 'Ao enviar, a proposta fica marcada como enviada, a oportunidade passa para "Proposta enviada" e o retorno entra na agenda para daqui a 4 dias (dia útil).'}</p></div>`;
+  const j = janela(`${reenvio ? 'Enviar de novo' : 'Enviar a proposta'} · versão ${p.versao}`, html, { largura: 760, aoFechar });
   const q = (s) => j.corpo.querySelector(s);
+
+  // quem foi marcado + outros e-mails
+  const outros = () => q('#e-outros').value.split(/[\s,;]+/).map((x) => x.trim().toLowerCase()).filter(Boolean);
+  const marcados = () => [...j.corpo.querySelectorAll('[data-ct]:checked')].map((b) => comEmail.find((x) => x.id === b.dataset.ct)).filter(Boolean);
+  let mexeuNaMensagem = false;
   const preencherMsg = () => {
-    const ct = escolhido || { nome: q('#n-nome').value };
-    if (c.mensagem_email) { q('#e-assunto').value = c.mensagem_email.assunto || ''; q('#e-texto').value = String(c.mensagem_email.texto || '').replace(/\{contato\}/g, primeiroNome(ct.nome)); }
-    else if (modelo) { q('#e-assunto').value = preencher(modelo.assunto, oComEmpresa, ct, ctx); q('#e-texto').value = preencher(modelo.texto, oComEmpresa, ct, ctx); }
-    q('#w-texto').value = c.mensagem_whatsapp ? String(c.mensagem_whatsapp).replace(/\{contato\}/g, primeiroNome(ct.nome)) : (modelo ? preencher(modelo.texto, oComEmpresa, ct, ctx) : '');
-    q('#e-quem').innerHTML = escolhido ? `Vai para <b>${esc(escolhido.nome)}</b>${escolhido.empresa && escolhido.empresa.nome ? ` (${esc(escolhido.empresa.nome)})` : ''} · ${[escolhido.email, escolhido.whatsapp].filter(Boolean).map(esc).join(' · ') || '<span class="selo erro">sem e-mail nem WhatsApp</span>'}` : 'Preencha os dados da pessoa.';
+    const primeiro = marcados()[0] || null;
+    const ct = primeiro ? { ...primeiro, nome: juntarNomes(marcados().map((x) => primeiroNome(x.nome))) } : null;
+    if (!mexeuNaMensagem) {
+      if (c.mensagem_email) { q('#e-assunto').value = c.mensagem_email.assunto || ''; q('#e-texto').value = String(c.mensagem_email.texto || '').replace(/\{contato\}/g, ct ? ct.nome : ''); }
+      else if (modelo) { q('#e-assunto').value = preencher(modelo.assunto, o, primeiro, ctx); q('#e-texto').value = preencher(modelo.texto, o, primeiro, ctx); }
+      else {
+        q('#e-assunto').value = `Proposta Mentorei · ${empresaNome}`;
+        q('#e-texto').value = `Olá${ct ? `, ${ct.nome}` : ''}!\n\nConforme conversamos, segue a proposta da Mentorei para a ${empresaNome}.\n\nFico à disposição para tirar dúvidas e ajustar o que for preciso.\n\nUm abraço,\n${primeiroNome(ctx.perfil.nome)}\nMentorei`;
+      }
+    }
+    const wc = comWhats.find((x) => x.id === q('#w-cont').value) || null;
+    if (!q('#w-texto').dataset.mexeu) {
+      q('#w-texto').value = c.mensagem_whatsapp ? String(c.mensagem_whatsapp).replace(/\{contato\}/g, wc ? primeiroNome(wc.nome) : '')
+        : modelo ? preencher(modelo.texto, o, wc, ctx)
+        : `Olá${wc ? `, ${primeiroNome(wc.nome)}` : ''}! Segue a proposta da Mentorei para a ${empresaNome}. Qualquer dúvida, estou à disposição.
+${primeiroNome(ctx.perfil.nome)} · Mentorei`;
+    }
+    const errados = outros().filter((e) => !EMAIL_OK.test(e));
+    const total = marcados().length + outros().filter((e) => EMAIL_OK.test(e)).length;
+    q('#e-quem').innerHTML = `${total ? `Vai para <b>${total} pessoa${total > 1 ? 's' : ''}</b>.` : '<span class="selo alerta">Marque alguém ou escreva um e-mail</span>'}${errados.length ? ` <span class="selo erro">E-mail com erro: ${errados.map(esc).join(', ')}</span>` : ''}`;
   };
-  q('#e-cont').addEventListener('input', () => { const v = q('#e-cont').value; escolhido = contatos.find((x) => x.id === v) || null; q('#e-novo').hidden = !!escolhido; preencherMsg(); });
-  q('#e-busca').addEventListener('input', () => {
-    const t = norm(q('#e-busca').value.trim());
-    const r = t.length < 2 ? [] : lista.filter((x) => norm(`${x.nome} ${x.cargo || ''} ${x.empresa ? x.empresa.nome : ''}`).includes(t)).slice(0, 12);
-    q('#e-res').innerHTML = r.map((x) => `<button type="button" class="btn peq" style="display:block;width:100%;text-align:left;margin:3px 0" data-id="${x.id}"><b>${esc(x.nome)}</b>${x.cargo ? ` · ${esc(x.cargo)}` : ''} · ${esc(x.empresa ? x.empresa.nome : '')}<br><span class="peq apagado">${[x.email, x.whatsapp].filter(Boolean).map(esc).join(' · ') || 'sem e-mail nem WhatsApp'}</span></button>`).join('') || (t.length >= 2 ? '<p class="peq apagado">Ninguém com esse nome.</p>' : '');
-  });
-  q('#e-res').addEventListener('click', (ev) => { const b = ev.target.closest('[data-id]'); if (!b) return; escolhido = lista.find((x) => x.id === b.dataset.id) || null; q('#e-novo').hidden = true; q('#e-cont').value = contatos.some((x) => x.id === escolhido.id) ? escolhido.id : ''; q('#e-res').innerHTML = ''; q('#e-busca').value = ''; preencherMsg(); });
+  j.corpo.querySelectorAll('[data-ct]').forEach((b) => b.addEventListener('change', preencherMsg));
+  q('#e-outros').addEventListener('input', preencherMsg);
+  ['#e-assunto', '#e-texto'].forEach((s) => q(s).addEventListener('input', () => { mexeuNaMensagem = true; }));
+  q('#w-texto').addEventListener('input', () => { q('#w-texto').dataset.mexeu = '1'; });
+  q('#w-cont').addEventListener('input', () => { q('#w-outro-campo').hidden = !!q('#w-cont').value; preencherMsg(); });
   j.corpo.querySelectorAll('[name=canal]').forEach((r) => r.addEventListener('change', () => { const w = q('[name=canal]:checked').value === 'whatsapp'; q('#bloco-email').hidden = w; q('#bloco-whats').hidden = !w; }));
-  if (!escolhido) { q('#e-novo').hidden = false; }
   preencherMsg();
 
-  // cria o contato novo na empresa, se for o caso
-  const garantirContato = async (precisa) => {
-    if (escolhido) return escolhido;
-    const nome = q('#n-nome').value.trim(), email = q('#n-email').value.trim().toLowerCase(), whats = q('#n-whats').value.trim();
-    if (!nome) throw new Error('Escreva o nome da pessoa.');
-    if (precisa === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) throw new Error('Escreva um e-mail válido.');
-    if (precisa === 'whatsapp' && limparFone(whats).length < 10) throw new Error('Escreva o WhatsApp com DDD.');
-    const { data, error } = await sb.from('contatos').insert({ empresa_id: empresaId, nome, email: email || null, whatsapp: whats || null }).select('*').single();
+  // arquivo escolhido aqui (proposta sem arquivo guardado): vai para "propostas/<oportunidade>/<proposta>/<arquivo>"
+  const garantirArquivo = async () => {
+    if (p.arquivo_storage) return;
+    const arq = q('#e-arq') && q('#e-arq').files[0];
+    if (!arq) throw new Error('Escolha o arquivo da proposta (PDF ou PowerPoint).');
+    const ext = (arq.name.split('.').pop() || '').toLowerCase();
+    if (!TIPO_ARQ[ext]) throw new Error('O arquivo precisa ser PDF ou PowerPoint (.pptx).');
+    if (arq.size > 26214400) throw new Error('O arquivo passa de 25 MB. Salve uma versão menor (PDF) e tente de novo.');
+    const caminho = `${o.id}/${p.id}/${Date.now()}-${nomeSeguro(arq.name)}`;
+    const up = await sb.storage.from('propostas').upload(caminho, arq, { contentType: TIPO_ARQ[ext] });
+    if (up.error) throw up.error;
+    const { error } = await sb.from('propostas').update({ arquivo_storage: caminho, arquivo: arq.name }).eq('id', p.id);
     if (error) throw error;
-    escolhido = data; return data;
+    p.arquivo_storage = caminho; p.arquivo = arq.name;
   };
+
   q('#e-enviar').addEventListener('click', async () => {
     const b = q('#e-enviar');
     try {
-      const ct = await garantirContato('email');
-      if (!ct.email) throw new Error(`${ct.nome} não tem e-mail cadastrado. Edite o contato ou escolha WhatsApp.`);
+      const errados = outros().filter((e) => !EMAIL_OK.test(e));
+      if (errados.length) throw new Error(`Confira este e-mail: ${errados.join(', ')}`);
+      const escolhidos = marcados();
+      const ja = new Set(escolhidos.map((x) => x.email.toLowerCase()));
+      const novos = outros().filter((e) => !ja.has(e) && ja.add(e));
+      if (!escolhidos.length && !novos.length) throw new Error('Marque um contato ou escreva um e-mail.');
       const assunto = q('#e-assunto').value.trim(), texto = q('#e-texto').value.trim();
       if (!assunto || !texto) throw new Error('Preencha assunto e mensagem.');
       b.disabled = true; b.textContent = 'Enviando…';
-      const r = await api('/api/proposta-email', { proposta_id: p.id, para: ct.email, nome: ct.nome, assunto, texto });
+      await garantirArquivo();
+      // outros e-mails viram contatos da empresa (se marcado), com nome provisório
+      const conhecidos = new Map(contatos.filter((x) => x.email).map((x) => [x.email.toLowerCase(), x]));
+      const extras = [];
+      for (const e of novos) {
+        let ct = conhecidos.get(e) || null;
+        if (!ct && q('#e-guardar').checked) {
+          const r = await sb.from('contatos').insert({ empresa_id: empresaId, nome: nomeDoEmail(e), email: e, observacoes: `Adicionado no envio da proposta (versão ${p.versao}). Confirmar nome e cargo.` }).select('*').single();
+          if (!r.error) ct = r.data;
+        }
+        extras.push(ct ? { email: e, nome: ct.nome, contato_id: ct.id, contato: ct } : { email: e, nome: '' });
+      }
+      const para = [...escolhidos.map((x) => ({ email: x.email.toLowerCase(), nome: x.nome, contato_id: x.id })), ...extras.map(({ contato, ...x }) => x)];
+      const r = await api('/api/proposta-email', { proposta_id: p.id, para, assunto, texto, copia: q('#e-copia').checked });
       if (!r.ok) throw new Error(r.mensagem || 'Não consegui enviar.');
-      await marcarEnviada(ctx, p, o, { canal: 'email', contato: ct, mensagem: `${assunto}\n\n${texto}` });
-      avisar(`Proposta enviada para ${ct.nome}. Retorno marcado para daqui a 4 dias.`); j.fechar(); recarregar();
-    } catch (e) { avisar(explicarErro(e), true); b.disabled = false; b.textContent = 'Enviar e-mail com a proposta'; }
+      const primeiro = escolhidos[0] || (extras.find((x) => x.contato) || {}).contato || null;
+      await marcarEnviada(ctx, p, o, { canal: 'email', contato: primeiro, para, mensagem: `${assunto}\n\n${texto}`, registrado: r.registrado });
+      avisar(`Proposta enviada para ${para.length} pessoa${para.length > 1 ? 's' : ''}${r.copia ? ' (com cópia para você)' : ''}.${reenvio ? '' : ' Retorno marcado para daqui a 4 dias.'}`);
+      j.fechar(); recarregar();
+    } catch (e) { avisar(explicarErro(e), true); b.disabled = false; b.textContent = '✉ Enviar a proposta'; }
   });
-  q('#w-baixar').addEventListener('click', () => baixar(p));
+  q('#w-baixar').addEventListener('click', async () => {
+    try { await garantirArquivo(); baixar(p); } catch (e) { avisar(explicarErro(e), true); }
+  });
   q('#w-abrir').addEventListener('click', async () => {
     try {
-      const ct = await garantirContato('whatsapp');
-      if (limparFone(ct.whatsapp).length < 10) throw new Error(`${ct.nome} não tem WhatsApp cadastrado.`);
+      const wc = comWhats.find((x) => x.id === q('#w-cont').value) || null;
+      const numero = wc ? wc.whatsapp : q('#w-outro').value.trim();
+      if (limparFone(numero).length < 10) throw new Error('Escreva o WhatsApp com DDD.');
       const texto = q('#w-texto').value.trim(); if (!texto) throw new Error('Escreva a mensagem.');
-      window.open(linkWhats(ct.whatsapp, texto), '_blank', 'noopener');
-      await marcarEnviada(ctx, p, o, { canal: 'whatsapp', contato: ct, mensagem: texto });
-      avisar('Marcada como enviada. Retorno marcado para daqui a 4 dias.'); j.fechar(); recarregar();
+      window.open(linkWhats(numero, texto), '_blank', 'noopener');
+      await marcarEnviada(ctx, p, o, { canal: 'whatsapp', contato: wc, para: [{ nome: wc ? wc.nome : '', whatsapp: numero, contato_id: wc ? wc.id : null }], mensagem: texto });
+      avisar(reenvio ? 'Envio registrado.' : 'Marcada como enviada. Retorno marcado para daqui a 4 dias.'); j.fechar(); recarregar();
     } catch (e) { avisar(explicarErro(e), true); }
   });
 }
@@ -476,14 +556,29 @@ function janelaEnviadaFora(ctx, p, o, recarregar) {
       <div class="linha"><button class="btn pri" type="button" id="f-ok">Marcar como enviada</button><button class="btn" type="button" data-fechar>Desistir</button></div></div>`, { largura: 520 });
     j.corpo.querySelector('#f-ok').addEventListener('click', async () => {
       const ct = contatos.find((x) => x.id === j.corpo.querySelector('#f-cont').value) || null;
-      try { await marcarEnviada(ctx, p, o, { canal: 'outro', contato: ct, mensagem: j.corpo.querySelector('#f-obs').value.trim() || null }); avisar('Marcada como enviada.'); j.fechar(); recarregar(); }
-      catch (e) { avisar(explicarErro(e), true); }
+      try {
+        await marcarEnviada(ctx, p, o, { canal: 'outro', contato: ct, para: ct ? [{ nome: ct.nome, email: ct.email || null, contato_id: ct.id }] : [], mensagem: j.corpo.querySelector('#f-obs').value.trim() || null });
+        avisar('Marcada como enviada.'); j.fechar(); recarregar();
+      } catch (e) { avisar(explicarErro(e), true); }
     });
   });
 }
 
-// Marca a proposta como enviada, põe a oportunidade em "Proposta enviada" e agenda o retorno (4 dias, dia útil, 9h).
-export async function marcarEnviada(ctx, p, o, { canal, contato, mensagem }) {
+// Registra o envio. Primeiro envio: marca a proposta como enviada, põe a oportunidade em "Proposta enviada" e agenda o retorno
+// (4 dias, dia útil, 9h). Envio de novo: só o histórico. O e-mail pela plataforma já fica em proposta_envios pelo servidor;
+// WhatsApp e "por fora" a tela grava (sem o script 38, fica só o histórico da oportunidade).
+export async function marcarEnviada(ctx, p, o, { canal, contato, para = [], mensagem, registrado = false }) {
+  const reenvio = p.status === 'enviada';
+  const quem = para.map((x) => (x.nome && x.email ? `${x.nome} <${x.email}>` : x.nome || x.email || x.whatsapp)).filter(Boolean);
+  const paraTexto = quem.length ? ` para ${quem.join(', ')}` : contato ? ` para ${contato.nome}` : '';
+  if (!registrado && canal !== 'email') {
+    const r = await sb.from('proposta_envios').insert({ proposta_id: p.id, oportunidade_id: o.id, canal, para, mensagem: mensagem || null, arquivo: p.arquivo || null });
+    if (r.error && !faltaScript(r.error)) console.warn('Registro do envio:', r.error);
+  }
+  if (reenvio) {
+    await sb.from('interacoes').insert({ oportunidade_id: o.id, contato_id: contato ? contato.id : null, tipo: 'proposta', texto: `Proposta enviada de novo (versão ${p.versao}) ${CANAL[canal] || ''}${paraTexto}` });
+    return;
+  }
   const prox = retornoEm4Dias();
   const { error } = await sb.from('propostas').update({ status: 'enviada', enviada_em: hojeISO(), enviada_por: ctx.perfil.id, enviada_para: contato ? contato.id : null, canal, mensagem }).eq('id', p.id);
   if (error) throw error;
@@ -494,7 +589,7 @@ export async function marcarEnviada(ctx, p, o, { canal, contato, mensagem }) {
   if (!o.contato_id && contato && contato.empresa_id === o.empresa_id) mud.contato_id = contato.id;
   const r = await sb.from('oportunidades').update(mud).eq('id', o.id);
   if (r.error) throw r.error;
-  const linhas = [{ oportunidade_id: o.id, contato_id: contato ? contato.id : null, tipo: 'proposta', texto: `Proposta enviada (versão ${p.versao}) ${CANAL[canal] || ''}${contato ? ` para ${contato.nome}` : ''}${p.valor != null ? ` · ${dinheiro(p.valor)}` : ''}${p.arquivo ? `\nArquivo: ${p.arquivo}` : ''}` }];
+  const linhas = [{ oportunidade_id: o.id, contato_id: contato ? contato.id : null, tipo: 'proposta', texto: `Proposta enviada (versão ${p.versao}) ${CANAL[canal] || ''}${paraTexto}${p.valor != null ? ` · ${dinheiro(p.valor)}` : ''}${p.arquivo ? `\nArquivo: ${p.arquivo}` : ''}` }];
   if (etapaNova !== o.etapa) linhas.push({ oportunidade_id: o.id, tipo: 'etapa', texto: `${o.etapa} → proposta · proposta enviada` });
   linhas.push({ oportunidade_id: o.id, tipo: 'sistema', texto: `Retorno marcado para ${dataHoraBR(prox)}: confirmar se recebeu a proposta.` });
   await sb.from('interacoes').insert(linhas);

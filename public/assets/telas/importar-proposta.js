@@ -88,9 +88,11 @@ export async function render(ctx, el) {
       estado.textContent = 'Organizando a proposta com a IA… (de 1 a 3 minutos)';
       const { data: imp, error } = await sb.from('importacoes_proposta').insert({ arquivo: arq.name }).select('id').single();
       if (error) throw error;
+      // guarda o arquivo original na pasta das propostas, para dar para enviar ao cliente depois pela plataforma
+      const arquivoStorage = await guardarOriginal(arq, imp.id);
       const { data: { session } } = await sb.auth.getSession();
       const r = await fetch('/api/proposta', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ importacao_id: imp.id, arquivo: arq.name, texto }) });
+        body: JSON.stringify({ importacao_id: imp.id, arquivo: arq.name, texto, arquivo_storage: arquivoStorage }) });
       if (!r.ok && r.status !== 202) throw new Error('Não foi possível começar a leitura da proposta.');
       // acompanha o resultado (a IA trabalha em segundo plano)
       const inicio = Date.now();
@@ -110,6 +112,19 @@ export async function render(ctx, el) {
   });
 
   return { sair: () => { parar = true; } };
+}
+
+// Arquivo original da proposta importada em "propostas/importadas/<importação>/<arquivo>" (pasta privada, só a administração).
+// Se não der (pasta sem o script 20, arquivo grande), a importação segue: o arquivo pode ser anexado na hora de enviar.
+const TIPO_PROPOSTA = { pdf: 'application/pdf', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
+export const nomeSeguroArquivo = (n) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').slice(-90);
+async function guardarOriginal(arq, importacaoId) {
+  const ext = (arq.name.split('.').pop() || '').toLowerCase();
+  if (!TIPO_PROPOSTA[ext] || arq.size > 26214400) return null;
+  const caminho = `importadas/${importacaoId}/${nomeSeguroArquivo(arq.name)}`;
+  const { error } = await sb.storage.from('propostas').upload(caminho, arq, { contentType: TIPO_PROPOSTA[ext] });
+  if (error) { console.warn('Guardar a proposta importada:', error); return null; }
+  return caminho;
 }
 
 // formato inicial de cada módulo na revisão: o que a proposta disse; se não disse, o da turma

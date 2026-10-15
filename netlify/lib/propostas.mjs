@@ -62,3 +62,15 @@ export async function baixarArquivo(caminho) {
   if (!r.ok) return null;
   return Buffer.from(await r.arrayBuffer());
 }
+
+// Link para baixar o arquivo sem login (vale "dias"), para quando o arquivo é grande demais para ir anexado no e-mail.
+export async function linkAssinado(caminho, nome, dias = 60) {
+  const chave = env('SUPABASE_SECRET_KEY');
+  const r = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/propostas/${caminho}`, {
+    method: 'POST', headers: { apikey: chave, Authorization: `Bearer ${chave}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ expiresIn: dias * 86400 }),
+  });
+  if (!r.ok) return null;
+  const j = await r.json().catch(() => ({}));
+  const rel = j.signedURL || j.signedUrl;
+  return rel ? `${SUPABASE_URL}/storage/v1${rel.startsWith('/') ? '' : '/'}${rel}&download=${encodeURIComponent(nome || 'Proposta-Mentorei')}` : null;
+}

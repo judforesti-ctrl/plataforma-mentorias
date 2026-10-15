@@ -145,7 +145,10 @@ export default async (req) => {
     let resultado;
     try { resultado = JSON.parse(json); } catch (_) { return falhar('A IA não devolveu a proposta organizada. Tente de novo.'); }
     await supa(`/rest/v1/importacoes_proposta?id=eq.${id}`, { metodo: 'PATCH', chave: secreta, corpo: { status: 'pronto', resultado } });
-    try { await criarOportunidade(secreta, id, resultado, String(b.arquivo || ''), eu.dados.id); } catch (_) { /* o pipeline não pode travar a importação */ }
+    // arquivo original guardado pela tela (só aceita o caminho desta importação)
+    const guardado = String(b.arquivo_storage || '');
+    const arquivoStorage = guardado.startsWith(`importadas/${id}/`) && /^[\w./-]+$/.test(guardado) && !guardado.includes('..') ? guardado : null;
+    try { await criarOportunidade(secreta, id, resultado, String(b.arquivo || ''), eu.dados.id, arquivoStorage); } catch (_) { /* o pipeline não pode travar a importação */ }
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return falhar('A chave do Claude na Netlify não está valendo.');
     if (e instanceof Anthropic.RateLimitError) return falhar('Muitos pedidos ao mesmo tempo. Espere um minuto e tente de novo.');
@@ -156,9 +159,11 @@ export default async (req) => {
 
 // ---------- pipeline de vendas (Fase 4): toda proposta importada vira uma oportunidade ----------
 // Se a empresa já tem uma oportunidade aberta em "proposta" ou "negociação", a importação entra como nova versão da proposta.
+// Desde 2026-10-15 a proposta importada entra "pronta para enviar" (status aprovada, com o arquivo original): quem envia é a tela
+// ("Enviar proposta" ou "Marcar como enviada"), e só então a oportunidade passa para "Proposta enviada" com retorno em 4 dias.
 // Sem o script 19 no Supabase, nada acontece aqui (a importação segue normal).
 const norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
-async function criarOportunidade(chave, importacaoId, r, arquivo, criadoPor) {
+async function criarOportunidade(chave, importacaoId, r, arquivo, criadoPor, arquivoStorage = null) {
   const c = r.comercial || {};
   const ler = async (caminho) => { const x = await supa(caminho, { chave }); return x.ok && Array.isArray(x.dados) ? x.dados : null; };
   const gravar = async (caminho, corpo) => {
@@ -184,28 +189,29 @@ async function criarOportunidade(chave, importacaoId, r, arquivo, criadoPor) {
   const valor = typeof c.valor_total === 'number' && c.valor_total > 0 ? Math.round(c.valor_total * 100) / 100 : null;
   const titulo = ((r.turmas || [])[0] && r.turmas[0].nome) || `Proposta · ${r.empresa}`;
   // a oportunidade aberta da empresa (de "A prospectar" até negociação; a mais adiantada) recebe a proposta em vez de criar outra;
-  // se ela ainda estava antes da proposta, passa para "Proposta enviada" com retorno em 4 dias
+  // a etapa só muda quando a proposta for enviada; até lá, o próximo contato lembra de enviar
   const ORDEM = ['negociacao', 'proposta', 'apresentacao', 'reuniao', 'contato', 'prospectar'];
-  const abertas = ((await ler(`/rest/v1/oportunidades?empresa_id=eq.${empresa.id}&etapa=in.(${ORDEM.join(',')})&select=id,titulo,etapa&order=criado_em.desc`)) || [])
+  const abertas = ((await ler(`/rest/v1/oportunidades?empresa_id=eq.${empresa.id}&etapa=in.(${ORDEM.join(',')})&select=id,titulo,etapa,proximo_contato_em&order=criado_em.desc`)) || [])
     .sort((a, b) => ORDEM.indexOf(a.etapa) - ORDEM.indexOf(b.etapa));
   let op = abertas[0] || null;
   let versao = 1;
-  const prox = new Date(); prox.setUTCDate(prox.getUTCDate() + 4); prox.setUTCHours(12, 0, 0, 0);   // 9h de Brasília, daqui a 4 dias (pula fim de semana)
-  if (prox.getUTCDay() === 6) prox.setUTCDate(prox.getUTCDate() + 2); else if (prox.getUTCDay() === 0) prox.setUTCDate(prox.getUTCDate() + 1);
+  const agora = new Date().toISOString();
   if (op) {
     const vs = (await ler(`/rest/v1/propostas?oportunidade_id=eq.${op.id}&select=versao`)) || [];
     versao = vs.reduce((m, v) => Math.max(m, v.versao || 0), 0) + 1;
-    const antes = !['proposta', 'negociacao'].includes(op.etapa);
     await supa(`/rest/v1/oportunidades?id=eq.${op.id}`, { metodo: 'PATCH', chave, corpo: { ...(valor ? { valor } : {}), importacao_id: importacaoId, ...(contato ? { contato_id: contato.id } : {}),
-      ...(antes ? { etapa: 'proposta', chance: null, proximo_contato_em: prox.toISOString(), proximo_contato_por: criadoPor, proximo_contato_obs: 'Confirmar se recebeu a proposta e tirar dúvidas' } : {}) } });
+      ...(op.proximo_contato_em ? {} : { proximo_contato_em: agora, proximo_contato_por: criadoPor, proximo_contato_obs: `Enviar a proposta (versão ${versao})` }) } });
   } else {
-    op = await gravar('/rest/v1/oportunidades', { empresa_id: empresa.id, titulo: titulo.slice(0, 200), servico: c.servico || 'treinamento', valor, etapa: 'proposta',
-      contato_id: contato ? contato.id : null, responsavel_id: criadoPor, proximo_contato_em: prox.toISOString(), proximo_contato_por: criadoPor,
-      proximo_contato_obs: 'Confirmar se recebeu a proposta e tirar dúvidas', importacao_id: importacaoId, observacoes: c.condicoes || null, criado_por: criadoPor });
+    op = await gravar('/rest/v1/oportunidades', { empresa_id: empresa.id, titulo: titulo.slice(0, 200), servico: c.servico || 'treinamento', valor, etapa: 'contato',
+      contato_id: contato ? contato.id : null, responsavel_id: criadoPor, proximo_contato_em: agora, proximo_contato_por: criadoPor,
+      proximo_contato_obs: 'Enviar a proposta (versão 1)', importacao_id: importacaoId, observacoes: c.condicoes || null, criado_por: criadoPor });
     if (!op) return;
   }
-  await gravar('/rest/v1/propostas', { oportunidade_id: op.id, versao, valor, validade: c.validade || null, arquivo: arquivo.slice(0, 200), importacao_id: importacaoId,
-    resumo: [c.servico ? `Serviço: ${c.servico}` : '', c.condicoes || '', (r.turmas || []).map((t) => t.nome).join('; ')].filter(Boolean).join('\n'), enviada_em: new Date().toISOString().slice(0, 10), criado_por: criadoPor });
+  const corpoProposta = { oportunidade_id: op.id, versao, valor, validade: c.validade || null, arquivo: arquivo.slice(0, 200), importacao_id: importacaoId,
+    resumo: [c.servico ? `Serviço: ${c.servico}` : '', c.condicoes || '', (r.turmas || []).map((t) => t.nome).join('; ')].filter(Boolean).join('\n'), criado_por: criadoPor };
+  // pronta para enviar (colunas do script 20); sem o script 20, do jeito antigo (registrada como enviada hoje)
+  const nova = await gravar('/rest/v1/propostas', { ...corpoProposta, status: 'aprovada', aprovada_em: agora, aprovada_por: criadoPor, arquivo_storage: arquivoStorage });
+  if (!nova) await gravar('/rest/v1/propostas', { ...corpoProposta, enviada_em: agora.slice(0, 10) });
   await gravar('/rest/v1/interacoes', { oportunidade_id: op.id, contato_id: contato ? contato.id : null, tipo: 'proposta',
-    texto: `Proposta importada${versao > 1 ? ` (versão ${versao})` : ''}: ${arquivo}${valor ? ` · R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}`, por: criadoPor });
+    texto: `Proposta importada${versao > 1 ? ` (versão ${versao})` : ''}: ${arquivo}${valor ? ` · R$ ${valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}${nova ? '. Pronta para enviar.' : ''}`, por: criadoPor });
 }

@@ -58,7 +58,7 @@ export const retornoEm4Dias = () => {
   return d.toISOString();
 };
 const OBS_RETORNO = (versao) => `Confirmar se recebeu a proposta${versao ? ` (versão ${versao})` : ''} e tirar dúvidas`;
-const SELO_PROPOSTA = { gerando: ['gerando…', 'selo neutro'], rascunho: ['rascunho', 'selo alerta'], aprovada: ['aprovada', 'selo'], enviada: ['enviada', 'selo escuro'], erro: ['erro', 'selo erro'] };
+const SELO_PROPOSTA = { gerando: ['gerando…', 'selo neutro'], rascunho: ['rascunho', 'selo alerta'], aprovada: ['pronta para enviar', 'selo'], enviada: ['enviada', 'selo escuro'], erro: ['erro', 'selo erro'] };
 const seloProposta = (p) => (p.status && SELO_PROPOSTA[p.status] ? `<span class="${SELO_PROPOSTA[p.status][1]}">${SELO_PROPOSTA[p.status][0]}</span>` : '');
 
 // filtros do pipeline (continuam ao voltar)
@@ -304,7 +304,7 @@ async function paginaOportunidade(ctx, el, id) {
       <div class="grade" style="gap:14px">
         <div class="cartao"><div class="linha" style="flex-wrap:wrap"><h3 style="flex:1">Propostas</h3>${aberta(o) ? '<button class="btn peq pri" type="button" id="gerar-prop">✨ Gerar com a IA</button>' : ''}<button class="btn peq" type="button" id="nova-prop">+ Registrar proposta</button><a class="btn peq" href="#/importar-proposta">Importar PDF</a></div>
           <div class="lista mt">${(props.data || []).length ? props.data.map((p) => `<div class="ag-bloco"><div class="linha" style="justify-content:space-between"><div><b>Versão ${p.versao}</b> · ${dinheiro(p.valor)}${p.enviada_em ? ` · enviada ${dataBR(p.enviada_em)}` : ''}${p.validade ? ` · vale até ${dataBR(p.validade)}` : ''} ${seloProposta(p)}</div>
-            ${p.status ? `<a class="btn peq" href="#/vendas/proposta/${p.id}">${p.status === 'rascunho' ? 'Revisar e aprovar' : p.status === 'aprovada' ? 'Enviar' : p.status === 'gerando' ? 'Acompanhar' : 'Abrir'}</a>` : ''}</div>
+            ${p.status ? `<a class="btn peq${p.status === 'aprovada' ? ' pri' : ''}" href="#/vendas/proposta/${p.id}">${p.status === 'rascunho' ? 'Revisar e enviar' : p.status === 'aprovada' ? '✉ Enviar' : p.status === 'gerando' ? 'Acompanhar' : 'Abrir'}</a>` : ''}</div>
             ${p.arquivo ? `<span class="peq apagado">${esc(p.arquivo)}</span>` : ''}${p.resumo ? `<p class="peq mt" style="white-space:pre-wrap">${esc(p.resumo)}</p>` : ''}</div>`).join('') : '<p class="apagado">Nenhuma proposta ainda. Clique em <b>Gerar com a IA</b> e cole o pedido: a proposta sai nos moldes do PowerPoint da Mentorei.</p>'}</div></div>
         ${o.observacoes ? `<div class="cartao"><h3>Observações</h3><p class="peq mt" style="white-space:pre-wrap">${esc(o.observacoes)}</p></div>` : ''}
         <div class="cartao"><h3>Histórico</h3><div class="hist mt">${(hist.data || []).length ? hist.data.map((h) => `<div class="hist-item"><span class="hist-icone">${ICONE[h.tipo] || '•'}</span>
