@@ -66,7 +66,7 @@ values ('MNT-AUT-11', '71', 'Roda do Profissional do Futuro', '14 (ferramentas o
     "Autoavaliação TraçãoCoop",
     "Somos todos negócios"
   ],
-  "resumo": "Autoavaliação online em 4 partes (Inovação e Criatividade; Autorresponsabilidade; Diplomacia e Protagonismo; Comunicação e Assertividade), 5 afirmações cada, notas de 1 a 10. No fim mostra a roda das 12 habilidades, a média geral e de cada parte, a maior e a menor nota e um plano de ação pronto para a habilidade mais baixa, com um compromisso com prazo. Também funciona aberta ao público por QR code: a pessoa deixa nome, e-mail, WhatsApp e cargo, que chegam em Vendas › Pessoa física.",
+  "resumo": "Autoavaliação online em 4 partes (1 Inovação e Criatividade; 2 Autorresponsabilidade; 3 Comunicação e Assertividade; 4 Diplomacia e Protagonismo), 5 afirmações cada, notas de 1 a 10. No fim mostra a roda das 12 habilidades, a média geral e de cada parte, a maior e a menor nota e um plano de ação pronto para a habilidade mais baixa, com um compromisso com prazo. Também funciona aberta ao público por QR code: a pessoa deixa nome, e-mail, WhatsApp e cargo, que chegam em Vendas › Pessoa física.",
   "categoria": "Autoconhecimento e Autodesenvolvimento",
   "nivel": "Liderar a si",
   "formato": "Ferramenta online já automatizada. Em treinamento: QR code nos slides, uma parte por vez, quando a facilitadora indicar; as respostas ficam só no celular do participante e só os contatos chegam à Mentorei. Na mentoria: enviada pela plataforma, o resultado fica guardado na ficha do mentorado",
@@ -84,7 +84,7 @@ values ('MNT-AUT-11', '71', 'Roda do Profissional do Futuro', '14 (ferramentas o
       "PDI do Líder"
     ]
   },
-  "observacao": "Ficha sem PDF: a ferramenta é aplicada na versão online. As 12 habilidades: olhar de melhoria, experimentar e aprender com o erro, quebra de paradigmas, compromisso com a palavra, foco no que posso influenciar, atitude de solução, diplomacia nas relações, imagem e marca pessoal, linguagem de protagonista, responsabilidade pela mensagem, coerência verbal e não verbal, assertividade. Faixas: 8 a 10 ponto forte, 5 a 7,9 em desenvolvimento, 1 a 4,9 precisa de atenção. Pelo QR code público, a promessa feita na tela é que as respostas ficam só no celular e a cooperativa não recebe nada: só nome, e-mail, WhatsApp e cargo chegam à Mentorei.",
+  "observacao": "Ficha sem PDF: a ferramenta é aplicada na versão online. As 12 habilidades: olhar de melhoria, experimentar e aprender com o erro, quebra de paradigmas, compromisso com a palavra, foco no que posso influenciar, atitude de solução, responsabilidade pela mensagem, coerência verbal e não verbal, assertividade, diplomacia nas relações, imagem e marca pessoal, linguagem de protagonista. Faixas: 8 a 10 ponto forte, 5 a 7,9 em desenvolvimento, 1 a 4,9 precisa de atenção. Pelo QR code público, a promessa feita na tela é que as respostas ficam só no celular e a cooperativa não recebe nada: só nome, e-mail, WhatsApp e cargo chegam à Mentorei.",
   "tags": [
     "competencias-do-futuro",
     "autoconhecimento",

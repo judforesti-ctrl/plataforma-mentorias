@@ -324,16 +324,7 @@ var PARTES = [
       {h:"solucao", t:"Quando levo um problema para alguém, levo junto pelo menos uma sugestão de solução."},
       {h:"solucao", t:"Quando um resultado meu fica abaixo do esperado, assumo a minha parte sem procurar culpados."}
     ]},
-  { n:3, nome:"Diplomacia e Protagonismo",
-    intro:"Pense em como você se relaciona com as pessoas e na imagem que transmite.",
-    perguntas:[
-      {h:"diplomacia", t:"Escuto a outra pessoa até o fim, sem interromper e sem julgar antes de entender o ponto dela."},
-      {h:"diplomacia", t:"Em situações tensas, mantenho o controle emocional e o respeito, mesmo quando discordo."},
-      {h:"marca", t:"Minha postura, meus hábitos e minha apresentação transmitem, com constância, a imagem profissional que quero ter."},
-      {h:"protagonista", t:"Quando alguém me procura com uma demanda que não é minha, ajudo a encaminhar em vez de dizer “isso não é comigo”."},
-      {h:"protagonista", t:"No dia a dia, uso frases de quem assume, como “eu verifico” e “eu te retorno”, em vez de “não sei” ou “fala com meu chefe”."}
-    ]},
-  { n:4, nome:"Comunicação e Assertividade",
+  { n:3, nome:"Comunicação e Assertividade",
     intro:"Pense em como você passa informações, se expressa e se posiciona.",
     perguntas:[
       {h:"mensagem", t:"Depois de passar uma orientação importante, confirmo se a pessoa entendeu do jeito que eu quis dizer."},
@@ -341,6 +332,15 @@ var PARTES = [
       {h:"coerencia", t:"Meu tom de voz, minha postura e minhas expressões combinam com o que estou dizendo."},
       {h:"assertividade", t:"Consigo discordar de um colega ou do meu gestor com clareza e respeito, sem me calar e sem atacar."},
       {h:"assertividade", t:"Quando não posso atender a um pedido, digo “não” com respeito e, se possível, ofereço uma alternativa."}
+    ]},
+  { n:4, nome:"Diplomacia e Protagonismo",
+    intro:"Pense em como você se relaciona com as pessoas e na imagem que transmite.",
+    perguntas:[
+      {h:"diplomacia", t:"Escuto a outra pessoa até o fim, sem interromper e sem julgar antes de entender o ponto dela."},
+      {h:"diplomacia", t:"Em situações tensas, mantenho o controle emocional e o respeito, mesmo quando discordo."},
+      {h:"marca", t:"Minha postura, meus hábitos e minha apresentação transmitem, com constância, a imagem profissional que quero ter."},
+      {h:"protagonista", t:"Quando alguém me procura com uma demanda que não é minha, ajudo a encaminhar em vez de dizer “isso não é comigo”."},
+      {h:"protagonista", t:"No dia a dia, uso frases de quem assume, como “eu verifico” e “eu te retorno”, em vez de “não sei” ou “fala com meu chefe”."}
     ]}
 ];
 
@@ -352,12 +352,12 @@ var HAB = [
   {id:"compromisso",   p:2, nome:"Compromisso com a palavra",      curto:["Compromisso","com a palavra"]},
   {id:"influencia",    p:2, nome:"Foco no que posso influenciar",  curto:["Foco no que posso","influenciar"]},
   {id:"solucao",       p:2, nome:"Atitude de solução",             curto:["Atitude de","solução"]},
-  {id:"diplomacia",    p:3, nome:"Diplomacia nas relações",        curto:["Diplomacia","nas relações"]},
-  {id:"marca",         p:3, nome:"Imagem e marca pessoal",         curto:["Imagem e","marca pessoal"]},
-  {id:"protagonista",  p:3, nome:"Linguagem de protagonista",      curto:["Linguagem de","protagonista"]},
-  {id:"mensagem",      p:4, nome:"Responsabilidade pela mensagem", curto:["Responsabilidade","pela mensagem"]},
-  {id:"coerencia",     p:4, nome:"Coerência verbal e não verbal",  curto:["Coerência verbal","e não verbal"]},
-  {id:"assertividade", p:4, nome:"Assertividade",                  curto:["Assertividade"]}
+  {id:"mensagem",      p:3, nome:"Responsabilidade pela mensagem", curto:["Responsabilidade","pela mensagem"]},
+  {id:"coerencia",     p:3, nome:"Coerência verbal e não verbal",  curto:["Coerência verbal","e não verbal"]},
+  {id:"assertividade", p:3, nome:"Assertividade",                  curto:["Assertividade"]},
+  {id:"diplomacia",    p:4, nome:"Diplomacia nas relações",        curto:["Diplomacia","nas relações"]},
+  {id:"marca",         p:4, nome:"Imagem e marca pessoal",         curto:["Imagem e","marca pessoal"]},
+  {id:"protagonista",  p:4, nome:"Linguagem de protagonista",      curto:["Linguagem de","protagonista"]}
 ];
 
 var PLANOS = {
@@ -426,7 +426,7 @@ var PLANOS = {
 var PCOR = {1:"var(--p1)",2:"var(--p2)",3:"var(--p3)",4:"var(--p4)"};
 var EXEMPLO = {
   perfil:{nome:"Ana Paula (exemplo)", email:"", whats:"", cargo:"Analista de crédito"},
-  respostas:{1:[8,7,5,6,8], 2:[9,8,6,7,8], 3:[7,6,8,9,9], 4:[5,4,7,6,5]}
+  respostas:{1:[8,7,5,6,8], 2:[9,8,6,7,8], 3:[5,4,7,6,5], 4:[7,6,8,9,9]}
 };
 
 /* ===================== ESTADO ===================== */
@@ -435,12 +435,20 @@ var EMBUTIDO = (function(){ try { return window.self !== window.top; } catch(e){
 var DESTINO = "/api/contato-ferramenta"; // contatos → plataforma Mentorei, Vendas › Pessoa física
 var dadosPlataforma = {}; // preenchido quando a ferramenta roda dentro da plataforma de mentorias
 
-function novoEstado(){ return {perfil:null, respostas:{1:[],2:[],3:[],4:[]}, parte:1, tela:"inicio", enviadoEm:null, envio:"pendente", checks:{}, compromisso:{passo:"",ate:""}}; }
+function novoEstado(){ return {perfil:null, respostas:{1:[],2:[],3:[],4:[]}, parte:1, tela:"inicio", enviadoEm:null, envio:"pendente", checks:{}, compromisso:{passo:"",ate:""}, ordem:2}; }
 function ler(){ try { var s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; } catch(e){ return null; } }
 function salvar(){ if (vendoExemplo) return; try { localStorage.setItem(KEY, JSON.stringify(st)); } catch(e){} if (EMBUTIDO && st.tela === "resultado") agendarResultado(); }
 function apagar(){ try { localStorage.removeItem(KEY); } catch(e){} }
 
 var st = ler() || novoEstado();
+// respostas guardadas na ordem antiga (3 = Diplomacia, 4 = Comunicação): troca as partes 3 e 4 de lugar
+if (st.ordem !== 2){
+  var r3 = st.respostas[3] || [], r4 = st.respostas[4] || [];
+  st.respostas[3] = r4; st.respostas[4] = r3;
+  if (st.parte === 4 && st.tela !== "resultado") st.parte = 3; // já tinha feito Diplomacia: falta Comunicação, que agora é a parte 3
+  st.ordem = 2;
+  try { localStorage.setItem(KEY, JSON.stringify(st)); } catch(e){}
+}
 var vendoExemplo = false;
 var retomou = false;
 var confirmando = false;
