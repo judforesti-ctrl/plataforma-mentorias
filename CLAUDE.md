@@ -372,6 +372,15 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   mentorado marcar a caixa (o mapa é pessoal); notas e próximo cuidado vão sempre.
   Versão 2 (2026-10-13, pedido de um mentor): 40 afirmativas (5 por área, escritas pelo Claude a pedido da Juliana) com régua de
   arrastar de 1 a 5 (só inteiros, começa sem resposta, encaixa no número); média por área com 1 casa decimal forma a roda; ranking.
+  Roda do Profissional do Futuro (2026-10-15, TraçãoCoop · Sicoob Cooprem): MNT-AUT-11, ficha no script 39. É a primeira ferramenta
+  PÚBLICA (`publica` em ferramentas-online.js): qualquer pessoa abre por QR code (https://plataforma.mentorei.com.br/ferramentas/roda-profissional-futuro/),
+  sem login. Só nome, e-mail, WhatsApp e cargo saem do celular (promessa da tela): `/api/contato-ferramenta` → rpc
+  `registrar_pessoa_fisica` (mesmo e-mail = mesma linha, soma `vezes`) → tabela `pessoas_fisicas` → aba Vendas › Pessoa física
+  (`telas/pessoa-fisica.js`: QR para baixar, lista, busca, anotação, apagar, Excel). A página tenta de novo a cada etapa até o
+  servidor confirmar (`envioContato = 'ok'`). Substituiu o FormSubmit do pacote original. Dentro da plataforma (quadro) não manda
+  contato; o resultado vai para `testes`. Fonte do pacote: Documents/JULIANA PROFISSIONAL/Sicoob cooprem/roda-profissional-futuro-claude-code.zip
+  (o CLAUDE.md do pacote pede: não mudar textos, perguntas, cores ou layout). Para outra ferramenta pública: código em FERRAMENTAS
+  de contato-ferramenta.mjs + `publica` no mapa.
 - Linguagem da Mentorei: sem jargão de coaching em inglês ("accountability", "follow-up", "macaco nas costas").
 
 ## Testar antes de publicar

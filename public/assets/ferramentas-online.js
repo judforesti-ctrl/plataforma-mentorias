@@ -1,6 +1,7 @@
 // Ferramentas online do arsenal. "interna": roda dentro da plataforma e guarda o resultado na ficha do mentorado.
 // "externa": abre o site da ferramenta numa aba nova (o resultado não volta para a plataforma).
 // Uma ferramenta pode ter PDF e versão online ao mesmo tempo.
+// "publica": também fica aberta a qualquer pessoa por QR code; os contatos vão para Vendas › Pessoa física (script 39).
 import { esc } from './base.js';
 
 export const ONLINE = {
@@ -11,6 +12,7 @@ export const ONLINE = {
   'MNT-COM-07': { interna: true, url: '/ferramentas/voce-e-assertivo/' },
   'MNT-COM-08': { interna: true, url: '/ferramentas/roda-da-diplomacia/' },
   'MNT-AUT-10': { interna: true, url: '/ferramentas/roda-da-vida/' },
+  'MNT-AUT-11': { interna: true, url: '/ferramentas/roda-profissional-futuro/', publica: 'Roda do Profissional do Futuro' },
   'MNT-JOR-06': { interna: false, url: 'https://radardalideranca.netlify.app' },
 };
 
@@ -32,7 +34,9 @@ const ROTULOS = { media: 'Média', faixa: 'Faixa', plano: 'Plano de ação', not
   area_que_sustenta: 'Área que sustenta hoje', area_para_acolher: 'Área para acolher melhor', cuidar_primeiro: 'Área que escolheu cuidar primeiro',
   proximo_passo: 'Pequeno próximo passo', quando_e_onde: 'Quando e onde vai começar', apoio: 'De quem vai pedir apoio',
   dificuldade: 'O que pode dificultar e como contornar', reflexoes: 'O que a roda está contando',
-  respostas_por_area: 'Respostas de cada afirmativa (de 1 a 5)' };
+  respostas_por_area: 'Respostas de cada afirmativa (de 1 a 5)',
+  media_geral: 'Média geral', medias_por_parte: 'Média de cada parte', maior_nota: 'Maior nota', menor_nota: 'Menor nota',
+  primeiro_passo: 'Primeiro passo (compromisso)', prazo: 'Até quando', acoes_feitas: 'Ações do plano já feitas' };
 const rotulo = (k) => ROTULOS[k] || (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ');
 
 // Mostra o resultado guardado de uma ferramenta online, qualquer que seja ela.
