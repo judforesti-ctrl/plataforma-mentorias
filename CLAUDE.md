@@ -381,6 +381,9 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   contato; o resultado vai para `testes`. Fonte do pacote: Documents/JULIANA PROFISSIONAL/Sicoob cooprem/roda-profissional-futuro-claude-code.zip
   (o CLAUDE.md do pacote pede: não mudar textos, perguntas, cores ou layout). Para outra ferramenta pública: código em FERRAMENTAS
   de contato-ferramenta.mjs + `publica` no mapa.
+  Você é Assertivo? (MNT-COM-07) também é PÚBLICA desde 2026-10-16: o QR que a Juliana já imprimiu aponta para
+  app.html#/ferramenta/MNT-COM-07; o app.js manda quem NÃO tem login para a versão aberta (`publica` no mapa) e quem tem login segue
+  na plataforma. A página manda o contato (S.contatoOk) para Pessoa física e continua mandando o resultado como antes (Netlify Forms).
 - Linguagem da Mentorei: sem jargão de coaching em inglês ("accountability", "follow-up", "macaco nas costas").
 
 ## Testar antes de publicar

@@ -9,7 +9,7 @@ export const ONLINE = {
   'MNT-LID-04': { interna: true, url: '/ferramentas/escada-da-delegacao/' },
   'MNT-COM-06': { interna: true, url: '/ferramentas/roda-do-comunicador/' },
   'MNT-PES-08': { interna: true, url: '/ferramentas/swot-do-time/' },
-  'MNT-COM-07': { interna: true, url: '/ferramentas/voce-e-assertivo/' },
+  'MNT-COM-07': { interna: true, url: '/ferramentas/voce-e-assertivo/', publica: 'Você é Assertivo?' },
   'MNT-COM-08': { interna: true, url: '/ferramentas/roda-da-diplomacia/' },
   'MNT-AUT-10': { interna: true, url: '/ferramentas/roda-da-vida/' },
   'MNT-AUT-11': { interna: true, url: '/ferramentas/roda-profissional-futuro/', publica: 'Roda do Profissional do Futuro' },

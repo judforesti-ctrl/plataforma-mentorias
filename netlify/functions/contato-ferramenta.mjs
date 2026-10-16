@@ -7,7 +7,7 @@ import { json, supa } from '../lib/google.mjs';
 export const config = { path: '/api/contato-ferramenta', method: ['POST'] };
 
 // ferramentas abertas ao público: o código que a página manda → o nome que aparece em Vendas › Pessoa física
-const FERRAMENTAS = { 'roda-profissional-futuro': 'Roda do Profissional do Futuro' };
+const FERRAMENTAS = { 'roda-profissional-futuro': 'Roda do Profissional do Futuro', 'voce-e-assertivo': 'Você é Assertivo?' };
 
 const texto = (v, max) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max);
 
@@ -19,7 +19,7 @@ export default async (req) => {
   if (c.site) return json({ ok: true }); // campo invisível preenchido = robô: finge que gravou
   const nome = texto(c.nome, 120), email = texto(c.email, 160).toLowerCase(), cargo = texto(c.cargo, 120);
   const fone = texto(c.whats, 30), digitos = fone.replace(/\D/g, '');
-  if (nome.split(' ').filter(Boolean).length < 2) return json({ mensagem: 'Escreva nome e sobrenome.' }, 400);
+  if (nome.length < 2) return json({ mensagem: 'Escreva o seu nome.' }, 400);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return json({ mensagem: 'Confira o e-mail.' }, 400);
   if (digitos.length < 10 || digitos.length > 13) return json({ mensagem: 'Informe o WhatsApp com DDD.' }, 400);
 

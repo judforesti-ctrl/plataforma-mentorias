@@ -5,7 +5,12 @@ import { montarMenu } from './menu.js';
 const tela = document.getElementById('tela');
 
 const sessao = await sessaoAtual();
-if (!sessao) { location.replace('/'); throw new Error('sem login'); }
+if (!sessao) {
+  // ferramenta aberta ao público (QR code de app.html#/ferramenta/<id>): quem não tem login vai direto para a versão aberta
+  const f = location.hash.match(/^#\/ferramenta\/([\w-]+)/);
+  const o = f && (await import('./ferramentas-online.js')).ONLINE[f[1]];
+  location.replace(o && o.publica ? o.url : '/'); throw new Error('sem login');
+}
 
 let perfil;
 try { perfil = await meuPerfil(); } catch (e) { tela.innerHTML = `<div class="aviso erro">${esc(explicarErro(e))}</div>`; throw e; }
