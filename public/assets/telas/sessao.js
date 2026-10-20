@@ -168,6 +168,7 @@ export async function render(ctx, el, [id]) {
       </div>
       <div class="linha">
         ${!concluida ? '<button class="btn" id="remarcar">Remarcar</button>' : ''}
+        ${!concluida && ctx.ehAdmin && s.situacao !== 'cancelada' ? '<button class="btn" id="trocar-mentor" title="Passar esta sessão para outro mentor">Trocar mentor</button>' : ''}
         <span class="linha" id="meet-area" style="gap:6px"></span>
         ${FLUTUANTE && pode ? '<button type="button" class="btn" id="flutuar" title="Abre as anotações numa janela pequena que fica por cima do Meet">📝 Anotações flutuantes</button>' : ''}
         <span class="salvo" id="indicador"></span>
@@ -577,6 +578,11 @@ export async function render(ctx, el, [id]) {
     await salvador.agora();
     const { abrirRemarcar } = await import('./remarcar.js');
     abrirRemarcar(ctx, s.id, () => ctx.irPara(`#/sessao/${s.id}`));
+  });
+  el.querySelector('#trocar-mentor')?.addEventListener('click', async () => {
+    await salvador.agora();
+    const { abrirTrocarMentor } = await import('./trocar-mentor.js');
+    abrirTrocarMentor(ctx, m.id, { sessaoId: s.id, aoSalvar: () => ctx.irPara(`#/sessao/${s.id}`) });
   });
 
   return { sair: () => { pararVoz(); fecharFlutuante(); salvador.agora(); salvador.parar(); } };

@@ -46,6 +46,7 @@ export async function render(ctx, el, [id]) {
         <p class="apagado">${esc(m.cargo || 'Cargo a preencher')}${m.programa ? ` · ${esc(m.programa.empresa.nome)} · ${esc(m.programa.nome)}` : ''}</p>
         <div class="linha mt" style="gap:6px"><span class="selo">Sessões feitas: ${feitas} de ${sess.length}</span>
           ${mentores.map((x) => `<span class="selo neutro">${esc(x.nome)}</span>`).join('')}
+          ${ctx.ehAdmin ? '<button class="btn peq" data-trocar-mentor="" title="Passar sessões para outro mentor ou incluir alguém para acompanhar junto">Trocar ou incluir mentor</button>' : ''}
           ${!p.termo_aceito_em ? '<span class="selo alerta">Ainda não fez o primeiro acesso</span>' : ''}</div>
       </div>
       <div class="linha">
@@ -100,14 +101,16 @@ export async function render(ctx, el, [id]) {
         <div class="linha"><h3>Plano de sessões</h3>
           <span class="linha" style="margin-left:auto;gap:8px">
           ${sess.filter((s) => !s.concluida_em && s.situacao !== 'cancelada').length > 1 ? '<button class="btn peq pri" id="remarcar-varias" title="Mudar o horário, o dia da semana ou as datas de várias sessões ao mesmo tempo">Remarcar várias de uma vez</button>' : ''}
-          ${ctx.ehAdmin ? '<button class="btn peq" id="extra">+ Sessão extra</button>' : ''}</span></div>
+          ${ctx.ehAdmin ? '<button class="btn peq" data-trocar-mentor="" title="Passar sessões para outro mentor">Trocar mentor</button><button class="btn peq" id="extra">+ Sessão extra</button>' : ''}</span></div>
         <div class="tabela mt"><table>
           <tr><th>Nº</th><th>Data</th><th>Mentor</th><th>Tema</th><th>Tarefas</th><th>Situação</th><th></th></tr>
           ${sess.map((s) => {
             const [rot, cls] = SITUACAO[s.situacao] || [s.situacao, 'neutro'];
             const tarefa = seloResumo(s.tarefas);
             return `<tr><td>${s.numero}${s.extra ? ' <span class="selo neutro">extra</span>' : ''}</td><td>${dataHoraBR(s.data_hora)}</td>
-              <td>${esc(s.mentor ? s.mentor.nome : '—')}</td><td>${esc(s.tema || '—')}</td><td>${tarefa}</td>
+              <td>${esc(s.mentor ? s.mentor.nome : '—')}${ctx.ehAdmin && !s.concluida_em && s.situacao !== 'cancelada'
+                ? ` <button class="btn peq" data-trocar-mentor="${s.id}" title="Trocar quem atende esta sessão" aria-label="Trocar quem atende a sessão ${s.numero}">✎</button>` : ''}</td>
+              <td>${esc(s.tema || '—')}</td><td>${tarefa}</td>
               <td><span class="selo ${cls}">${rot}</span>${s.concluida_em ? ' <span class="selo neutro">🔒</span>' : ''}</td>
               <td><div class="linha" style="gap:6px;flex-wrap:nowrap"><a class="btn peq${s === proxima ? ' pri' : ''}" href="#/sessao/${s.id}">${s.concluida_em ? 'Ver' : 'Abrir'}</a>
                 ${s.concluida_em ? '' : `<button class="btn peq" data-remarcar="${s.id}">Remarcar</button>`}</div></td></tr>`;
@@ -225,6 +228,12 @@ export async function render(ctx, el, [id]) {
     if (ev.target.id === 'remarcar-varias') {   // várias sessões de uma vez (pedido da Cintia)
       const { abrirRemarcarVarias } = await import('./remarcar-varias.js');
       abrirRemarcarVarias(ctx, m.id, () => ctx.irPara(`#/mentorado/${m.id}`));
+      return;
+    }
+    const tm = ev.target.closest('[data-trocar-mentor]');   // outro mentor atende (no meio do processo)
+    if (tm) {
+      const { abrirTrocarMentor } = await import('./trocar-mentor.js');
+      abrirTrocarMentor(ctx, m.id, { sessaoId: tm.dataset.trocarMentor || null, aoSalvar: () => ctx.irPara(`#/mentorado/${m.id}`) });
       return;
     }
     const b = ev.target.closest('[data-remarcar]'); if (!b) return;

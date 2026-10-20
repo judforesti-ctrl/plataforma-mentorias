@@ -342,6 +342,14 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   sessão concluída só a administração muda (trigger `protege_tarefa`). O script copia as tarefas antigas uma vez (tabela vazia).
   Ficha, Painel, Meus mentorados, lembretes, relatórios/Excel, resumo com IA e WhatsApp já leem a lista.
   Teste local: launch.json "tarefas-teste" (porta 8804) do site do Radar, scratchpad da sessão b18f9662 (?sem33 = sem o script).
+- TROCAR OU INCLUIR MENTOR NO MEIO DO PROCESSO (2026-10-20, a Cláudia ia atender a Dani e não via as sessões; antes não havia
+  como mudar os mentores depois do cadastro). `telas/trocar-mentor.js`, só administração, sem script novo (admin_tudo). O que libera
+  ficha, sessões, anotações e documentos é o vínculo `mentor_mentorado`; o que põe a sessão na agenda e no "hoje" de Meus mentorados
+  é `sessoes.mentor_id`: a janela acerta os dois. Botões: "Trocar ou incluir mentor" no alto da ficha, "Trocar mentor" e ✎ por sessão
+  no Plano de sessões, "Trocar mentor" na tela da sessão. Quem atende + quais sessões (só a de hoje/clicada, essa e as seguintes,
+  escolher, nenhuma = só acesso) + quem já acompanha continua (padrão) ou sai (bloqueado se ficar com sessão em aberto). Concluída
+  ou cancelada nunca muda de mentor. Depois: avisarGoogle() e WhatsApp pronto para quem entra (com link de senha se ainda não
+  entrou), para o mentorado e para quem atendia antes.
 - EDITAR SESSÃO CONCLUÍDA (2026-10-14, pedido dos mentores: voltam no fim do dia para completar): no mesmo dia a Juliana pediu
   SEM PRAZO (o script 36 dava 7 dias; o 37 substitui). `trava_sessao_concluida` e `protege_tarefa`: o mentor do mentorado completa e
   corrige qualquer sessão concluída (não muda `concluida_em`/`concluida_por`). Sem o script 37 o salvamento do mentor mostra
