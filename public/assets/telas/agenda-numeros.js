@@ -28,6 +28,7 @@ const k0 = (mes, h) => (h.startsWith(mes) ? h : `${mes}-01`); // o mês atual co
 const legendaTrab = (tipos = TRAB, nomes = NOME_TRAB) => `<div class="ag-legenda">${tipos.map((t) => `<span>${amostra(t)}${esc(nomes[t])}</span>`).join('')}</div>`;
 
 export async function abaNumeros(ctx, el, d) {
+  d = { ...d, mentores: d.mentores.filter((m) => !m.coordenacao) };   // números são dos mentores (a coordenação fica de fora)
   const h = hoje(), mesAtual = h.slice(0, 7);
   const meses = Array.from({ length: 12 }, (_, i) => somarMeses(mesAtual, i - 5));
   const de = `${meses[0]}-01`, ate = somarDias(`${somarMeses(meses[11], 1)}-01`, -1);

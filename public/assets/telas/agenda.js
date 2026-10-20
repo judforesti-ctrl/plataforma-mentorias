@@ -34,9 +34,10 @@ export async function render(ctx, el, params) {
   if (params[0] === 'mentor' && params[1]) { est.mentor = params[1]; if (est.vista === 'planilha') est.vista = 'semana'; }
   const av = avisos(d);
   av.whatsResumo = await lembrarWhatsHoje();
+  const euCoord = d.mentores.some((m) => m.id === ctx.perfil.id && m.coordenacao);
   el.innerHTML = `
     <div class="cab"><div><h1>Agenda</h1><p class="sub">Compromissos, dias livres, deslocamentos, pré-bloqueios e bloqueios de toda a equipe.</p></div>
-      <div class="acoes"><button class="btn" id="novo-bloqueio" type="button">+ Bloqueio</button><button class="btn pri" id="novo-pre" type="button">+ Pré-bloqueio</button></div></div>
+      <div class="acoes">${euCoord ? '<button class="btn" id="minha-agenda" type="button">Minha agenda</button>' : ''}<button class="btn" id="novo-bloqueio" type="button">+ Bloqueio</button><button class="btn pri" id="novo-pre" type="button">+ Pré-bloqueio</button></div></div>
     ${d.faltaScript ? AVISO_SCRIPT : ''}
     <div id="avisos">${htmlAvisos(av, d)}</div>
     <nav class="abas" aria-label="Partes da agenda">${ABAS.map(([k, t]) => `<button type="button" data-aba="${k}" class="${k === aba ? 'atual' : ''}">${t}${contagem(k, av)}</button>`).join('')}</nav>
@@ -45,6 +46,8 @@ export async function render(ctx, el, params) {
   el.querySelector('.abas').addEventListener('click', (ev) => { const b = ev.target.closest('[data-aba]'); if (b) location.hash = `#/agenda/${b.dataset.aba}`; });
   el.querySelector('#novo-pre').addEventListener('click', async () => { const { abrirReserva } = await import('./agenda-reservas.js'); abrirReserva(ctx, d, {}, recarregar); });
   el.querySelector('#novo-bloqueio').addEventListener('click', () => abrirBloqueio(ctx, d, {}, recarregar));
+  // coordenação: o próprio mês, com os bloqueios e a agenda pessoal (Outlook, Gmail)
+  el.querySelector('#minha-agenda')?.addEventListener('click', () => { Object.assign(est, { mentor: ctx.perfil.id, vista: 'quadro', mes: null, empresa: '', tipo: '', formato: '' }); ctx.irPara('#/agenda/quadro'); });
   el.querySelector('#avisos').addEventListener('click', (ev) => { const b = ev.target.closest('[data-ir]'); if (b) location.hash = b.dataset.ir; });
   const alvo = el.querySelector('#conteudo');
   if (aba === 'encaixar') return abaEncaixar(ctx, alvo, d, recarregar);
@@ -234,7 +237,7 @@ function vistaEquipe(ctx, alvo, d, idx, verMentor, recarregar) {
       <button class="btn peq" type="button" data-nav="7">Próxima semana ›</button><b>${ddmm(dias[0])} a ${ddmm(dias[dias.length - 1])}</b>
       <span class="peq apagado">Cada dia tem 3 faixas: manhã, tarde e noite. Clique num dia para ver os detalhes, ou no nome para ver o mês do mentor.</span></div>
     ${mentores.length ? `<div class="ag-quadro-caixa"><table class="ag-quadro">
-      <thead><tr><th class="ag-q-nome">Mentor</th>${dias.map((dia) => {
+      <thead><tr><th class="ag-q-nome">Equipe</th>${dias.map((dia) => {
         const f = feriadoDe(dia); const fds = [0, 6].includes(diaDaSemana(dia));
         return `<th class="${dia === h ? 'hoje' : ''}${fds ? ' fds' : ''}${f ? ' feriado' : ''}"${f ? ` title="${esc(f)}"` : ''}>${nomeSemana(dia)}<br><span>${ddmm(dia)}</span>${f ? '<i>feriado</i>' : ''}</th>`;
       }).join('')}</tr></thead>
@@ -273,9 +276,10 @@ function vistaMes(ctx, alvo, d, idx, mentor, { voltar = null, recarregar }) {
     return st.some((s) => s.tipo === 'livre') && st.every((s) => s.tipo === 'livre' || s.tipo === 'fora');
   });
   const atende = [mentor.atende_individual !== false && 'mentoria individual', mentor.atende_grupo && 'turmas'].filter(Boolean).join(' e ');
+  const quem = mentor.coordenacao ? 'Coordenação' : `Atende ${atende || '—'}`;
   alvo.innerHTML = `
     ${voltar ? `<div class="linha" style="margin-bottom:12px"><button class="btn peq" type="button" id="voltar">← Toda a equipe</button>
-      <span class="linha" style="gap:10px">${avatar(mentor)}<span><b>${esc(mentor.nome)}</b><br><span class="peq apagado">Atende ${esc(atende || '—')}</span></span></span></div>` : ''}
+      <span class="linha" style="gap:10px">${avatar(mentor)}<span><b>${esc(mentor.nome)}</b><br><span class="peq apagado">${esc(quem)}</span></span></span></div>` : ''}
     <div class="linha ag-nav"><button class="btn peq" type="button" data-mes="-1">‹ Mês anterior</button><button class="btn peq" type="button" data-mes="0">Este mês</button>
       <button class="btn peq" type="button" data-mes="1">Próximo mês ›</button><h3>${nomeMes(mes)[0].toUpperCase()}${nomeMes(mes).slice(1)} de ${ano}</h3></div>
     <div class="aviso ok ag-livres"><b>Dias totalmente livres${primeiro < h && ultimo >= h ? ' (de hoje em diante)' : ''}:</b>
@@ -305,9 +309,12 @@ function vistaMes(ctx, alvo, d, idx, mentor, { voltar = null, recarregar }) {
     abrirDia(ctx, d, mentor, c.dataset.dia, recarregar);
   });
   const extras = alvo.querySelector('#extras');
-  extras.innerHTML = `${htmlBloqueiosDoMentor(ctx, d, mentor)}${htmlDisponibilidade(ctx, mentor)}`;
+  extras.innerHTML = `${htmlBloqueiosDoMentor(ctx, d, mentor)}${htmlDisponibilidade(ctx, mentor)}${mentor.id === ctx.perfil.id ? '<div id="pessoal-mes"></div>' : ''}`;
   ligarBloqueiosDoMentor(ctx, d, extras, mentor, recarregar);
   ligarDisponibilidade(extras, mentor, recarregar);
+  // a própria agenda (Outlook, Gmail) liga daqui também: é o que a coordenação abre em "Minha agenda"
+  const pes = extras.querySelector('#pessoal-mes');
+  if (pes) import('./agenda-pessoal.js').then(({ cartaoAgendaPessoal }) => cartaoAgendaPessoal(ctx, pes, { aoMudar: recarregar }));
 }
 
 // ---------- detalhes de um dia ----------
@@ -323,7 +330,7 @@ function abrirDia(ctx, d, mentor, dia, recarregar) {
     <div class="ag-periodos mt">${st.map((s) => `<div class="ag-periodo">${amostra(s.tipo)}<div><b>${NOME_PERIODO[s.periodo]}</b><br><span class="peq apagado">${esc(ESTADOS[s.tipo])}</span></div></div>`).join('')}</div>
     <h4 class="mt2">O que tem neste dia</h4>
     <div class="lista mt">${evs.length ? evs.map((e) => blocoEvento(ctx, d, e, mentor)).join('') : '<p class="apagado">Nada marcado.</p>'}</div>
-    <div class="linha mt2">${ctx.ehAdmin ? '<button class="btn pri" type="button" data-acao="pre">Pré-bloquear este dia</button>' : ''}
+    <div class="linha mt2">${ctx.ehAdmin && !mentor.coordenacao ? '<button class="btn pri" type="button" data-acao="pre">Pré-bloquear este dia</button>' : ''}
       <button class="btn" type="button" data-acao="bloquear">${ctx.ehAdmin && !souEu ? `Bloquear para ${esc(primeiroNome(mentor.nome))}` : 'Bloquear este dia'}</button></div>`;
   const j = janela(`${mentor.nome} · ${nomeSemana(dia, true)}, ${ddmm(dia)}`, html, { largura: 640, aoFechar: () => { if (mudou) recarregar(); } });
   ligarViagens(j.corpo, d, () => { mudou = true; });
@@ -349,7 +356,8 @@ function blocoEvento(ctx, d, e, mentor) {
     const b = e.origem;
     extra = `${b.motivo && podeVer && b.tipo !== 'recesso' ? `<p class="peq mt"><b>Detalhes:</b> ${esc(b.motivo)}</p>` : ''}
       <p class="peq apagado mt">${esc(descreverBloqueio(b))}</p>
-      ${(ctx.ehAdmin || (b.mentor_id === ctx.perfil.id && b.tipo !== 'recesso')) ? `<button class="btn peq mt" type="button" data-editar-bloqueio="${b.id}">Mudar ou apagar</button>` : ''}`;
+      ${b.oculto ? `<p class="peq apagado mt">Compromisso de ${esc(primeiroNome(mentor.nome))}: só ela vê os detalhes e muda.</p>`
+        : (ctx.ehAdmin || (b.mentor_id === ctx.perfil.id && b.tipo !== 'recesso')) ? `<button class="btn peq mt" type="button" data-editar-bloqueio="${b.id}">Mudar ou apagar</button>` : ''}`;
   }
   if ((e.tipo === 'pre' || e.tipo === 'reservado') && e.origem) {
     const r = e.origem;
@@ -417,8 +425,15 @@ function ligarViagens(raiz, d, aoMudar) {
 export function abrirBloqueio(ctx, d, { mentorId = null, dia = null, bloqueio = null, recesso = false }, aoSalvar) {
   const adm = ctx.ehAdmin;
   const b = bloqueio || {};
+  if (b.oculto) {   // bloqueio da coordenação aberto por outra pessoa: os detalhes são só dela
+    const dona = d.mentores.find((m) => m.id === b.mentor_id) || { nome: 'Coordenação' };
+    janela('Bloqueio', `<p>${esc(descreverBloqueio(b))}</p><p class="peq apagado mt">É um compromisso de ${esc(dona.nome)}: só ela vê os detalhes e pode mudar ou apagar.</p>
+      <div class="linha mt2"><button class="btn" type="button" data-fechar>Ok</button></div>`, { largura: 480 });
+    return;
+  }
   const ehRecesso = recesso || b.tipo === 'recesso';
-  const quemInicial = ehRecesso ? 'recesso' : (b.mentor_id || mentorId || (adm ? '' : ctx.perfil.id));
+  const euCoord = d.mentores.some((m) => m.id === ctx.perfil.id && m.coordenacao);   // a coordenação bloqueia a própria agenda
+  const quemInicial = ehRecesso ? 'recesso' : (b.mentor_id || mentorId || (adm && !euCoord ? '' : ctx.perfil.id));
   const de = b.inicio || dia || hoje(), ate = b.fim || dia || de;
   const modo = b.hora_inicio ? 'hora' : b.periodos && b.periodos.length && b.periodos.length < 3 ? 'periodos' : 'dia';
   const repete = !!(b.dias_semana && b.dias_semana.length);
@@ -560,8 +575,13 @@ function htmlDisponibilidade(ctx, mentor) {
   const padrao = !(mentor.disponibilidade && Object.keys(mentor.disponibilidade).length);
   const meu = mentor.id === ctx.perfil.id;
   const editavel = ctx.ehAdmin || meu;
-  return `<div class="cartao" style="margin-top:0"><h3>${meu ? 'Meus dias de atendimento' : 'Dias de atendimento'}</h3>
-    <p class="peq apagado">${meu ? 'Marque quando você pode atender.' : `Quando ${esc(primeiroNome(mentor.nome))} pode atender.`} Fora disso a agenda mostra "não atende" e a busca de horário não oferece.
+  const nome = esc(primeiroNome(mentor.nome));
+  // coordenação: dias de trabalho (não atende mentoria)
+  const [titulo, texto] = mentor.coordenacao
+    ? [meu ? 'Meus dias de trabalho' : 'Dias de trabalho', `${meu ? 'Marque quando você trabalha.' : `Quando ${nome} trabalha.`} Fora disso a agenda mostra que não está.`]
+    : [meu ? 'Meus dias de atendimento' : 'Dias de atendimento', `${meu ? 'Marque quando você pode atender.' : `Quando ${nome} pode atender.`} Fora disso a agenda mostra "não atende" e a busca de horário não oferece.`];
+  return `<div class="cartao" style="margin-top:0"><h3>${titulo}</h3>
+    <p class="peq apagado">${texto}
       ${padrao ? '<br><b>Ainda não informado:</b> por enquanto vale segunda a sexta, manhã, tarde e noite.' : ''}</p>
     <div class="tabela"><table class="ag-disp mt" data-disp="${mentor.id}"><tr><th></th>${PERIODOS.map((p) => `<th>${NOME_PERIODO[p]}</th>`).join('')}</tr>
       ${ORDEM_SEMANA.map((n) => `<tr><th>${SEMANA_LONGA[n]}</th>${PERIODOS.map((p) => `<td><input type="checkbox" data-dia="${n}" data-p="${p}" aria-label="${SEMANA_LONGA[n]}, ${NOME_PERIODO[p].toLowerCase()}"${(disp[n] || disp[String(n)] || []).includes(p) ? ' checked' : ''}${editavel ? '' : ' disabled'}></td>`).join('')}</tr>`).join('')}</table></div></div>`;
@@ -619,7 +639,7 @@ function abaEncaixar(ctx, el, d, recarregar) {
     if (!enc.de || !enc.ate || enc.ate < enc.de) { res.innerHTML = '<div class="vazio">Escolha o primeiro e o último dia.</div>'; return; }
     if (enc.formato === 'online' && !enc.periodos.length) { res.innerHTML = '<div class="vazio">Marque pelo menos um período (manhã, tarde ou noite).</div>'; return; }
     const pers = enc.formato === 'presencial' ? [...PERIODOS] : enc.periodos;
-    const equipe = d.mentores.filter((m) => !enc.soGrupo || m.atende_grupo);
+    const equipe = d.mentores.filter((m) => !m.coordenacao && (!enc.soGrupo || m.atende_grupo));
     const todos = listaDias(enc.de, enc.ate);
     const dias = todos.slice(0, 92).filter((dia) => enc.dias.includes(diaDaSemana(dia)));
     const cartoes = [];
@@ -744,7 +764,7 @@ async function abaCelular(ctx, el, d) {
   if (error) { box.innerHTML = `<p class="peq">${faltaScript(error) ? 'Disponível depois que o script 14 for rodado no Supabase.' : esc(explicarErro(error))}</p>`; return; }
   const valor = { ligado: false, whatsapp: false, ...((cfg && cfg.valor) || {}) };
   const ligado = !!valor.ligado;
-  const usando = d.mentores.filter((m) => m.termo_aceito_em).length;
+  const usando = d.mentores.filter((m) => m.termo_aceito_em && !m.coordenacao).length;
   box.innerHTML = `<p class="peq">Toda sexta-feira, às 9h, cada mentor que já usa a plataforma recebe por e-mail a própria agenda da semana seguinte. A coordenação recebe um resumo da equipe:
       pré-bloqueios para resolver, respostas, bloqueios novos e viagens pendentes.</p>
     <p class="peq apagado mt">Hoje ${usando === 1 ? '1 mentor já usa' : `${usando} mentores já usam`} a plataforma. Quem ainda não entrou não recebe.</p>
@@ -774,7 +794,7 @@ async function abaCelular(ctx, el, d) {
   const chaveVistos = `resumo_whats_${seg}`;
   let vistos = [];
   try { vistos = JSON.parse(localStorage.getItem(chaveVistos) || '[]'); } catch (_) { vistos = []; }
-  const equipe = d.mentores;
+  const equipe = d.mentores.filter((m) => !m.coordenacao);   // o resumo é a agenda de cada mentor
   const listaWhats = () => {
     box.querySelector('#resumo-lista').innerHTML = `<p class="peq"><b>Semana de ${ddmm(seg)} a ${ddmm(somarDias(seg, 6))}</b></p>${equipe.map((m) => `<div class="item" style="grid-template-columns:auto 1fr auto">
       ${avatar(m)}<div style="min-width:0"><div class="nome">${esc(m.nome)}</div><div class="info">${m.whatsapp ? esc(m.whatsapp) : 'WhatsApp não informado no perfil'}</div></div>

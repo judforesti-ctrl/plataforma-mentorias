@@ -366,6 +366,23 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   e Painel). E-mail aos mentores por `/api/entrega` (uma vez por envio, `avisado_em`; só quem aceitou o termo e tem e-mail real; sem
   anexo). Sem o script 37 os botões não aparecem. Teste local: o "tarefas-teste" (8804) serve, criando `window.__T.entregas = []`
   (e `mentor_mentorado`) e trocando de tela.
+- PEDIDOS DA CINTIA (2026-10-20, sem script novo):
+  AGENDA DA COORDENAÇÃO: administração que não é mentora (`papel='admin'` e `tambem_mentor` falso/nulo = a Cintia) entra em
+  `d.mentores` com `coordenacao: true` (só na leitura da administração, `carregarAgenda`). Aparece no quadro, na semana, na planilha,
+  em "+ Bloqueio" (já vem ela mesma) e em Agendas pessoais da equipe; botão "Minha agenda" no alto da Agenda abre o mês dela com
+  bloqueios, dias de trabalho e o cartão da agenda pessoal (Outlook/Gmail). Decisão da Juliana: a equipe vê só "ocupada" — para
+  quem não é ela, `agenda_pessoal` vira "Ocupada" (sem local/link/organizador) e o bloqueio perde motivo/categoria (`oculto: true`,
+  abre só uma janela informativa, sem mudar). Fica FORA de: encaixe, pré-bloqueios, conferência de módulos, Números, resumo semanal
+  e WhatsApp, verde de "dia livre" da equipe toda, e convites do Google (google-sync pula bloqueio de quem não é mentor).
+  MÓDULOS: na turma, "Excluir módulos" (vários de uma vez; no módulo, "Excluir este módulo"): apaga arquivos da pasta `turmas`
+  (foto + miniatura), apaga os módulos (o banco apaga mentores/arquivos; avaliações ficam sem módulo) e renumera os que ficam
+  em ordem crescente (único turma_id+numero). "Link da sala para vários": um link para os módulos marcados (presenciais fora);
+  Zoom/Meet/Teams no link muda o "onde acontece".
+  PROPOSTA SEM TURMA: Vendas → "✉ Enviar proposta (PDF)" (atalho `#/vendas/enviar-proposta`, também em Turmas): cliente da lista
+  ou novo, contato, arquivo → oportunidade (reaproveita a aberta mais adiantada) + proposta `aprovada` com o arquivo em
+  `propostas/<oportunidade>/<proposta>/` → `janelaEnviar` (exportada de proposta.js). Turma só depois da aprovação.
+  Teste local: launch.json "cintia-teste" (porta 8808) do site do Radar, scratchpad da sessão 368789c4 (Cintia com bloqueio e
+  agenda pessoal no base-falso.js; `?quem=u-ju` para ver como a Juliana).
 
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.

@@ -151,7 +151,7 @@ export async function abrirReserva(ctx, d, { reserva = null, dias = [], mentores
   const form = formato || r.formato || 'online';
   const datas = r.id ? ordemDatas(r) : (dias.length ? dias : [{ dia: '', periodos: [...PERIODOS] }]);
   const escolhidos = new Set(r.id ? (r.mentores || []).map((x) => x.mentor_id) : mentores);
-  const equipe = d.mentores.slice().sort((a, b) => (b.atende_grupo ? 1 : 0) - (a.atende_grupo ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
+  const equipe = d.mentores.filter((m) => !m.coordenacao).sort((a, b) => (b.atende_grupo ? 1 : 0) - (a.atende_grupo ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
   const linhaData = (x = {}) => `<div class="ag-data-linha">
       <input type="date" class="d-dia" aria-label="Dia" value="${esc(x.dia || '')}">
       <select class="d-quando" aria-label="Quando">${QUANDO.map(([k, t]) => `<option value="${k}"${quandoDe(x) === k ? ' selected' : ''}>${t}</option>`).join('')}</select>

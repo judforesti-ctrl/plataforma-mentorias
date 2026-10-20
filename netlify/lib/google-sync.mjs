@@ -145,6 +145,7 @@ function desejados(d, cfg) {
   for (const b of d.bloqueios) {
     if (b.fim < h) continue;
     const rec = b.tipo === 'recesso';
+    if (!rec && !d.mentores.some((m) => m.id === b.mentor_id)) continue;   // bloqueio da coordenação: só na plataforma (é a própria agenda dela)
     const lista = rec ? d.mentores.map((m) => emailReal(m.email) && m.email.toLowerCase()) : [email(b.mentor_id)];
     const titulo = rec ? `Recesso da Mentorei${b.motivo ? ` · ${b.motivo}` : ''}` : b.tipo === 'ferias' ? 'Férias / folga'
       : rotuloBloqueio(b) === 'Bloqueio' ? 'Bloqueio de agenda' : `Bloqueio · ${rotuloBloqueio(b)}`;

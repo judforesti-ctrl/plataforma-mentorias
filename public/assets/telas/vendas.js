@@ -102,13 +102,15 @@ export async function render(ctx, el, params) {
   const recarregar = () => ctx.irPara(`#/vendas/${aba}`);
   el.innerHTML = `
     <div class="cab"><div><h1>Vendas</h1><p class="sub">Propostas, clientes, próximos contatos e resultados. Toda proposta importada entra aqui sozinha.</p></div>
-      <div class="acoes"><a class="btn" href="#/importar-proposta">Importar proposta</a><button class="btn pri" type="button" id="nova-op">+ Nova oportunidade</button></div></div>
+      <div class="acoes"><button class="btn escuro" type="button" id="enviar-pdf">✉ Enviar proposta (PDF)</button><a class="btn" href="#/importar-proposta">Importar proposta</a><button class="btn pri" type="button" id="nova-op">+ Nova oportunidade</button></div></div>
     ${d.falta ? AVISO_SCRIPT : ''}
     <nav class="abas" aria-label="Partes de vendas">${ABAS.map(([k, t]) => `<button type="button" data-aba="${k}" class="${k === aba ? 'atual' : ''}">${t}</button>`).join('')}</nav>
     <div id="conteudo"></div>`;
   el.querySelector('.abas').addEventListener('click', (ev) => { const b = ev.target.closest('[data-aba]'); if (b) location.hash = `#/vendas/${b.dataset.aba}`; });
   el.querySelector('#nova-op').addEventListener('click', () => { if (d.falta) { avisar('Rode o script 19 no Supabase primeiro.', true); return; } formOportunidade(ctx, d, {}, (o) => ctx.irPara(`#/vendas/oportunidade/${o.id}`)); });
+  el.querySelector('#enviar-pdf').addEventListener('click', () => { if (d.falta) { avisar('Rode o script 19 no Supabase primeiro.', true); return; } janelaPropostaPdf(ctx, d); });
   if (d.falta) return;
+  if (params[0] === 'enviar-proposta') janelaPropostaPdf(ctx, d);   // atalho da tela de Turmas
   const alvo = el.querySelector('#conteudo');
   if (aba === 'prospeccao') return (await import('./prospeccao.js')).abaProspeccao(ctx, alvo, d, recarregar, params[1] ? decodeURIComponent(params[1]) : null);
   if (aba === 'clientes') return abaClientes(ctx, alvo, d, recarregar);
@@ -255,6 +257,110 @@ function formOportunidade(ctx, d, { oportunidade = null, empresaId = null } = {}
       }
       avisar(oportunidade ? 'Salvo.' : 'Oportunidade criada.'); j.fechar(); if (aoSalvar) aoSalvar(salvo);
     } catch (e) { avisar(explicarErro(e), true); }
+  });
+}
+
+// ---------- enviar só o PDF da proposta, sem criar turma ----------
+// Pedido da Cintia (2026-10-20): mandar a proposta pronta a um cliente novo sem passar pela importação (que monta a turma).
+// Cliente (da lista ou novo) + contato + arquivo → oportunidade em Vendas (reaproveita a aberta mais adiantada da empresa) e
+// proposta "pronta para enviar" com o arquivo guardado; depois abre a janela de envio de sempre (e-mail ou WhatsApp; ao enviar,
+// etapa "Proposta enviada" e retorno na agenda em 4 dias). A turma é criada só quando o cliente aprovar.
+const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const TIPO_ARQ = { pdf: 'application/pdf', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' };
+const nomeArquivo = (n) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').slice(-90);
+const nomeDoEmail = (e) => e.split('@')[0].split(/[._-]+/).filter(Boolean).map((x) => x.charAt(0).toUpperCase() + x.slice(1)).join(' ') || e;
+
+export function janelaPropostaPdf(ctx, d) {
+  const html = `<form id="f-pp" class="grade" style="gap:12px" novalidate>
+    <p class="peq">Para mandar o arquivo de uma proposta pronta. A turma você cria depois, quando o cliente aprovar.</p>
+    <div class="campo"><label for="pp-emp">Cliente *</label><input type="text" id="pp-emp" list="pp-emps" autocomplete="off" placeholder="Comece a escrever o nome da empresa">
+      <datalist id="pp-emps">${d.empresas.map((e) => `<option value="${esc(e.nome)}"></option>`).join('')}</datalist>
+      <small id="pp-emp-info">Se o cliente ainda não estiver cadastrado, a plataforma cadastra.</small></div>
+    <div class="grade g3" style="gap:10px">
+      <div class="campo"><label for="pp-cnome">Nome do contato</label><input type="text" id="pp-cnome" maxlength="120"></div>
+      <div class="campo"><label for="pp-cemail">E-mail do contato</label><input type="email" id="pp-cemail"></div>
+      <div class="campo"><label for="pp-cwhats">WhatsApp do contato</label><input type="tel" id="pp-cwhats" placeholder="(54) 99999-0000"></div></div>
+    <div class="grade g2" style="gap:10px">
+      <div class="campo"><label for="pp-titulo">O que está sendo proposto</label><input type="text" id="pp-titulo" maxlength="200" placeholder="Ex.: Trilha de líderes · gerentes"></div>
+      <div class="campo"><label for="pp-serv">Serviço</label><select id="pp-serv">${Object.entries(SERVICOS).map(([k, n]) => `<option value="${k}"${k === 'treinamento' ? ' selected' : ''}>${n}</option>`).join('')}</select></div>
+      <div class="campo"><label for="pp-valor">Valor total (R$, opcional)</label><input type="number" id="pp-valor" min="0" step="0.01"></div>
+      <div class="campo"><label for="pp-arq">Arquivo da proposta (PDF ou PowerPoint) *</label><input type="file" id="pp-arq" accept=".pdf,.pptx,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"></div></div>
+    <div class="linha"><button class="btn pri" type="submit" id="pp-ok">Continuar: escolher para quem enviar</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`;
+  const j = janela('Enviar proposta (PDF)', html, { largura: 720 });
+  const f = j.corpo.querySelector('#f-pp');
+  const v = (s) => f.querySelector(s).value.trim();
+  const empresaDe = (nome) => d.empresas.find((e) => norm(e.nome).trim() === norm(nome).trim()) || null;
+  f.querySelector('#pp-emp').addEventListener('input', () => {
+    const e = empresaDe(v('#pp-emp'));
+    const n = e ? d.contatos.filter((c) => c.empresa_id === e.id && c.ativo !== false && c.email).length : 0;
+    f.querySelector('#pp-emp-info').textContent = !v('#pp-emp') ? 'Se o cliente ainda não estiver cadastrado, a plataforma cadastra.'
+      : e ? `Cliente já cadastrado${n ? `: ${n === 1 ? 'o contato com e-mail aparece' : `os ${n} contatos com e-mail aparecem`} no próximo passo` : ''}.` : 'Cliente novo: vai ser cadastrado.';
+  });
+  setTimeout(() => f.querySelector('#pp-emp').focus(), 50);
+  f.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const b = f.querySelector('#pp-ok');
+    try {
+      const nome = v('#pp-emp');
+      if (!nome) throw new Error('Escreva o nome do cliente.');
+      const email = v('#pp-cemail').toLowerCase(), cnome = v('#pp-cnome'), whats = v('#pp-cwhats');
+      if (email && !EMAIL_OK.test(email)) throw new Error('Confira o e-mail do contato.');
+      const arq = f.querySelector('#pp-arq').files[0];
+      if (!arq) throw new Error('Escolha o arquivo da proposta (PDF ou PowerPoint).');
+      const ext = (arq.name.split('.').pop() || '').toLowerCase();
+      if (!TIPO_ARQ[ext]) throw new Error('O arquivo precisa ser PDF ou PowerPoint (.pptx).');
+      if (arq.size > 26214400) throw new Error('O arquivo passa de 25 MB. Salve uma versão menor (PDF) e tente de novo.');
+      const valorTxt = v('#pp-valor'), valor = valorTxt === '' ? null : Number(valorTxt);
+      const titulo = v('#pp-titulo'), servico = f.querySelector('#pp-serv').value;
+      b.disabled = true; b.textContent = 'Preparando…';
+      // 1. cliente
+      let emp = empresaDe(nome);
+      if (!emp) { const r = await sb.from('empresas').insert({ nome }).select('*').single(); if (r.error) throw r.error; emp = r.data; d.empresas.push(emp); }   // na lista: tentar de novo não duplica
+      // 2. contato (o mesmo e-mail na empresa não duplica)
+      let contato = null;
+      if (email || cnome || whats) {
+        const daEmpresa = d.contatos.filter((c) => c.empresa_id === emp.id && c.ativo !== false);
+        contato = daEmpresa.find((c) => (email ? norm(c.email) === email : cnome && norm(c.nome) === norm(cnome))) || null;
+        if (!contato) {
+          const r = await sb.from('contatos').insert({ empresa_id: emp.id, nome: cnome || (email ? nomeDoEmail(email) : 'Contato'), email: email || null, whatsapp: whats || null,
+            observacoes: cnome ? null : 'Adicionado no envio da proposta. Confirmar nome e cargo.' }).select('*').single();
+          if (r.error) throw r.error;
+          contato = r.data; d.contatos.push(contato);
+        }
+      }
+      // 3. oportunidade: a aberta mais adiantada da empresa, ou uma nova
+      const ordem = (o) => ETAPAS.findIndex(([k]) => k === o.etapa);
+      let o = d.oportunidades.filter((x) => x.empresa_id === emp.id && aberta(x)).sort((a, c) => ordem(c) - ordem(a))[0] || null;
+      if (!o) {
+        const r = await sb.from('oportunidades').insert({ empresa_id: emp.id, titulo: titulo || `Proposta · ${emp.nome}`, servico, valor, etapa: 'contato',
+          responsavel_id: ctx.perfil.id, proximo_contato_por: ctx.perfil.id, contato_id: contato ? contato.id : null }).select(SEL_OP).single();
+        if (r.error) throw r.error;
+        o = { ...r.data, empresa: r.data.empresa || emp }; d.oportunidades.unshift(o);
+        await sb.from('interacoes').insert({ oportunidade_id: o.id, tipo: 'sistema', texto: 'Oportunidade criada no envio da proposta em PDF.' });
+      } else if (!o.contato_id && contato) {
+        await sb.from('oportunidades').update({ contato_id: contato.id }).eq('id', o.id);
+        o = { ...o, contato_id: contato.id };
+      }
+      // 4. proposta pronta para enviar, com o arquivo guardado
+      const { count } = await sb.from('propostas').select('id', { count: 'exact', head: true }).eq('oportunidade_id', o.id);
+      const versao = (count || 0) + 1;
+      const rp = await sb.from('propostas').insert({ oportunidade_id: o.id, versao, valor, status: 'aprovada', resumo: titulo || null }).select('*').single();
+      if (rp.error) throw rp.error;
+      let p = rp.data;
+      b.textContent = 'Guardando o arquivo…';
+      const caminho = `${o.id}/${p.id}/${Date.now()}-${nomeArquivo(arq.name)}`;
+      const up = await sb.storage.from('propostas').upload(caminho, arq, { contentType: TIPO_ARQ[ext] });
+      if (up.error) throw up.error;
+      const ra = await sb.from('propostas').update({ arquivo_storage: caminho, arquivo: arq.name }).eq('id', p.id);
+      if (ra.error) throw ra.error;
+      p = { ...p, arquivo_storage: caminho, arquivo: arq.name };
+      await sb.from('interacoes').insert({ oportunidade_id: o.id, contato_id: contato ? contato.id : null, tipo: 'sistema', texto: `Proposta em PDF (versão ${versao}) pronta para enviar: ${arq.name}` });
+      // 5. a janela de envio de sempre, com o contato digitado já marcado
+      j.fechar();
+      const irOp = () => ctx.irPara(`#/vendas/oportunidade/${o.id}`);
+      const { janelaEnviar } = await import('./proposta.js');
+      janelaEnviar(ctx, p, contato ? { ...o, contato_id: contato.id } : o, irOp, irOp);
+    } catch (e) { avisar(explicarErro(e), true); b.disabled = false; b.textContent = 'Continuar: escolher para quem enviar'; }
   });
 }
 

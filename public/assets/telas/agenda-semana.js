@@ -52,12 +52,15 @@ export function vistaSemana(ctx, alvo, d, eventos, { mentor = null, rotulo = '',
   const dom = semana[6];
   const dias = doDia(dom).some((e) => e.tipo !== 'feriado') ? semana : semana.slice(0, 6);
   const disp = mentor ? dispDe(mentor) : null;
+  // na equipe toda, o que é só da coordenação (Cintia) aparece mas não tira o verde de "dia livre" (o verde é dos mentores)
+  const coord = new Set(d.mentores.filter((m) => m.coordenacao).map((m) => m.id));
+  const soCoordenacao = (e) => !mentor && e.mentores.length && e.mentores.every((id) => coord.has(id));
 
   const linha = (dia) => {
     const todos = doDia(dia);
     const evs = juntarRepetidos(ordenar(todos.filter((e) => e.tipo !== 'feriado')), !mentor);
     const f = feriadoDe(dia);
-    const ocupam = evs.filter((e) => !e.naoOcupa);   // compromisso pessoal marcado como "disponível" aparece, mas não ocupa
+    const ocupam = evs.filter((e) => !e.naoOcupa && !soCoordenacao(e));   // compromisso pessoal marcado como "disponível" aparece, mas não ocupa
     const foraTodos = !!(mentor && !ocupam.length && PERIODOS.every((p) => estadoPeriodo(todos, p, disp, dia).tipo === 'fora'));
     const livre = !semLivre && !ocupam.length && !f && !foraTodos && !evs.some((e) => e.tipo === 'pessoal' && e.naoOcupa && e.diaInteiro);   // viagem "disponível" no Google: não pinta de verde
     const classe = `ag-sem-dia${livre ? ' livre' : ''}${foraTodos ? ' fora' : ''}${dia === h ? ' hoje' : ''}${dia < h ? ' passado' : ''}`;

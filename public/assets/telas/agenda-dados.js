@@ -27,6 +27,11 @@ export async function carregarAgenda(ctx) {
     }
     if (r.error) throw r.error;
     mentores = r.data || [];
+    // coordenação (administração que não atende): entra na agenda para bloquear compromissos e ligar a agenda pessoal
+    // (pedido da Cintia, 2026-10-20). Não é mentora: fica fora do encaixe, dos pré-bloqueios, dos números e do resumo.
+    const c = await sb.from('perfis').select(falta ? SEL_MENTOR : `${SEL_MENTOR}, disponibilidade`).eq('papel', 'admin')
+      .or('tambem_mentor.is.null,tambem_mentor.eq.false').eq('ativo', true).order('nome');
+    if (!c.error) mentores = [...mentores, ...(c.data || []).map((p) => ({ ...p, coordenacao: true }))];
   } else {
     mentores = [ctx.perfil];
   }
@@ -72,6 +77,11 @@ export async function carregarAgenda(ctx) {
     lerAtividades(),
   ]);
   const extra = new Map((extras || []).map((x) => [`${x.modulo_id}|${x.mentor_id}`, x]));
+  // compromissos da coordenação: só a própria pessoa vê o que é; o resto da administração vê só que está ocupada
+  const reservados = new Set(mentores.filter((m) => m.coordenacao && m.id !== eu).map((m) => m.id));
+  const pessoaisVis = pessoais.map((p) => (reservados.has(p.perfil_id)
+    ? { ...p, titulo: 'Ocupada', local: null, link: null, organizador: null, organizador_email: null, resposta: null, oculto: true } : p));
+  const bloqueiosVis = bloqueios.map((b) => (reservados.has(b.mentor_id) ? { ...b, motivo: null, categoria: null, categoria_texto: null, oculto: true } : b));
   // formato e cidade da turma (script 15); sem o script, segue sem essa informação
   // quem paga e quem compra as viagens, padrão da turma (script 25); sem ele, cada viagem fica só com o que tiver
   const [tf, tv] = await Promise.all([sb.from('turmas').select('id, formato, local'), sb.from('turmas').select('id, viagem_padrao')]);
@@ -82,8 +92,8 @@ export async function carregarAgenda(ctx) {
     mentores: (m.mentores || []).map((v) => ({ com_deslocamento: true, viagem: {}, ...v, ...(extra.get(`${m.id}|${v.mentor_id}`) || {}) })) }));
   // sessão futura de quem foi desligado do programa não ocupa a agenda
   const sess = sessoes.filter((s) => !(s.mentorado && s.mentorado.status === 'desligado' && s.situacao === 'agendada'));
-  const eventos = montarEventos({ sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], contatos, pessoais, atividades });
-  return { mentores, sessoes: sess, modulos, bloqueios, reservas, reunioes: reunioes || [], temReunioes: reunioes !== null, pessoais, atividades,
+  const eventos = montarEventos({ sessoes: sess, modulos, bloqueios: bloqueiosVis, reservas, reunioes: reunioes || [], contatos, pessoais: pessoaisVis, atividades });
+  return { mentores, sessoes: sess, modulos, bloqueios: bloqueiosVis, reservas, reunioes: reunioes || [], temReunioes: reunioes !== null, pessoais: pessoaisVis, atividades,
     eventos, idx: indexar(eventos), faltaScript: falta, temExtras: extras !== null };
 }
 
@@ -135,7 +145,7 @@ export async function conferirModulos(ctx, modulos) {
         if (mentor) choques(d.idx, mentor, novo).filter((x) => !/ é feriado /.test(x)).forEach((x) => avisos.push(x));
       }
     } else {
-      const equipe = d.mentores.filter((x) => x.atende_grupo);
+      const equipe = d.mentores.filter((x) => x.atende_grupo && !x.coordenacao);
       const livres = equipe.filter((x) => situacaoParaEncaixe(d.idx, x, dia, novo.periodos, novo.formato).livre);
       if (equipe.length && !livres.length) avisos.push(`Ninguém da equipe de turmas está livre em ${diaCurto(dia)} nesse horário.`);
     }

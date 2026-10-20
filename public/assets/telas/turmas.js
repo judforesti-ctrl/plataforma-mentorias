@@ -55,7 +55,7 @@ async function lista(ctx, el) {
 
   el.innerHTML = `
     <div class="cab"><div><h1>${ctx.ehAdmin ? 'Turmas' : 'Minhas turmas'}</h1><p class="sub">Mentoria em grupo: módulos, slides, recomendações e percepções de cada aula.</p></div>
-      ${ctx.ehAdmin ? '<div class="acoes"><a class="btn" href="#/relatorio-turmas">Relatório para a empresa</a><a class="btn" href="#/importar-proposta">Importar proposta (PDF)</a><button class="btn escuro" id="nova">+ Nova turma</button></div>' : ''}</div>
+      ${ctx.ehAdmin ? '<div class="acoes"><a class="btn" href="#/relatorio-turmas">Relatório para a empresa</a><a class="btn" href="#/vendas/enviar-proposta" title="Mandar o PDF ao cliente agora e criar a turma só depois da aprovação">Enviar proposta (sem turma)</a><a class="btn" href="#/importar-proposta">Importar proposta (PDF)</a><button class="btn escuro" id="nova">+ Nova turma</button></div>' : ''}</div>
     ${ctx.ehAdmin ? `<div class="cartao" id="form-nova" hidden><h3>Nova turma</h3>
       <form class="grade g2 mt" id="f-turma">
         <div class="campo"><label for="t-empresa">Empresa contratante</label><select id="t-empresa" required><option value="">Escolha…</option>${(empresas || []).map((e) => `<option value="${e.id}">${esc(e.nome)}</option>`).join('')}<option value="nova">+ Outra empresa…</option></select></div>
@@ -222,7 +222,8 @@ async function paginaTurma(ctx, el, id) {
               <option value="">Não definido</option>${Object.entries(QUEM_VIAGEM).map(([k, r]) => `<option value="${k}"${(t.viagem_padrao || {})[`${q}_${it.k}`] === k ? ' selected' : ''}>${r}</option>`).join('')}</select></label>`).join('')}</div>`).join('')}</div></div>` : ''}
       </div>
       <div class="cartao" style="margin-top:0">
-        <div class="linha"><h3 style="flex:1">Módulos (${mods.length})</h3>${adm ? `${mods.length ? '<button class="btn peq" id="descritivo">Descritivo da proposta</button>' : ''}<button class="btn peq escuro" id="novo-mod">+ Novo módulo</button>` : ''}</div>
+        <div class="linha"><h3 style="flex:1">Módulos (${mods.length})</h3>${adm ? `${mods.length ? `<button class="btn peq" id="descritivo">Descritivo da proposta</button><button class="btn peq" id="link-sala">Link da sala para vários</button>
+          <button class="btn peq" id="excluir-mods">Excluir módulos</button>` : ''}<button class="btn peq escuro" id="novo-mod">+ Novo módulo</button>` : ''}</div>
         ${adm && mods.some((m) => !String(m.tematica || '').trim()) ? `<p class="peq apagado mt">${mods.filter((m) => !String(m.tematica || '').trim()).length} módulo(s) sem o descritivo do que deve ser abordado. Clique em "Descritivo da proposta" para trazer da proposta.</p>` : ''}
         ${adm ? `<form id="f-mod" class="mt" hidden style="background:var(--bg);border-radius:12px;padding:12px">
           <div class="grade g2" style="gap:10px">
@@ -270,6 +271,8 @@ async function paginaTurma(ctx, el, id) {
     const { abrirDescritivo } = await import('./descritivo-proposta.js');
     abrirDescritivo(ctx, id, { aoTerminar: () => ctx.irPara(`#/turma/${id}`) });
   });
+  el.querySelector('#link-sala')?.addEventListener('click', () => janelaLinkSala(ctx, t, mods));
+  el.querySelector('#excluir-mods')?.addEventListener('click', () => janelaExcluirModulos(ctx, t, mods));
   el.querySelector('#novo-mod').addEventListener('click', () => { const f = el.querySelector('#f-mod'); f.hidden = !f.hidden; });
   el.querySelector('#f-mod').addEventListener('submit', async (ev) => {
     ev.preventDefault();
@@ -295,6 +298,113 @@ async function paginaTurma(ctx, el, id) {
     ctx.irPara(`#/modulo/${novo.id}`);
   });
   return { sair: () => { salvador.agora(); salvador.parar(); } };
+}
+
+// ---------- link da sala em vários módulos de uma vez ----------
+// Pedido da Cintia (2026-10-20): a turma nasce sem link e depois ela entrava módulo por módulo para colar o mesmo Zoom.
+// Aqui cola uma vez e marca os módulos; o "onde acontece" acompanha o link (Zoom, Meet ou Teams). Presenciais ficam de fora.
+const formatoDoLink = (url) => (/zoom\.us\//i.test(url) ? 'zoom' : /meet\.google\.com\//i.test(url) ? 'meet' : /teams\.(microsoft|live)\.com\//i.test(url) ? 'teams' : null);
+const ehPresencial = (m, t) => m.formato === 'presencial' || (m.formato === 'indefinido' && t.formato === 'presencial');
+const quandoModulo = (m) => (m.data_hora ? `${diaMes(m.data_hora)} · ${horaBR(m.data_hora)}` : 'sem data');
+
+async function janelaLinkSala(ctx, t, mods) {
+  const { janela } = await import('./agenda-dados.js');
+  const online = mods.filter((m) => !ehPresencial(m, t));
+  const fora = mods.length - online.length;
+  const linkAtual = (m) => (m.link ? `<span class="peq apagado" style="word-break:break-all">hoje: ${esc(m.link)}</span>` : '<span class="selo alerta">sem link</span>');
+  const j = janela('Link da sala para vários módulos', `<div class="grade" style="gap:12px">
+    <p class="peq">Cole o link uma vez e marque os módulos que usam a mesma sala. Já vêm marcados os que ainda vão acontecer.</p>
+    <div class="campo"><label for="ls-link">Link da sala (Zoom, Meet ou Teams)</label><input type="url" id="ls-link" placeholder="https://us02web.zoom.us/j/…" autocomplete="off"></div>
+    ${online.length ? `<div class="linha" style="gap:6px"><button class="btn peq" type="button" data-marcar="todos">Marcar todos</button><button class="btn peq" type="button" data-marcar="sem">Só os sem link</button><button class="btn peq" type="button" data-marcar="nenhum">Desmarcar</button></div>
+      <div class="lista">${online.map((m) => `<label class="check" style="align-items:flex-start"><input type="checkbox" value="${m.id}"${passou(m) ? '' : ' checked'}>
+        <span><b>${m.numero}.</b> ${esc(m.titulo)} <span class="peq apagado">· ${quandoModulo(m)}${passou(m) ? ' · já aconteceu' : ''}</span><br>${linkAtual(m)}</span></label>`).join('')}</div>`
+      : '<div class="aviso">Todos os módulos desta turma são presenciais.</div>'}
+    ${fora ? `<p class="peq apagado">${fora === 1 ? '1 módulo presencial fica' : `${fora} módulos presenciais ficam`} de fora.</p>` : ''}
+    <p class="peq" id="ls-resumo"></p>
+    <div class="linha"><button class="btn pri" type="button" id="ls-salvar"${online.length ? '' : ' disabled'}>Colocar o link</button><button class="btn" type="button" data-fechar>Desistir</button></div></div>`, { largura: 680 });
+  const q = (s) => j.corpo.querySelector(s);
+  const caixas = () => [...j.corpo.querySelectorAll('.lista input[type=checkbox]')];
+  const resumo = () => {
+    const n = caixas().filter((c) => c.checked).length;
+    const fmt = formatoDoLink(q('#ls-link').value.trim());
+    q('#ls-salvar').textContent = n ? `Colocar o link em ${n} módulo${n > 1 ? 's' : ''}` : 'Colocar o link';
+    q('#ls-resumo').textContent = fmt ? `"Onde acontece" desses módulos passa a ser ${FORMATO[fmt]}.` : '';
+  };
+  j.corpo.addEventListener('change', resumo);
+  q('#ls-link').addEventListener('input', resumo);
+  j.corpo.querySelectorAll('[data-marcar]').forEach((b) => b.addEventListener('click', () => {
+    caixas().forEach((c) => { const m = online.find((x) => x.id === c.value); c.checked = b.dataset.marcar === 'todos' || (b.dataset.marcar === 'sem' && !m.link); });
+    resumo();
+  }));
+  resumo();
+  q('#ls-salvar').addEventListener('click', async () => {
+    let link = q('#ls-link').value.trim();
+    if (!link) { avisar('Cole o link da sala.', true); return; }
+    if (!/^https?:\/\//i.test(link)) link = `https://${link}`;
+    const ids = caixas().filter((c) => c.checked).map((c) => c.value);
+    if (!ids.length) { avisar('Marque pelo menos um módulo.', true); return; }
+    const fmt = formatoDoLink(link);
+    const b = q('#ls-salvar'); b.disabled = true; b.textContent = 'Salvando…';
+    const { error } = await sb.from('modulos').update({ link, ...(fmt ? { formato: fmt } : {}) }).in('id', ids);
+    if (error) { avisar(explicarErro(error), true); b.disabled = false; resumo(); return; }
+    import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
+    avisar(ids.length === 1 ? 'Link colocado no módulo.' : `Link colocado em ${ids.length} módulos.`);
+    j.fechar(); ctx.irPara(`#/turma/${t.id}`);
+  });
+}
+
+// ---------- excluir módulos ----------
+// Pedido da Cintia (2026-10-20): o cliente cancelou os módulos finais e não havia como tirá-los da turma.
+// Some o módulo com mentores, slides, fotos e percepções (o banco apaga junto); os arquivos saem da pasta antes.
+// As avaliações já respondidas continuam nos relatórios, sem o módulo. Os que ficam são renumerados (1, 2, 3…).
+async function janelaExcluirModulos(ctx, t, mods) {
+  const { janela } = await import('./agenda-dados.js');
+  const { data: arqs } = await sb.from('modulo_arquivos').select('modulo_id, tipo, caminho').in('modulo_id', mods.map((m) => m.id));
+  const arquivos = arqs || [];
+  const conta = (m) => {
+    const meus = arquivos.filter((a) => a.modulo_id === m.id);
+    const fotos = meus.filter((a) => a.tipo === 'foto').length, slides = meus.length - fotos;
+    return [m.percepcoes_em && 'tem percepções', slides && `${slides} arquivo${slides > 1 ? 's' : ''} de slides`, fotos && `${fotos} foto${fotos > 1 ? 's' : ''}`].filter(Boolean);
+  };
+  const j = janela('Excluir módulos', `<div class="grade" style="gap:12px">
+    <p class="peq">Marque os módulos que vão sair desta turma (por exemplo, os módulos finais que o cliente cancelou).</p>
+    <div class="lista">${mods.map((m) => `<label class="check" style="align-items:flex-start"><input type="checkbox" value="${m.id}">
+      <span><b>${m.numero}.</b> ${esc(m.titulo)} <span class="peq apagado">· ${quandoModulo(m)} · ${esc(nomesMentores(m) || 'sem mentor')}</span>
+      ${conta(m).length ? `<br><span class="peq" style="color:var(--erro)">${esc(conta(m).join(' · '))}</span>` : ''}</span></label>`).join('')}</div>
+    <div class="aviso peq">O módulo some de vez: data, mentores, slides, fotos e percepções. Os convites da Google Agenda são cancelados.
+      As avaliações que os participantes já responderam continuam nos relatórios. Os módulos que ficam são renumerados (1, 2, 3…).</div>
+    <div class="linha"><button class="btn perigo" type="button" id="ex-ok" disabled>Excluir</button><button class="btn" type="button" data-fechar>Desistir</button></div></div>`, { largura: 680 });
+  const marcados = () => [...j.corpo.querySelectorAll('.lista input:checked')].map((c) => mods.find((m) => m.id === c.value));
+  const b = j.corpo.querySelector('#ex-ok');
+  j.corpo.addEventListener('change', () => {
+    const n = marcados().length;
+    b.disabled = !n;
+    b.textContent = n ? `Excluir ${n} módulo${n > 1 ? 's' : ''}` : 'Excluir';
+  });
+  b.addEventListener('click', () => excluirModulos(ctx, t.id, marcados(), mods, { arquivos, aoTerminar: () => j.fechar() }));
+}
+
+// Apaga os módulos escolhidos (depois de confirmar) e renumera os que ficam na turma.
+async function excluirModulos(ctx, turmaId, alvos, todos, { arquivos = [], aoTerminar = null } = {}) {
+  if (!alvos.length) return;
+  const nomes = alvos.map((m) => `${m.numero}. ${m.titulo}`).join('\n');
+  if (!window.confirm(`Excluir ${alvos.length === 1 ? 'este módulo' : `estes ${alvos.length} módulos`}? Não dá para desfazer.\n\n${nomes}`)) return;
+  const ids = alvos.map((m) => m.id);
+  const caminhos = arquivos.filter((a) => ids.includes(a.modulo_id)).flatMap((a) => (a.tipo === 'foto' ? [a.caminho, a.caminho.replace('/foto/', '/foto-mini/')] : [a.caminho]));
+  if (caminhos.length) await sb.storage.from('turmas').remove(caminhos);   // se falhar, só sobra arquivo solto na pasta
+  const { error } = await sb.from('modulos').delete().in('id', ids);
+  if (error) { avisar(explicarErro(error), true); return; }
+  // renumera em ordem crescente: cada um desce para um número que já ficou livre (o banco não aceita dois iguais na turma)
+  const ficam = todos.filter((m) => !ids.includes(m.id)).sort((a, b) => a.numero - b.numero);
+  for (const [i, m] of ficam.entries()) {
+    if (m.numero === i + 1) continue;
+    const r = await sb.from('modulos').update({ numero: i + 1 }).eq('id', m.id);
+    if (r.error) { avisar(`Módulos excluídos, mas a numeração não foi refeita: ${explicarErro(r.error)}`, true); break; }
+  }
+  import('./agenda-dados.js').then(({ avisarGoogle, limparCache }) => { limparCache(); avisarGoogle(); });
+  avisar(alvos.length === 1 ? 'Módulo excluído.' : `${alvos.length} módulos excluídos.`);
+  if (aoTerminar) aoTerminar();
+  ctx.irPara(`#/turma/${turmaId}`);
 }
 
 // ---------- página do módulo ----------
@@ -375,6 +485,7 @@ async function paginaModulo(ctx, el, id) {
           <div class="chips mt" id="mentores">${(equipe || []).map((x) => `<label class="check" style="margin-right:12px"><input type="checkbox" value="${x.id}"${escolhidos.has(x.id) ? ' checked' : ''}><span>${esc(x.nome)}${x.atende_grupo ? '' : ' <span class="peq apagado">(individual)</span>'}</span></label>`).join('')}</div>
           <div id="choques" class="mt"></div>
           ${m.formato === 'presencial' ? '<p class="peq apagado mt">Aula presencial: a véspera e o dia seguinte ficam reservados para o deslocamento. Passagem e hotel ficam em <a href="#/agenda/viagens">Agenda → Viagens</a>.</p>' : ''}
+          <div class="linha mt2"><button class="btn peq perigo" type="button" id="excluir-mod">Excluir este módulo</button><span class="peq apagado">Para quando o cliente cancelou a aula.</span></div>
         </div>` : ''}
       </div>
 
@@ -435,6 +546,11 @@ async function paginaModulo(ctx, el, id) {
     await salvador.agora();
     const { abrirDescritivo } = await import('./descritivo-proposta.js');
     abrirDescritivo(ctx, m.turma.id, { aoTerminar: () => ctx.irPara(`#/modulo/${id}`) });
+  });
+  el.querySelector('#excluir-mod')?.addEventListener('click', async () => {
+    await salvador.agora();
+    const { data: irmaos } = await sb.from('modulos').select('id, numero').eq('turma_id', m.turma.id);
+    excluirModulos(ctx, m.turma.id, [m], irmaos || [], { arquivos: (m.arquivos || []).map((a) => ({ ...a, modulo_id: m.id })) });
   });
 
   // choques com a agenda dos mentores (administração)

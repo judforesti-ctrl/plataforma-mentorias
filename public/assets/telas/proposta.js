@@ -406,7 +406,7 @@ const nomeSeguro = (n) => n.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^
 const nomeDoEmail = (e) => e.split('@')[0].split(/[._-]+/).filter(Boolean).map((x) => x.charAt(0).toUpperCase() + x.slice(1)).join(' ') || e;
 const juntarNomes = (l) => (l.length <= 1 ? l.join('') : `${l.slice(0, -1).join(', ')} e ${l[l.length - 1]}`);
 
-async function janelaEnviar(ctx, p, o, recarregar, aoFechar) {
+export async function janelaEnviar(ctx, p, o, recarregar, aoFechar) {
   const empresaId = o.empresa_id;
   const empresaNome = (o.empresa && o.empresa.nome) || 'empresa';
   const [cs, ms] = await Promise.all([
