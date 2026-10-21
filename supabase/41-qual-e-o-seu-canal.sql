@@ -1,4 +1,4 @@
--- Ficha de "Qual é o seu canal?" (MNT-COM-12) no arsenal: ferramenta online (visual, auditivo ou sinestésico), também aberta
+-- Ficha de "Qual é o seu canal?" (MNT-COM-12) no arsenal: ferramenta online (visual, auditivo ou cinestésico), também aberta
 -- ao público pelo link/QR code. Os contatos de quem responde de fora chegam em Vendas › Pessoa física (precisa do script 39).
 -- Não cria tabela nova. Rodar no SQL Editor do Supabase (New query → colar tudo → Run); pode rodar de novo.
 
@@ -12,13 +12,12 @@ values ('MNT-COM-12', '72', 'Qual é o seu canal?', '15 (ferramentas online)', n
   "lote": "15 (ferramentas online)",
   "tambem_conhecida_como": [
     "Canal preferencial de comunicação",
-    "Visual, auditivo ou sinestésico",
     "Visual, auditivo e cinestésico",
     "VAC",
     "Teste dos canais de comunicação",
     "Sistemas representacionais"
   ],
-  "resumo": "Autoavaliação online com 15 perguntas rápidas do dia a dia (3 formatos: primeira impressão, o que você faria e qual frase é a sua cara), cerca de 3 minutos. Mostra o canal preferencial da pessoa (visual, auditivo ou sinestésico, ou dois empatados) com a porcentagem de cada um e um laudo: como aprende melhor, como as pessoas podem falar com ela, pontos fortes e de atenção, palavras que conectam, como falar com cada canal e 3 atitudes para a semana. Também é aberta ao público pelo link ou QR code: a pessoa deixa nome, e-mail, WhatsApp e cargo (chegam em Vendas › Pessoa física) e recebe o laudo no e-mail; as respostas não são guardadas.",
+  "resumo": "Autoavaliação online com 15 perguntas rápidas do dia a dia (3 formatos: primeira impressão, o que você faria e qual frase é a sua cara), cerca de 3 minutos. Mostra o canal preferencial da pessoa (visual, auditivo ou cinestésico, ou dois empatados) com a porcentagem de cada um e um laudo: como aprende melhor, como as pessoas podem falar com ela, pontos fortes e de atenção, palavras que conectam, como falar com cada canal e 3 atitudes para a semana. Também é aberta ao público pelo link ou QR code: a pessoa deixa nome, e-mail, WhatsApp e cargo (chegam em Vendas › Pessoa física) e recebe o laudo no e-mail; as respostas não são guardadas.",
   "categoria": "Comunicação",
   "nivel": "Liderar a si",
   "formato": "Ferramenta online já automatizada. Na mentoria: enviada pela plataforma, o resultado fica guardado na ficha do mentorado. Em treinamentos e eventos: QR code nos slides; cada participante vê o laudo no celular, baixa em PDF e recebe no e-mail",
@@ -48,8 +47,8 @@ values ('MNT-COM-12', '72', 'Qual é o seu canal?', '15 (ferramentas online)', n
     "canal preferencial",
     "visual",
     "auditivo",
-    "sinestésico",
     "cinestésico",
+    "sinestésico",
     "VAC",
     "estilo de aprendizagem",
     "como aprendo",

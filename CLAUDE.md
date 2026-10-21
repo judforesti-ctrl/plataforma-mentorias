@@ -431,7 +431,7 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   app.html#/ferramenta/MNT-COM-07; o app.js manda quem NÃO tem login para a versão aberta (`publica` no mapa) e quem tem login segue
   na plataforma. A página manda o contato (S.contatoOk) para Pessoa física e continua mandando o resultado como antes (Netlify Forms).
   QUAL É O SEU CANAL? (MNT-COM-12, 2026-10-21, ficha no script 41; pedido dela: teste não monótono de 3 a 4 min com laudo) —
-  visual, auditivo ou sinestésico (a palavra dela; "cinestésico" só nos apelidos da ficha). Feita do zero pelo Claude (não veio em
+  visual, auditivo ou cinestésico (com C: ela pediu a correção em 21/10/2026, script 43; "sinestésico" só nas palavras-chave da ficha, para a busca). Feita do zero pelo Claude (não veio em
   zip): `public/ferramentas/qual-e-o-seu-canal/` + textos e contas em `public/assets/canal-regras.js` (perguntas, laudo, também usado
   pelo servidor). 15 perguntas em 3 formatos misturados (primeira impressão com figuras, o que você faria, qual frase é a sua cara),
   1 ponto por canal, ordem das opções sorteada por pergunta e guardada; recados no caminho (MARCOS). Laudo: canal (ou dois empatados =

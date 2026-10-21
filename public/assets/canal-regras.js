@@ -1,6 +1,6 @@
 // "Qual é o seu canal?" (MNT-COM-12): perguntas, textos do laudo e contas. Arquivo puro (sem tela), usado pela página da
 // ferramenta (public/ferramentas/qual-e-o-seu-canal/) e pelo servidor (/api/canal-laudo, que manda o laudo por e-mail).
-// Cada resposta vale 1 ponto para um canal: V = visual, A = auditivo, S = sinestésico. 15 perguntas, cerca de 3 minutos.
+// Cada resposta vale 1 ponto para um canal: V = visual, A = auditivo, S = cinestésico. 15 perguntas, cerca de 3 minutos.
 
 export const CANAIS = ['V', 'A', 'S'];
 
@@ -73,16 +73,16 @@ export const TEXTOS = {
     comoFalar: ['Converse e deixe espaço para perguntas.', 'Cuide do tom de voz.', 'Prefira ligação ou áudio a uma mensagem seca.'],
   },
   S: {
-    nome: 'Sinestésico', cor: '#F2B85B',
+    nome: 'Cinestésico', cor: '#F2B85B',
     resumo: 'Você entende e lembra melhor o que faz, experimenta e sente. A prática, o clima da conversa e a confiança entre as pessoas fazem diferença para você.',
-    desc: 'Quem tem o canal sinestésico mais forte pensa pelo que sente e pelo que faz. Aprende colocando a mão na massa, presta atenção no clima entre as pessoas e decide muito pela sensação de segurança. Costuma falar com mais calma, fazer pausas para sentir o que vai dizer e valorizar a proximidade, o conforto e a confiança.',
+    desc: 'Quem tem o canal cinestésico mais forte pensa pelo que sente e pelo que faz. Aprende colocando a mão na massa, presta atenção no clima entre as pessoas e decide muito pela sensação de segurança. Costuma falar com mais calma, fazer pausas para sentir o que vai dizer e valorizar a proximidade, o conforto e a confiança.',
     aprende: ['Fazendo: testando, praticando, errando e ajustando.', 'Com exemplos reais, simulações e atividades em que pode se mexer.', 'Em partes pequenas, com tempo para absorver e pausas.', 'Aulas longas, paradas e só teóricas tendem a cansar você.'],
     fortes: ['Cria confiança e um clima bom nas relações.', 'Percebe como as pessoas estão se sentindo, às vezes antes delas mesmas.', 'Aprende rápido na prática e resolve com as próprias mãos.'],
     atencao: ['Pode demorar para decidir quando não se sente seguro.', 'Pode levar críticas para o lado pessoal quando o clima fica pesado.', 'Pode ter pouca paciência com teoria, planilhas e explicações longas.'],
     falarComigo: ['Dê tempo: deixe que eu experimente e sinta antes de decidir.', 'Mostre na prática, com um exemplo real ou fazendo junto.', 'Cuide do clima: uma conversa calma e de confiança me abre mais do que uma conversa apressada.', 'Pergunte como eu estou me sentindo com aquilo, e não só o que eu acho.'],
     palavras: ['sentir', 'pegar', 'tocar', 'firme', 'leve', 'pesado', 'confortável', 'conexão', 'seguro', 'ter firmeza'],
     atitudes: ['Antes de uma decisão importante, faça um teste pequeno na prática em vez de só pensar nela.', 'Na próxima conversa difícil, anote o que foi dito, além do que você sentiu: separe o clima do conteúdo.', 'Esta semana, quando for ensinar algo a alguém, faça junto uma vez antes de pedir que a pessoa faça sozinha.'],
-    exercitar: 'Exercite o seu lado sinestésico: na próxima conversa, pergunte como a pessoa está antes de entrar no assunto.',
+    exercitar: 'Exercite o seu lado cinestésico: na próxima conversa, pergunte como a pessoa está antes de entrar no assunto.',
     sinais: 'Fala mais devagar, com pausas, gosta de proximidade e usa palavras como "sinto", "pegar", "firme".',
     comoFalar: ['Dê tempo para a pessoa absorver.', 'Faça junto, na prática.', 'Cuide do clima e da confiança.'],
   },
