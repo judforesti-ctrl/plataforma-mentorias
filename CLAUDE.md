@@ -431,6 +431,14 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   navegador) e e-mail: `/api/canal-laudo` recebe só a contagem ("8-4-3"), confere que o e-mail está em `pessoas_fisicas` com esta
   ferramenta nas últimas 6 h, monta o e-mail (Brevo, conta principal) e não grava nada; o botão do e-mail abre
   `…/qual-e-o-seu-canal/?r=8-4-3` (laudo sem nome). Na plataforma não pede cadastro nem manda e-mail; resultado vai para `testes`.
+  RODA DO COMUNICADOR INFLUENTE versão 3 (MNT-COM-06, 2026-10-21, script 42; conteúdo escrito pelo Claude e aprovado por ela;
+  "estava chata e sem direcionamento"): 8 habilidades × 3 frases (HABILIDADES[].perguntas; ~1/3 com situações pessoais, viés
+  profissional), nota 1 a 10 por frase, média com 1 casa = ponto na roda. Telas: abertura → dados (só nome, WhatsApp, e-mail; caixa
+  DESMARCADA "Quero receber ferramentas práticas e conteúdos") → "Como responder" (régua, por que ser sincero, 3 dicas) → frases → resultado.
+  PÚBLICA: a promessa da tela é que respostas e resultado NÃO são guardados: fora da plataforma só o contato sai (`/api/contato-ferramenta`
+  com `receber`), nada de Netlify Forms; só "Baixar em PDF". Na plataforma, resultado para `testes` (com `respostas_por_frase`).
+  `receber` → rpc `registrar_pessoa_fisica(..., p_conteudos)` → `pessoas_fisicas.quer_conteudos` (antes do script 42 grava sem ele);
+  em Pessoa física aparece "📩 Quer receber conteúdos", filtro e coluna no Excel; quem disse NÃO não entra no funil.
 - PESSOA FÍSICA → FUNIL (2026-10-21, pedido dela: mandar outras informações para quem preencheu as ferramentas): caixinhas na lista
   (a do cabeçalho marca todas da busca) + "Colocar N no funil" (`colocarNoFunil` em telas/pessoa-fisica.js): escolhe o funil, mostra
   quantos entram, já estão, pediram para sair (`descadastros`) ou têm e-mail errado; grava `funil_membros` com origem

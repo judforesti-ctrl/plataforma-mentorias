@@ -7,7 +7,7 @@ import { esc } from './base.js';
 export const ONLINE = {
   'MNT-AUT-01': { interna: true, url: '/ferramentas/gatilho-reacao-escolha/' },
   'MNT-LID-04': { interna: true, url: '/ferramentas/escada-da-delegacao/' },
-  'MNT-COM-06': { interna: true, url: '/ferramentas/roda-do-comunicador/' },
+  'MNT-COM-06': { interna: true, url: '/ferramentas/roda-do-comunicador/', publica: 'Roda do Comunicador Influente' },
   'MNT-PES-08': { interna: true, url: '/ferramentas/swot-do-time/' },
   'MNT-COM-07': { interna: true, url: '/ferramentas/voce-e-assertivo/', publica: 'Você é Assertivo?' },
   'MNT-COM-08': { interna: true, url: '/ferramentas/roda-da-diplomacia/' },
@@ -39,7 +39,8 @@ const ROTULOS = { media: 'Média', faixa: 'Faixa', plano: 'Plano de ação', not
   media_geral: 'Média geral', medias_por_parte: 'Média de cada parte', maior_nota: 'Maior nota', menor_nota: 'Menor nota',
   primeiro_passo: 'Primeiro passo (compromisso)', prazo: 'Até quando', acoes_feitas: 'Ações do plano já feitas',
   canal_predominante: 'Canal preferencial', percentuais: 'Cada canal', leitura: 'Leitura do resultado', como_aprende: 'Como aprende melhor',
-  como_falar_comigo: 'Como falar com a pessoa', atitudes: 'Atitudes para a semana' };
+  como_falar_comigo: 'Como falar com a pessoa', atitudes: 'Atitudes para a semana',
+  respostas_por_frase: 'Nota de cada frase (de 1 a 10)' };
 const rotulo = (k) => ROTULOS[k] || (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ');
 
 // Mostra o resultado guardado de uma ferramenta online, qualquer que seja ela.

@@ -12,7 +12,7 @@ import { EMAIL_VALIDO, limparEmail } from '../funis-regras.js';
 const SITE = 'https://plataforma.mentorei.com.br';
 const PUBLICAS = Object.values(ONLINE).filter((o) => o.publica).map((o) => ({ nome: o.publica, link: `${SITE}${o.url}` }));
 const nomeArquivo = (t) => t.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
-const est = { texto: '', ferramenta: '' };
+const est = { texto: '', ferramenta: '', conteudos: '' };
 
 // PNG para o slide: título, QR code grande e o link embaixo (1200 x 1500, fundo branco)
 async function imagemQr(f) {
@@ -38,7 +38,7 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
   el.innerHTML = `
     ${falta ? '<div class="aviso erro">Para os contatos chegarem aqui, falta rodar o script <b>39-pessoa-fisica.sql</b> no Supabase (SQL Editor → New query → colar → Run).</div>' : ''}
     <div class="cartao" style="margin-bottom:12px"><h3>Ferramentas abertas ao público</h3>
-      <p class="peq apagado">Qualquer pessoa lê o QR code e preenche, sem login. O nome, o e-mail, o WhatsApp e o cargo chegam nesta aba sozinhos; as respostas ficam só no celular da pessoa.</p>
+      <p class="peq apagado">Qualquer pessoa lê o QR code e preenche, sem login. O nome, o e-mail, o WhatsApp, o cargo (quando a ferramenta pede) e se a pessoa quer receber conteúdos chegam nesta aba sozinhos; as respostas ficam só no celular da pessoa.</p>
       ${PUBLICAS.map((f, i) => `<div class="linha mt" style="gap:14px;align-items:center;flex-wrap:wrap">
         <canvas width="440" height="440" data-qr="${i}" style="width:120px;height:120px;border-radius:10px;border:1px solid var(--linha)" aria-label="QR code da ${esc(f.nome)}"></canvas>
         <div style="flex:1;min-width:220px"><b>${esc(f.nome)}</b><div class="peq apagado" style="word-break:break-all">${esc(f.link)}</div>
@@ -47,6 +47,7 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
     </div>
     <div class="linha ag-filtros"><input type="search" id="pf-texto" placeholder="Nome, e-mail, WhatsApp ou cargo…" value="${esc(est.texto)}" style="width:auto;min-width:240px" aria-label="Procurar">
       ${ferramentas.length > 1 ? `<select id="pf-ferr" aria-label="Ferramenta"><option value="">Todas as ferramentas</option>${ferramentas.map((f) => `<option${f === est.ferramenta ? ' selected' : ''}>${esc(f)}</option>`).join('')}</select>` : ''}
+      ${pessoas.some((p) => p.quer_conteudos != null) ? `<select id="pf-cont" aria-label="Quer receber conteúdos">${[['', 'Quer conteúdos? Todos'], ['sim', 'Quer receber conteúdos'], ['nao', 'Não quer receber']].map(([v, t]) => `<option value="${v}"${v === est.conteudos ? ' selected' : ''}>${t}</option>`).join('')}</select>` : ''}
       <button class="btn peq" type="button" id="pf-excel"${pessoas.length ? '' : ' disabled'}>Baixar em Excel</button>
       <button class="btn peq pri" type="button" id="pf-funil" disabled>Colocar no funil</button>
       <span class="peq apagado" id="pf-conta"></span></div>
@@ -71,7 +72,8 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
   const filtradas = () => {
     const t = norm(est.texto);
     return pessoas.filter((p) => (!est.ferramenta || (p.ferramentas || []).includes(est.ferramenta))
-      && (!t || norm([p.nome, p.email, p.whatsapp, p.cargo, p.observacao].join(' ')).includes(t)));
+      && (!est.conteudos || (est.conteudos === 'sim' ? p.quer_conteudos === true : p.quer_conteudos === false))
+      && (!t ||norm([p.nome, p.email, p.whatsapp, p.cargo, p.observacao].join(' ')).includes(t)));
   };
   const marcadas = new Set();
   const desenhar = () => {
@@ -83,7 +85,7 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
     bf.textContent = marcadas.size ? `Colocar ${marcadas.size} no funil` : 'Colocar no funil';
     el.querySelector('tbody').innerHTML = l.map((p) => `<tr>
       <td><input type="checkbox" data-marcar="${p.id}"${marcadas.has(p.id) ? ' checked' : ''} aria-label="Marcar ${esc(p.nome)}"></td>
-      <td><b>${esc(p.nome)}</b>${p.observacao ? `<div class="peq apagado" style="white-space:pre-wrap">📝 ${esc(p.observacao)}</div>` : ''}</td>
+      <td><b>${esc(p.nome)}</b>${p.quer_conteudos === true ? '<div class="peq">📩 Quer receber conteúdos</div>' : p.quer_conteudos === false ? '<div class="peq apagado">Não quer receber conteúdos</div>' : ''}${p.observacao ? `<div class="peq apagado" style="white-space:pre-wrap">📝 ${esc(p.observacao)}</div>` : ''}</td>
       <td class="peq">${esc(p.cargo || '—')}</td>
       <td class="peq"><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></td>
       <td class="peq">${p.whatsapp ? `<a href="${esc(linkWhats(p.whatsapp, `Olá, ${String(p.nome).split(' ')[0]}! Aqui é da Mentorei.`))}" target="_blank" rel="noopener">💬 ${esc(p.whatsapp)}</a>` : '—'}</td>
@@ -94,6 +96,7 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
   };
   el.querySelector('#pf-texto').addEventListener('input', (ev) => { est.texto = ev.target.value; desenhar(); });
   el.querySelector('#pf-ferr')?.addEventListener('input', (ev) => { est.ferramenta = ev.target.value; desenhar(); });
+  el.querySelector('#pf-cont')?.addEventListener('input', (ev) => { est.conteudos = ev.target.value; desenhar(); });
   el.querySelector('#pf-todas').addEventListener('change', (ev) => { filtradas().forEach((p) => (ev.target.checked ? marcadas.add(p.id) : marcadas.delete(p.id))); desenhar(); });
   el.querySelector('#pf-tab').addEventListener('change', (ev) => {
     const c = ev.target.closest('[data-marcar]'); if (!c) return;
@@ -125,8 +128,9 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
   el.querySelector('#pf-excel').addEventListener('click', async () => {
     let XLSX;
     try { XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs'); } catch (e) { avisar(explicarErro(e), true); return; }
-    const dados = [['Nome', 'E-mail', 'WhatsApp', 'Cargo', 'Ferramentas', 'Vezes', 'Chegou em', 'Última vez', 'Anotação'],
-      ...filtradas().map((p) => [p.nome, p.email, p.whatsapp || '', p.cargo || '', (p.ferramentas || []).join(', '), p.vezes, dataHoraBR(p.criado_em), dataHoraBR(p.ultimo_em), p.observacao || ''])];
+    const dados = [['Nome', 'E-mail', 'WhatsApp', 'Cargo', 'Ferramentas', 'Quer receber conteúdos', 'Vezes', 'Chegou em', 'Última vez', 'Anotação'],
+      ...filtradas().map((p) => [p.nome, p.email, p.whatsapp || '', p.cargo || '', (p.ferramentas || []).join(', '),
+        p.quer_conteudos === true ? 'Sim' : p.quer_conteudos === false ? 'Não' : '', p.vezes, dataHoraBR(p.criado_em), dataHoraBR(p.ultimo_em), p.observacao || ''])];
     const wb = XLSX.utils.book_new(), ws = XLSX.utils.aoa_to_sheet(dados);
     ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: dados.length - 1, c: dados[0].length - 1 } }) };
     XLSX.utils.book_append_sheet(wb, ws, 'Pessoa física');
@@ -159,16 +163,17 @@ async function colocarNoFunil(lista, aoTerminar) {
     const { data: ja, error } = await sb.from('funil_membros').select('email').eq('funil_id', q('#pf-fu').value).in('email', lista.map((p) => limparEmail(p.email)));
     if (error) { q('#pf-fu-resumo').textContent = explicarErro(error); return; }
     const jaNoFunil = new Set((ja || []).map((x) => x.email));
-    conta = { entram: [], ja: 0, saiu: 0, errados: 0 };
+    conta = { entram: [], ja: 0, saiu: 0, naoQuer: 0, errados: 0 };
     for (const p of lista) {
       const email = limparEmail(p.email);
       if (jaNoFunil.has(email)) conta.ja += 1;
       else if (saiu.has(email)) conta.saiu += 1;
+      else if (p.quer_conteudos === false) conta.naoQuer += 1; // desmarcou "quero receber conteúdos" na ferramenta
       else if (!EMAIL_VALIDO.test(email)) conta.errados += 1;
       else if (!conta.entram.some((x) => x.email === email)) conta.entram.push({ email, nome: p.nome, origem: `Pessoa física · ${(p.ferramentas || []).join(', ') || p.origem || 'ferramenta aberta'}` });
     }
     const f = funis.find((x) => x.id === q('#pf-fu').value);
-    q('#pf-fu-resumo').innerHTML = `Vão entrar <b>${conta.entram.length} pessoa(s)</b>.${conta.ja ? ` ${conta.ja} já estão neste funil.` : ''}${conta.saiu ? ` ${conta.saiu} pediram para sair da lista (não entram).` : ''}${conta.errados ? ` ${conta.errados} com e-mail escrito errado (não entram).` : ''}${f && !f.ativo ? '<br><b>Atenção:</b> os envios deste funil estão pausados.' : ''}`;
+    q('#pf-fu-resumo').innerHTML = `Vão entrar <b>${conta.entram.length} pessoa(s)</b>.${conta.ja ? ` ${conta.ja} já estão neste funil.` : ''}${conta.saiu ? ` ${conta.saiu} pediram para sair da lista (não entram).` : ''}${conta.naoQuer ? ` ${conta.naoQuer} disseram que não querem receber conteúdos (não entram).` : ''}${conta.errados ? ` ${conta.errados} com e-mail escrito errado (não entram).` : ''}${f && !f.ativo ? '<br><b>Atenção:</b> os envios deste funil estão pausados.' : ''}`;
     q('#pf-fu-ok').disabled = !conta.entram.length;
   };
   q('#pf-fu').addEventListener('input', conferir);
