@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Qual é o seu canal? · Mentorei</title>
+<meta name="description" content="Descubra se você aprende e se comunica melhor vendo, ouvindo ou sentindo. 15 perguntas rápidas e um laudo com o seu canal preferencial.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #091216; --surface: #0F1D23; --surface-2: #142731; --line: rgba(230,236,234,.12);
+  --text: #E9EFEC; --muted: #93A3A8; --lime: #C8F04A; --lime-soft: rgba(200,240,74,.14); --on-lime: #091216;
+  --danger: #FF8A7A; --cV: #C8F04A; --cA: #7CC6F2; --cS: #F2B85B;
+  --display: 'Manrope', 'Poppins', 'Segoe UI', system-ui, sans-serif;
+  --body: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #091216; --text: #E9EFEC; } }
+:root[data-theme="dark"] { --bg: #091216; --text: #E9EFEC; }
+html { background: var(--bg); }
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--body); font-size: 16px; line-height: 1.55;
+       -webkit-font-smoothing: antialiased; min-height: 100vh; padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0); }
+button, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; border-radius: 6px; }
+h1, h2, h3 { font-family: var(--display); letter-spacing: -0.02em; margin: 0; }
+p { margin: 0; }
+
+.shell { max-width: 700px; margin: 0 auto; padding: 22px 20px 48px; }
+.shell.wide { max-width: 1040px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; }
+.top .logo { height: 22px; width: auto; display: block; }
+.top .logo-print { display: none; }
+.top .meta { color: var(--muted); font-size: 14px; }
+
+.btn { appearance: none; border: 0; cursor: pointer; border-radius: 999px; padding: 15px 26px; font-weight: 600; font-size: 16px;
+       display: inline-flex; align-items: center; justify-content: center; gap: 10px; transition: transform .12s ease, opacity .2s ease; }
+.btn:active { transform: scale(.98); }
+.btn-primary { background: var(--lime); color: var(--on-lime); }
+.btn-primary:disabled { opacity: .35; cursor: not-allowed; }
+.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+.btn-link { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 8px 0; font-size: 15px; }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+/* abertura */
+.intro { padding-top: 6vh; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 40px; align-items: center; }
+.intro h1 { font-size: clamp(40px, 6.6vw, 66px); line-height: 1.02; font-weight: 800; }
+.intro .lead { font-size: 19px; color: var(--muted); margin-top: 18px; max-width: 34em; }
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border-radius: 16px; overflow: hidden; margin: 32px 0 34px; }
+.facts div { background: var(--surface); padding: 16px 18px; }
+.facts b { display: block; font-family: var(--display); font-size: 22px; font-weight: 800; color: var(--lime); }
+.facts span { font-size: 14px; color: var(--muted); }
+.trio { position: relative; width: 100%; max-width: 420px; aspect-ratio: 1; justify-self: end; }
+.trio .c { position: absolute; width: 58%; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; text-align: center;
+           mix-blend-mode: screen; animation: entra .9s cubic-bezier(.2,.8,.2,1) both; }
+.trio .c span { font-family: var(--display); font-weight: 800; font-size: clamp(15px, 2.4vw, 20px); color: var(--bg); padding: 0 12%; }
+.trio .c em { display: block; font-style: normal; font-size: 30px; line-height: 1.2; }
+.trio .v { left: 0; top: 4%; background: var(--cV); }
+.trio .a { right: 0; top: 4%; background: var(--cA); animation-delay: .15s; }
+.trio .s { left: 21%; bottom: 0; background: var(--cS); animation-delay: .3s; }
+.trio .v span { transform: translate(-18%, -12%); } .trio .a span { transform: translate(18%, -12%); } .trio .s span { transform: translateY(20%); }
+@keyframes entra { from { opacity: 0; transform: scale(.6); } to { opacity: .92; transform: scale(1); } }
+@media (max-width: 860px) { .intro { grid-template-columns: 1fr; gap: 6px; padding-top: 2vh; } .trio { order: -1; max-width: 230px; justify-self: start; } .trio .c em { font-size: 22px; } }
+
+/* cadastro */
+.form-head { margin: 40px 0 26px; }
+.form-head h2 { font-size: 32px; font-weight: 800; line-height: 1.1; }
+.form-head p { color: var(--muted); margin-top: 10px; }
+.field { margin-bottom: 18px; }
+.field label { display: block; font-size: 15px; font-weight: 500; margin-bottom: 8px; }
+.field label small { color: var(--muted); font-weight: 400; }
+.field input { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 16px; }
+.field input:focus { border-color: var(--lime); outline: none; }
+.field .err { color: var(--danger); font-size: 14px; margin-top: 6px; display: none; }
+.field.invalid input { border-color: var(--danger); }
+.field.invalid .err { display: block; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.consent { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; color: var(--muted); margin: 6px 0 12px; cursor: pointer; }
+.consent input { width: 20px; height: 20px; accent-color: var(--lime); margin-top: 2px; flex-shrink: 0; }
+.privado { font-size: 13.5px; color: var(--muted); margin: 0 0 24px; padding: 12px 14px; background: var(--surface); border-radius: 12px; }
+
+/* perguntas */
+.prog { margin: 26px 0 30px; }
+.prog .lin { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.prog .count { font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--muted); }
+.prog .count b { color: var(--text); font-size: 22px; }
+.prog .tipo { font-size: 13px; font-weight: 600; color: var(--lime); background: var(--lime-soft); padding: 4px 12px; border-radius: 999px; }
+.prog .trk { height: 6px; background: var(--surface-2); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+.prog .trk div { height: 100%; background: linear-gradient(90deg, var(--cV), var(--cA), var(--cS)); border-radius: 99px; transition: width .3s ease; }
+.marco { display: inline-block; margin-bottom: 16px; font-size: 14px; font-weight: 600; color: var(--on-lime); background: var(--lime); padding: 6px 14px; border-radius: 999px; animation: pula .5s ease both; }
+@keyframes pula { 0% { transform: scale(.7); opacity: 0; } 70% { transform: scale(1.06); } 100% { transform: none; opacity: 1; } }
+.q h2 { font-size: clamp(25px, 5vw, 34px); font-weight: 800; line-height: 1.16; text-wrap: balance; }
+.ops { display: grid; gap: 12px; margin-top: 26px; }
+.op { display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: center; text-align: left; width: 100%; cursor: pointer;
+      background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px 18px; font-size: 17px;
+      transition: border-color .15s, background .15s, transform .12s; }
+.op:hover { border-color: rgba(200,240,74,.55); }
+.op .l { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-weight: 800; background: var(--surface-2); color: var(--muted); }
+.op[aria-pressed="true"] { background: var(--lime); color: var(--on-lime); border-color: var(--lime); transform: translateY(-2px); }
+.op[aria-pressed="true"] .l { background: var(--on-lime); color: var(--lime); }
+.ops.frase .op { font-family: var(--display); font-weight: 700; font-size: 19px; }
+.ops.frase .op .l { font-size: 30px; line-height: 1; padding-top: 10px; }
+.ops.rapida { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ops.rapida .op { grid-template-columns: 1fr; justify-items: center; text-align: center; padding: 22px 14px; gap: 10px; font-size: 16px; }
+.ops.rapida .op .emo { font-size: 44px; line-height: 1; }
+.qnav { display: flex; justify-content: space-between; align-items: center; margin-top: 34px; gap: 12px; }
+.hint { font-size: 13px; color: var(--muted); margin-top: 18px; }
+@media (pointer: coarse) { .hint { display: none; } }
+
+/* laudo */
+.res-head { margin: 34px 0 10px; }
+.res-head .who { color: var(--muted); font-size: 15px; }
+.res-head h1 { font-size: clamp(30px, 5.4vw, 44px); font-weight: 800; line-height: 1.06; margin-top: 6px; }
+.hero-res { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 36px; align-items: start; margin-top: 18px; }
+.chapeu { font-size: 15px; color: var(--muted); }
+.canal-big { font-family: var(--display); font-size: clamp(44px, 8vw, 72px); font-weight: 800; line-height: 1; letter-spacing: -0.03em; margin-top: 4px; }
+.resumo { margin-top: 16px; font-size: 18px; }
+.pcard { background: var(--surface); border-radius: 22px; padding: 22px; }
+.barras { display: grid; gap: 14px; }
+.barra { display: grid; grid-template-columns: 7.4em minmax(0, 1fr) 48px; gap: 12px; align-items: center; font-size: 15px; }
+.barra .track { height: 14px; background: var(--surface-2); border-radius: 99px; overflow: hidden; }
+.barra .fill { height: 100%; border-radius: 99px; background: var(--c); transform-origin: left; animation: cresce 1s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes cresce { from { transform: scaleX(0); } to { transform: none; } }
+.barra b { font-family: var(--display); text-align: right; font-variant-numeric: tabular-nums; }
+.barra.dom span { font-weight: 700; }
+.leitura { margin-top: 18px; font-size: 15.5px; color: var(--muted); }
+
+.section { margin-top: 52px; }
+.section > h2 { font-size: 26px; font-weight: 800; }
+.section > p.sub { color: var(--muted); margin-top: 8px; max-width: 42em; }
+.desc p + p { margin-top: 12px; }
+.desc p { margin-top: 14px; font-size: 17px; max-width: 46em; }
+.duas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+.caixa { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 20px 22px; }
+.caixa h3 { font-size: 18px; font-weight: 800; }
+.caixa ul { margin: 12px 0 0; padding-left: 20px; }
+.caixa li { padding: 4px 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.chips span { padding: 7px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-weight: 600; font-size: 15px; }
+.tres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+.canal-card { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 18px 20px; }
+.canal-card.seu { border: 2px solid var(--c); }
+.canal-card h3 { font-size: 19px; font-weight: 800; display: flex; align-items: center; gap: 9px; }
+.canal-card h3::before { content: ''; width: 11px; height: 11px; border-radius: 50%; background: var(--c); }
+.canal-card .selo { font-size: 12px; font-weight: 600; color: var(--c); margin-top: 2px; }
+.canal-card .sin { font-size: 14px; color: var(--muted); margin-top: 10px; }
+.canal-card ul { margin: 10px 0 0; padding-left: 18px; font-size: 15px; }
+.atitudes { display: grid; gap: 12px; margin-top: 20px; counter-reset: at; }
+.atitude { display: grid; grid-template-columns: 44px 1fr; gap: 14px; align-items: start; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; font-size: 16.5px; }
+.atitude::before { counter-increment: at; content: counter(at); width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+                   background: var(--lime); color: var(--on-lime); font-family: var(--display); font-weight: 800; font-size: 20px; }
+.status { margin-top: 16px; font-size: 15px; color: var(--muted); min-height: 24px; }
+.status.ok { color: var(--lime); }
+.status.err { color: var(--danger); }
+.note { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+.foot { margin-top: 40px; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.fade { animation: fade .35s ease both; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .fade, .trio .c, .barra .fill, .marco { animation: none; } .btn, .op { transition: none; } }
+
+@media (max-width: 760px) {
+  .hero-res, .duas, .tres { grid-template-columns: 1fr; gap: 14px; }
+}
+@media (max-width: 560px) {
+  .shell { padding: 18px 16px 40px; }
+  .row2, .facts { grid-template-columns: 1fr; gap: 0; }
+  .facts { gap: 1px; }
+  .ops.rapida { grid-template-columns: 1fr; }
+  .ops.rapida .op { grid-template-columns: 52px 1fr; justify-items: start; text-align: left; padding: 14px 16px; }
+  .ops.rapida .op .emo { font-size: 34px; }
+  .op { font-size: 16px; padding: 14px 16px; }
+  .ops.frase .op { font-size: 17px; }
+  .qnav .btn { padding: 14px 20px; }
+  .barra { grid-template-columns: 6.8em minmax(0, 1fr) 42px; font-size: 14px; }
+}
+
+@media print {
+  @page { size: A4; margin: 14mm; }
+  :root { --bg: #fff; --surface: #F3F5F4; --surface-2: #E0E1E1; --line: #E0E1E1; --text: #091216; --muted: #5E6467; --cV: #6F8C0F; --cA: #2479B0; --cS: #B8730C; }
+  .caixa li, .canal-card ul, .canal-card .sin { font-size: 12px; }
+  .caixa li { padding: 2px 0; }
+  .section > p.sub { font-size: 12px; }
+  body { background: #fff; color: #091216; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 12px; }
+  .shell { max-width: none; padding: 0; }
+  .no-print, .btn, .btn-link, .status { display: none !important; }
+  .top .logo-screen { display: none !important; }
+  .top .logo-print { display: block; height: 18px; }
+  .res-head { margin-top: 12px; } .res-head h1 { font-size: 24px; }
+  .canal-big { font-size: 44px; } .resumo { font-size: 14px; }
+  .hero-res { grid-template-columns: 1.1fr 1fr; gap: 20px; }
+  .section { margin-top: 20px; } .section > h2 { font-size: 18px; break-after: avoid; }
+  .desc p { font-size: 13px; }
+  .duas { grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+  .tres { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .caixa, .canal-card, .atitude, .pcard { break-inside: avoid; background: #fff; border: 1px solid #E0E1E1; padding: 12px 14px; }
+  .canal-card.seu { border: 2px solid var(--c); }
+  .atitude { font-size: 13px; } .atitude::before { width: 30px; height: 30px; font-size: 15px; background: #091216; color: #fff; }
+  .atitude { grid-template-columns: 30px 1fr; }
+  .chips span { background: #fff; font-size: 12px; padding: 4px 10px; }
+  .barra .fill { animation: none; }
+  .note, .foot { margin-top: 16px; }
+}
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite"></main>
+
+<script type="module">
+import { PERGUNTAS, TOTAL, TIPOS, MARCOS, CANAIS, TEXTOS, AVISO, contar, laudo, codigo, lerCodigo } from '/assets/canal-regras.js';
+
+const CONFIG = {
+  ferramenta: 'qual-e-o-seu-canal',
+  // contato e e-mail só saem nestes endereços (Netlify ou domínio da Mentorei); em qualquer outro lugar (prévia) é simulado
+  dominiosDeEnvio: ['netlify.app', 'mentorei.com.br'],
+  chaveMemoria: 'mentorei-qual-e-o-seu-canal-v1',
+};
+const LOGO = '/assets/logo-clara.png', LOGO_PRINT = '/assets/logo-escura.png';
+const LETRAS = ['A', 'B', 'C'];
+
+// a ordem das 3 opções muda em cada pergunta (para ninguém "escolher o resultado"), mas fica fixa ao voltar
+const embaralhar = () => PERGUNTAS.map(() => { const a = [...CANAIS]; for (let i = a.length - 1; i > 0; i -= 1) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; });
+let dadosPlataforma = {};
+const novoEstado = () => ({ tela: 'abertura', i: 0, resp: PERGUNTAS.map(() => null), ordem: embaralhar(),
+  dados: { nome: '', email: '', whatsapp: '', cargo: '', empresa: '', ...dadosPlataforma, consentimento: false },
+  contatoOk: null, emailOk: false, enviado: false, data: null });
+function carregar() {
+  try { const o = JSON.parse(localStorage.getItem(CONFIG.chaveMemoria) || 'null'); return o && Array.isArray(o.resp) && o.resp.length === TOTAL && Array.isArray(o.ordem) ? o : null; } catch (_) { return null; }
+}
+function salvar() { try { localStorage.setItem(CONFIG.chaveMemoria, JSON.stringify(S)); } catch (_) { /* sem memória do navegador: segue normal */ } }
+let S = carregar() || novoEstado();
+
+// laudo aberto pelo link do e-mail (?r=8-4-3): mostra o resultado daquela contagem, sem respostas nem nome no endereço
+const pedidoLink = lerCodigo(new URLSearchParams(location.search).get('r'));
+
+// Dentro da plataforma de mentorias (num quadro): recebe os dados do mentorado e devolve o resultado para a ficha dele.
+const naPlataforma = window.parent !== window;
+if (naPlataforma) {
+  window.addEventListener('message', (e) => {
+    if (e.origin !== location.origin || !e.data || e.data.tipo !== 'mentorei-dados') return;
+    ['nome', 'email', 'whatsapp', 'cargo', 'empresa'].forEach((k) => { if (e.data[k]) { dadosPlataforma[k] = e.data[k]; S.dados[k] = S.dados[k] || e.data[k]; } });
+    salvar();
+    if (S.tela === 'abertura' || S.tela === 'resultado') render();
+  });
+  window.parent.postMessage({ tipo: 'mentorei-pronta' }, location.origin);
+}
+
+const app = document.getElementById('app');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const emPrevia = () => !CONFIG.dominiosDeEnvio.some((d) => location.hostname === d || location.hostname.endsWith(`.${d}`));
+const respondidas = () => S.resp.filter((v) => v != null).length;
+const dataBR = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const primeiroNome = () => (S.dados.nome || '').trim().split(' ')[0];
+const topo = (extra = '') => `<div class="top"><img class="logo logo-screen" src="${LOGO}" alt="Mentorei"><img class="logo logo-print" src="${LOGO_PRINT}" alt="Mentorei">${extra}</div>`;
+
+// ---------------- telas ----------------
+function telaAbertura() {
+  const prog = respondidas() > 0 && !S.data;
+  const feito = !!S.data && respondidas() === TOTAL;
+  app.innerHTML = `<div class="shell wide fade">${topo()}
+    <section class="intro">
+      <div class="trio" aria-hidden="true">
+        <div class="c v"><span><em>👀</em>Visual</span></div><div class="c a"><span><em>👂</em>Auditivo</span></div><div class="c s"><span><em>🤲</em>Sinestésico</span></div>
+      </div>
+      <div>
+        <h1>Qual é o seu canal?</h1>
+        <p class="lead">Descubra se você aprende e se comunica melhor vendo, ouvindo ou sentindo. São perguntas rápidas do dia a dia e, no final, você recebe um laudo com o seu canal preferencial e dicas práticas para se comunicar melhor.</p>
+        <div class="facts"><div><b>15</b><span>perguntas rápidas</span></div><div><b>3 min</b><span>para responder</span></div><div><b>3</b><span>canais: visual, auditivo e sinestésico</span></div></div>
+        <div class="actions">
+          ${feito ? '<button class="btn btn-primary" id="ver">Ver o meu laudo</button><button class="btn btn-ghost" id="comecar">Responder de novo</button>'
+            : `<button class="btn btn-primary" id="comecar">Começar</button>${prog ? '<button class="btn btn-ghost" id="continuar">Continuar de onde parei</button>' : ''}`}
+        </div>
+      </div>
+    </section>
+    <div class="foot"><span>Mentorei · Comunicação influente</span><span>contato@mentorei.com.br</span></div></div>`;
+  document.getElementById('comecar').onclick = (ev) => {
+    const b = ev.currentTarget;
+    if ((prog || feito) && !b.dataset.ok) { b.dataset.ok = '1'; b.textContent = 'Começar do zero (apaga as respostas)'; setTimeout(() => { if (b.isConnected) { delete b.dataset.ok; b.textContent = feito ? 'Responder de novo' : 'Começar'; } }, 5000); return; }
+    const dados = { ...S.dados }, contatoOk = S.contatoOk;
+    S = novoEstado();
+    if (dados.consentimento || naPlataforma) { S.dados = dados; S.contatoOk = contatoOk; }   // quem já se cadastrou não preenche de novo
+    S.tela = naPlataforma || S.dados.consentimento ? 'pergunta' : 'dados';
+    salvar(); render();
+  };
+  const c = document.getElementById('continuar'); if (c) c.onclick = () => { S.tela = naPlataforma || S.dados.consentimento ? 'pergunta' : 'dados'; render(); };
+  const v = document.getElementById('ver'); if (v) v.onclick = () => { S.tela = 'resultado'; render(); };
+}
+
+function telaDados() {
+  const d = S.dados;
+  app.innerHTML = `<div class="shell fade">${topo('<span class="meta">Antes de começar</span>')}
+    <div class="form-head"><h2>Para onde enviamos o seu laudo?</h2><p>O laudo aparece na tela no final e chega também no seu e-mail.</p></div>
+    <form id="f" novalidate>
+      <div class="field" data-k="nome"><label for="nome">Nome completo</label><input id="nome" autocomplete="name" value="${esc(d.nome)}"><div class="err">Escreva o seu nome.</div></div>
+      <div class="row2">
+        <div class="field" data-k="email"><label for="email">E-mail</label><input id="email" type="email" autocomplete="email" inputmode="email" value="${esc(d.email)}"><div class="err">Confira o e-mail.</div></div>
+        <div class="field" data-k="whatsapp"><label for="whatsapp">WhatsApp</label><input id="whatsapp" type="tel" autocomplete="tel" inputmode="tel" placeholder="(19) 99999-9999" value="${esc(d.whatsapp)}"><div class="err">Escreva o WhatsApp com DDD.</div></div>
+      </div>
+      <div class="row2">
+        <div class="field" data-k="cargo"><label for="cargo">Cargo ou função</label><input id="cargo" autocomplete="organization-title" placeholder="Ex.: gerente, dona do negócio" value="${esc(d.cargo)}"><div class="err">Escreva o seu cargo ou função.</div></div>
+        <div class="field" data-k="empresa"><label for="empresa">Empresa <small>(opcional)</small></label><input id="empresa" autocomplete="organization" value="${esc(d.empresa)}"></div>
+      </div>
+      <label class="consent"><input type="checkbox" id="consentimento" ${d.consentimento ? 'checked' : ''}>
+        <span>Autorizo a Mentorei a guardar meu nome, e-mail, WhatsApp e cargo para me enviar o laudo e conteúdos sobre liderança e comunicação. Posso pedir para sair a qualquer momento.</span></label>
+      <p class="privado">🔒 As suas respostas não saem do seu celular. A Mentorei recebe só os seus dados de contato.</p>
+      <div class="status err" id="cerr" hidden>Para continuar, marque a autorização acima.</div>
+      <div class="actions"><button class="btn btn-primary" type="submit">Ir para as perguntas</button><button class="btn-link" type="button" id="voltar">Voltar</button></div>
+    </form></div>`;
+  const wa = document.getElementById('whatsapp');
+  wa.addEventListener('input', () => {
+    const n = wa.value.replace(/\D/g, '').slice(0, 11);
+    wa.value = n.length > 6 ? `(${n.slice(0, 2)}) ${n.slice(2, n.length - 4)}-${n.slice(-4)}` : n.length > 2 ? `(${n.slice(0, 2)}) ${n.slice(2)}` : n;
+  });
+  document.getElementById('voltar').onclick = () => { S.tela = 'abertura'; render(); };
+  document.getElementById('f').onsubmit = (e) => {
+    e.preventDefault();
+    const v = (id) => document.getElementById(id).value.trim();
+    const antes = S.dados.email;
+    Object.assign(S.dados, { nome: v('nome'), email: v('email'), whatsapp: v('whatsapp'), cargo: v('cargo'), empresa: v('empresa'), consentimento: document.getElementById('consentimento').checked });
+    const regras = { nome: (x) => x.length > 1, email: (x) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(x), whatsapp: (x) => x.replace(/\D/g, '').length >= 10, cargo: (x) => x.length > 1 };
+    let ok = true;
+    document.querySelectorAll('.field').forEach((f) => { const k = f.dataset.k; const bad = regras[k] && !regras[k](S.dados[k]); f.classList.toggle('invalid', !!bad); if (bad) ok = false; });
+    document.getElementById('cerr').hidden = S.dados.consentimento;
+    if (!S.dados.consentimento) ok = false;
+    salvar();
+    if (!ok) { const first = document.querySelector('.field.invalid input'); if (first) first.focus(); return; }
+    if (S.contatoOk !== true || antes !== S.dados.email) { S.contatoOk = false; S.emailOk = false; }
+    enviarContato();
+    const prox = S.resp.findIndex((x) => x == null);
+    S.tela = prox < 0 ? 'resultado' : 'pergunta'; S.i = prox < 0 ? 0 : prox; salvar(); render();
+  };
+}
+
+function telaPergunta() {
+  const i = S.i, q = PERGUNTAS[i], v = S.resp[i], ult = i === TOTAL - 1;
+  const ops = S.ordem[i].map((k, n) => {
+    const o = q.o[k];
+    const miolo = q.tipo === 'rapida' ? `<span class="emo" aria-hidden="true">${o[0]}</span><span>${esc(o[1])}</span>`
+      : q.tipo === 'frase' ? `<span class="l" aria-hidden="true">“</span><span>${esc(o)}</span>`
+        : `<span class="l" aria-hidden="true">${LETRAS[n]}</span><span>${esc(o)}</span>`;
+    return `<button type="button" class="op" data-k="${k}" aria-pressed="${v === k}">${miolo}</button>`;
+  }).join('');
+  const nome = primeiroNome();
+  app.innerHTML = `<div class="shell">${topo(`<span class="meta">${esc(nome)}</span>`)}
+    <div class="prog"><div class="lin"><div class="count"><b>${i + 1}</b> de ${TOTAL}</div><span class="tipo">${TIPOS[q.tipo]}</span></div>
+      <div class="trk"><div style="width:${(respondidas() / TOTAL) * 100}%"></div></div></div>
+    <section class="q fade">
+      ${MARCOS[i] ? `<span class="marco">${esc(MARCOS[i])}</span>` : ''}
+      <h2 id="perg">${esc(q.t)}</h2>
+      <div class="ops ${q.tipo}" role="group" aria-labelledby="perg">${ops}</div>
+      <div class="qnav"><button class="btn btn-ghost" id="ant">${i === 0 ? 'Voltar' : 'Anterior'}</button>
+        <button class="btn btn-primary" id="prox" ${v == null ? 'disabled' : ''}>${ult ? 'Ver o meu laudo' : 'Próxima'}</button></div>
+      <p class="hint no-print">Escolha a primeira resposta que vier à cabeça: não existe certa nem errada. No computador, use as teclas 1, 2 e 3.</p>
+    </section></div>`;
+  let timer = null;
+  app.querySelectorAll('.op').forEach((b) => { b.onclick = () => {
+    S.resp[i] = b.dataset.k; salvar();
+    app.querySelectorAll('.op').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    document.getElementById('prox').disabled = false;
+    app.querySelector('.prog .trk div').style.width = `${(respondidas() / TOTAL) * 100}%`;
+    clearTimeout(timer);
+    timer = setTimeout(avancar, ult ? 500 : 380);
+  }; });
+  const avancar = () => {
+    clearTimeout(timer);
+    if (!ult) { S.i = i + 1; salvar(); render(); return; }
+    const falta = S.resp.findIndex((x) => x == null);
+    if (falta >= 0) { S.i = falta; salvar(); render(); return; }
+    S.tela = 'resultado'; S.data = new Date().toISOString(); S.enviado = false; S.emailOk = false;
+    salvar(); render();
+  };
+  document.getElementById('ant').onclick = () => { clearTimeout(timer); if (i === 0) S.tela = naPlataforma || S.dados.consentimento ? 'abertura' : 'dados'; else S.i = i - 1; salvar(); render(); };
+  document.getElementById('prox').onclick = avancar;
+}
+
+// ---------------- laudo ----------------
+function htmlLaudo(L, { quem, quando }) {
+  const barras = L.ordem.map((k) => `<div class="barra ${L.dom.includes(k) ? 'dom' : ''}" style="--c:var(--c${k})"><span>${TEXTOS[k].nome}</span>
+    <div class="track"><div class="fill" style="width:${Math.max(3, L.pct[k])}%"></div></div><b>${L.pct[k]}%</b></div>`).join('');
+  const cor = L.tipo === 'unico' ? `var(--c${L.dom[0]})` : 'var(--text)';
+  const cards = CANAIS.map((k) => `<div class="canal-card ${L.dom.includes(k) ? 'seu' : ''}" style="--c:var(--c${k})"><h3>${TEXTOS[k].nome}</h3>
+    ${L.dom.includes(k) ? '<div class="selo">Este é o seu</div>' : ''}<p class="sin">${esc(TEXTOS[k].sinais)}</p>
+    <ul>${TEXTOS[k].comoFalar.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('');
+  const lista = (xs) => `<ul>${xs.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
+  return `
+    <header class="res-head"><p class="who">${esc(quem)}${quem ? ' · ' : ''}${quando}</p><h1>Seu laudo de canal de comunicação</h1></header>
+    <div class="hero-res">
+      <div><p class="chapeu">${L.chapeu}</p><div class="canal-big" style="color:${cor}">${esc(L.titulo)}</div><p class="resumo">${esc(L.resumo)}</p></div>
+      <div class="pcard"><div class="barras">${barras}</div><p class="leitura">${esc(L.leitura)}</p></div>
+    </div>
+    <section class="section desc"><h2>O que isso quer dizer</h2>${L.desc.map((p) => `<p>${esc(p)}</p>`).join('')}</section>
+    <section class="section"><h2>Você no dia a dia</h2>
+      <div class="duas"><div class="caixa"><h3>Como você aprende melhor</h3>${lista(L.aprende)}</div>
+        <div class="caixa"><h3>Como as pessoas podem falar com você</h3>${lista(L.falarComigo)}</div>
+        <div class="caixa"><h3>Seus pontos fortes</h3>${lista(L.fortes)}</div>
+        <div class="caixa"><h3>Pontos de atenção</h3>${lista(L.atencao)}</div></div></section>
+    <section class="section"><h2>Palavras que conectam com você</h2><p class="sub">Quando alguém usa este tipo de palavra, a conversa entra mais fácil. Repare nelas e use com quem é parecido com você.</p>
+      <div class="chips">${L.palavras.map((x) => `<span>${esc(x)}</span>`).join('')}</div></section>
+    <section class="section"><h2>Como falar com cada canal</h2><p class="sub">Para usar com a sua equipe, os seus clientes e os seus sócios: repare nos sinais e ajuste o jeito de falar a quem está do outro lado.</p>
+      <div class="tres">${cards}</div></section>
+    <section class="section"><h2>3 atitudes para esta semana</h2><div class="atitudes">${L.atitudes.map((x) => `<div class="atitude"><span>${esc(x)}</span></div>`).join('')}</div></section>`;
+}
+
+function telaResultado() {
+  const pelaUrl = !!pedidoLink;
+  let c;
+  if (pedidoLink) c = pedidoLink;
+  else {
+    if (S.resp.some((v) => v == null)) { S.tela = 'pergunta'; S.i = S.resp.findIndex((v) => v == null); render(); return; }
+    c = contar(S.resp);
+  }
+  const L = laudo(c);
+  const meu = !pedidoLink || (respondidas() === TOTAL && codigo(contar(S.resp)) === codigo(pedidoLink));
+  const quem = meu ? [S.dados.nome, S.dados.cargo].filter(Boolean).join(', ') + (S.dados.empresa ? ` · ${S.dados.empresa}` : '') : '';
+  const quando = dataBR(meu && S.data ? new Date(S.data) : new Date());
+  const publico = !naPlataforma && !pedidoLink;
+  app.innerHTML = `<div class="shell wide fade">${topo('<span class="meta">Qual é o seu canal?</span>')}
+    ${htmlLaudo(L, { quem, quando })}
+    <div class="actions" style="margin-top:28px">
+      <button class="btn btn-primary" id="pdf">Baixar em PDF</button>
+      ${publico ? '<button class="btn btn-ghost" id="reenviar" hidden>Enviar de novo para o meu e-mail</button>' : ''}
+      ${naPlataforma ? '<button class="btn btn-ghost" id="guardar">Guardar na plataforma</button>' : ''}
+      ${pedidoLink && !meu ? '<a class="btn btn-ghost" href="./">Fazer o meu</a>' : ''}
+    </div>
+    <p class="status" id="status"></p>
+    <p class="note">${esc(AVISO)}</p>
+    <div class="foot"><span>Mentorei · contato@mentorei.com.br</span>${pelaUrl ? '' : `<span class="no-print"><button class="btn-link" id="editar">Rever respostas</button> &nbsp; <button class="btn-link" id="refazer">Responder de novo</button></span>`}</div>
+  </div>`;
+  const st = document.getElementById('status');
+  const msg = (t, cls) => { st.textContent = t; st.className = `status ${cls || ''}`; };
+  document.getElementById('pdf').onclick = () => window.print();
+  const ed = document.getElementById('editar'); if (ed) ed.onclick = () => { S.tela = 'pergunta'; S.i = 0; salvar(); render(); };
+  const rf = document.getElementById('refazer');
+  if (rf) rf.onclick = (e) => {
+    const b = e.currentTarget;
+    if (!b.dataset.ok) { b.dataset.ok = '1'; b.textContent = 'Clique de novo para apagar as respostas'; setTimeout(() => { if (b.isConnected) { delete b.dataset.ok; b.textContent = 'Responder de novo'; } }, 5000); return; }
+    const dados = S.dados, contatoOk = S.contatoOk; S = novoEstado(); S.dados = dados; S.contatoOk = contatoOk; S.tela = 'pergunta'; salvar(); render();
+  };
+  if (naPlataforma) {
+    document.getElementById('guardar').onclick = () => guardarNaPlataforma(true, msg);
+    if (!S.enviado) guardarNaPlataforma(false, msg);
+  }
+  if (publico) {
+    const rb = document.getElementById('reenviar');
+    rb.onclick = () => enviarLaudo(true, msg);
+    if (S.emailOk) { msg(`O laudo foi enviado para ${S.dados.email}. Se não chegar, confira o spam ou a aba Promoções.`, 'ok'); rb.hidden = false; }
+    else enviarLaudo(false, msg);
+  }
+}
+
+// ---------------- envios ----------------
+// Contato (nome, e-mail, WhatsApp, cargo) → plataforma Mentorei, Vendas › Pessoa física. Tenta de novo a cada tela até confirmar.
+let enviandoContato = null;
+function enviarContato() {
+  const d = S.dados;
+  if (naPlataforma || S.contatoOk === true || !d.consentimento || !d.email) return Promise.resolve(S.contatoOk === true);
+  if (enviandoContato) return enviandoContato;
+  if (emPrevia()) { S.contatoOk = true; salvar(); return Promise.resolve(true); }
+  enviandoContato = fetch('/api/contato-ferramenta', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ferramenta: CONFIG.ferramenta, nome: d.nome, email: d.email, whats: d.whatsapp, cargo: d.cargo }) })
+    .then((r) => r.json().catch(() => ({})).then((j) => { if (r.ok && j && j.ok === true) { S.contatoOk = true; salvar(); } return S.contatoOk === true; }))
+    .catch(() => false)
+    .finally(() => { enviandoContato = null; });
+  return enviandoContato;
+}
+window.addEventListener('online', () => { enviarContato(); if (S.tela === 'resultado' && !S.emailOk && !pedidoLink) render(); });
+
+// Laudo por e-mail: o servidor recebe só a contagem (ex.: 8-4-3), monta o e-mail e não guarda nada.
+let enviandoLaudo = false;
+async function enviarLaudo(manual, msg) {
+  if (enviandoLaudo || respondidas() < TOTAL) return;
+  const rb = document.getElementById('reenviar');
+  enviandoLaudo = true; msg('Enviando o laudo para o seu e-mail…');
+  try {
+    if (!(await enviarContato())) throw new Error('contato');
+    if (emPrevia()) { S.emailOk = true; salvar(); msg(`Prévia: na versão publicada, o laudo vai para ${S.dados.email} neste momento.`, 'ok'); return; }
+    const r = await fetch('/api/canal-laudo', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: S.dados.nome, email: S.dados.email, r: codigo(contar(S.resp)) }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) throw new Error(j.mensagem || 'falhou');
+    S.emailOk = true; salvar();
+    msg(`Pronto! O laudo foi enviado para ${S.dados.email}. Se não chegar em alguns minutos, confira o spam ou a aba Promoções.`, 'ok');
+  } catch (_) {
+    msg(manual ? 'Não conseguimos enviar agora. Confira a internet e tente de novo; o laudo continua aqui na tela.' : 'Não conseguimos enviar o e-mail agora. O laudo continua aqui na tela: baixe em PDF ou tente enviar de novo.', 'err');
+  } finally { enviandoLaudo = false; if (rb) rb.hidden = false; }
+}
+
+function guardarNaPlataforma(manual, msg) {
+  const L = laudo(contar(S.resp));
+  const pacote = { 'form-name': CONFIG.ferramenta, nome: S.dados.nome, email: S.dados.email, data: dataBR(S.data ? new Date(S.data) : new Date()),
+    canal_predominante: L.titulo,
+    percentuais: L.ordem.map((k) => `${TEXTOS[k].nome}: ${L.pct[k]}%`).join('\n'),
+    leitura: L.leitura,
+    como_aprende: L.aprende.join('\n'), como_falar_comigo: L.falarComigo.join('\n'), atitudes: L.atitudes.join('\n') };
+  window.parent.postMessage({ tipo: 'mentorei-resultado', manual, pacote, notas: L.ordem.map((k) => ({ habilidade: TEXTOS[k].nome, nota: `${L.pct[k]}%` })) }, location.origin);
+  S.enviado = true; salvar();
+  if (manual) msg('Resultado guardado na sua área da plataforma. Seu mentor já pode ver.', 'ok');
+}
+
+function render() {
+  enviarContato();
+  if (pedidoLink) { telaResultado(); window.scrollTo({ top: 0 }); return; }   // o link do e-mail sempre abre o laudo
+  ({ abertura: telaAbertura, dados: telaDados, pergunta: telaPergunta, resultado: telaResultado }[S.tela] || telaAbertura)();
+  window.scrollTo({ top: 0 });
+}
+document.addEventListener('keydown', (e) => {
+  if (S.tela !== 'pergunta' || /input|textarea|select/i.test(e.target.tagName)) return;
+  const n = parseInt(e.key, 10);
+  if (n >= 1 && n <= 3) { const b = app.querySelectorAll('.op')[n - 1]; if (b) b.click(); }
+  if (e.key === 'Enter') { const p = document.getElementById('prox'); if (p && !p.disabled) p.click(); }
+  if (e.key === 'ArrowLeft') { const a = document.getElementById('ant'); if (a) a.click(); }
+});
+render();
+</script>
+</body>
+</html>

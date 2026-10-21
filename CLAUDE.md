@@ -420,6 +420,23 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Você é Assertivo? (MNT-COM-07) também é PÚBLICA desde 2026-10-16: o QR que a Juliana já imprimiu aponta para
   app.html#/ferramenta/MNT-COM-07; o app.js manda quem NÃO tem login para a versão aberta (`publica` no mapa) e quem tem login segue
   na plataforma. A página manda o contato (S.contatoOk) para Pessoa física e continua mandando o resultado como antes (Netlify Forms).
+  QUAL É O SEU CANAL? (MNT-COM-12, 2026-10-21, ficha no script 41; pedido dela: teste não monótono de 3 a 4 min com laudo) —
+  visual, auditivo ou sinestésico (a palavra dela; "cinestésico" só nos apelidos da ficha). Feita do zero pelo Claude (não veio em
+  zip): `public/ferramentas/qual-e-o-seu-canal/` + textos e contas em `public/assets/canal-regras.js` (perguntas, laudo, também usado
+  pelo servidor). 15 perguntas em 3 formatos misturados (primeira impressão com figuras, o que você faria, qual frase é a sua cara),
+  1 ponto por canal, ordem das opções sorteada por pergunta e guardada; recados no caminho (MARCOS). Laudo: canal (ou dois empatados =
+  combinado; três = equilibrado), % de cada um (arredondadas; empatados mostram o mesmo número), leitura, como aprende, como falar com a
+  pessoa, fortes, atenção, palavras, "como falar com cada canal" (para líderes e donos de negócio) e 3 atitudes (a 3ª exercita o canal
+  menos usado). PÚBLICA: decisões dela — guarda SÓ o contato (as respostas não saem do celular) e o laudo vai por tela, PDF (impressão do
+  navegador) e e-mail: `/api/canal-laudo` recebe só a contagem ("8-4-3"), confere que o e-mail está em `pessoas_fisicas` com esta
+  ferramenta nas últimas 6 h, monta o e-mail (Brevo, conta principal) e não grava nada; o botão do e-mail abre
+  `…/qual-e-o-seu-canal/?r=8-4-3` (laudo sem nome). Na plataforma não pede cadastro nem manda e-mail; resultado vai para `testes`.
+- PESSOA FÍSICA → FUNIL (2026-10-21, pedido dela: mandar outras informações para quem preencheu as ferramentas): caixinhas na lista
+  (a do cabeçalho marca todas da busca) + "Colocar N no funil" (`colocarNoFunil` em telas/pessoa-fisica.js): escolhe o funil, mostra
+  quantos entram, já estão, pediram para sair (`descadastros`) ou têm e-mail errado; grava `funil_membros` com origem
+  "Pessoa física · <ferramentas>". Sem script novo (precisa do 34).
+  Teste local: launch.json "canal-teste" (porta 8810) do site do Radar, scratchpad da sessão 24669ad7 (`teste-canal/`, funis falsos;
+  `?sem34`).
 - Linguagem da Mentorei: sem jargão de coaching em inglês ("accountability", "follow-up", "macaco nas costas").
 
 ## Testar antes de publicar

@@ -1,11 +1,13 @@
 // Vendas › Pessoa física (script 39): contatos de quem preencheu uma ferramenta aberta ao público (QR code, sem login).
 // Chegam sozinhos pela função /api/contato-ferramenta: nome, e-mail, WhatsApp e cargo (as respostas ficam no celular da pessoa).
 // No alto, o QR code e o link de cada ferramenta pública, para baixar e colocar nos slides.
+// "Colocar no funil" (pedido dela, 21/10/2026): marca as pessoas (ou todas da busca) e coloca num funil de e-mail (script 34).
 import { sb, esc, dataBR, dataHoraBR, avisar, explicarErro } from '../base.js';
 import { janela, faltaScript } from './agenda-dados.js';
 import { norm, linkWhats } from './vendas.js';
 import { ONLINE } from '../ferramentas-online.js';
 import { desenharQr } from './avaliacao-modulo.js';
+import { EMAIL_VALIDO, limparEmail } from '../funis-regras.js';
 
 const SITE = 'https://plataforma.mentorei.com.br';
 const PUBLICAS = Object.values(ONLINE).filter((o) => o.publica).map((o) => ({ nome: o.publica, link: `${SITE}${o.url}` }));
@@ -46,8 +48,9 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
     <div class="linha ag-filtros"><input type="search" id="pf-texto" placeholder="Nome, e-mail, WhatsApp ou cargo…" value="${esc(est.texto)}" style="width:auto;min-width:240px" aria-label="Procurar">
       ${ferramentas.length > 1 ? `<select id="pf-ferr" aria-label="Ferramenta"><option value="">Todas as ferramentas</option>${ferramentas.map((f) => `<option${f === est.ferramenta ? ' selected' : ''}>${esc(f)}</option>`).join('')}</select>` : ''}
       <button class="btn peq" type="button" id="pf-excel"${pessoas.length ? '' : ' disabled'}>Baixar em Excel</button>
+      <button class="btn peq pri" type="button" id="pf-funil" disabled>Colocar no funil</button>
       <span class="peq apagado" id="pf-conta"></span></div>
-    <div class="tabela cartao" style="padding:0"><table id="pf-tab"><thead><tr><th>Nome</th><th>Cargo</th><th>E-mail</th><th>WhatsApp</th><th>Ferramenta</th><th>Chegou em</th><th></th></tr></thead><tbody></tbody></table></div>`;
+    <div class="tabela cartao" style="padding:0"><table id="pf-tab"><thead><tr><th style="width:32px"><input type="checkbox" id="pf-todas" aria-label="Marcar todas da lista"></th><th>Nome</th><th>Cargo</th><th>E-mail</th><th>WhatsApp</th><th>Ferramenta</th><th>Chegou em</th><th></th></tr></thead><tbody></tbody></table></div>`;
 
   el.querySelectorAll('[data-qr]').forEach((cv) => desenharQr(cv, PUBLICAS[+cv.dataset.qr].link, cv.width).catch((e) => avisar(e.message, true)));
   el.addEventListener('click', async (ev) => {
@@ -70,10 +73,16 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
     return pessoas.filter((p) => (!est.ferramenta || (p.ferramentas || []).includes(est.ferramenta))
       && (!t || norm([p.nome, p.email, p.whatsapp, p.cargo, p.observacao].join(' ')).includes(t)));
   };
+  const marcadas = new Set();
   const desenhar = () => {
     const l = filtradas();
-    el.querySelector('#pf-conta').textContent = `${l.length} de ${pessoas.length} contato(s)`;
+    el.querySelector('#pf-conta').textContent = `${l.length} de ${pessoas.length} contato(s)${marcadas.size ? ` · ${marcadas.size} marcado(s)` : ''}`;
+    el.querySelector('#pf-todas').checked = l.length > 0 && l.every((p) => marcadas.has(p.id));
+    const bf = el.querySelector('#pf-funil');
+    bf.disabled = !marcadas.size;
+    bf.textContent = marcadas.size ? `Colocar ${marcadas.size} no funil` : 'Colocar no funil';
     el.querySelector('tbody').innerHTML = l.map((p) => `<tr>
+      <td><input type="checkbox" data-marcar="${p.id}"${marcadas.has(p.id) ? ' checked' : ''} aria-label="Marcar ${esc(p.nome)}"></td>
       <td><b>${esc(p.nome)}</b>${p.observacao ? `<div class="peq apagado" style="white-space:pre-wrap">📝 ${esc(p.observacao)}</div>` : ''}</td>
       <td class="peq">${esc(p.cargo || '—')}</td>
       <td class="peq"><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></td>
@@ -81,10 +90,17 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
       <td class="peq">${(p.ferramentas || []).map(esc).join(', ') || esc(p.origem || '—')}${p.vezes > 1 ? `<div class="apagado">${p.vezes} vezes</div>` : ''}</td>
       <td class="peq" title="Última vez: ${esc(dataHoraBR(p.ultimo_em))}">${dataBR(p.criado_em)}</td>
       <td style="white-space:nowrap"><button class="btn peq" type="button" data-nota="${p.id}">Anotação</button> <button class="btn peq" type="button" data-apagar="${p.id}" title="Apagar este contato">Apagar</button></td></tr>`).join('')
-      || `<tr><td colspan="7" class="apagado">${pessoas.length ? 'Ninguém com essa busca.' : 'Ainda não chegou nenhum contato. Assim que alguém preencher pelo QR code, ele aparece aqui.'}</td></tr>`;
+      || `<tr><td colspan="8" class="apagado">${pessoas.length ? 'Ninguém com essa busca.' : 'Ainda não chegou nenhum contato. Assim que alguém preencher pelo QR code, ele aparece aqui.'}</td></tr>`;
   };
   el.querySelector('#pf-texto').addEventListener('input', (ev) => { est.texto = ev.target.value; desenhar(); });
   el.querySelector('#pf-ferr')?.addEventListener('input', (ev) => { est.ferramenta = ev.target.value; desenhar(); });
+  el.querySelector('#pf-todas').addEventListener('change', (ev) => { filtradas().forEach((p) => (ev.target.checked ? marcadas.add(p.id) : marcadas.delete(p.id))); desenhar(); });
+  el.querySelector('#pf-tab').addEventListener('change', (ev) => {
+    const c = ev.target.closest('[data-marcar]'); if (!c) return;
+    if (c.checked) marcadas.add(c.dataset.marcar); else marcadas.delete(c.dataset.marcar);
+    desenhar();
+  });
+  el.querySelector('#pf-funil').addEventListener('click', () => colocarNoFunil(pessoas.filter((p) => marcadas.has(p.id)), () => { marcadas.clear(); desenhar(); }));
   el.querySelector('#pf-tab').addEventListener('click', async (ev) => {
     const nota = ev.target.closest('[data-nota]'), apagar = ev.target.closest('[data-apagar]');
     if (nota) {
@@ -103,7 +119,7 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
       if (!window.confirm(`Apagar o contato de ${p.nome}? Não dá para desfazer.`)) return;
       const { error: e } = await sb.from('pessoas_fisicas').delete().eq('id', p.id);
       if (e) { avisar(explicarErro(e), true); return; }
-      pessoas.splice(pessoas.indexOf(p), 1); desenhar(); avisar('Contato apagado.');
+      pessoas.splice(pessoas.indexOf(p), 1); marcadas.delete(p.id); desenhar(); avisar('Contato apagado.');
     }
   });
   el.querySelector('#pf-excel').addEventListener('click', async () => {
@@ -117,4 +133,53 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
     XLSX.writeFile(wb, `Mentorei - Pessoa física - ${new Date().toLocaleDateString('sv-SE')}.xlsx`);
   });
   desenhar();
+}
+
+// Coloca as pessoas marcadas num funil de e-mail. Quem já está no funil ou pediu para sair da lista não entra.
+async function colocarNoFunil(lista, aoTerminar) {
+  const [fr, dr] = await Promise.all([
+    sb.from('funis').select('id, nome, ativo, publico').eq('arquivado', false).order('nome'),
+    sb.from('descadastros').select('email').in('email', lista.map((p) => limparEmail(p.email))),
+  ]);
+  if (fr.error) {
+    if (faltaScript(fr.error)) { avisar('Para usar os funis de e-mail, falta rodar o script 34-funis.sql no Supabase.', true); return; }
+    avisar(explicarErro(fr.error), true); return;
+  }
+  const funis = fr.data || [];
+  if (!funis.length) { avisar('Ainda não existe nenhum funil. Crie um em Vendas → Funis de e-mail.', true); return; }
+  const saiu = new Set((dr.data || []).map((x) => x.email));
+  const j = janela(`Colocar ${lista.length} pessoa(s) num funil`, `
+    <div class="campo"><label for="pf-fu">Funil</label><select id="pf-fu">${funis.map((f) => `<option value="${f.id}">${esc(f.nome)}${f.publico === 'frio' ? ' (lista fria)' : ''}${f.ativo ? '' : ' · pausado'}</option>`).join('')}</select></div>
+    <p class="peq mt" id="pf-fu-resumo">Conferindo…</p>
+    <div class="linha mt"><button class="btn pri" type="button" id="pf-fu-ok" disabled>Colocar no funil</button></div>`, { largura: 520 });
+  const q = (s) => j.corpo.querySelector(s);
+  let conta = null;
+  const conferir = async () => {
+    q('#pf-fu-ok').disabled = true; q('#pf-fu-resumo').textContent = 'Conferindo…';
+    const { data: ja, error } = await sb.from('funil_membros').select('email').eq('funil_id', q('#pf-fu').value).in('email', lista.map((p) => limparEmail(p.email)));
+    if (error) { q('#pf-fu-resumo').textContent = explicarErro(error); return; }
+    const jaNoFunil = new Set((ja || []).map((x) => x.email));
+    conta = { entram: [], ja: 0, saiu: 0, errados: 0 };
+    for (const p of lista) {
+      const email = limparEmail(p.email);
+      if (jaNoFunil.has(email)) conta.ja += 1;
+      else if (saiu.has(email)) conta.saiu += 1;
+      else if (!EMAIL_VALIDO.test(email)) conta.errados += 1;
+      else if (!conta.entram.some((x) => x.email === email)) conta.entram.push({ email, nome: p.nome, origem: `Pessoa física · ${(p.ferramentas || []).join(', ') || p.origem || 'ferramenta aberta'}` });
+    }
+    const f = funis.find((x) => x.id === q('#pf-fu').value);
+    q('#pf-fu-resumo').innerHTML = `Vão entrar <b>${conta.entram.length} pessoa(s)</b>.${conta.ja ? ` ${conta.ja} já estão neste funil.` : ''}${conta.saiu ? ` ${conta.saiu} pediram para sair da lista (não entram).` : ''}${conta.errados ? ` ${conta.errados} com e-mail escrito errado (não entram).` : ''}${f && !f.ativo ? '<br><b>Atenção:</b> os envios deste funil estão pausados.' : ''}`;
+    q('#pf-fu-ok').disabled = !conta.entram.length;
+  };
+  q('#pf-fu').addEventListener('input', conferir);
+  q('#pf-fu-ok').addEventListener('click', async (ev) => {
+    const funilId = q('#pf-fu').value;
+    ev.target.disabled = true; ev.target.textContent = 'Colocando…';
+    const { error } = await sb.from('funil_membros').upsert(conta.entram.map((p) => ({ funil_id: funilId, ...p })), { onConflict: 'funil_id,email', ignoreDuplicates: true });
+    if (error) { avisar(explicarErro(error), true); ev.target.disabled = false; ev.target.textContent = 'Colocar no funil'; return; }
+    j.fechar();
+    avisar(`${conta.entram.length} pessoa(s) entraram no funil. O primeiro e-mail sai na próxima rodada, dentro do horário do funil.`);
+    aoTerminar();
+  });
+  conferir();
 }

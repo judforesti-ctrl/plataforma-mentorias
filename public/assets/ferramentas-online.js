@@ -11,6 +11,7 @@ export const ONLINE = {
   'MNT-PES-08': { interna: true, url: '/ferramentas/swot-do-time/' },
   'MNT-COM-07': { interna: true, url: '/ferramentas/voce-e-assertivo/', publica: 'Você é Assertivo?' },
   'MNT-COM-08': { interna: true, url: '/ferramentas/roda-da-diplomacia/' },
+  'MNT-COM-12': { interna: true, url: '/ferramentas/qual-e-o-seu-canal/', publica: 'Qual é o seu canal?' },
   'MNT-AUT-10': { interna: true, url: '/ferramentas/roda-da-vida/' },
   'MNT-AUT-11': { interna: true, url: '/ferramentas/roda-profissional-futuro/', publica: 'Roda do Profissional do Futuro' },
   'MNT-JOR-06': { interna: false, url: 'https://radardalideranca.netlify.app' },
@@ -36,7 +37,9 @@ const ROTULOS = { media: 'Média', faixa: 'Faixa', plano: 'Plano de ação', not
   dificuldade: 'O que pode dificultar e como contornar', reflexoes: 'O que a roda está contando',
   respostas_por_area: 'Respostas de cada afirmativa (de 1 a 5)',
   media_geral: 'Média geral', medias_por_parte: 'Média de cada parte', maior_nota: 'Maior nota', menor_nota: 'Menor nota',
-  primeiro_passo: 'Primeiro passo (compromisso)', prazo: 'Até quando', acoes_feitas: 'Ações do plano já feitas' };
+  primeiro_passo: 'Primeiro passo (compromisso)', prazo: 'Até quando', acoes_feitas: 'Ações do plano já feitas',
+  canal_predominante: 'Canal preferencial', percentuais: 'Cada canal', leitura: 'Leitura do resultado', como_aprende: 'Como aprende melhor',
+  como_falar_comigo: 'Como falar com a pessoa', atitudes: 'Atitudes para a semana' };
 const rotulo = (k) => ROTULOS[k] || (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ');
 
 // Mostra o resultado guardado de uma ferramenta online, qualquer que seja ela.
