@@ -555,6 +555,7 @@ p { margin: 0; }
       if (!S.dados.consentimento) ok = false;
       salvar();
       if (!ok) { const first = document.querySelector('.field.invalid input'); if (first) first.focus(); return; }
+      S.contatoOk = false; enviarContato();
       S.tela = 'time'; salvar(); render();
     };
   }
@@ -928,6 +929,21 @@ p { margin: 0; }
       data: S.data ? dataBR(new Date(S.data)) : dataBR(new Date()) };
   }
 
+  // Aberta fora da plataforma (link direto): o contato vai para a plataforma Mentorei, Vendas › Pessoa física. Tenta de novo a
+  // cada tela até o servidor confirmar. Dentro da plataforma não manda (o mentorado já está cadastrado).
+  let enviandoContato = false;
+  function enviarContato() {
+    const d = S.dados;
+    if (naPlataforma || S.contatoOk !== false || enviandoContato || !d.consentimento || !d.email) return;
+    enviandoContato = true;
+    fetch('/api/contato-ferramenta', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ferramenta: 'swot-do-time', nome: d.nome, email: d.email, whats: d.whatsapp, cargo: d.cargo }) })
+      .then(r => r.json().catch(() => ({})).then(j => ({ ok: r.ok, j })))
+      .then(res => { enviandoContato = false; if (res.ok && res.j && res.j.ok === true) { S.contatoOk = true; salvar(); } })
+      .catch(() => { enviandoContato = false; });
+  }
+  window.addEventListener('online', () => enviarContato());
+
   async function enviar(origem, manual) {
     const st = document.getElementById('status');
     const msg = (t, cls) => { if (st) { st.textContent = t; st.className = 'status ' + (cls || ''); } };
@@ -947,6 +963,7 @@ p { margin: 0; }
   }
 
   function render() {
+    enviarContato();
     ({ abertura: telaAbertura, dados: telaDados, time: telaTime, resultado: telaResultado }[S.tela] || telaAbertura)();
     window.scrollTo({ top: 0 });
   }

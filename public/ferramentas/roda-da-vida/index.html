@@ -66,6 +66,14 @@ button,input,select,textarea{font:inherit;color:inherit}
 .field-dark input{height:50px;border-radius:12px;border:1px solid var(--dark-line);background:rgba(255,255,255,.06);color:var(--on-dark);padding:0 14px;font-size:16px}
 .field-dark input::placeholder{color:rgba(255,255,255,.38)}
 .field-dark input:focus{outline:none;border-color:var(--lime);box-shadow:0 0 0 3px rgba(200,240,74,.22)}
+.hero-form.publico{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:600px;align-items:end}
+.hero-form.publico .field-dark{max-width:none}
+.hero-form.publico .largo{grid-column:1 / -1}
+.hero-form.publico .btn{justify-self:start}
+.consent-dark{display:flex;gap:10px;align-items:flex-start;font-size:13.5px;line-height:1.45;color:var(--on-dark-2);cursor:pointer}
+.consent-dark input{flex:none;width:18px;height:18px;margin-top:1px;accent-color:var(--lime)}
+.erro-dark{color:#FFC2B8;font-size:14px;font-weight:600}
+@media (max-width:560px){.hero-form.publico{grid-template-columns:1fr}}
 .privacy{display:flex;gap:8px;align-items:center;font-size:13.5px;color:var(--on-dark-2)}
 .privacy svg{flex:none}
 .hero-art{width:100%;max-width:340px;justify-self:end;opacity:.9}
@@ -284,11 +292,22 @@ html{scroll-behavior:smooth}
       <p class="eyebrow">Ferramenta de autoconhecimento</p>
       <h1>Roda da Vida</h1>
       <p class="lead">Um retrato de como você sente suas necessidades atendidas hoje, em oito áreas da vida, a partir de 40 frases curtas. Leva cerca de 10 minutos e não existe resposta certa.</p>
-      <div class="hero-form">
+      <div class="hero-form" id="hero-form">
         <label class="field-dark" for="nome">
-          <span>Seu nome (opcional)</span>
+          <span id="nome-rotulo">Seu nome (opcional)</span>
           <input id="nome" type="text" autocomplete="given-name" placeholder="Como quer ser chamado(a)" maxlength="60">
         </label>
+        <label class="field-dark so-publico" for="email" hidden>
+          <span>E-mail</span>
+          <input id="email" type="email" autocomplete="email" inputmode="email" placeholder="voce@email.com" maxlength="160">
+        </label>
+        <label class="field-dark so-publico" for="whats" hidden>
+          <span>WhatsApp com DDD</span>
+          <input id="whats" type="tel" autocomplete="tel" inputmode="tel" placeholder="(19) 99999-9999" maxlength="16">
+        </label>
+        <label class="consent-dark so-publico largo" hidden><input type="checkbox" id="consent">
+          <span>Autorizo a Mentorei a guardar meu nome, e-mail e WhatsApp e a me enviar conteúdos. Minhas respostas não são enviadas.</span></label>
+        <p class="erro-dark largo" id="contato-erro" role="alert" hidden></p>
         <a class="btn btn-lime" href="#avaliar" id="comecar">Começar</a>
       </div>
       <p class="privacy" id="privacidade">
@@ -531,7 +550,8 @@ html{scroll-behavior:smooth}
   function vazias(){ var a = []; for(var i = 0; i < TOTAL; i++) a.push(null); return a; }
   function novoEstado(){
     return {nome:'', respostas:vazias(), refl:['','','',''],
-            plano:{area:'',passo:'',quando:'',apoio:'',dificuldade:''}, aberto:false, compartilhar:false};
+            plano:{area:'',passo:'',quando:'',apoio:'',dificuldade:''}, aberto:false, compartilhar:false,
+            email:'', whats:'', consent:false, contatoOk:false};
   }
   var state = novoEstado();
 
@@ -547,6 +567,10 @@ html{scroll-behavior:smooth}
       }
       state.aberto = !!s.aberto;
       state.compartilhar = !!s.compartilhar;
+      state.email = typeof s.email === 'string' ? s.email : '';
+      state.whats = typeof s.whats === 'string' ? s.whats : '';
+      state.consent = !!s.consent;
+      state.contatoOk = !!s.contatoOk;
     }catch(e){}
   }
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} if(naPlataforma && state.aberto) agendarEnvio(); }
@@ -841,11 +865,13 @@ html{scroll-behavior:smooth}
   /* ---------- Ações ---------- */
   $('#verRoda').addEventListener('click', function(){
     if(respondidas() < TOTAL) return;
+    if(!contatoPronto()) return;
     state.aberto = true; save(); renderResult();
     document.getElementById('resultado').scrollIntoView({behavior:'smooth', block:'start'});
   });
   $('#comecar').addEventListener('click', function(e){
     e.preventDefault();
+    if(!contatoPronto()) return;
     document.getElementById('avaliar').scrollIntoView({behavior:'smooth', block:'start'});
     var first = document.querySelector('#areas .sl');
     if(first) setTimeout(function(){ first.focus({preventScroll:true}); }, 400);
@@ -864,10 +890,12 @@ html{scroll-behavior:smooth}
     }
     clearTimeout(confirmTimer);
     try{ localStorage.removeItem(KEY); }catch(e){}
+    var contato = {nome:state.nome, email:state.email, whats:state.whats, consent:state.consent, contatoOk:state.contatoOk};
     state = novoEstado();
+    if(!naPlataforma){ for(var k in contato) state[k] = contato[k]; save(); }
     b.classList.remove('confirm'); b.textContent = 'Recomeçar';
     $('#depois').hidden = true;
-    $('#nome').value = '';
+    $('#nome').value = state.nome;
     if(naPlataforma){ $('#compartilhar').checked = false; $('#plat-msg').hidden = true; }
     PERGUNTAS.forEach(function(_, i){ document.getElementById('r-' + i).value = ''; });
     PLANO.forEach(function(p){ if(p[0] !== 'area') document.getElementById('p-' + p[0]).value = ''; });
@@ -931,9 +959,64 @@ html{scroll-behavior:smooth}
     window.parent.postMessage({tipo:'mentorei-pronta'}, location.origin);
   }
 
+  /* ---------- Fora da plataforma (link direto) ----------
+     Pede nome, e-mail e WhatsApp antes de mostrar a roda. Só o contato vai para a plataforma Mentorei (Vendas › Pessoa física);
+     as respostas continuam só neste aparelho. Tenta de novo sozinha até o servidor confirmar. */
+  function contatoErros(){
+    var e = [];
+    if(state.nome.trim().length < 2) e.push(['nome', 'Escreva o seu nome.']);
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(state.email.trim())) e.push(['email', 'Confira o e-mail (ex.: nome@empresa.com.br).']);
+    var d = state.whats.replace(/\D/g, '');
+    if(d.length < 10 || d.length > 13) e.push(['whats', 'Informe o WhatsApp com DDD.']);
+    if(!state.consent) e.push(['consent', 'Para continuar, marque a autorização.']);
+    return e;
+  }
+  function contatoPronto(){
+    if(naPlataforma) return true;
+    var e = contatoErros(), msg = $('#contato-erro');
+    msg.hidden = !e.length;
+    if(!e.length){ enviarContato(); return true; }
+    msg.textContent = e[0][1];
+    document.querySelector('.hero').scrollIntoView({behavior:'smooth', block:'start'});
+    setTimeout(function(){ document.getElementById(e[0][0]).focus({preventScroll:true}); }, 400);
+    return false;
+  }
+  var enviandoContato = false;
+  function enviarContato(){
+    if(naPlataforma || state.contatoOk || enviandoContato || contatoErros().length) return;
+    enviandoContato = true;
+    fetch('/api/contato-ferramenta', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ferramenta:'roda-da-vida', nome:state.nome.trim(), email:state.email.trim(), whats:state.whats})})
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(res){ enviandoContato = false; if(res.ok && res.j && res.j.ok === true){ state.contatoOk = true; save(); } })
+      .catch(function(){ enviandoContato = false; });
+  }
+  if(!naPlataforma){
+    $('#hero-form').classList.add('publico');
+    $('#nome').parentNode.classList.add('largo');
+    $('#nome-rotulo').textContent = 'Seu nome';
+    $('#nome').setAttribute('autocomplete', 'name');
+    $('#privacidade-txt').textContent = 'Suas respostas ficam só neste aparelho. Só o seu nome, e-mail e WhatsApp vão para a Mentorei.';
+    Array.prototype.forEach.call(document.querySelectorAll('.so-publico'), function(el){ el.hidden = false; });
+    window.addEventListener('online', enviarContato);
+  }
+
   load();
   buildAreas();
   buildForms();
+  if(!naPlataforma){
+    var em = $('#email'), wa = $('#whats'), ck = $('#consent');
+    em.value = state.email; wa.value = state.whats; ck.checked = state.consent;
+    em.addEventListener('input', function(){ state.email = em.value; state.contatoOk = false; save(); });
+    wa.addEventListener('input', function(){
+      var n = wa.value.replace(/\D/g, '').slice(0, 11);
+      wa.value = n.length > 6 ? '(' + n.slice(0, 2) + ') ' + n.slice(2, n.length - 4) + '-' + n.slice(-4) : n.length > 2 ? '(' + n.slice(0, 2) + ') ' + n.slice(2) : n;
+      state.whats = wa.value; state.contatoOk = false; save();
+    });
+    ck.addEventListener('change', function(){ state.consent = ck.checked; save(); });
+    $('#nome').addEventListener('input', function(){ state.contatoOk = false; save(); });
+    enviarContato();
+  }
   refresh();
 })();
 </script>

@@ -417,6 +417,12 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   contato; o resultado vai para `testes`. Fonte do pacote: Documents/JULIANA PROFISSIONAL/Sicoob cooprem/roda-profissional-futuro-claude-code.zip
   (o CLAUDE.md do pacote pede: não mudar textos, perguntas, cores ou layout). Para outra ferramenta pública: código em FERRAMENTAS
   de contato-ferramenta.mjs + `publica` no mapa.
+  TODAS as ferramentas mandam o contato para Pessoa física quando abertas fora da plataforma (2026-10-21, pedido dela: "todos que
+  preencherem"): as sem QR (Gatilho, Escada, Diplomacia, SWOT, Roda da Vida) também abrem pelo link direto /ferramentas/<slug>/.
+  As 4 do molde antigo usam o mesmo `enviarContato()` da Assertivo (depois da tela de dados; Netlify Forms continua igual).
+  Roda da Vida: fora da plataforma a capa pede nome, e-mail, WhatsApp e autorização (`.so-publico`; dentro do quadro some, nome
+  segue opcional); "Começar" e "Ver minha roda" só seguem com o contato; respostas continuam só no aparelho. Ferramenta nova
+  = sempre ligar o contato fora da plataforma + código em FERRAMENTAS.
   Você é Assertivo? (MNT-COM-07) também é PÚBLICA desde 2026-10-16: o QR que a Juliana já imprimiu aponta para
   app.html#/ferramenta/MNT-COM-07; o app.js manda quem NÃO tem login para a versão aberta (`publica` no mapa) e quem tem login segue
   na plataforma. A página manda o contato (S.contatoOk) para Pessoa física e continua mandando o resultado como antes (Netlify Forms).
