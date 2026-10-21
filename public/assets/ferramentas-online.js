@@ -2,19 +2,21 @@
 // "externa": abre o site da ferramenta numa aba nova (o resultado não volta para a plataforma).
 // Uma ferramenta pode ter PDF e versão online ao mesmo tempo.
 // "publica": também fica aberta a qualquer pessoa por QR code; os contatos vão para Vendas › Pessoa física (script 39).
+// Pedido dela (21/10/2026): TODAS são públicas, com QR code e link em Pessoa física. "linkPublico": endereço do QR quando não é o url.
 import { esc } from './base.js';
 
 export const ONLINE = {
-  'MNT-AUT-01': { interna: true, url: '/ferramentas/gatilho-reacao-escolha/' },
-  'MNT-LID-04': { interna: true, url: '/ferramentas/escada-da-delegacao/' },
+  'MNT-AUT-01': { interna: true, url: '/ferramentas/gatilho-reacao-escolha/', publica: 'Gatilho–Reação–Escolha' },
+  'MNT-LID-04': { interna: true, url: '/ferramentas/escada-da-delegacao/', publica: 'Escada da Delegação' },
   'MNT-COM-06': { interna: true, url: '/ferramentas/roda-do-comunicador/', publica: 'Roda do Comunicador Influente' },
-  'MNT-PES-08': { interna: true, url: '/ferramentas/swot-do-time/' },
+  'MNT-PES-08': { interna: true, url: '/ferramentas/swot-do-time/', publica: 'SWOT do Time' },
   'MNT-COM-07': { interna: true, url: '/ferramentas/voce-e-assertivo/', publica: 'Você é Assertivo?' },
-  'MNT-COM-08': { interna: true, url: '/ferramentas/roda-da-diplomacia/' },
+  'MNT-COM-08': { interna: true, url: '/ferramentas/roda-da-diplomacia/', publica: 'Roda da Diplomacia' },
   'MNT-COM-12': { interna: true, url: '/ferramentas/qual-e-o-seu-canal/', publica: 'Qual é o seu canal?' },
-  'MNT-AUT-10': { interna: true, url: '/ferramentas/roda-da-vida/' },
+  'MNT-AUT-10': { interna: true, url: '/ferramentas/roda-da-vida/', publica: 'Roda da Vida' },
   'MNT-AUT-11': { interna: true, url: '/ferramentas/roda-profissional-futuro/', publica: 'Roda do Profissional do Futuro' },
-  'MNT-JOR-06': { interna: false, url: 'https://radardalideranca.netlify.app' },
+  'MNT-JOR-06': { interna: false, url: 'https://radardalideranca.netlify.app', publica: 'Radar da Liderança',
+    linkPublico: 'https://radardalideranca.netlify.app/radar/' },
 };
 
 export const linkOnline = (id, rotulo = 'Abrir ferramenta', classe = 'btn peq') => {

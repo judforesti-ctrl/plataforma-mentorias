@@ -8,11 +8,11 @@ import { json, supa } from '../lib/google.mjs';
 export const config = { path: '/api/contato-ferramenta', method: ['POST'] };
 
 // ferramentas abertas ao público: o código que a página manda → o nome que aparece em Vendas › Pessoa física
-// (a segunda linha são as que não têm QR code, mas abrem pelo link direto: quem preencher também chega aqui)
+// (o Radar da Liderança é outro site: a função radar-enviar de lá manda daqui, do servidor, com receber = aceitou marketing)
 const FERRAMENTAS = { 'roda-profissional-futuro': 'Roda do Profissional do Futuro', 'voce-e-assertivo': 'Você é Assertivo?', 'qual-e-o-seu-canal': 'Qual é o seu canal?',
   'roda-do-comunicador': 'Roda do Comunicador Influente',
   'gatilho-reacao-escolha': 'Gatilho–Reação–Escolha', 'escada-da-delegacao': 'Escada da Delegação', 'roda-da-diplomacia': 'Roda da Diplomacia',
-  'swot-do-time': 'SWOT do Time', 'roda-da-vida': 'Roda da Vida' };
+  'swot-do-time': 'SWOT do Time', 'roda-da-vida': 'Roda da Vida', 'radar-da-lideranca': 'Radar da Liderança' };
 
 const texto = (v, max) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, max);
 

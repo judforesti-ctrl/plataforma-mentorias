@@ -423,6 +423,10 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Roda da Vida: fora da plataforma a capa pede nome, e-mail, WhatsApp e autorização (`.so-publico`; dentro do quadro some, nome
   segue opcional); "Começar" e "Ver minha roda" só seguem com o contato; respostas continuam só no aparelho. Ferramenta nova
   = sempre ligar o contato fora da plataforma + código em FERRAMENTAS.
+  No mesmo dia ela pediu QR code e link de TODAS em Pessoa física: as 10 do mapa ONLINE têm `publica` (grade de QR em
+  telas/pessoa-fisica.js). Radar da Liderança (MNT-JOR-06, outro site/repo) entra com `linkPublico` …/radar/ e código
+  'radar-da-lideranca': a função radar-enviar do Radar manda o contato do servidor (receber = aceitou marketing; no corporativo só
+  quem aceitou, a mesma regra do RD).
   Você é Assertivo? (MNT-COM-07) também é PÚBLICA desde 2026-10-16: o QR que a Juliana já imprimiu aponta para
   app.html#/ferramenta/MNT-COM-07; o app.js manda quem NÃO tem login para a versão aberta (`publica` no mapa) e quem tem login segue
   na plataforma. A página manda o contato (S.contatoOk) para Pessoa física e continua mandando o resultado como antes (Netlify Forms).

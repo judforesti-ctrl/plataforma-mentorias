@@ -10,7 +10,8 @@ import { desenharQr } from './avaliacao-modulo.js';
 import { EMAIL_VALIDO, limparEmail } from '../funis-regras.js';
 
 const SITE = 'https://plataforma.mentorei.com.br';
-const PUBLICAS = Object.values(ONLINE).filter((o) => o.publica).map((o) => ({ nome: o.publica, link: `${SITE}${o.url}` }));
+const PUBLICAS = Object.values(ONLINE).filter((o) => o.publica)
+  .map((o) => ({ nome: o.publica, link: o.linkPublico || (o.url.startsWith('http') ? o.url : `${SITE}${o.url}`) }));
 const nomeArquivo = (t) => t.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
 const est = { texto: '', ferramenta: '', conteudos: '' };
 
@@ -38,12 +39,14 @@ export async function abaPessoaFisica(ctx, el, recarregar) {
   el.innerHTML = `
     ${falta ? '<div class="aviso erro">Para os contatos chegarem aqui, falta rodar o script <b>39-pessoa-fisica.sql</b> no Supabase (SQL Editor → New query → colar → Run).</div>' : ''}
     <div class="cartao" style="margin-bottom:12px"><h3>Ferramentas abertas ao público</h3>
-      <p class="peq apagado">Qualquer pessoa lê o QR code e preenche, sem login. O nome, o e-mail, o WhatsApp, o cargo (quando a ferramenta pede) e se a pessoa quer receber conteúdos chegam nesta aba sozinhos; as respostas ficam só no celular da pessoa.</p>
-      ${PUBLICAS.map((f, i) => `<div class="linha mt" style="gap:14px;align-items:center;flex-wrap:wrap">
-        <canvas width="440" height="440" data-qr="${i}" style="width:120px;height:120px;border-radius:10px;border:1px solid var(--linha)" aria-label="QR code da ${esc(f.nome)}"></canvas>
-        <div style="flex:1;min-width:220px"><b>${esc(f.nome)}</b><div class="peq apagado" style="word-break:break-all">${esc(f.link)}</div>
+      <p class="peq apagado">Qualquer pessoa lê o QR code e preenche, sem login. O nome, o e-mail, o WhatsApp, o cargo (quando a ferramenta pede) e se a pessoa quer receber conteúdos chegam nesta aba sozinhos; as respostas não vêm para cá.</p>
+      <div class="mt" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr));gap:16px 20px">
+      ${PUBLICAS.map((f, i) => `<div class="linha" style="gap:12px;align-items:center;flex-wrap:nowrap">
+        <canvas width="440" height="440" data-qr="${i}" style="flex:none;width:96px;height:96px;border-radius:10px;border:1px solid var(--linha)" aria-label="QR code da ${esc(f.nome)}"></canvas>
+        <div style="flex:1;min-width:0"><b>${esc(f.nome)}</b><div class="peq apagado" style="word-break:break-all">${esc(f.link)}</div>
           <div class="linha mt" style="gap:6px;flex-wrap:wrap"><button class="btn peq pri" type="button" data-baixar="${i}">Baixar o QR code</button>
             <button class="btn peq" type="button" data-copiar="${i}">Copiar o link</button><a class="btn peq" href="${esc(f.link)}" target="_blank" rel="noopener">Abrir</a></div></div></div>`).join('')}
+      </div>
     </div>
     <div class="linha ag-filtros"><input type="search" id="pf-texto" placeholder="Nome, e-mail, WhatsApp ou cargo…" value="${esc(est.texto)}" style="width:auto;min-width:240px" aria-label="Procurar">
       ${ferramentas.length > 1 ? `<select id="pf-ferr" aria-label="Ferramenta"><option value="">Todas as ferramentas</option>${ferramentas.map((f) => `<option${f === est.ferramenta ? ' selected' : ''}>${esc(f)}</option>`).join('')}</select>` : ''}
