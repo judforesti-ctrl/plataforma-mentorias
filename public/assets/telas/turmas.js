@@ -4,6 +4,7 @@
 import { sb, esc, avatar, dataBR, dataHoraBR, diaMes, horaBR, autoSalvar, avisar, explicarErro, localParaISO, isoParaLocal } from '../base.js';
 import { ITENS_VIAGEM, QUEM_VIAGEM } from '../agenda-regras.js';
 import { cartaoAvaliacao, ligarAvaliacao } from './avaliacao-modulo.js';
+import { cartaoMateriais, ligarMateriais } from './materiais-modulo.js';
 
 const FORMATO = { meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro', indefinido: 'Local a definir' };
 const STATUS = { planejada: ['Planejada', 'neutro'], em_andamento: ['Em andamento', ''], concluida: ['Concluída', 'neutro'], pausada: ['Pausada', 'alerta'] };
@@ -429,13 +430,14 @@ async function paginaModulo(ctx, el, id) {
   const oficiais = arquivos.filter((a) => a.tipo === 'oficial');
   const dosMentores = arquivos.filter((a) => a.tipo === 'mentor');
   const fotos = arquivos.filter((a) => a.tipo === 'foto').reverse();   // na ordem em que foram colocadas
+  const materiais = arquivos.filter((a) => a.tipo === 'material');
   const podeFotos = adm || souMentor;
   const linkSala = m.formato === 'presencial' ? '' : (m.link || '');
   const ehUrl = /^https?:\/\//i.test(linkSala);
 
   const listaArquivos = (lista, vazio) => (lista.length ? `<div class="lista mt">${lista.map((a) => `<div class="item" style="grid-template-columns:1fr auto">
       <div style="min-width:0"><div class="nome" style="word-break:break-word">${esc(a.nome)}</div><div class="info">${tamanho(a.tamanho)}${a.autor ? ` · ${esc(a.autor.nome)}` : ''} · ${dataBR(a.enviado_em)}</div></div>
-      <div class="linha" style="gap:6px"><button class="btn peq pri" data-baixar="${a.id}">Baixar</button>${adm || (a.tipo === 'mentor' && a.enviado_por === ctx.perfil.id) ? `<button class="btn peq" data-apagar="${a.id}" aria-label="Apagar ${esc(a.nome)}">Apagar</button>` : ''}</div></div>`).join('')}</div>`
+      <div class="linha" style="gap:6px"><button class="btn peq pri" data-baixar="${a.id}">Baixar</button>${adm || ((a.tipo === 'mentor' || a.tipo === 'material') && a.enviado_por === ctx.perfil.id) ? `<button class="btn peq" data-apagar="${a.id}" aria-label="Apagar ${esc(a.nome)}">Apagar</button>` : ''}</div></div>`).join('')}</div>`
     : `<p class="apagado mt">${vazio}</p>`);
   const botaoEnvio = (tipo, rotulo) => `<label class="btn peq${tipo === 'oficial' ? ' escuro' : ' pri'} mt" style="cursor:pointer">${rotulo}<input type="file" data-enviar="${tipo}" accept=".pdf,.ppt,.pptx,.odp,.key,.zip" hidden></label>`;
 
@@ -473,6 +475,7 @@ async function paginaModulo(ctx, el, id) {
           ${adm ? `<textarea class="mt" data-mod="recomendacoes" style="min-height:120px" placeholder="O que enfatizar, cuidados com a turma, combinados com a empresa, dinâmicas sugeridas.">${esc(m.recomendacoes || '')}</textarea>`
             : m.recomendacoes ? `<div class="mt peq" style="white-space:pre-wrap;line-height:1.55">${esc(m.recomendacoes)}</div>` : '<p class="apagado mt">Nenhuma recomendação para esta aula.</p>'}
         </div>
+        ${cartaoMateriais(ctx, m, adm || souMentor, materiais.length ? `<p class="peq mt2"><b>Arquivos de apoio</b></p>${listaArquivos(materiais, '')}` : '')}
         ${adm ? `<div class="cartao"><h3>Quando e onde</h3>
           <div class="grade g2 mt" style="gap:10px">
             <div class="campo"><label>Data e hora (Brasília)</label><input type="datetime-local" data-mod="data_hora" value="${esc(isoParaLocal(m.data_hora))}"></div>
@@ -586,6 +589,8 @@ async function paginaModulo(ctx, el, id) {
 
   // avaliação da turma: QR code feito pela plataforma e respostas do encontro (script 31)
   ligarAvaliacao(ctx, el, m, souMentor);
+  // materiais necessários: checklist e arquivos de apoio (script 40)
+  ligarMateriais(ctx, el, m, adm || souMentor);
   el.querySelector('[data-ir-qr]')?.addEventListener('click', (ev) => { ev.preventDefault(); el.querySelector('#avaliacao-turma').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 
   // envio de slides

@@ -34,7 +34,7 @@ try {
   # 1. Tabelas (todas, menos "integracoes", que guarda a chave do Google e se refaz conectando de novo)
   $tabelas = 'perfis', 'convites', 'empresas', 'programas', 'programa_temas', 'mentorados', 'mentor_mentorado', 'sessoes', 'sessoes_interno',
     'avaliacoes_sessao', 'testes', 'acessos', 'historico', 'ferramentas', 'arsenal_tags', 'ferramentas_enviadas', 'turmas', 'modulos',
-    'modulo_mentores', 'modulo_arquivos', 'importacoes_proposta', 'agenda_bloqueios', 'agenda_reservas', 'agenda_reserva_datas',
+    'modulo_mentores', 'modulo_arquivos', 'modulo_materiais', 'importacoes_proposta', 'agenda_bloqueios', 'agenda_reservas', 'agenda_reserva_datas',
     'agenda_reserva_mentores', 'agenda_links', 'configuracoes', 'google_eventos', 'agenda_reunioes', 'notas_fiscais', 'tarefas'
   $totais = @{}
   foreach ($t in $tabelas) {

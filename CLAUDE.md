@@ -298,6 +298,17 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   de uma vez (reduzidas no navegador: 2000 px + miniatura 480 px) em `turmas/<módulo>/foto/` e `foto-mini/`, linha em
   `modulo_arquivos` com tipo 'foto'. Foto grande com anterior/próxima (setas), Baixar; mentor apaga só as dele. Sem o script 29 a
   tela avisa (administração: "falta rodar o script 29"; mentor: "avise a Cintia"). Os nomes dos mentores no módulo aparecem com foto.
+- MATERIAIS NECESSÁRIOS NO MÓDULO (2026-10-21, script 40, `telas/materiais-modulo.js`, pedido dela: lugar no módulo da turma para
+  colar, preencher ou subir o checklist de ferramentas, áudio e vídeo e materiais de apoio). Cartão "Materiais necessários" na coluna
+  da esquerda (depois de Recomendações): itens em `modulo_materiais` (categoria ferramenta/audio_video/apoio/outro, texto, quem
+  providencia opcional mentorei/mentor/cliente, pronto com quem marcou e quando, ordem). Incluir um a um (o tipo acompanha o que se
+  escreve), "Colar ou importar lista" (texto colado ou arquivo .docx/.xlsx/.csv/.pdf/.pptx/.txt lido no navegador → `lerLista`: títulos
+  "Ferramentas:", "Áudio e vídeo", "Material de apoio:" separam; sem título adivinha por palavras; [x]/☑/coluna "x" = pronto; prévia com
+  o tipo para trocar; repetidos não entram; opção de guardar o arquivo), "📎 Anexar arquivo" (tipo 'material' em `modulo_arquivos`,
+  `turmas/<módulo>/material/`, até 50 MB; vídeo maior = link do Drive/YouTube como item, que ganha botão "Abrir") e "Copiar para outros
+  módulos" da turma (sem o pronto, sem repetir). Editam e marcam: administração e mentor do módulo; outros mentores da turma só leem.
+  Sem o script 40 o cartão avisa (administração: "falta rodar o script 40"; mentor: "avise a Cintia"). Teste local: launch.json
+  "materiais-teste" (porta 8809) do site do Radar, scratchpad da sessão f7f49e9c (`?sem40=1` = sem o script; md1 tem itens).
 - AVALIAÇÃO DAS TURMAS (2026-10-11, script 31; substitui o Google Forms e o QR colado à mão do script 30, cuja tabela `qr_avaliacao`
   ficou sem uso). Proposta aprovada: https://claude.ai/artifact/7bBE6Xw7sfgMtnF5tt6JH4. Decisões dela: TUDO ANÔNIMO (não se grava
   nome, login, IP nem aparelho; nem a Mentorei sabe quem respondeu); o aluno vê no fim a MÉDIA de recomendação 0–10 e o total de

@@ -21,7 +21,7 @@ Peça ajuda ao Claude com esta pasta aberta. O caminho é:
 1. Criar um projeto novo no Supabase (São Paulo) e rodar os scripts `supabase/01-...sql` em ordem (01, 02, 03, 04, ... 18).
 2. Carregar as tabelas a partir de `backups-plataforma-mentorias\<data>\tabelas\*.json`, nesta ordem (por causa das ligações entre elas):
    perfis, convites, empresas, programas, programa_temas, mentorados, mentor_mentorado, sessoes, sessoes_interno, avaliacoes_sessao, testes,
-   ferramentas, arsenal_tags, ferramentas_enviadas, turmas, modulos, modulo_mentores, modulo_arquivos, importacoes_proposta,
+   ferramentas, arsenal_tags, ferramentas_enviadas, turmas, modulos, modulo_mentores, modulo_arquivos, modulo_materiais, importacoes_proposta,
    agenda_bloqueios, agenda_reservas, agenda_reserva_datas, agenda_reserva_mentores, agenda_reunioes, agenda_links, configuracoes, google_eventos, historico, acessos.
    (Cada arquivo é uma lista de registros; pode ser enviado pela API REST do Supabase com a chave secreta, 1000 por vez.)
 3. Enviar os arquivos de `backups-plataforma-mentorias\arquivos\<bucket>\...` para os buckets `fotos`, `arsenal` e `turmas`.

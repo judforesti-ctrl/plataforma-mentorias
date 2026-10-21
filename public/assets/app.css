@@ -588,3 +588,32 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .rv-tabela tr.rv-muda .rv-novo input { border-color: var(--bege-escuro); font-weight: 600; }
 .rv-obs { color: var(--apagado); margin-top: 2px; min-height: 0; }
 .rv-obs.rv-alerta { color: var(--erro); font-weight: 600; }
+
+/* ---------- materiais necessários no módulo da turma (telas/materiais-modulo.js) ---------- */
+.mat-grupo + .mat-grupo { margin-top: 14px; }
+.mat-grupo h4 { margin-bottom: 6px; }
+.mat-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--linha); border-radius: 10px; background: var(--papel); }
+.mat-item + .mat-item { margin-top: 6px; }
+.mat-item > input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--ok); margin: 0; cursor: pointer; }
+.mat-item > input[type=checkbox]:disabled { cursor: default; }
+.mat-item input.mat-texto { border-color: transparent; background: transparent; padding: 6px 8px; font-size: 14px; }
+.mat-item input.mat-texto:hover { border-color: var(--linha); }
+.mat-item span.mat-texto { font-size: 14px; word-break: break-word; }
+.mat-item.pronto { background: var(--ok-claro); border-color: #B9DCC4; }
+.mat-item.pronto .mat-texto { color: var(--apagado); text-decoration: line-through; text-decoration-color: rgba(35, 122, 73, .55); }
+.mat-acoes { grid-column: 2; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; padding: 0 0 2px 8px; }
+.mat-acoes:empty { display: none; }
+.mat-acoes select { width: auto; padding: 5px 8px; font-size: 12.5px; }
+.mat-quem-marcou { margin-right: auto; }
+.mat-novo { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.mat-novo select { width: auto; }
+.mat-previa { display: grid; gap: 6px; max-height: 320px; overflow: auto; padding-right: 4px; }
+.mat-previa-linha { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 10px; align-items: center; font-size: 14px; }
+.mat-previa-linha select { padding: 5px 8px; font-size: 13px; }
+.mat-previa-linha.repetido span { color: var(--apagado); }
+@media (max-width: 640px) {
+  .mat-acoes { justify-content: flex-start; }
+  .mat-novo { grid-template-columns: minmax(0, 1fr) auto; }
+  .mat-novo select { grid-column: 1 / -1; width: 100%; }
+  .mat-previa-linha { grid-template-columns: 1fr; gap: 2px; }
+}
