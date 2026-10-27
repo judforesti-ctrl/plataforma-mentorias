@@ -51,7 +51,7 @@ export async function render(ctx, el) {
       <input type="text" id="busca" placeholder="Buscar pelo nome…" style="flex:1;min-width:200px">
       ${!meus ? `<select id="f-empresa" style="width:auto"><option value="">Todas as empresas</option>${empresas.map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join('')}</select>
       <select id="f-programa" style="width:auto"><option value="">Todos os programas</option>${programas.map(([id, n]) => `<option value="${id}">${esc(n)}</option>`).join('')}</select>` : ''}
-      <select id="f-status" style="width:auto"><option value="ativo">Ativos</option><option value="">Todos</option><option value="concluido">Concluídos</option></select>
+      <select id="f-status" style="width:auto"><option value="ativo">Ativos</option><option value="">Todos</option><option value="concluido">Concluídos</option><option value="suspenso">Suspensos</option></select>
     </div>
     ${meus ? '<div id="pendencias" style="margin-bottom:18px"></div>' : ''}
     <div class="lista" id="lista"></div>`;

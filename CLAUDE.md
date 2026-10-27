@@ -361,6 +361,14 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   escolher, nenhuma = só acesso) + quem já acompanha continua (padrão) ou sai (bloqueado se ficar com sessão em aberto). Concluída
   ou cancelada nunca muda de mentor. Depois: avisarGoogle() e WhatsApp pronto para quem entra (com link de senha se ainda não
   entrou), para o mentorado e para quem atendia antes.
+- SUSPENDER PROGRAMA (2026-10-27, mentorado desligado da empresa; script 45, `telas/suspender.js`): botão vermelho "Suspender
+  programa" no alto da ficha, só administração. Janela com o que vai acontecer, motivo obrigatório e caixa "Confirmo" (o botão só
+  liga com os dois). Tudo de uma vez no banco (rpc `suspender_programa`): cancela as sessões em aberto agendadas/remarcadas de hoje
+  em diante ou sem data (as que já passaram ficam como estão), apaga os vínculos `mentor_mentorado` (mentores livres; a ficha sai da
+  lista deles) e marca `status='suspenso'` com `suspenso_em`, `suspenso_por`, `suspensao_motivo` e `suspensao` (jsonb: situação
+  anterior, mentores, sessões canceladas com a situação de antes), e grava `historico` acao='suspender_programa'. Nada é apagado.
+  Ficha suspensa: faixa vermelha com data, quem e motivo; somem suspender, trocar mentor, sessão extra, remarcar e "Abrir sessão N".
+  Agenda e Google Agenda tratam 'suspenso' como 'desligado'. Lista de mentorados: filtro "Suspensos". Ainda não há "Reativar".
 - EDITAR SESSÃO CONCLUÍDA (2026-10-14, pedido dos mentores: voltam no fim do dia para completar): no mesmo dia a Juliana pediu
   SEM PRAZO (o script 36 dava 7 dias; o 37 substitui). `trava_sessao_concluida` e `protege_tarefa`: o mentor do mentorado completa e
   corrige qualquer sessão concluída (não muda `concluida_em`/`concluida_por`). Sem o script 37 o salvamento do mentor mostra

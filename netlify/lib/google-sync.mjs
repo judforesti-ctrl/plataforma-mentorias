@@ -90,7 +90,7 @@ function desejados(d, cfg) {
     for (const s of d.sessoes) {
       if (!s.data_hora || s.situacao === 'cancelada') continue;
       const m = s.mentorado || {};
-      if (m.status === 'desligado' || m.status === 'concluido') continue;
+      if (['desligado', 'suspenso', 'concluido'].includes(m.status)) continue;
       const prog = m.programa || {};
       const dur = s.duracao_min || prog.duracao_min || 50;
       const ini = Date.parse(s.data_hora);

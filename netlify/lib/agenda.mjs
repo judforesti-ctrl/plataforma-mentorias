@@ -27,7 +27,7 @@ export async function dadosAgenda() {
     supa('/rest/v1/oportunidades?proximo_contato_em=not.is.null&etapa=not.in.(fechado,perdido)&select=id,titulo,etapa,proximo_contato_em,proximo_contato_por,proximo_contato_obs,empresa:empresas(nome)'),   // script 19
   ]);
   for (const x of [s, m, b, r, p]) if (!x.ok) throw new Error(`Falha ao ler a agenda (${x.status}).`);
-  const sessoes = s.dados.filter((x) => !(x.mentorado && x.mentorado.status === 'desligado' && x.situacao === 'agendada'));
+  const sessoes = s.dados.filter((x) => !(x.mentorado && ['desligado', 'suspenso'].includes(x.mentorado.status) && x.situacao === 'agendada'));
   // formato e cidade da turma (script 15); sem ele, segue sem essa informação
   const formatos = new Map(((tf.ok && Array.isArray(tf.dados)) ? tf.dados : []).map((t) => [t.id, t]));
   // quem paga e quem compra as viagens, padrão da turma (script 25); sem ele, segue sem

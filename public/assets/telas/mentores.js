@@ -29,7 +29,7 @@ function convidadosSemCadastro(mods, perfis) {
 }
 const temSobrenome = (nome) => String(nome || '').trim().split(/\s+/).filter((x) => x && !x.startsWith('(')).length >= 2;
 const quando = (iso) => `${diaMes(iso)} às ${horaBR(iso)}`;
-const SITUACAO_MTD = { pausado: 'pausado', concluido: 'concluído', desligado: 'desligado' };
+const SITUACAO_MTD = { pausado: 'pausado', concluido: 'concluído', desligado: 'desligado', suspenso: 'programa suspenso' };
 
 export async function render(ctx, el) {
   let rp, rv, rs, rm, convidadosMods = [];

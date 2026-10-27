@@ -90,8 +90,8 @@ export async function carregarAgenda(ctx) {
   const modulos = modulosBase.map((m) => ({ ...m,
     turma: m.turma ? { ...m.turma, formato: (formatos.get(m.turma.id) || {}).formato || null, local: (formatos.get(m.turma.id) || {}).local || null, viagem_padrao: padroes.get(m.turma.id) || {} } : m.turma,
     mentores: (m.mentores || []).map((v) => ({ com_deslocamento: true, viagem: {}, ...v, ...(extra.get(`${m.id}|${v.mentor_id}`) || {}) })) }));
-  // sessão futura de quem foi desligado do programa não ocupa a agenda
-  const sess = sessoes.filter((s) => !(s.mentorado && s.mentorado.status === 'desligado' && s.situacao === 'agendada'));
+  // sessão futura de quem foi desligado do programa (ou teve o programa suspenso) não ocupa a agenda
+  const sess = sessoes.filter((s) => !(s.mentorado && ['desligado', 'suspenso'].includes(s.mentorado.status) && s.situacao === 'agendada'));
   const eventos = montarEventos({ sessoes: sess, modulos, bloqueios: bloqueiosVis, reservas, reunioes: reunioes || [], contatos, pessoais: pessoaisVis, atividades });
   return { mentores, sessoes: sess, modulos, bloqueios: bloqueiosVis, reservas, reunioes: reunioes || [], temReunioes: reunioes !== null, pessoais: pessoaisVis, atividades,
     eventos, idx: indexar(eventos), faltaScript: falta, temExtras: extras !== null };

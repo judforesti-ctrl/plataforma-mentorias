@@ -7,6 +7,9 @@ import { redes, linkRede, gravarComRedes } from './perfil-comum.js';
 import { juntarTarefas, seloResumo } from '../tarefas.js';
 import { carregarEntregas, htmlEntregas, ligarEntregas } from '../entregas.js';
 
+// programa suspenso (script 45): sessões futuras canceladas, mentores liberados, dados guardados
+const SUSP = (m) => m.suspensao || {};
+
 const SITUACAO = { agendada: ['Agendada', 'neutro'], realizada: ['Feita', ''], falta_avisada: ['Falta avisada', 'alerta'],
   falta_sem_aviso: ['Falta sem aviso', 'erro'], remarcada: ['Remarcada', 'alerta'], cancelada: ['Cancelada', 'neutro'] };
 
@@ -30,7 +33,9 @@ export async function render(ctx, el, [id]) {
   const { existe: temEntregas, lista: entregas } = await carregarEntregas((q) => q.eq('mentorado_id', id));
   const p = m.perfil || {};
   const feitas = sess.filter((s) => s.situacao === 'realizada').length;
-  const proxima = sess.find((s) => !s.concluida_em);
+  const suspenso = m.status === 'suspenso';
+  const proxima = suspenso ? null : sess.find((s) => !s.concluida_em);
+  const mexe = ctx.ehAdmin && !suspenso; // trocar mentor, sessão extra: não valem para programa suspenso
   const whats = (p.whatsapp || m.whatsapp || '').replace(/\D/g, '');
   const redesPerfil = redes(p), redesFicha = redes(m); // o que o mentorado informou vale mais que o da ficha
   const linkedin = redesPerfil.linkedin || redesFicha.linkedin, instagram = redesPerfil.instagram || redesFicha.instagram;
@@ -46,7 +51,8 @@ export async function render(ctx, el, [id]) {
         <p class="apagado">${esc(m.cargo || 'Cargo a preencher')}${m.programa ? ` · ${esc(m.programa.empresa.nome)} · ${esc(m.programa.nome)}` : ''}</p>
         <div class="linha mt" style="gap:6px"><span class="selo">Sessões feitas: ${feitas} de ${sess.length}</span>
           ${mentores.map((x) => `<span class="selo neutro">${esc(x.nome)}</span>`).join('')}
-          ${ctx.ehAdmin ? '<button class="btn peq" data-trocar-mentor="" title="Passar sessões para outro mentor ou incluir alguém para acompanhar junto">Trocar ou incluir mentor</button>' : ''}
+          ${suspenso ? '<span class="selo erro">Programa suspenso</span>' : ''}
+          ${mexe ? '<button class="btn peq" data-trocar-mentor="" title="Passar sessões para outro mentor ou incluir alguém para acompanhar junto">Trocar ou incluir mentor</button>' : ''}
           ${!p.termo_aceito_em ? '<span class="selo alerta">Ainda não fez o primeiro acesso</span>' : ''}</div>
       </div>
       <div class="linha">
@@ -57,9 +63,13 @@ export async function render(ctx, el, [id]) {
         ${instagram ? `<a class="btn peq" href="${esc(linkRede('instagram', instagram))}" target="_blank" rel="noopener">Instagram</a>` : ''}
         <span class="linha" id="meet-area" style="gap:6px"></span>
         ${proxima ? `<a class="btn peq pri" href="#/sessao/${proxima.id}">Abrir sessão ${proxima.numero}</a>` : ''}
+        ${mexe ? '<button class="btn peq perigo" id="suspender" title="Cancela as sessões futuras e libera os mentores; os dados ficam guardados">Suspender programa</button>' : ''}
         <span class="salvo" id="indicador"></span>
       </div>
     </div>
+    ${suspenso ? `<div class="aviso erro mt"><b>Programa de mentoria suspenso</b>${m.suspenso_em ? ` em ${dataHoraBR(m.suspenso_em)}` : ''}${SUSP(m).por_nome ? ` por <b>${esc(SUSP(m).por_nome)}</b>` : ''}.
+      ${m.suspensao_motivo ? `<br>Motivo: ${esc(m.suspensao_motivo)}` : ''}
+      ${SUSP(m).sessoes_canceladas ? `<br><span class="peq">${SUSP(m).sessoes_canceladas.length} ${SUSP(m).sessoes_canceladas.length === 1 ? 'sessão cancelada' : 'sessões canceladas'}${(SUSP(m).mentores || []).length ? ` · mentores liberados: ${SUSP(m).mentores.map((x) => esc(x.nome)).join(', ')}` : ''}. Os dados abaixo continuam guardados.</span>` : ''}</div>` : ''}
 
     <div class="abas mt2" role="tablist">
       <button class="atual" data-aba="geral">Visão geral</button>
@@ -100,20 +110,20 @@ export async function render(ctx, el, [id]) {
       <div class="cartao">
         <div class="linha"><h3>Plano de sessões</h3>
           <span class="linha" style="margin-left:auto;gap:8px">
-          ${sess.filter((s) => !s.concluida_em && s.situacao !== 'cancelada').length > 1 ? '<button class="btn peq pri" id="remarcar-varias" title="Mudar o horário, o dia da semana ou as datas de várias sessões ao mesmo tempo">Remarcar várias de uma vez</button>' : ''}
-          ${ctx.ehAdmin ? '<button class="btn peq" data-trocar-mentor="" title="Passar sessões para outro mentor">Trocar mentor</button><button class="btn peq" id="extra">+ Sessão extra</button>' : ''}</span></div>
+          ${!suspenso && sess.filter((s) => !s.concluida_em && s.situacao !== 'cancelada').length > 1 ? '<button class="btn peq pri" id="remarcar-varias" title="Mudar o horário, o dia da semana ou as datas de várias sessões ao mesmo tempo">Remarcar várias de uma vez</button>' : ''}
+          ${mexe ? '<button class="btn peq" data-trocar-mentor="" title="Passar sessões para outro mentor">Trocar mentor</button><button class="btn peq" id="extra">+ Sessão extra</button>' : ''}</span></div>
         <div class="tabela mt"><table>
           <tr><th>Nº</th><th>Data</th><th>Mentor</th><th>Tema</th><th>Tarefas</th><th>Situação</th><th></th></tr>
           ${sess.map((s) => {
             const [rot, cls] = SITUACAO[s.situacao] || [s.situacao, 'neutro'];
             const tarefa = seloResumo(s.tarefas);
             return `<tr><td>${s.numero}${s.extra ? ' <span class="selo neutro">extra</span>' : ''}</td><td>${dataHoraBR(s.data_hora)}</td>
-              <td>${esc(s.mentor ? s.mentor.nome : '—')}${ctx.ehAdmin && !s.concluida_em && s.situacao !== 'cancelada'
+              <td>${esc(s.mentor ? s.mentor.nome : '—')}${mexe && !s.concluida_em && s.situacao !== 'cancelada'
                 ? ` <button class="btn peq" data-trocar-mentor="${s.id}" title="Trocar quem atende esta sessão" aria-label="Trocar quem atende a sessão ${s.numero}">✎</button>` : ''}</td>
               <td>${esc(s.tema || '—')}</td><td>${tarefa}</td>
               <td><span class="selo ${cls}">${rot}</span>${s.concluida_em ? ' <span class="selo neutro">🔒</span>' : ''}</td>
               <td><div class="linha" style="gap:6px;flex-wrap:nowrap"><a class="btn peq${s === proxima ? ' pri' : ''}" href="#/sessao/${s.id}">${s.concluida_em ? 'Ver' : 'Abrir'}</a>
-                ${s.concluida_em ? '' : `<button class="btn peq" data-remarcar="${s.id}">Remarcar</button>`}</div></td></tr>`;
+                ${s.concluida_em || suspenso ? '' : `<button class="btn peq" data-remarcar="${s.id}">Remarcar</button>`}</div></td></tr>`;
           }).join('') || '<tr><td colspan="7" class="apagado">Nenhuma sessão criada ainda.</td></tr>'}
         </table></div>
       </div>
@@ -228,6 +238,11 @@ export async function render(ctx, el, [id]) {
     if (ev.target.id === 'remarcar-varias') {   // várias sessões de uma vez (pedido da Cintia)
       const { abrirRemarcarVarias } = await import('./remarcar-varias.js');
       abrirRemarcarVarias(ctx, m.id, () => ctx.irPara(`#/mentorado/${m.id}`));
+      return;
+    }
+    if (ev.target.id === 'suspender') {   // mentorado desligado da empresa: suspende o programa (com confirmação)
+      const { abrirSuspender } = await import('./suspender.js');
+      abrirSuspender(ctx, m, { sessoes: sess, mentores, aoSalvar: () => ctx.irPara(`#/mentorado/${m.id}`) });
       return;
     }
     const tm = ev.target.closest('[data-trocar-mentor]');   // outro mentor atende (no meio do processo)
