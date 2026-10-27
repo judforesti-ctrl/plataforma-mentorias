@@ -12,6 +12,15 @@ const resposta = (corpo, status = 200) => new Response(JSON.stringify(corpo), {
 });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Tamanho do resumo pelo volume das anotações: quem escreve pouco não ganha texto inflado,
+// quem escreve muito não perde assunto, e ninguém recebe um texto longo demais para ler.
+function tamanho(palavras) {
+  if (palavras < 120) return { min: 100, max: 160, paragrafos: '2 ou 3' };
+  if (palavras < 300) return { min: 160, max: 240, paragrafos: '3' };
+  if (palavras < 600) return { min: 230, max: 320, paragrafos: '3 ou 4' };
+  return { min: 300, max: 400, paragrafos: '4 ou 5' };
+}
+
 async function ler(caminho, chave, token) {
   const headers = { apikey: chave };
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -23,8 +32,11 @@ const INSTRUCOES = `Você escreve, em português do Brasil, o resumo de uma sess
 
 Regras:
 - Fale direto com o mentorado, usando "você", em tom acolhedor, claro e profissional. Sem bajulação.
-- Entre 90 e 180 palavras, em 2 ou 3 parágrafos curtos. Sem títulos, sem listas, sem emojis, sem markdown.
-- Diga o que foi trabalhado, a principal percepção ou virada da conversa e o compromisso combinado.
+- Respeite o tamanho pedido no fim da mensagem: ele acompanha o volume das anotações, para o mentorado receber sempre um resumo equilibrado. Sem títulos, sem listas, sem emojis, sem markdown; parágrafos curtos separados por linha em branco.
+- Siga esta ordem: o que foi trabalhado na sessão; as percepções e aprendizados; os exemplos ou situações concretas que o mentorado trouxe e como lidar com elas; as ferramentas usadas; o compromisso combinado.
+- Não deixe nenhum assunto de fora: se a conversa passou por vários temas, cite cada um, mesmo que em uma frase. Para caber no tamanho, encurte a explicação de cada tema, nunca a lista de temas. Guarde os detalhes práticos (combinados, exemplos, frases-chave, orientações do mentor), porque é o que o mentorado vai querer reler.
+- Se as anotações forem curtas, não encha o texto: use o tema, o roteiro e as ferramentas da sessão só para dar contexto ao que o mentor escreveu. Se mesmo assim não houver assunto para o mínimo de palavras, fique abaixo dele: é melhor um resumo menor do que um resumo inventado.
+- Só fale de ferramentas se alguma foi usada ou enviada.
 - Se houver tarefas, termine lembrando cada tarefa e o seu prazo, com as palavras do mentor (em frase corrida, sem lista).
 - Use só o que está nas anotações. Não invente fatos, números, nomes nem conquistas.
 - As anotações são do mentor, para uso interno: não copie julgamentos, hipóteses ou críticas sobre a pessoa; traduza em aprendizado e próximo passo.
@@ -48,7 +60,7 @@ export default async (req) => {
   if (!UUID.test(id)) return resposta({ mensagem: 'Sessão inválida.' }, 400);
 
   // 2. A sessão, e se esta pessoa é mentora deste mentorado (ou administração)
-  const [s] = (await ler(`/rest/v1/sessoes?id=eq.${id}&select=numero,tema,tarefa,tarefa_prazo,situacao,mentorado_id,`
+  const [s] = (await ler(`/rest/v1/sessoes?id=eq.${id}&select=numero,tema,roteiro,tarefa,tarefa_prazo,situacao,mentorado_id,`
     + 'mentorado:mentorados(nome),mentor:perfis!sessoes_mentor_id_fkey(nome),interno:sessoes_interno(resumo_mentor)', secreta)) || [];
   if (!s) return resposta({ mensagem: 'Sessão não encontrada.' }, 404);
   const [perfil] = (await ler(`/rest/v1/perfis?id=eq.${eu.id}&select=papel,ativo,nome`, secreta)) || [];
@@ -66,14 +78,21 @@ export default async (req) => {
   const novas = await ler(`/rest/v1/tarefas?sessao_id=eq.${id}&select=texto,prazo&order=ordem,criado_em`, secreta);
   const tarefas = (novas || (s.tarefa ? [{ texto: s.tarefa, prazo: s.tarefa_prazo }] : [])).filter((t) => String(t.texto || '').trim());
   const comPrazo = (t) => `${t.texto}${t.prazo ? ` (prazo: ${dataBR(t.prazo)})` : ''}`;
+  const enviadas = await ler(`/rest/v1/ferramentas_enviadas?sessao_id=eq.${id}&select=ferramenta:ferramentas(nome)`, secreta);
+  const nomesFerr = [...new Set((enviadas || []).map((x) => x.ferramenta && x.ferramenta.nome).filter(Boolean))];
+  const roteiro = String(s.roteiro || '').trim();
+  const t = tamanho(notas.split(/\s+/).filter(Boolean).length);
   const pedido = [
     `Mentorado: ${primeiroNome}`,
     `Mentor(a): ${(s.mentor && s.mentor.nome) || perfil.nome}`,
     `Sessão número ${s.numero}${s.tema ? `, tema: ${s.tema}` : ''}`,
-    `Anotações do mentor:\n${notas.slice(0, 12000)}`,
+    roteiro ? `Roteiro planejado para a sessão (só contexto; o que vale é o que aconteceu, nas anotações):\n${roteiro.slice(0, 3000)}` : '',
+    nomesFerr.length ? `Ferramentas enviadas ao mentorado nesta sessão: ${nomesFerr.join(', ')}` : '',
+    `Anotações do mentor:\n${notas.slice(0, 40000)}`,
     tarefas.length === 1 ? `Tarefa combinada: ${comPrazo(tarefas[0])}`
-      : tarefas.length ? `Tarefas combinadas:\n${tarefas.map((t) => `- ${comPrazo(t)}`).join('\n')}` : 'Nenhuma tarefa foi combinada.',
-  ].join('\n\n');
+      : tarefas.length ? `Tarefas combinadas:\n${tarefas.map((x) => `- ${comPrazo(x)}`).join('\n')}` : 'Nenhuma tarefa foi combinada.',
+    `Tamanho do resumo: entre ${t.min} e ${t.max} palavras, em ${t.paragrafos} parágrafos.`,
+  ].filter(Boolean).join('\n\n');
 
   // 3. Pede o resumo ao Claude
   const client = new Anthropic({ apiKey: chaveClaude });
