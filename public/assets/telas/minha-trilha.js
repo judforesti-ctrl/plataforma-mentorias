@@ -24,7 +24,7 @@ async function trilhaDaEquipe(turmaId) {
   if (error) throw error;
   if (!t) return null;
   const ids = (t.modulos || []).map((m) => m.id);
-  const { data: gs } = ids.length ? await sb.from('gravacoes').select('id, modulo_id, nome, link, gravada_em, duracao_min').in('modulo_id', ids).eq('ignorada', false) : { data: [] };
+  const { data: gs } = ids.length ? await sb.from('gravacoes').select('*').in('modulo_id', ids).eq('ignorada', false) : { data: [] };
   return {
     id: t.id, nome: t.nome, empresa: t.empresa && t.empresa.nome, marca: (t.empresa && t.empresa.marca) || {}, inicio: t.inicio, fim: t.fim_previsto, status: t.status,
     modulos: (t.modulos || []).map((m) => ({
@@ -86,7 +86,10 @@ export async function render(ctx, el, [turmaId]) {
   const gravacaoHtml = (m) => {
     const gs = m.gravacoes || [];
     if (gs.length) {
-      return `<div class="tr-grupo"><span class="peq"><b>Gravação</b></span><div class="linha" style="gap:6px">${gs.map((g, i) => `<a class="btn peq pri" href="${esc(g.link)}" target="_blank" rel="noopener">▶ ${gs.length > 1 ? `Assistir · parte ${i + 1}` : 'Assistir à gravação'}${g.duracao_min ? ` <span class="peq">(${g.duracao_min} min)</span>` : ''}</a>`).join('')}</div></div>`;
+      // a senha do Zoom já vai dentro do link; por garantia ela aparece ao lado, com "Copiar"
+      return `<div class="tr-grupo"><span class="peq"><b>Gravação</b></span><div class="linha" style="gap:6px">${gs.map((g, i) => `<a class="btn peq pri" href="${esc(g.link)}" target="_blank" rel="noopener">▶ ${gs.length > 1 ? `Assistir · parte ${i + 1}` : 'Assistir à gravação'}${g.duracao_min ? ` <span class="peq">(${g.duracao_min} min)</span>` : ''}</a>
+        ${g.senha ? `<span class="tr-senha peq">Senha: <b>${esc(g.senha)}</b> <button class="btn peq" type="button" data-copiar="${esc(g.senha)}" aria-label="Copiar a senha da gravação">Copiar</button></span>` : ''}`).join('')}</div>
+        ${gs.some((g) => g.senha) ? '<p class="peq apagado">Se o Zoom pedir a senha, cole a que está aqui ao lado.</p>' : ''}</div>`;
     }
     if (m.data_hora && fimDa(m) <= agora && m.formato !== 'presencial') return '<p class="peq apagado">A gravação desta aula ainda não está disponível. Ela aparece aqui assim que ficar pronta.</p>';
     return '';
@@ -150,6 +153,12 @@ export async function render(ctx, el, [turmaId]) {
 
   const arquivos = mods.flatMap((m) => m.arquivos || []);
   el.addEventListener('click', async (ev) => {
+    const cp = ev.target.closest('[data-copiar]');
+    if (cp) {
+      try { await navigator.clipboard.writeText(cp.dataset.copiar); avisar('Senha copiada. Cole no Zoom, se ele pedir.'); }
+      catch (_) { window.prompt('Copie a senha:', cp.dataset.copiar); }
+      return;
+    }
     const b = ev.target.closest('[data-baixar]');
     if (b) {
       const a = arquivos.find((x) => x.id === b.dataset.baixar);

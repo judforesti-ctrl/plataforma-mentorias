@@ -2,6 +2,7 @@
 // e colar o link de uma gravação à mão. Pasta, leitura e ligar/ignorar: só a administração. Colar link: administração ou mentor do módulo.
 import { json, quemPede, supa, acessoGoogle, contaGoogle } from '../lib/google.mjs';
 import { idDaPasta, nomeDaPasta, liberarNoDrive, lerConfigGravacoes, gravarConfigGravacoes, temPermissaoGravacoes, pedirLeitura } from '../lib/gravacoes.mjs';
+import { lerContasZoom, contasParaTela, ligarContaZoom, tirarContaZoom } from '../lib/zoom.mjs';
 
 export const config = { path: '/api/gravacoes', method: 'POST' };
 
@@ -28,11 +29,16 @@ export default async (req) => {
     const quando = Date.parse(String(b.gravada_em || ''));
     const linha = { modulo_id: b.modulo_id, nome: String(b.nome || '').trim().slice(0, 160) || 'Gravação da aula', link, ligada: 'manual', criado_por: eu.id,
       ...(Number.isFinite(quando) ? { gravada_em: new Date(quando).toISOString() } : {}),
+      ...(String(b.senha || '').trim() ? { senha: String(b.senha).trim().slice(0, 60), origem: 'manual' } : {}),
       ...(driveId ? { drive_id: driveId, link: `https://drive.google.com/file/d/${driveId}/view` } : {}) };
     // mesmo vídeo do Drive que a leitura da pasta já tinha achado: só muda o módulo
-    const r = driveId
-      ? await supa('/rest/v1/gravacoes?on_conflict=drive_id', { metodo: 'POST', prefer: 'resolution=merge-duplicates,return=representation', corpo: { ...linha, ignorada: false } })
-      : await supa('/rest/v1/gravacoes', { metodo: 'POST', prefer: 'return=representation', corpo: linha });
+    const gravar = (corpo) => (driveId
+      ? supa('/rest/v1/gravacoes?on_conflict=drive_id', { metodo: 'POST', prefer: 'resolution=merge-duplicates,return=representation', corpo: { ...corpo, ignorada: false } })
+      : supa('/rest/v1/gravacoes', { metodo: 'POST', prefer: 'return=representation', corpo }));
+    let r = await gravar(linha);
+    // antes do script 46 não há a coluna da senha: guarda sem ela e avisa
+    let semSenha = false;
+    if (!r.ok && linha.senha && /senha|origem/.test(JSON.stringify(r.dados || ''))) { const { senha, origem, ...resto } = linha; r = await gravar(resto); semSenha = r.ok; }
     if (!r.ok) return json({ mensagem: /gravacoes/.test(JSON.stringify(r.dados || '')) ? 'Falta rodar o script 44 no Supabase.' : 'Não consegui guardar a gravação.' }, 502);
     let aviso = null;
     if (driveId) {
@@ -43,14 +49,26 @@ export default async (req) => {
         aviso = l.ok ? null : l.aviso;
       } else aviso = 'Confira no Drive se o vídeo está com "qualquer pessoa com o link pode ver": a plataforma ainda não tem permissão para liberar sozinha.';
     }
-    return json({ mensagem: 'Gravação colocada no módulo. Os alunos já veem.', aviso });
+    return json({ mensagem: 'Gravação colocada no módulo. Os alunos já veem.', aviso: aviso || (semSenha ? 'A gravação entrou, mas sem a senha: falta rodar o script 46 no Supabase.' : null) });
   }
 
   if (!adm) return json({ mensagem: 'Só a administração mexe nas gravações.' }, 403);
 
   if (b.acao === 'status') {
     const conta = await contaGoogle();
-    return json({ config: await lerConfigGravacoes(), conectado: !!(conta && conta.refresh_token), email: conta && conta.email, permissao: temPermissaoGravacoes(conta) });
+    return json({ config: await lerConfigGravacoes(), conectado: !!(conta && conta.refresh_token), email: conta && conta.email, permissao: temPermissaoGravacoes(conta),
+      zoom: contasParaTela(await lerContasZoom()) });
+  }
+
+  // contas do Zoom (as chaves ficam só no servidor)
+  if (b.acao === 'zoom_ligar') {
+    const r = await ligarContaZoom({ ...b, por: eu.nome });
+    if (r.ok) await pedirLeitura();
+    return json({ mensagem: r.mensagem }, r.ok ? 200 : 400);
+  }
+  if (b.acao === 'zoom_tirar') {
+    await tirarContaZoom(String(b.id || ''));
+    return json({ mensagem: 'Conta do Zoom desligada da plataforma. As gravações que já entraram continuam nos módulos.' });
   }
 
   if (b.acao === 'pasta') {

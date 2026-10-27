@@ -645,3 +645,4 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .mc-previa-corpo { padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
 .mc-previa .tr-num { width: 32px; height: 32px; font-size: 14px; }
 @media (max-width: 640px) { .tr-logo { max-width: 130px; } .tr-logo img { max-width: 110px; max-height: 40px; } }
+.tr-senha { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 10px; border: 1px dashed var(--linha); border-radius: 999px; }

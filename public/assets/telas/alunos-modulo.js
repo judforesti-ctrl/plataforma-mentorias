@@ -36,11 +36,12 @@ export function cartaoParaAlunos(ctx, m, pode) {
     <div id="pa-gravacoes"><p class="peq apagado mt">Carregando…</p></div>
     ${pode ? `<button class="btn peq pri mt" type="button" id="pa-abrir">+ Colocar gravação à mão</button>
       <div class="mt" id="pa-form" hidden style="background:var(--bg);border-radius:12px;padding:12px">
-        <p class="peq">Cole o link do vídeo: Google Drive, YouTube, Vimeo ou o link de compartilhamento do Zoom. Se o vídeo estiver no Google Drive,
+        <p class="peq">Cole o link do vídeo: o link de compartilhamento do Zoom (e a senha, se tiver), Google Drive, YouTube ou Vimeo. Se o vídeo estiver no Google Drive,
           a plataforma libera o link para os alunos sozinha. Vídeo que está só no seu computador: suba primeiro para o Google Drive
           (na pasta das gravações ele também é achado sozinho) e cole o link aqui.</p>
         <div class="grade g2 mt" style="gap:10px">
           <div class="campo" style="grid-column:1/-1"><label for="pa-link">Link da gravação</label><input type="url" id="pa-link" placeholder="https://drive.google.com/file/d/…"></div>
+          <div class="campo"><label for="pa-senha">Senha da gravação (se tiver)</label><input type="text" id="pa-senha" autocomplete="off" placeholder="A senha que o Zoom mostra"></div>
           <div class="campo"><label for="pa-nome">Nome que os alunos veem (opcional)</label><input type="text" id="pa-nome" placeholder="Ex.: Gravação · parte 2"></div>
           <div class="linha" style="align-items:flex-end"><button class="btn peq pri" type="button" id="pa-colar">Colocar a gravação</button><button class="btn peq" type="button" id="pa-fechar">Desistir</button></div>
         </div></div>` : ''}
@@ -71,7 +72,8 @@ export async function ligarParaAlunos(ctx, el, m, pode) {
   // gravações
   const desenharGravacoes = async () => {
     const caixa = box.querySelector('#pa-gravacoes');
-    const { data, error } = await sb.from('gravacoes').select('id, nome, link, gravada_em, duracao_min, ligada, compartilhada, aviso, drive_id, criado_por').eq('modulo_id', m.id).eq('ignorada', false).order('gravada_em', { ascending: true, nullsFirst: false });
+    // "select *": funciona antes e depois do script 46 (zoom_id e senha)
+    const { data, error } = await sb.from('gravacoes').select('*').eq('modulo_id', m.id).eq('ignorada', false).order('gravada_em', { ascending: true, nullsFirst: false });
     if (error) {
       caixa.innerHTML = faltaScript(error) ? `<div class="aviso mt peq">${ctx.ehAdmin ? 'Para as gravações, falta rodar o script <b>44-alunos-das-turmas.sql</b> no Supabase.' : 'As gravações ainda não foram liberadas na plataforma.'}</div>` : `<p class="peq">${esc(explicarErro(error))}</p>`;
       return;
@@ -79,12 +81,13 @@ export async function ligarParaAlunos(ctx, el, m, pode) {
     const gs = data || [];
     caixa.innerHTML = gs.length ? `<div class="lista mt">${gs.map((g, i) => `<div class="item" style="grid-template-columns:1fr auto">
         <div style="min-width:0"><div class="nome" style="word-break:break-word">${gs.length > 1 && !/parte/i.test(g.nome) ? `Parte ${i + 1} · ` : ''}${esc(g.nome)}</div>
-          <div class="info">${[g.gravada_em && dataHoraBR(g.gravada_em), g.duracao_min && `${g.duracao_min} min`, g.ligada === 'auto' ? 'achada na pasta do Zoom' : 'colocada à mão',
+          <div class="info">${[g.gravada_em && dataHoraBR(g.gravada_em), g.duracao_min && `${g.duracao_min} min`, g.ligada === 'auto' ? (g.zoom_id ? 'achada no Zoom' : 'achada na pasta do Drive') : 'colocada à mão',
+            g.senha && `senha <b>${esc(g.senha)}</b>`,
             g.drive_id && (g.compartilhada ? '<span style="color:var(--verde-esc)">link liberado para os alunos ✓</span>' : g.aviso ? `<span style="color:var(--erro)">${esc(g.aviso)}</span>` : 'liberando o link…')].filter(Boolean).join(' · ')}</div></div>
         <div class="linha" style="gap:6px"><a class="btn peq pri" href="${esc(g.link)}" target="_blank" rel="noopener">Assistir</a>
-          ${!g.drive_id && (ctx.ehAdmin || g.criado_por === ctx.perfil.id) ? `<button class="btn peq" type="button" data-pa-apagar="${g.id}" aria-label="Apagar ${esc(g.nome)}">Apagar</button>`
+          ${!g.drive_id && !g.zoom_id && (ctx.ehAdmin || g.criado_por === ctx.perfil.id) ? `<button class="btn peq" type="button" data-pa-apagar="${g.id}" aria-label="Apagar ${esc(g.nome)}">Apagar</button>`
             : ctx.ehAdmin ? `<button class="btn peq" type="button" data-pa-tirar="${g.id}" title="Não é deste módulo">Tirar daqui</button>` : ''}</div></div>`).join('')}</div>`
-      : `<p class="apagado mt peq">Ainda sem gravação. ${m.formato === 'presencial' ? 'Aula presencial: se tiver gravação, coloque o link à mão.' : 'Depois da aula, a plataforma procura o vídeo na pasta do Zoom no Google Drive de hora em hora e coloca aqui. Se preferir, coloque à mão.'}</p>`;
+      : `<p class="apagado mt peq">Ainda sem gravação. ${m.formato === 'presencial' ? 'Aula presencial: se tiver gravação, coloque o link à mão.' : 'Depois da aula, a plataforma procura a gravação no Zoom de hora em hora e coloca aqui, com a senha. Se preferir, coloque à mão.'}</p>`;
   };
   desenharGravacoes();
 
@@ -113,9 +116,9 @@ export async function ligarParaAlunos(ctx, el, m, pode) {
       if (!/^(https?:\/\/)?[\w-]+(\.[\w-]+)+\S*$/i.test(link)) { avisar('Isso não parece um link. Copie o endereço do vídeo e cole aqui.', true); return; }
       ev.target.disabled = true;
       try {
-        const j = await api({ acao: 'colar', modulo_id: m.id, link, nome: box.querySelector('#pa-nome').value.trim(), gravada_em: m.data_hora || null });
+        const j = await api({ acao: 'colar', modulo_id: m.id, link, nome: box.querySelector('#pa-nome').value.trim(), senha: box.querySelector('#pa-senha').value.trim(), gravada_em: m.data_hora || null });
         avisar(j.aviso || j.mensagem, !!j.aviso);
-        box.querySelector('#pa-link').value = ''; box.querySelector('#pa-nome').value = '';
+        box.querySelector('#pa-link').value = ''; box.querySelector('#pa-nome').value = ''; box.querySelector('#pa-senha').value = '';
         form.hidden = true; box.querySelector('#pa-abrir').hidden = false;
         desenharGravacoes();
       } catch (e) { avisar(explicarErro(e), true); }

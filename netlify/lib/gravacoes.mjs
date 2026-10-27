@@ -5,6 +5,7 @@
 // Precisa do escopo "drive" completo na conta conectada (o drive.file das cópias de segurança só enxerga o que a plataforma criou).
 import { createHmac } from 'node:crypto';
 import { supa, acessoGoogle, contaGoogle, env, SITE } from './google.mjs';
+import { lerZoom } from './zoom.mjs';
 
 // chave dos pedidos para a leitura em segundo plano (só a própria plataforma chama)
 export const chaveGravacoes = () => createHmac('sha256', env('SUPABASE_SECRET_KEY')).update('gravacoes-fundo').digest('hex');
@@ -55,8 +56,9 @@ const diaBR = (ms) => new Date(ms - FUSO_MS).toISOString().slice(0, 10);
 
 // Escolhe o módulo de uma gravação. modulos: [{ id, data_hora, duracao_min, formato, titulo, turma, empresa }].
 // Devolve { modulo_id } quando tem certeza, ou { candidatos: [ids] } para a administração escolher.
+// gravacao.inicio (hora exata, ex.: o start_time do Zoom) vale mais que a data tirada do nome.
 export function escolherModulo(gravacao, modulos) {
-  const q = quandoFoiGravada(gravacao.nomes, gravacao.criadoEm);
+  const q = gravacao.inicio && Number.isFinite(Date.parse(gravacao.inicio)) ? { ms: Date.parse(gravacao.inicio), certeza: 'hora' } : quandoFoiGravada(gravacao.nomes, gravacao.criadoEm);
   if (!q) return { candidatos: [] };
   const online = modulos.filter((m) => m.data_hora && m.formato !== 'presencial');
   let cands;
@@ -144,10 +146,23 @@ export async function gravarConfigGravacoes(mudancas) {
     corpo: { chave: 'gravacoes', valor: { ...atual, ...mudancas }, atualizado_em: new Date().toISOString() } });
 }
 
-// ---------- leitura completa: acha vídeos novos, liga ao módulo e libera o link ----------
+const lerModulos = async () => {
+  const mods = await supa('/rest/v1/modulos?data_hora=not.is.null&select=id,titulo,data_hora,duracao_min,formato,turma:turmas(nome,empresa:empresas(nome))');
+  return (mods.dados || []).map((m) => ({ ...m, turma: m.turma && m.turma.nome, empresa: m.turma && m.turma.empresa && m.turma.empresa.nome }));
+};
+
+// ---------- leitura completa: contas do Zoom (script 46) e pasta do Drive (se houver) ----------
 export async function lerGravacoes({ limiteMs = 20000 } = {}) {
+  const modulos = await lerModulos();
+  const zoom = await lerZoom({ modulos, limiteMs });
   const cfg = await lerConfigGravacoes();
-  if (!cfg.pasta_id) return { desligado: true, mensagem: 'Nenhuma pasta escolhida.' };
+  const drive = cfg.pasta_id ? await lerDrive({ cfg, modulos, limiteMs }) : { desligado: true };
+  await gravarConfigGravacoes({ ultima_leitura: new Date().toISOString(), ...(drive.desligado ? {} : { resultado: drive }), zoom_resultado: zoom });
+  return { zoom, drive };
+}
+
+// acha vídeos novos na pasta do Drive, liga ao módulo e libera o link
+async function lerDrive({ cfg, modulos, limiteMs }) {
   const conta = await contaGoogle();
   if (!temPermissaoGravacoes(conta)) return { erro: 'permissao', mensagem: 'A conta do Google precisa ser conectada de novo para a plataforma ler a pasta das gravações.' };
   const g = await acessoGoogle();
@@ -160,8 +175,6 @@ export async function lerGravacoes({ limiteMs = 20000 } = {}) {
   const ja = await supa('/rest/v1/gravacoes?drive_id=not.is.null&select=id,drive_id,modulo_id,ignorada,compartilhada');
   if (!ja.ok) return { erro: 'script', mensagem: 'Falta rodar o script 44-alunos-das-turmas.sql no Supabase.' };
   const conhecidas = new Map((ja.dados || []).map((x) => [x.drive_id, x]));
-  const mods = await supa('/rest/v1/modulos?data_hora=not.is.null&select=id,titulo,data_hora,duracao_min,formato,turma:turmas(nome,empresa:empresas(nome))');
-  const modulos = (mods.dados || []).map((m) => ({ ...m, turma: m.turma && m.turma.nome, empresa: m.turma && m.turma.empresa && m.turma.empresa.nome }));
 
   const res = { lidos: videos.length, novas: 0, ligadas: 0, sem_modulo: 0, liberadas: 0, avisos: [] };
   for (const v of videos) {
@@ -185,6 +198,5 @@ export async function lerGravacoes({ limiteMs = 20000 } = {}) {
     await supa(`/rest/v1/gravacoes?id=eq.${x.id}`, { metodo: 'PATCH', prefer: 'return=minimal', corpo: l.ok ? { compartilhada: true, aviso: null } : { aviso: l.aviso } });
     if (l.ok) res.liberadas += 1; else if (!res.avisos.includes(l.aviso)) res.avisos.push(l.aviso);
   }
-  await gravarConfigGravacoes({ ultima_leitura: new Date().toISOString(), resultado: res });
   return res;
 }

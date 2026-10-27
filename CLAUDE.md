@@ -347,6 +347,18 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   no módulo, botão "+ Colocar gravação à mão" (link do Drive, YouTube, Vimeo ou Zoom; `/api/gravacoes` acao colar, `gravada_em` = data
   do módulo; link do Drive é liberado sozinho); a colocada à mão tem "Apagar" (administração ou quem colocou). Vídeo só no computador:
   subir para o Drive (arquivo de vídeo não vai para o Supabase, limite de 50 MB). Se o Workspace bloquear compartilhar fora do domínio, o aviso aparece com o passo a passo do admin.
+  GRAVAÇÕES DO ZOOM (script 46, 27/10; ela descobriu que as aulas ficam na NUVEM DO ZOOM, com link e senha; são 2 contas pagas e ela é
+  administradora): `netlify/lib/zoom.mjs`. Cada conta = app "Server-to-Server OAuth" no marketplace.zoom.us (escopos: View all user
+  recordings `cloud_recording:read:list_user_recordings:admin` e View all user information `user:read:list_users:admin`); Account ID,
+  Client ID e Client Secret colados no cartão "Gravações das aulas" (Turmas) → `/api/gravacoes` acao `zoom_ligar` testa e guarda em
+  `integracoes` chave 'zoom' ({contas: [...]}; nunca volta à tela; `zoom_tirar` desliga). `lerGravacoes()` lê Zoom e depois Drive
+  (opcional, agora num <details>). Por conta: usuários (sem permissão = 'me') → `/users/{id}/recordings` em janelas de 30 dias (1ª
+  leitura desde 25/07, depois 45 dias para trás); só reunião com MP4; `escolherModulo({ inicio: start_time, nomes: [topic] })`; SEM
+  aula de turma no horário (ex.: mentoria individual) NÃO é guardada; ambígua vai para "Gravações sem aula". Guarda `zoom_id` (uuid,
+  único), `senha` (password), `link` = share_url + `?pwd=` recording_play_passcode (documentado pelo Zoom). Aluno vê "Assistir" + senha
+  com "Copiar" (`minhas_trilhas` do 46 devolve `senha`). Colar à mão aceita senha. Telas leem `gravacoes` com `select('*')` (funciona
+  antes e depois do 46). Ajustes no Zoom para o aluno assistir: desligar "exigir autenticação para ver gravações na nuvem"; conferir
+  se apaga gravações depois de N dias. Testes com Zoom e banco de mentira: scratchpad 81051e2a testes/zoom.mjs.
   Teste local: launch.json "alunos-teste" (porta 8820) do site do Radar, scratchpad da sessão 81051e2a (teste/, `?quem=u-aluno`, `?sem44`).
 - AVALIAÇÃO DAS TURMAS (2026-10-11, script 31; substitui o Google Forms e o QR colado à mão do script 30, cuja tabela `qr_avaliacao`
   ficou sem uso). Proposta aprovada: https://claude.ai/artifact/7bBE6Xw7sfgMtnF5tt6JH4. Decisões dela: TUDO ANÔNIMO (não se grava
@@ -523,7 +535,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
-- ALUNOS/GRAVAÇÕES (2026-10-27): ela rodar o script 44; reconectar o Google (contato@) para o escopo `drive`; colar a pasta das
+- ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
   gravações em Turmas; conferir se o Workspace deixa "qualquer pessoa com o link"; revisão jurídica do TERMO_ALUNO. Nada testado com
   login real nem com a pasta real (sem acesso daqui).
 - CONTRATO DE PRESTAÇÃO DE SERVIÇO DO MENTOR (pedido da Juliana em 2026-10-07, ela ainda vai mandar o texto): o mentor precisa
