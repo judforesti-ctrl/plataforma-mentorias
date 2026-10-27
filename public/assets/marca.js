@@ -47,7 +47,9 @@ export function tema(marca) {
     principal, destaque, textoBotao, claro, textoClaro,
     estilo: [`--petroleo:${principal}`, `--petroleo-3:${misturar(principal, '#FFFFFF', 0.12)}`, `--bege:${destaque}`,
       `--bege-escuro:${ajustar(misturar(destaque, '#000000', 0.18), '#FFFFFF', 3, '#000000')}`, `--bege-claro:${claro}`, `--bege-texto:${textoClaro}`,
-      `--lima:${destaque}`, `--verde:${destaque}`, `--verde-claro:${claro}`, `--verde-esc:${textoClaro}`, `--tr-btn-texto:${textoBotao}`].join(';'),
+      `--lima:${destaque}`, `--verde:${destaque}`, `--verde-claro:${claro}`, `--verde-esc:${textoClaro}`, `--tr-btn-texto:${textoBotao}`,
+      // selos e linhas também na cor do cliente (bem clarinhas, o texto continua escuro)
+      `--ocre-claro:${claro}`, `--linha:${misturar(destaque, '#E4E4E4', 0.78)}`].join(';'),
   };
 }
 
