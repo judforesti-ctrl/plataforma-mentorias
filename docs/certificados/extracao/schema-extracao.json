@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Campos do certificado extraídos de uma proposta ou trilha da Mentorei",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["tipo", "curso", "cliente", "inicio", "fim", "periodo_texto", "carga_horas", "cidade", "modulos", "observacoes"],
+  "properties": {
+    "tipo": {
+      "type": ["string", "null"],
+      "enum": ["programa", "curso", "mentoria", "trilha", "workshop", "formação", "imersão", "palestra", null],
+      "description": "Formato do que foi entregue, como a proposta chama. Na dúvida entre programa e trilha, use programa."
+    },
+    "curso": { "type": ["string", "null"], "description": "Nome do programa exatamente como aparece no título da proposta." },
+    "cliente": { "type": ["string", "null"], "description": "Nome da empresa ou cooperativa contratante, como escrito na proposta." },
+    "inicio": { "type": ["string", "null"], "description": "Data de início no formato AAAA-MM-DD, só se estiver escrita." },
+    "fim": { "type": ["string", "null"], "description": "Data de término no formato AAAA-MM-DD, só se estiver escrita." },
+    "periodo_texto": { "type": ["string", "null"], "description": "Período como texto, se a proposta só disser algo como 'março a junho de 2027'." },
+    "carga_horas": { "type": ["number", "null"], "description": "Carga horária total do programa, em horas." },
+    "cidade": { "type": ["string", "null"], "description": "Cidade de realização, se for presencial e estiver escrita." },
+    "modulos": {
+      "type": "array",
+      "description": "Módulos, pilares ou encontros, na ordem da proposta.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["titulo", "descricao", "horas"],
+        "properties": {
+          "titulo": { "type": "string", "description": "Título do módulo, sem o número e sem a palavra Módulo." },
+          "descricao": { "type": "string", "description": "Subtítulo curto do módulo, se houver; senão, texto vazio." },
+          "horas": { "type": ["number", "null"], "description": "Horas do módulo, se a proposta disser." }
+        }
+      }
+    },
+    "observacoes": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Dúvidas e avisos para a pessoa revisar (ex.: 'A soma das horas dos módulos dá 20 h, mas a capa diz 24 h')."
+    }
+  }
+}

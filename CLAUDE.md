@@ -460,6 +460,25 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Teste local: launch.json "cintia-teste" (porta 8808) do site do Radar, scratchpad da sessão 368789c4 (Cintia com bloqueio e
   agenda pessoal no base-falso.js; `?quem=u-ju` para ver como a Juliana).
 
+- CERTIFICADOS (2026-10-27, script 47, `telas/certificados.js`, Gestão → "Emitir certificados", só administração = Cintia e sócias;
+  `#/certificados[/nova|/<pasta>[/emitir|/emitidos|/editar]]`). Pacote dela em `docs/certificados/` (ESPECIFICACAO.md, protótipos,
+  referência Python, exemplos; FORA do site: a Netlify só publica `public/`). REGRA: o desenho não muda; `public/certificados/modelo/`
+  é CÓPIA IDÊNTICA de `docs/certificados/template` (conferir com sha1 se mexer) e só recebe dados por `CertificadoMentorei.render(dados)`
+  ou postMessage (prévia em iframe 1123×794 escalado, `montarPrevia`). Regras e textos (datas por extenso, período, horas, maiúsculas,
+  retrato, QR SVG #0E3B44 margem 1, CSV com BOM e ";", nomes dos arquivos) em `public/assets/certificados-regras.js` (telas e servidor).
+  Tabelas: `cert_pastas` (uma por cliente e programa; logo do cliente na pasta pública fotos/logos, o mesmo das propostas/área do aluno),
+  `cert_assinaturas` (lista reaproveitável; lado mentorei/cliente; exclusão só marcada), `cert_certificados` (código único
+  MTR-AA-XXXX-XXXX sorteado no banco por `cert_novo_codigo()` com gen_random_uuid, nunca sequencial; `dados_snapshot` = retrato que a
+  verificação lê; `sem_assinatura`; `pdf_caminho`), `cert_lotes`; rpc `cert_emitir(pasta, nomes[], retrato, sem_assinatura)`;
+  pasta privada `certificados` (assinaturas, PDFs, propostas). Sem CPF. Decisões dela (27/10): QR = https://certificados.mentorei.com.br/CODIGO;
+  escolhe quem assina pela Mentorei E pelo cliente (2ª assinatura); pode gerar SEM assinatura (aviso "sem assinatura") e depois gerar de
+  novo a versão final com os mesmos códigos; PDFs prontos guardados 45 dias (depois gera de novo igual, a qualquer momento, um aluno ou todos).
+  Etapas: (1) banco, pastas e prévia [feita: turma cadastrada ou do zero]; (2) assinaturas; (3) nomes, PDFs (Chromium na Netlify) e ZIP
+  montado no navegador (limite de 50 MB por arquivo do Supabase grátis); (4) verificação pública (domínio alias + rewrite); (5) IA lendo a
+  proposta (`docs/certificados/extracao`). O QR da plataforma (qrcode-generator) escolhe outra máscara que o `referencia/qr.py`: desenho
+  diferente, mesmo conteúdo (conferido com jsQR). Teste local: launch.json "certificados-teste" (porta 8811), scratchpad da sessão
+  76384cb3 (teste/ com cert_pastas no base-falso.js; `?sem47`).
+
 ## Regras do negócio
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.
 - Informações delicadas: campo trancado da sessão, só mentores do mentorado e administração; nunca em relatório, Excel ou IA.
@@ -537,6 +556,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- CERTIFICADOS (2026-10-27): ela rodar o script 47; etapas 2 a 5 do módulo ainda por fazer.
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
   gravações em Turmas; conferir se o Workspace deixa "qualquer pessoa com o link"; revisão jurídica do TERMO_ALUNO. Nada testado com
   login real nem com a pasta real (sem acesso daqui).

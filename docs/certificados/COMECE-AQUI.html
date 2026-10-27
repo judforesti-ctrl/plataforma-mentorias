@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comece aqui · Emissor de certificados Mentorei</title>
+<style>
+@font-face{font-family:'Titulo';font-weight:700;src:local('Manrope ExtraBold'),url('template/assets/fonts/Poppins-Bold.woff') format('woff');}
+@font-face{font-family:'Texto';font-weight:400;src:url('template/assets/fonts/Inter-Regular.woff') format('woff');}
+@font-face{font-family:'Texto';font-weight:500;src:url('template/assets/fonts/Inter-Medium.woff') format('woff');}
+@font-face{font-family:'Texto';font-weight:600;src:url('template/assets/fonts/Inter-SemiBold.woff') format('woff');}
+:root{--p:#0E3B44;--p2:#0a2e35;--b:#F2EADF;--f:#F5F2ED;--l:#E3DDD2;--l2:#EFEAE2;--t2:#5B6E71;--t3:#8A9A9C;--ok:#2F6B4F;--okb:#E6F0EA}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--f);color:var(--p);font:400 15.5px/1.6 'Texto',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+header{background:var(--p);color:var(--b)}
+header .in{max-width:920px;margin:0 auto;padding:38px 20px 34px}
+header img{height:20px;display:block;margin-bottom:26px}
+header h1{font:700 clamp(28px,5vw,40px)/1.08 'Titulo';letter-spacing:-.02em;color:#fff}
+header p{margin-top:12px;max-width:640px;color:#cfdcde}
+main{max-width:920px;margin:0 auto;padding:28px 20px 80px}
+.nota{display:flex;gap:12px;align-items:flex-start;background:#fff;border:1px solid var(--l);border-left:4px solid var(--p);border-radius:12px;padding:14px 16px;margin-bottom:30px;font-size:14.5px}
+.nota b{font-weight:600}
+section{margin-top:40px}
+h2{font:700 23px/1.2 'Titulo';letter-spacing:-.01em;display:flex;align-items:center;gap:12px;margin-bottom:14px}
+h2 .n{width:32px;height:32px;border-radius:50%;background:var(--p);color:var(--b);display:grid;place-items:center;font:600 15px 'Texto';flex:none}
+.cartoes{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+a.cartao{display:block;background:#fff;border:1px solid var(--l);border-radius:14px;padding:16px;text-decoration:none;color:var(--p);transition:border-color .15s,transform .15s}
+a.cartao:hover{border-color:var(--p);transform:translateY(-2px)}
+a.cartao b{display:block;font-weight:600;margin-bottom:4px}
+a.cartao span{font-size:13.5px;color:var(--t2)}
+a.cartao img{width:100%;aspect-ratio:297/210;object-fit:cover;object-position:top;border-radius:8px;display:block;margin-bottom:12px;box-shadow:0 2px 8px rgba(14,59,68,.15)}
+ol.passos{list-style:none;counter-reset:p}
+ol.passos li{counter-increment:p;position:relative;padding:14px 16px 14px 58px;background:#fff;border:1px solid var(--l);border-radius:12px;margin-bottom:10px}
+ol.passos li::before{content:counter(p);position:absolute;left:16px;top:13px;width:28px;height:28px;border-radius:50%;background:var(--b);color:var(--p);font:600 14px/28px 'Texto';text-align:center}
+ol.passos li small{display:block;color:var(--t2);font-size:13.5px;margin-top:3px}
+kbd{font:600 12.5px 'Texto';background:var(--l2);border:1px solid var(--l);border-bottom-width:2px;border-radius:6px;padding:1px 6px}
+.caixa-prompt{background:#fff;border:1px solid var(--l);border-radius:14px;overflow:hidden}
+.caixa-prompt .barra{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--l2);flex-wrap:wrap}
+.caixa-prompt .barra span{font-size:13.5px;color:var(--t2)}
+button.copiar{font:600 15px 'Texto';background:var(--p);color:var(--b);border:0;border-radius:10px;padding:12px 18px;cursor:pointer}
+button.copiar:hover{background:var(--p2)}
+button.copiar.ok{background:var(--ok)}
+pre{white-space:pre-wrap;font:400 13.5px/1.55 'Texto';padding:16px;max-height:340px;overflow:auto;color:#2b4a50}
+textarea.oculto{position:fixed;left:-9999px;top:0}
+ul.lista{list-style:none}
+ul.lista li{background:#fff;border:1px solid var(--l);border-radius:12px;padding:12px 16px;margin-bottom:8px}
+ul.lista li b{font-weight:600}
+.dns{background:#fff;border:1px solid var(--l);border-radius:12px;padding:14px 16px}
+.dns table{border-collapse:collapse;margin:10px 0 4px}
+.dns td{padding:6px 14px 6px 0;font-size:14.5px}
+.dns td:first-child{font-weight:600;white-space:nowrap}
+code{font:600 13.5px ui-monospace,Consolas,monospace;background:var(--l2);border-radius:5px;padding:1px 6px}
+.pq{color:var(--t2);font-size:14px;margin-top:6px}
+footer{text-align:center;color:var(--t3);font-size:12.5px;padding:0 20px 40px}
+</style></head><body>
+<header><div class="in">
+  <img src="template/assets/logo-branco.png" alt="MENTOREI">
+  <h1>Emissor de certificados</h1>
+  <p>Tudo o que o Claude Code precisa para criar, na plataforma, a área Gestão &gt; Emitir certificados e a página de verificação do QR code.</p>
+</div></header>
+<main>
+
+<div class="nota"><div><b>Você só precisa desta página.</b> Os arquivos terminados em <b>.md</b>, <b>.py</b> e <b>.json</b> são para o Claude Code ler,
+não para abrir. Se algum link desta página não abrir, é porque você está vendo de dentro do ZIP: clique com o botão direito no ZIP,
+escolha <b>Extrair tudo</b> e abra esta página de novo na pasta extraída.</div></div>
+
+<section>
+<h2><span class="n">1</span>Veja como vai ficar</h2>
+<div class="cartoes">
+  <a class="cartao" href="telas/emitir-certificados.html"><img src="telas/img/tela-cintia.jpg" alt=""><b>Tela da Cintia</b><span>Protótipo para clicar: criar pasta, enviar assinatura, colar nomes e gerar.</span></a>
+  <a class="cartao" href="telas/verificacao.html"><img src="telas/img/pagina-verificacao.jpg" alt=""><b>Página do QR code</b><span>O que aparece para quem escaneia o certificado.</span></a>
+  <a class="cartao" href="exemplos/saida-exemplo-clara/001 Ana Paula Souza.pdf"><img src="telas/img/padrao-clara.jpg" alt=""><b>Certificado de exemplo · claro</b><span>PDF gerado de verdade, frente e verso, com QR code que funciona.</span></a>
+  <a class="cartao" href="exemplos/saida-exemplo-escura/002 Maria Eduarda Albuquerque de Vasconcelos Figueiredo.pdf"><img src="telas/img/padrao-escura.jpg" alt=""><b>Certificado de exemplo · escuro</b><span>Com nome longo e assinatura de exemplo.</span></a>
+  <a class="cartao" href="ESPECIFICACAO.html"><b>Especificação completa</b><span>O que o Claude Code vai construir, em detalhes. Leitura opcional.</span></a>
+</div>
+<p class="pq">No protótipo, a leitura da proposta usa dados de exemplo e os PDFs não são gerados de verdade. Isso é o que o Claude Code vai construir.</p>
+</section>
+
+<section>
+<h2><span class="n">2</span>Leve para o Claude Code</h2>
+<ol class="passos">
+  <li><b>Copie a pasta inteira</b> <code>pacote-certificados-mentorei</code> para dentro da pasta do projeto da plataforma.
+    <small>É a mesma pasta que você abre quando usa o Claude Code na plataforma.</small></li>
+  <li><b>Abra o Claude Code</b> nessa pasta do projeto.</li>
+  <li><b>Clique no botão "Copiar o texto"</b> logo abaixo.</li>
+  <li>No Claude Code, <b>cole</b> com <kbd>Ctrl</kbd> + <kbd>V</kbd> e aperte <kbd>Enter</kbd>.</li>
+  <li>Ele vai ler tudo e responder com um <b>plano</b> e algumas <b>perguntas</b>. Leia com calma e responda usando a lista do passo 3 desta página.</li>
+  <li>Ele constrói <b>em etapas</b>. No fim de cada etapa, teste o que ele mostrar antes de mandar seguir.
+    <small>Para testar, use a lista <code>exemplos/nomes-exemplo.csv</code> e a assinatura <code>exemplos/assinatura-exemplo.jpg</code>.</small></li>
+</ol>
+
+<div class="caixa-prompt">
+  <div class="barra"><span>Texto para colar no Claude Code</span><button class="copiar" id="copiar">Copiar o texto</button></div>
+  <pre id="prompt">Quero criar na plataforma da Mentorei o módulo de certificados. Tudo o que você precisa está na pasta &quot;pacote-certificados-mentorei&quot;. Primeiro mova essa pasta para &quot;docs/certificados&quot; dentro do projeto (crie a pasta &quot;docs&quot; se não existir) e não publique essa pasta junto com o site. Depois leia inteiro o arquivo &quot;docs/certificados/ESPECIFICACAO.md&quot; e abra os protótipos &quot;telas/emitir-certificados.html&quot; e &quot;telas/verificacao.html&quot; para entender o fluxo.
+
+O que é para fazer:
+1. No menu Gestão, o item &quot;Emitir certificados&quot;, só para quem tem perfil de gestão.
+2. Criar a pasta de cada cliente e programa: escolher o padrão claro ou escuro, importar a proposta ou a trilha (a IA lê o arquivo e preenche os campos), editar qualquer informação com a prévia ao vivo e salvar.
+3. Assinaturas: enviar a foto da assinatura uma vez (a plataforma tira o fundo e ajusta a cor), guardar numa lista e reaproveitar em qualquer pasta.
+4. Dentro da pasta: importar a lista de nomes (Excel, CSV ou colar), gerar todos os certificados em PDF com QR code e baixar um ZIP. Aba de emitidos com ver, baixar, corrigir nome e cancelar.
+5. A página pública de verificação em https://certificados.mentorei.com.br/CODIGO
+
+Regras importantes:
+* Não altere o desenho do certificado. Use &quot;docs/certificados/template&quot; como está e só passe os dados pela função CertificadoMentorei.render(dados) (seção 8 da especificação).
+* Use &quot;docs/certificados/referencia/gerar_lote.py&quot; e &quot;referencia/assinatura.py&quot; como referência do que já foi testado. Pode reescrever na linguagem da plataforma, mas o resultado precisa ser igual aos PDFs de &quot;docs/certificados/exemplos&quot;.
+* Códigos aleatórios com gerador criptográfico, nunca sequenciais. Nada de CPF.
+* Textos da interface em português do Brasil, sem travessão e sem hífen como pontuação.
+
+Antes de escrever código:
+* Explore o projeto e me diga, em português simples, como a plataforma é feita (linguagem, banco de dados, onde fica o menu Gestão, onde está hospedada) e como você pretende encaixar o módulo. Liste os arquivos que vai criar ou mudar.
+* Me diga como vai rodar o Chromium para gerar os PDFs na hospedagem atual e se precisa de algum serviço novo.
+* Me pergunte o que eu preciso decidir (endereço do QR code, quem assina, quem pode emitir, chave da API do Claude para ler as propostas, por quanto tempo guardar os ZIPs).
+* Proponha fazer em etapas, com uma entrega que eu consiga testar ao fim de cada uma: (1) banco de dados, pastas e prévia; (2) assinaturas; (3) importar nomes, gerar PDFs e ZIP; (4) verificação pública; (5) leitura da proposta pela IA.
+
+Ao terminar cada etapa, rode os testes dos &quot;Critérios de aceite&quot; (seção 13 da especificação) que se aplicam e me mostre o resultado. Explique tudo como para quem não é programador.</pre>
+</div>
+<p class="pq">O mesmo texto está no arquivo <b>PROMPT-PARA-O-CLAUDE-CODE.txt</b>, que abre no Bloco de Notas.</p>
+</section>
+
+<section>
+<h2><span class="n">3</span>Decisões para ter em mãos</h2>
+<ul class="lista">
+  <li><b>Endereço do QR code.</b> Recomendado: <code>certificados.mentorei.com.br</code>. Ele fica impresso para sempre nos certificados: decida antes do primeiro certificado de verdade.</li>
+  <li><b>Quem assina pela Mentorei:</b> nome e cargo de cada pessoa e uma <b>foto da assinatura</b> (caneta escura, papel branco sem linhas; foto de celular serve). A plataforma tira o fundo sozinha.</li>
+  <li><b>Assinatura do cliente:</b> quando o cliente também assina, peça a foto da assinatura, o cargo da pessoa e a autorização dela para usar nos certificados.</li>
+  <li><b>Quem pode emitir:</b> só a Cintia e as sócias, ou mais alguém?</li>
+  <li><b>Leitura automática da proposta:</b> usa a IA do Claude pela internet. Precisa de uma <b>chave da API</b>, cobrada por uso. O Claude Code explica onde criar e onde colocar.</li>
+  <li><b>Por quanto tempo guardar o ZIP</b> de cada turma. Sugestão: 30 dias (depois dá para gerar de novo).</li>
+</ul>
+</section>
+
+<section>
+<h2><span class="n">4</span>Quando ele pedir para criar o endereço na Hostinger</h2>
+<div class="dns">
+  <p>O Claude Code vai dizer o <b>valor</b> para colocar. Com ele em mãos:</p>
+  <ol class="passos" style="margin-top:12px">
+    <li>Entre em <b>hpanel.hostinger.com</b> com o login da Mentorei.</li>
+    <li>Clique em <b>Domínios</b> e depois em <b>mentorei.com.br</b>.</li>
+    <li>No menu da esquerda, clique em <b>DNS / Nameservers</b>.</li>
+    <li>Em <b>Gerenciar registros DNS</b>, preencha:
+      <table>
+        <tr><td>Tipo</td><td>o que o Claude Code disser (normalmente <b>CNAME</b>)</td></tr>
+        <tr><td>Nome</td><td><code>certificados</code></td></tr>
+        <tr><td>Aponta para</td><td>o valor que o Claude Code passou</td></tr>
+        <tr><td>TTL</td><td>deixe como está</td></tr>
+      </table></li>
+    <li>Clique em <b>Adicionar registro</b>.</li>
+    <li>Espere de alguns minutos a algumas horas e avise o Claude Code para ele testar.</li>
+  </ol>
+  <p class="pq">É o mesmo caminho que vocês já usaram para criar cooperativas.mentorei.com.br.</p>
+</div>
+</section>
+
+<section>
+<h2><span class="n">5</span>Bom saber</h2>
+<ul class="lista">
+  <li>A <b>marca d'água</b> e o selo deixam o certificado bonito e difícil de copiar à mão. Quem garante que ele é verdadeiro é a <b>verificação pelo QR code</b>.</li>
+  <li>A <b>assinatura em imagem</b> é o visual de assinado. Não é assinatura digital com validade jurídica.</li>
+  <li>Cada certificado em PDF tem cerca de <b>1,2 MB</b>. Uma turma de 30 pessoas dá um ZIP de uns 40 MB.</li>
+  <li>A página de verificação mostra o <b>nome</b> da pessoa e os dados do curso, e nada mais. Sem CPF.</li>
+  <li>Quer abrir um arquivo .md mesmo assim? Clique com o botão direito nele, escolha <b>Abrir com</b> e depois <b>Bloco de Notas</b>.</li>
+</ul>
+</section>
+</main>
+<footer>Mentorei · Liderar pode ser inspirador</footer>
+<textarea class="oculto" id="ta" aria-hidden="true"></textarea>
+<script>
+(function(){
+  var b = document.getElementById('copiar'), texto = document.getElementById('prompt').textContent;
+  function feito(){ b.textContent = 'Copiado! Agora cole no Claude Code'; b.classList.add('ok'); setTimeout(function(){ b.textContent = 'Copiar o texto'; b.classList.remove('ok'); }, 4000); }
+  function reserva(){ var ta = document.getElementById('ta'); ta.value = texto; ta.select(); try { document.execCommand('copy'); feito(); } catch (e) { alert('Selecione o texto da caixa e copie com Ctrl + C.'); } }
+  b.addEventListener('click', function(){
+    if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(texto).then(feito, reserva); else reserva();
+  });
+})();
+</script>
+</body></html>

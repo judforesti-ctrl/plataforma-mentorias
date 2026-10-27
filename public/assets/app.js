@@ -67,6 +67,7 @@ const GRUPOS = [
     { nome: 'Convites', icone: 'mail', rota: '#/convites', pode: ehAdmin },
     { nome: 'Checklist', icone: 'list-checks', rota: '#/checklist', pode: ehAdmin || atende },
     { nome: 'Avaliações', icone: 'star', rota: '#/avaliacoes', pode: ehAdmin },
+    { nome: 'Emitir certificados', icone: 'award', rota: '#/certificados', pode: ehAdmin },
     { nome: 'Importar planilha', icone: 'file-up', rota: '#/importar', pode: ehAdmin },
     { nome: 'Meu perfil', icone: 'circle-user', rota: '#/perfil', pode: !mentorado && !aluno },
   ] },
@@ -111,6 +112,7 @@ const ROTAS = {
   'relatorio-turmas': () => import('./telas/relatorio-turmas.js'),
   avaliacoes: () => import('./telas/avaliacoes.js'),
   convites: () => import('./telas/convites.js'),
+  certificados: () => import('./telas/certificados.js'),
   trilha: () => import('./telas/minha-trilha.js'),
 };
 

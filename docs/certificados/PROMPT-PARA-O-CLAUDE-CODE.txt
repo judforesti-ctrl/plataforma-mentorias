@@ -1,0 +1,22 @@
+﻿Quero criar na plataforma da Mentorei o módulo de certificados. Tudo o que você precisa está na pasta "pacote-certificados-mentorei". Primeiro mova essa pasta para "docs/certificados" dentro do projeto (crie a pasta "docs" se não existir) e não publique essa pasta junto com o site. Depois leia inteiro o arquivo "docs/certificados/ESPECIFICACAO.md" e abra os protótipos "telas/emitir-certificados.html" e "telas/verificacao.html" para entender o fluxo.
+
+O que é para fazer:
+1. No menu Gestão, o item "Emitir certificados", só para quem tem perfil de gestão.
+2. Criar a pasta de cada cliente e programa: escolher o padrão claro ou escuro, importar a proposta ou a trilha (a IA lê o arquivo e preenche os campos), editar qualquer informação com a prévia ao vivo e salvar.
+3. Assinaturas: enviar a foto da assinatura uma vez (a plataforma tira o fundo e ajusta a cor), guardar numa lista e reaproveitar em qualquer pasta.
+4. Dentro da pasta: importar a lista de nomes (Excel, CSV ou colar), gerar todos os certificados em PDF com QR code e baixar um ZIP. Aba de emitidos com ver, baixar, corrigir nome e cancelar.
+5. A página pública de verificação em https://certificados.mentorei.com.br/CODIGO
+
+Regras importantes:
+* Não altere o desenho do certificado. Use "docs/certificados/template" como está e só passe os dados pela função CertificadoMentorei.render(dados) (seção 8 da especificação).
+* Use "docs/certificados/referencia/gerar_lote.py" e "referencia/assinatura.py" como referência do que já foi testado. Pode reescrever na linguagem da plataforma, mas o resultado precisa ser igual aos PDFs de "docs/certificados/exemplos".
+* Códigos aleatórios com gerador criptográfico, nunca sequenciais. Nada de CPF.
+* Textos da interface em português do Brasil, sem travessão e sem hífen como pontuação.
+
+Antes de escrever código:
+* Explore o projeto e me diga, em português simples, como a plataforma é feita (linguagem, banco de dados, onde fica o menu Gestão, onde está hospedada) e como você pretende encaixar o módulo. Liste os arquivos que vai criar ou mudar.
+* Me diga como vai rodar o Chromium para gerar os PDFs na hospedagem atual e se precisa de algum serviço novo.
+* Me pergunte o que eu preciso decidir (endereço do QR code, quem assina, quem pode emitir, chave da API do Claude para ler as propostas, por quanto tempo guardar os ZIPs).
+* Proponha fazer em etapas, com uma entrega que eu consiga testar ao fim de cada uma: (1) banco de dados, pastas e prévia; (2) assinaturas; (3) importar nomes, gerar PDFs e ZIP; (4) verificação pública; (5) leitura da proposta pela IA.
+
+Ao terminar cada etapa, rode os testes dos "Critérios de aceite" (seção 13 da especificação) que se aplicam e me mostre o resultado. Explique tudo como para quem não é programador.

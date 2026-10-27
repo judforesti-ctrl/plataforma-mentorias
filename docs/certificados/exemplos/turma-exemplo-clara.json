@@ -1,0 +1,46 @@
+{
+  "variacao": "clara",
+  "tipo": "mentoria",
+  "curso": "Mentoria Liderança que Inspira",
+  "cliente": "Cooperativa Exemplo",
+  "cliente_logo": "",
+  "periodo": "25 de agosto a 14 de outubro de 2026",
+  "carga": "23 horas",
+  "cidade": "Florianópolis",
+  "data_emissao": "20 de outubro de 2026",
+  "resp1_nome": "[NOME DO RESPONSÁVEL]",
+  "resp1_cargo": "[CARGO] · Mentorei",
+  "resp1_assinatura": "",
+  "resp2_nome": "[NOME DO SEGUNDO RESPONSÁVEL]",
+  "resp2_cargo": "[CARGO OU INSTITUIÇÃO]",
+  "resp2_assinatura": "",
+  "mostrar_resp2": true,
+  "modulos": [
+    {
+      "titulo": "Protagonismo e Autorresponsabilidade",
+      "descricao": "",
+      "horas": "3h"
+    },
+    {
+      "titulo": "Análise de Resultado",
+      "descricao": "",
+      "horas": "3h"
+    },
+    {
+      "titulo": "Comunicação Não Violenta",
+      "descricao": "",
+      "horas": "3h"
+    },
+    {
+      "titulo": "Feedback e Construção de PDI",
+      "descricao": "",
+      "horas": "3h"
+    },
+    {
+      "titulo": "Team Building",
+      "descricao": "",
+      "horas": "11h"
+    }
+  ],
+  "resp1_assinatura_arquivo": "assinatura-exemplo.jpg"
+}

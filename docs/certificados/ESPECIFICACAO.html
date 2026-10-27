@@ -1,0 +1,702 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Especificação do emissor de certificados · Mentorei</title>
+<style>
+@font-face{font-family:'Titulo';font-weight:700;src:url('template/assets/fonts/Poppins-Bold.woff') format('woff');}
+@font-face{font-family:'Texto';font-weight:400;src:url('template/assets/fonts/Inter-Regular.woff') format('woff');}
+@font-face{font-family:'Texto';font-weight:600;src:url('template/assets/fonts/Inter-SemiBold.woff') format('woff');}
+:root{--p:#0E3B44;--b:#F2EADF;--l:#E3DDD2;--t2:#5B6E71}
+*{box-sizing:border-box}
+body{margin:0;background:#F5F2ED;color:var(--p);font:400 15px/1.6 'Texto',system-ui,sans-serif}
+main{max-width:900px;margin:0 auto;padding:40px 20px 80px}
+.voltar{display:inline-block;margin-bottom:18px;color:var(--t2);text-decoration:none;font-size:14px}
+.voltar:hover{text-decoration:underline}
+.aviso{background:#E8EEEF;border-radius:12px;padding:14px 18px;margin-bottom:28px;font-size:14px}
+h1{font:700 32px/1.15 'Titulo';letter-spacing:-.02em;margin:0 0 16px}
+h2{font:700 22px/1.2 'Titulo';letter-spacing:-.01em;margin:44px 0 12px;padding-top:18px;border-top:1px solid var(--l)}
+h3{font:600 16px/1.3 'Texto';margin:28px 0 8px}
+p,li{max-width:78ch}
+a{color:var(--p)}
+code{background:#fff;border:1px solid var(--l);border-radius:5px;padding:1px 5px;font-size:.88em;font-family:ui-monospace,Consolas,monospace}
+pre{background:#fff;border:1px solid var(--l);border-radius:10px;padding:14px;overflow:auto}
+pre code{border:0;padding:0}
+table{border-collapse:collapse;width:100%;background:#fff;border-radius:10px;overflow:hidden;font-size:14px;margin:12px 0;display:block;overflow-x:auto}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid #EFEAE2;vertical-align:top}
+th{background:#FBF8F3;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--t2)}
+blockquote{margin:16px 0;padding:12px 18px;background:var(--b);border-radius:10px}
+blockquote p{margin:0}
+li.tarefa{list-style:none;position:relative}
+li.tarefa::before{content:'';position:absolute;left:-22px;top:5px;width:13px;height:13px;border:1.5px solid var(--t2);border-radius:3px}
+hr{border:0;border-top:1px solid var(--l);margin:28px 0}
+@media (max-width:640px){main{padding:24px 16px 60px} h1{font-size:26px}}
+</style></head><body><main>
+<a class="voltar" href="COMECE-AQUI.html">‹ Voltar para o começo</a>
+<div class="aviso">Esta é a versão para leitura da especificação. O Claude Code lê o mesmo conteúdo no arquivo <b>ESPECIFICACAO.md</b>. Não precisa abrir o .md.</div>
+<h1>Especificação: Emissor de certificados da Mentorei</h1>
+<p>Documento para o Claude Code implementar o módulo <strong>Gestão &gt; Emitir certificados</strong> na plataforma
+(plataforma.mentorei.com.br) e a <strong>página pública de verificação</strong> (certificados.mentorei.com.br).</p>
+<p>Tudo o que é visual já está pronto e testado neste pacote. O trabalho é integrar à plataforma:
+telas, banco de dados, geração dos PDFs no servidor, leitura da proposta e verificação pública.</p>
+<blockquote>
+<p><strong>Regra principal:</strong> o desenho do certificado não muda. O código só preenche dados no modelo
+<code>template/certificado.html</code>. Não redesenhar, não trocar fontes, cores, posições nem textos fixos.</p>
+</blockquote>
+<hr />
+<h2>1. Como usar este pacote</h2>
+<table>
+<thead>
+<tr>
+<th>Pasta ou arquivo</th>
+<th>Para que serve</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>template/</code></td>
+<td><strong>Modelo do certificado</strong> (frente e verso, claro e escuro) com fontes, logos e selo. Contrato na seção 8.</td>
+</tr>
+<tr>
+<td><code>telas/emitir-certificados.html</code></td>
+<td>Protótipo navegável da tela da Gestão. É a referência de fluxo, textos e comportamento.</td>
+</tr>
+<tr>
+<td><code>telas/verificacao.html</code></td>
+<td>Página pública de verificação (visual final; trocar só a busca de dados).</td>
+</tr>
+<tr>
+<td><code>telas/qr.js</code></td>
+<td>Gerador de QR mínimo usado nos protótipos. Na plataforma, usar biblioteca (seção 7).</td>
+</tr>
+<tr>
+<td><code>referencia/gerar_lote.py</code></td>
+<td><strong>Gerador de referência testado</strong>: dados da turma + lista de nomes → PDFs, ZIP, planilha e registro.</td>
+</tr>
+<tr>
+<td><code>referencia/qr.py</code></td>
+<td>QR usado pelo gerador de referência (validado lendo o QR de volta).</td>
+</tr>
+<tr>
+<td><code>extracao/</code></td>
+<td>Prompt e esquema JSON para a IA ler a proposta ou a trilha e preencher os campos.</td>
+</tr>
+<tr>
+<td><code>referencia/assinatura.py</code></td>
+<td>Tira o fundo da foto da assinatura e gera as versões clara e escura (testado).</td>
+</tr>
+<tr>
+<td><code>exemplos/</code></td>
+<td>Turma de exemplo, lista de nomes, assinatura fictícia e PDFs gerados nas duas variações (resultado esperado).</td>
+</tr>
+</tbody>
+</table>
+<p>Para rodar a referência (precisa de Python e Playwright com Chromium):</p>
+<pre><code class="language-bash">cd referencia
+python gerar_lote.py --turma ../exemplos/turma-exemplo.json --nomes ../exemplos/nomes-exemplo.csv \
+  --saida /tmp/teste --base-url https://certificados.mentorei.com.br
+</code></pre>
+<hr />
+<h2>2. Quem usa e onde fica</h2>
+<ul>
+<li>Fica no menu <strong>Gestão</strong>, item <strong>Emitir certificados</strong>.</li>
+<li>Quem acessa: usuários com perfil de gestão/administração (hoje, a Cintia e as sócias). Mentores e alunos não veem.</li>
+<li>A página de verificação é <strong>pública</strong> (sem login).</li>
+</ul>
+<hr />
+<h2>3. Fluxo das telas (ver o protótipo)</h2>
+<h3>3.1 Lista de pastas</h3>
+<ul>
+<li>Título "Emitir certificados", botão <strong>Nova pasta</strong>, busca por cliente ou programa.</li>
+<li>Tabela: nome da pasta (com cliente e tipo embaixo), padrão (claro ou escuro), quantos certificados válidos, data de criação.</li>
+<li>Clique na linha abre a pasta.</li>
+</ul>
+<h3>3.2 Nova pasta (assistente em 3 passos)</h3>
+<ol>
+<li><strong>Padrão:</strong> escolher <strong>Claro</strong> (fundo bege) ou <strong>Escuro</strong> (fundo azul-petróleo), com miniaturas.</li>
+<li><strong>Importar proposta ou trilha</strong>, três caminhos:
+   * <strong>Enviar arquivo</strong> (PPTX, PDF ou DOCX). O servidor extrai o texto e a IA devolve os campos (seção 9).
+   * <strong>Usar uma trilha cadastrada</strong> na plataforma: puxar nome, módulos e horas direto do banco.
+   * <strong>Preencher do zero.</strong></li>
+<li><strong>Revisar e criar:</strong> formulário à esquerda e <strong>prévia ao vivo</strong> à direita (frente e verso), com campo "Testar com um nome".
+   Campos: nome da pasta (sugerido "Cliente · Programa · Ano", editável), padrão, tipo, nome do programa, cliente,
+   logo do cliente (opcional), início, fim, texto do período (gerado das datas, editável), carga horária total,
+   cidade, data de emissão, módulos (título, descrição opcional, horas; adicionar, remover, reordenar),
+   assinatura 1 (nome, cargo, imagem: ver 3.4), assinatura 2 opcional.
+   * Aviso quando a soma das horas dos módulos for diferente da carga total (avisa, não bloqueia).
+   * Obrigatórios: nome do programa, carga horária, período, cidade, data de emissão, título de cada módulo.
+   * Ao criar, abre a pasta já na aba de emissão.</li>
+</ol>
+<h3>3.3 Pasta</h3>
+<p>Cabeçalho com nome, etiquetas (padrão, tipo, carga, nº de módulos, cliente) e botão <strong>Editar informações</strong>.
+Duas abas:</p>
+<p><strong>Emitir certificados</strong>
+* Importar nomes: planilha <strong>Excel (.xlsx)</strong> ou <strong>CSV</strong> com coluna "Nome" (ou "Nome completo"; sem cabeçalho,
+  usa a primeira coluna), arquivo de texto com um nome por linha, ou colar.
+* Limpeza automática: espaços duplicados, espaço inicial e final, espaço não separável.
+* Botão <strong>Ajustar maiúsculas</strong> (ANA PAULA DE SOUZA → Ana Paula de Souza; de, da, do, das, dos, e ficam minúsculos).
+* Avisos por linha: <strong>Repetido</strong>, <strong>Já tem certificado nesta pasta</strong>, <strong>Nome muito longo</strong> (&gt; 70 caracteres).
+  Avisos não bloqueiam.
+* Nome editável na própria lista; remover linha; limpar lista.
+* <strong>Ver o primeiro antes</strong> (prévia com o primeiro nome).
+* <strong>Gerar N certificados</strong>: roda em segundo plano com barra de progresso. Ao terminar:
+  <strong>Baixar todos (ZIP)</strong> e <strong>Baixar só a planilha de códigos</strong>.</p>
+<p><strong>Emitidos</strong>
+* Tabela: participante, código, emitido em, situação (Válido ou Cancelado), ações:
+  <strong>Ver</strong> (prévia frente e verso com o QR real), <strong>copiar link de verificação</strong>, <strong>baixar PDF</strong>,
+  <strong>Corrigir o nome</strong> (mantém o mesmo código e QR e gera o PDF de novo), <strong>Cancelar</strong> ou <strong>Reativar</strong>.
+* Busca por nome ou código. Botões <strong>Baixar planilha de códigos</strong> e <strong>Baixar todos (ZIP)</strong>.</p>
+<h3>3.4 Assinaturas (enviar uma vez, usar sempre)</h3>
+<p>Ninguém assina certificado por certificado: a assinatura entra como <strong>imagem</strong> e é aplicada em todos.
+* Em cada responsável (1 e 2) da pasta: <strong>Usar uma assinatura salva</strong> (lista) ou <strong>Enviar assinatura</strong>.
+* <strong>Enviar assinatura</strong> abre uma janela: escolher foto de celular ou escaneamento (JPG, PNG, WEBP; HEIC convertido no servidor),
+  nome de quem assina, cargo, <strong>Salvar na lista de assinaturas</strong> (marcado) e o aceite obrigatório
+  <strong>"Tenho autorização desta pessoa para usar a assinatura dela nos certificados"</strong>.
+* O servidor <strong>tira o fundo e ajusta a cor</strong> (referência testada: <code>referencia/assinatura.py</code>; o protótipo faz o mesmo no navegador):
+  estima o brilho do papel por regiões (corrige sombra de foto), transforma a tinta em transparência com bordas suaves,
+  remove pontinhos soltos, recorta com margem pequena e gera <strong>duas versões PNG</strong>:
+  tinta <strong>#0E3B44</strong> para o padrão claro e tinta <strong>#F2EADF</strong> para o padrão escuro. A janela mostra as duas antes de usar.
+* Se não achar tinta, avisar: "Use caneta escura em papel branco, sem pauta".
+* Escolher uma assinatura salva preenche também o nome e o cargo.
+* Na lista de pastas, botão <strong>Assinaturas salvas</strong>: ver, adicionar e excluir. Excluir não altera certificados já emitidos
+  (o retrato guarda a imagem usada).
+* Assinatura de cliente: enviar com o nome e o cargo da pessoa do cliente (ex.: "Diretora de Pessoas · Sicoob Exemplo").
+* Importante: é uma <strong>imagem</strong> de assinatura (acabamento visual). Não é assinatura digital com validade jurídica (ICP-Brasil);
+  quem dá autenticidade ao certificado é a verificação pelo código.</p>
+<h3>3.5 Editar pasta</h3>
+<p>Mesmo formulário com prévia. Se já houver emitidos, mostrar aviso: as mudanças valem para as próximas emissões;
+para atualizar os já emitidos, usar "gerar de novo" (individual) ou oferecer <strong>Gerar de novo todos</strong> (mantém os códigos,
+atualiza o retrato dos dados e os PDFs).</p>
+<hr />
+<h2>4. Página pública de verificação</h2>
+<ul>
+<li>Endereço impresso no QR: <strong><code>https://certificados.mentorei.com.br/{CODIGO}</code></strong>. Esse endereço fica impresso para
+  sempre: confirmar com a Ju antes de emitir o primeiro certificado. Se a plataforma não puder atender esse subdomínio,
+  ele pode redirecionar (301) para uma rota da plataforma, por exemplo <code>/verificar/{CODIGO}</code>, mas o QR continua
+  apontando para o subdomínio.</li>
+<li>Estados (todos desenhados em <code>telas/verificacao.html</code>):</li>
+<li><strong>Válido:</strong> "A Mentorei certifica que [nome] concluiu o [tipo] [programa]" + carga, período, emitido em,
+    realizado para, nº de módulos, código.</li>
+<li><strong>Cancelado:</strong> aviso de que não é mais válido e data do cancelamento.</li>
+<li><strong>Não encontrado:</strong> orientação de digitação e campo para tentar de novo.</li>
+<li><strong>Sem código:</strong> campo de busca ("Verificar um certificado").</li>
+<li>Normalizar o código digitado: maiúsculas, sem espaços.</li>
+<li><code>&lt;meta name="robots" content="noindex, nofollow"&gt;</code>. Não existe listagem pública, só consulta por código exato.</li>
+<li>Limite de consultas por IP (ex.: 30 por minuto) para dificultar varredura.</li>
+<li>A resposta da API pública traz só o necessário (ver 6.5). Nunca e-mail, CPF ou dados internos.</li>
+</ul>
+<hr />
+<h2>5. Regras de texto (já implementadas no modelo; repetir no servidor onde formatar)</h2>
+<ul>
+<li>Datas por extenso: <code>30 de outubro de 2026</code>.</li>
+<li>Período a partir de início e fim: mesmo mês <code>8 a 27 de outubro de 2026</code>; mesmo ano <code>8 de setembro a 27 de outubro de 2026</code>;
+  anos diferentes <code>8 de setembro de 2026 a 27 de fevereiro de 2027</code>. O texto pode ser editado à mão.</li>
+<li>Carga total: <code>23 horas</code> (1 → <code>1 hora</code>; decimais com vírgula: <code>7,5 horas</code>). Módulos: <code>3h</code>.</li>
+<li>Artigo pelo tipo (o modelo resolve sozinho): mentoria, trilha, formação, jornada, palestra, imersão, oficina →
+  "concluiu <strong>a</strong> mentoria", "Conteúdo <strong>da</strong> trilha"; os demais → "concluiu <strong>o</strong> programa", "Conteúdo <strong>do</strong> curso".</li>
+<li>Preferência da Mentorei: <strong>não usar travessão nem hífen como pontuação</strong> em nenhum texto da interface ou do certificado.
+  Use dois-pontos, ponto, vírgula ou o ponto médio " · ".</li>
+<li>Na interface, usar "mentorias" em vez de "formações" quando falar dos produtos da Mentorei.</li>
+</ul>
+<hr />
+<h2>6. Modelo de dados (adaptar ao banco e ao ORM da plataforma)</h2>
+<h3>6.1 <code>cert_pastas</code></h3>
+<table>
+<thead>
+<tr>
+<th>campo</th>
+<th>tipo</th>
+<th>observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>uuid</td>
+<td></td>
+</tr>
+<tr>
+<td>nome</td>
+<td>texto</td>
+<td>"Cliente · Programa · Ano"</td>
+</tr>
+<tr>
+<td>variacao</td>
+<td>texto</td>
+<td><code>clara</code> ou <code>escura</code></td>
+</tr>
+<tr>
+<td>tipo</td>
+<td>texto</td>
+<td>programa, curso, mentoria, trilha, workshop, formação, imersão, palestra</td>
+</tr>
+<tr>
+<td>curso</td>
+<td>texto</td>
+<td>nome do programa</td>
+</tr>
+<tr>
+<td>cliente_id</td>
+<td>fk opcional</td>
+<td>se a plataforma já tiver cadastro de clientes</td>
+</tr>
+<tr>
+<td>cliente_nome</td>
+<td>texto</td>
+<td></td>
+</tr>
+<tr>
+<td>cliente_logo_url</td>
+<td>texto</td>
+<td>arquivo no armazenamento da plataforma</td>
+</tr>
+<tr>
+<td>inicio, fim</td>
+<td>data</td>
+<td></td>
+</tr>
+<tr>
+<td>periodo_texto</td>
+<td>texto</td>
+<td>como sai no certificado</td>
+</tr>
+<tr>
+<td>carga_horas</td>
+<td>decimal</td>
+<td></td>
+</tr>
+<tr>
+<td>cidade</td>
+<td>texto</td>
+<td></td>
+</tr>
+<tr>
+<td>data_emissao</td>
+<td>data</td>
+<td></td>
+</tr>
+<tr>
+<td>resp1_nome, resp1_cargo</td>
+<td>texto</td>
+<td></td>
+</tr>
+<tr>
+<td>resp1_assinatura_id</td>
+<td>fk opcional</td>
+<td>aponta para <code>cert_assinaturas</code></td>
+</tr>
+<tr>
+<td>mostrar_resp2</td>
+<td>booleano</td>
+<td></td>
+</tr>
+<tr>
+<td>resp2_nome, resp2_cargo, resp2_assinatura_id</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>modulos</td>
+<td>json</td>
+<td><code>[{titulo, descricao, horas}]</code> na ordem</td>
+</tr>
+<tr>
+<td>origem</td>
+<td>json</td>
+<td><code>tipo</code> (arquivo, trilha ou manual), <code>nome_arquivo</code>, <code>trilha_id</code>, <code>arquivo_url</code></td>
+</tr>
+<tr>
+<td>criado_por, criado_em, atualizado_em</td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<h3>6.2 <code>cert_assinaturas</code></h3>
+<table>
+<thead>
+<tr>
+<th>campo</th>
+<th>tipo</th>
+<th>observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>uuid</td>
+<td></td>
+</tr>
+<tr>
+<td>nome, cargo</td>
+<td>texto</td>
+<td>de quem assina</td>
+</tr>
+<tr>
+<td>original_url</td>
+<td>texto</td>
+<td>arquivo enviado (privado)</td>
+</tr>
+<tr>
+<td>img_clara_url</td>
+<td>texto</td>
+<td>PNG transparente, tinta #0E3B44</td>
+</tr>
+<tr>
+<td>img_escura_url</td>
+<td>texto</td>
+<td>PNG transparente, tinta #F2EADF</td>
+</tr>
+<tr>
+<td>autorizacao_confirmada_por, autorizacao_em</td>
+<td></td>
+<td>quem marcou o aceite e quando</td>
+</tr>
+<tr>
+<td>criado_por, criado_em, excluido_em</td>
+<td></td>
+<td>exclusão lógica</td>
+</tr>
+</tbody>
+</table>
+<h3>6.3 <code>cert_certificados</code></h3>
+<table>
+<thead>
+<tr>
+<th>campo</th>
+<th>tipo</th>
+<th>observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>id</td>
+<td>uuid</td>
+<td></td>
+</tr>
+<tr>
+<td>codigo</td>
+<td>texto <strong>único</strong></td>
+<td><code>MTR-26-7KQ4-9XPA</code> (seção 7)</td>
+</tr>
+<tr>
+<td>pasta_id</td>
+<td>fk</td>
+<td></td>
+</tr>
+<tr>
+<td>lote_id</td>
+<td>fk</td>
+<td></td>
+</tr>
+<tr>
+<td>participante</td>
+<td>texto</td>
+<td></td>
+</tr>
+<tr>
+<td>email</td>
+<td>texto opcional</td>
+<td>só uso interno (envio futuro); nunca na verificação</td>
+</tr>
+<tr>
+<td>status</td>
+<td>texto</td>
+<td><code>valido</code> ou <code>cancelado</code></td>
+</tr>
+<tr>
+<td>dados_snapshot</td>
+<td>json</td>
+<td><strong>retrato completo</strong> dos dados usados no PDF (o JSON da seção 8). A verificação lê daqui.</td>
+</tr>
+<tr>
+<td>emitido_em, emitido_por</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>cancelado_em, cancelado_por, motivo_cancelamento</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>historico</td>
+<td>json</td>
+<td>correções de nome e regerações (quem, quando, antes e depois)</td>
+</tr>
+</tbody>
+</table>
+<p>O retrato garante que o certificado continue igual ao que foi impresso, mesmo se a pasta for editada depois.</p>
+<h3>6.4 <code>cert_lotes</code></h3>
+<p><code>id, pasta_id, criado_por, criado_em, quantidade, status (fila|gerando|pronto|erro), progresso, zip_url, zip_expira_em, erro</code>.</p>
+<h3>6.5 API sugerida</h3>
+<table>
+<thead>
+<tr>
+<th>método e rota</th>
+<th>quem</th>
+<th>faz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /api/certificados/pastas</code></td>
+<td>gestão</td>
+<td>lista</td>
+</tr>
+<tr>
+<td><code>POST /api/certificados/pastas</code></td>
+<td>gestão</td>
+<td>cria</td>
+</tr>
+<tr>
+<td><code>GET/PUT /api/certificados/pastas/:id</code></td>
+<td>gestão</td>
+<td>lê e edita</td>
+</tr>
+<tr>
+<td><code>POST /api/certificados/extrair</code></td>
+<td>gestão</td>
+<td>recebe o arquivo, devolve campos (seção 9)</td>
+</tr>
+<tr>
+<td><code>GET/POST/DELETE /api/certificados/assinaturas</code></td>
+<td>gestão</td>
+<td>lista, envia (processa e devolve as duas versões) e exclui</td>
+</tr>
+<tr>
+<td><code>POST /api/certificados/pastas/:id/lotes</code></td>
+<td>gestão</td>
+<td>recebe a lista de nomes, cria o lote e dispara o job</td>
+</tr>
+<tr>
+<td><code>GET /api/certificados/lotes/:id</code></td>
+<td>gestão</td>
+<td>progresso e link do ZIP</td>
+</tr>
+<tr>
+<td><code>GET /api/certificados/:codigo/pdf</code></td>
+<td>gestão</td>
+<td>gera (ou devolve) o PDF individual</td>
+</tr>
+<tr>
+<td><code>PATCH /api/certificados/:codigo</code></td>
+<td>gestão</td>
+<td>corrigir nome, cancelar, reativar</td>
+</tr>
+<tr>
+<td><code>GET /api/certificados/verificar/:codigo</code></td>
+<td><strong>pública</strong></td>
+<td><code>{status, participante, tipo, curso, carga, periodo, data_emissao, cliente, modulos (qtd), cancelado_em}</code> ou 404</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>7. Código e QR code</h2>
+<ul>
+<li>Formato: <code>MTR-AA-XXXX-XXXX</code> (AA = ano com 2 dígitos). Alfabeto sem caracteres ambíguos:
+  <code>23456789ABCDEFGHJKLMNPQRSTUVWXYZ</code> (sem 0, 1, I, O). Cerca de 1 trilhão de combinações por ano.</li>
+<li>Gerar com gerador <strong>criptográfico</strong> (<code>crypto.randomInt</code> no Node, <code>secrets</code> no Python). <strong>Nunca sequencial.</strong></li>
+<li>Índice único no banco; se colidir, sortear de novo.</li>
+<li>Conteúdo do QR: <code>https://certificados.mentorei.com.br/{CODIGO}</code> (só isso, sem parâmetros).</li>
+<li>Biblioteca: <code>qrcode</code> (Node) ou <code>segno</code> (Python). Correção de erro <strong>M</strong>, saída <strong>SVG</strong>, módulos <strong>#0E3B44</strong>,
+  fundo transparente, margem de 1 módulo (o quadro bege do modelo completa a zona de silêncio).
+  Passar ao modelo como <code>data:image/svg+xml;base64,...</code> no campo <code>qr_imagem</code>.</li>
+<li>O QR fica num quadro claro também no padrão escuro, de propósito: escuro sobre claro é o que todo celular lê.</li>
+</ul>
+<hr />
+<h2>8. Contrato do modelo (<code>template/</code>)</h2>
+<ul>
+<li><code>template/certificado.html</code> + <code>template/assets/</code> (fontes WOFF, logos, selo JPEG, sombras). Servir a pasta inteira
+  (ou abrir por <code>file://</code> no servidor). Página A4 paisagem, <strong>2 páginas</strong> (frente e verso).</li>
+<li>API no navegador: <code>window.CertificadoMentorei.render(dados)</code> devolve uma Promise. Ao terminar, o <code>&lt;body&gt;</code> recebe
+  <code>data-pronto="1"</code> e <code>data-render="N"</code>.</li>
+<li>Prévia na tela de edição: <code>&lt;iframe src="template/certificado.html?previa=frente"&gt;</code> e
+  <code>iframe.contentWindow.postMessage({tipo:'certificado:dados', dados}, '*')</code>;
+  para virar a face: <code>{tipo:'certificado:face', face:'verso'}</code>. O iframe tem 1123 × 794 px; escalar com CSS.</li>
+<li>Campos do <code>dados</code>:</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>campo</th>
+<th>exemplo</th>
+<th>obs.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>variacao</td>
+<td><code>"clara"</code> ou <code>"escura"</code></td>
+<td>troca todas as cores</td>
+</tr>
+<tr>
+<td>participante</td>
+<td><code>"Ana Paula Souza"</code></td>
+<td>encolhe sozinho até 2 linhas</td>
+</tr>
+<tr>
+<td>tipo</td>
+<td><code>"programa"</code></td>
+<td>define o artigo</td>
+</tr>
+<tr>
+<td>curso</td>
+<td><code>"Programa de Desenvolvimento..."</code></td>
+<td>frente (até 2 linhas) e verso (até 3)</td>
+</tr>
+<tr>
+<td>periodo</td>
+<td><code>"8 de setembro a 27 de outubro de 2026"</code></td>
+<td>texto pronto</td>
+</tr>
+<tr>
+<td>carga</td>
+<td><code>"23 horas"</code></td>
+<td>texto pronto</td>
+</tr>
+<tr>
+<td>cidade</td>
+<td><code>"Florianópolis"</code></td>
+<td></td>
+</tr>
+<tr>
+<td>data_emissao</td>
+<td><code>"30 de outubro de 2026"</code></td>
+<td>texto pronto</td>
+</tr>
+<tr>
+<td>resp1_nome, resp1_cargo</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>resp1_assinatura</td>
+<td>data URI ou URL de PNG transparente</td>
+<td>opcional; mandar a versão da variação (clara: tinta azul-petróleo; escura: tinta bege)</td>
+</tr>
+<tr>
+<td>mostrar_resp2</td>
+<td><code>true</code> ou <code>false</code></td>
+<td></td>
+</tr>
+<tr>
+<td>resp2_nome, resp2_cargo, resp2_assinatura</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>codigo</td>
+<td><code>"MTR-26-7KQ4-9XPA"</code></td>
+<td>frente e verso</td>
+</tr>
+<tr>
+<td>url_verificacao</td>
+<td><code>"certificados.mentorei.com.br"</code></td>
+<td>texto impresso (sem https)</td>
+</tr>
+<tr>
+<td>qr_imagem</td>
+<td><code>data:image/svg+xml;base64,...</code></td>
+<td>vazio mostra "QR code pendente"</td>
+</tr>
+<tr>
+<td>cliente</td>
+<td><code>"Sicoob Exemplo"</code></td>
+<td>vazio esconde a linha "Realizado para"</td>
+</tr>
+<tr>
+<td>cliente_logo</td>
+<td>data URI ou URL</td>
+<td>opcional; substitui o nome</td>
+</tr>
+<tr>
+<td>modulos</td>
+<td><code>[{"titulo":"...","descricao":"","horas":"3h"}]</code></td>
+<td>numeração automática; encolhe até uns 10 itens</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>PDF: <code>page.pdf({ printBackground: true, preferCSSPageSize: true, margin: 0 })</code> (Puppeteer ou Playwright).
+  Esperar <code>data-pronto="1"</code> depois de cada <code>render</code>. Fontes embutidas como TrueType; selo embutido como JPEG.
+  Cada certificado tem cerca de <strong>1,2 MB</strong>.</li>
+</ul>
+<hr />
+<h2>9. Ler a proposta ou a trilha (extração)</h2>
+<ul>
+<li><strong>Trilha cadastrada:</strong> mapear direto do banco (nome, tipo, módulos, horas). Sem IA.</li>
+<li><strong>Arquivo enviado:</strong>
+  1. Extrair o texto: PPTX (<code>python-pptx</code> ou equivalente em Node), PDF (<code>pdf-parse</code>/<code>pdfplumber</code>), DOCX (<code>mammoth</code>/<code>python-docx</code>).
+     Guardar o arquivo original em <code>origem.arquivo_url</code>.
+  2. Enviar o texto à API do Claude com o prompt <code>extracao/prompt-extracao.md</code> e o esquema <code>extracao/schema-extracao.json</code>
+     (pedir saída JSON validada pelo esquema). A chave da API fica no servidor, nunca no navegador.
+  3. Devolver os campos ao formulário. <strong>Nada é salvo sem a revisão da pessoa.</strong> O que a IA não encontrar vem vazio, e as
+     dúvidas aparecem num aviso acima do formulário (campo <code>observacoes</code>).</li>
+<li>As propostas da Mentorei seguem o modelo oficial em PowerPoint (18 páginas): o nome do programa está na capa;
+  há uma página "programa em N módulos/pilares" e uma página por módulo, com título e selo "período · duração";
+  a carga total costuma aparecer na capa ("carga horária ou duração · nº de módulos") e no investimento.
+  <strong>Ignorar</strong> números institucionais da Mentorei (ex.: "+10 mil profissionais treinados", "+600 mentorias"): não são carga horária.</li>
+</ul>
+<hr />
+<h2>10. Geração do lote (servidor)</h2>
+<ol>
+<li><code>POST /lotes</code> com a lista de nomes. Validar: lista não vazia; limite por lote (ex.: 500).</li>
+<li>Criar os registros <code>cert_certificados</code> com código, <code>dados_snapshot</code> e status <code>valido</code> (dentro de uma transação).</li>
+<li>Job em segundo plano (fila da plataforma, ou worker simples):
+   abrir <strong>um</strong> navegador e <strong>uma</strong> página com o modelo; para cada aluno: <code>render(dados)</code> → <code>pdf()</code> → salvar.
+   Atualizar o progresso do lote. Na referência, 4 certificados levam cerca de 4 s no total.</li>
+<li>Montar o ZIP: <code>001 Nome do Aluno.pdf</code> para cada um, <code>todos-para-imprimir.pdf</code> (todos juntos, na ordem)
+   e <code>codigos.csv</code> (separador <code>;</code>, UTF-8 com BOM para abrir certo no Excel: número, participante, código, link).
+   Nome do ZIP: <code>Certificados · Cliente · Programa.zip</code>.</li>
+<li>Guardar o ZIP por um tempo (ex.: 30 dias) ou gerar de novo sob demanda a partir dos retratos.
+   PDFs individuais podem ser sempre gerados sob demanda.
+* Hospedagem: o Chromium precisa rodar no servidor. Em serviço sem servidor (Vercel, Netlify Functions), usar
+  <code>@sparticuz/chromium</code> com <code>puppeteer-core</code>, ou um worker separado. Verificar o limite de tempo da função e
+  dividir lotes grandes se for preciso.</li>
+</ol>
+<hr />
+<h2>11. Segurança e LGPD</h2>
+<ul>
+<li>Só dados necessários: nome do aluno e dados do curso. <strong>Sem CPF.</strong> E-mail opcional e só interno.</li>
+<li>A verificação mostra o nome porque essa é a finalidade (confirmar a conclusão para quem recebeu o certificado).</li>
+<li>Sem listagem pública, <code>noindex</code>, limite de consultas.</li>
+<li>Log de auditoria: quem criou a pasta, emitiu, corrigiu, cancelou, reativou (data e usuário).</li>
+<li>Atender pedido de remoção: cancelar o certificado e anonimizar o nome no retrato.</li>
+<li>Arquivos enviados (propostas, logos, assinaturas) em armazenamento privado; só gestão acessa.
+  Assinaturas são sensíveis: acesso restrito, links temporários, nunca públicas. Só usar com o aceite de autorização.
+  No retrato do certificado, guardar a referência da imagem usada (não precisa duplicar o arquivo).</li>
+</ul>
+<hr />
+<h2>12. Domínio</h2>
+<ul>
+<li>Criar <code>certificados.mentorei.com.br</code> no DNS da <strong>Hostinger</strong> (onde está <code>mentorei.com.br</code>), apontando para onde a
+  plataforma estiver hospedada (registro CNAME ou A, conforme a hospedagem). Ativar HTTPS.</li>
+<li>Testar antes da primeira emissão real: abrir <code>https://certificados.mentorei.com.br/MTR-26-TEST-TEST</code> deve mostrar
+  "Não encontramos este código".</li>
+</ul>
+<hr />
+<h2>13. Critérios de aceite</h2>
+<ul>
+<li class="tarefa">Menu Gestão mostra "Emitir certificados" só para quem tem permissão.</li>
+<li class="tarefa">Criar pasta pelos 3 caminhos (arquivo, trilha, do zero) e ver a prévia mudar ao digitar, nas duas variações.</li>
+<li class="tarefa">Ler uma proposta real da Mentorei (PPTX) e preencher nome, cliente, módulos e horas sem inventar nada.</li>
+<li class="tarefa">Importar <code>exemplos/nomes-exemplo.csv</code> e um Excel com coluna "Nome"; ver avisos de repetido.</li>
+<li class="tarefa">Gerar o lote e baixar o ZIP; abrir os PDFs: 2 páginas, A4 paisagem, visual igual a <code>exemplos/saida-exemplo-*</code>.</li>
+<li class="tarefa">Ler o QR de um PDF impresso com a câmera do celular e cair na página "Certificado válido" com os dados certos.</li>
+<li class="tarefa">Nome longo (2 linhas) e programa longo não quebram o layout.</li>
+<li class="tarefa">Cancelar um certificado e ver "Certificado cancelado" na verificação. Reativar e voltar a "válido".</li>
+<li class="tarefa">Corrigir um nome mantém o mesmo código e QR.</li>
+<li class="tarefa">Enviar <code>exemplos/assinatura-exemplo.jpg</code> (foto com fundo cinza claro): sai sem fundo, nas duas cores, e aparece certa nos dois padrões.</li>
+<li class="tarefa">Assinatura salva aparece na lista das outras pastas; o botão "Usar" só libera com o aceite de autorização.</li>
+<li class="tarefa">Editar a pasta depois de emitir não altera o que a verificação mostra dos já emitidos.</li>
+<li class="tarefa">Código digitado com espaços ou minúsculas é encontrado.</li>
+<li class="tarefa">Nenhum texto novo da interface usa travessão ou hífen como pontuação.</li>
+</ul>
+<hr />
+<h2>14. Fora do escopo agora (ideias para depois)</h2>
+<ul>
+<li>Enviar o certificado por e-mail a cada aluno.</li>
+<li>Botão "Adicionar ao LinkedIn" na página de verificação.</li>
+<li>Painel com totais de certificados por cliente e por mês.</li>
+<li>Assinatura digital com certificado ICP-Brasil no PDF.</li>
+</ul>
+</main></body></html>

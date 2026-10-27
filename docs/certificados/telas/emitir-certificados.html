@@ -1,0 +1,934 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emitir certificados · Gestão · Mentorei</title>
+<!--
+  PROTÓTIPO NAVEGÁVEL DA TELA "GESTÃO > EMITIR CERTIFICADOS"
+  Serve de referência de fluxo, textos e layout para o Claude Code implementar na plataforma.
+  O que é simulado aqui (e na plataforma vira servidor):
+    • leitura da proposta ou trilha (aqui preenche com dados de exemplo; na plataforma, a IA lê o arquivo);
+    • geração dos PDFs e do ZIP (aqui só cria os códigos; na plataforma, o Chromium gera os PDFs);
+    • dados ficam salvos só neste navegador (localStorage), para o protótipo funcionar sem servidor.
+  Adapte cores, fontes e componentes ao visual que a plataforma já usa.
+-->
+<style>
+@font-face{font-family:'Titulo';font-weight:700;src:local('Manrope ExtraBold'),url('../template/assets/fonts/Poppins-Bold.woff') format('woff');}
+@font-face{font-family:'Titulo';font-weight:500;src:local('Manrope Bold'),url('../template/assets/fonts/Poppins-Medium.woff') format('woff');}
+@font-face{font-family:'Texto';font-weight:400;src:url('../template/assets/fonts/Inter-Regular.woff') format('woff');}
+@font-face{font-family:'Texto';font-weight:500;src:url('../template/assets/fonts/Inter-Medium.woff') format('woff');}
+@font-face{font-family:'Texto';font-weight:600;src:url('../template/assets/fonts/Inter-SemiBold.woff') format('woff');}
+:root{
+  --petroleo:#0E3B44; --petroleo-2:#0a2e35; --bege:#F2EADF; --fundo:#F5F2ED; --branco:#fff;
+  --linha:#E3DDD2; --linha-2:#EFEAE2; --texto-2:#5B6E71; --texto-3:#8A9A9C;
+  --ok:#2F6B4F; --ok-bg:#E6F0EA; --aviso:#8A5A0B; --aviso-bg:#FBF1DE; --erro:#9B3426; --erro-bg:#F8E6E2;
+  --raio:12px; --sombra:0 1px 2px rgba(14,59,68,.06),0 4px 16px rgba(14,59,68,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--fundo);color:var(--petroleo);font:400 14px/1.5 'Texto',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:inherit}
+.proto{background:#1d2a2d;color:#cfd8da;font:500 12px/1.4 'Texto';padding:7px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.proto b{color:#fff}
+.proto button{background:transparent;border:1px solid #56676a;color:#fff;border-radius:99px;padding:3px 10px;font-size:12px;cursor:pointer}
+
+/* ---------- barra da plataforma */
+.topo{background:var(--branco);border-bottom:1px solid var(--linha);height:60px;display:flex;align-items:center;gap:20px;padding:0 24px;position:sticky;top:0;z-index:20}
+.topo img{height:15px;display:block}
+.topo .menu{display:flex;gap:4px}
+.topo .menu span{padding:7px 12px;border-radius:8px;color:var(--texto-2);font-weight:500;font-size:13.5px}
+.topo .menu span.ativo{background:var(--fundo);color:var(--petroleo)}
+.topo .user{margin-left:auto;display:flex;align-items:center;gap:10px;color:var(--texto-2);font-size:13px}
+.topo .av{width:30px;height:30px;border-radius:50%;background:var(--bege);display:grid;place-items:center;font:600 12px 'Texto';color:var(--petroleo)}
+
+main{max-width:1240px;margin:0 auto;padding:28px 24px 120px}
+.migalha{font-size:13px;color:var(--texto-3);margin-bottom:10px}
+.migalha a{text-decoration:none;color:var(--texto-2)} .migalha a:hover{text-decoration:underline}
+h1{font:700 28px/1.15 'Titulo';letter-spacing:-.02em}
+h2{font:700 19px/1.2 'Titulo';letter-spacing:-.01em}
+h3{font:600 12px/1 'Texto';letter-spacing:.14em;text-transform:uppercase;color:var(--texto-2)}
+.sub{color:var(--texto-2);margin-top:6px;max-width:680px}
+.cab{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+
+/* ---------- botoes e campos */
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--linha);background:var(--branco);border-radius:10px;padding:9px 14px;font-weight:600;font-size:13.5px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn:hover{border-color:#cfc7b9}
+.btn.pri{background:var(--petroleo);border-color:var(--petroleo);color:var(--bege)}
+.btn.pri:hover{background:var(--petroleo-2)}
+.btn.pri:disabled{opacity:.45;cursor:not-allowed}
+.btn.peq{padding:6px 10px;font-size:12.5px;border-radius:8px}
+.btn.fantasma{border-color:transparent;background:transparent}
+.btn.fantasma:hover{background:var(--linha-2)}
+.btn.perigo{color:var(--erro)}
+.btn svg{width:16px;height:16px;flex:none}
+label.campo{display:block}
+label.campo > span{display:block;font-weight:600;font-size:12.5px;margin-bottom:6px}
+label.campo > small{display:block;color:var(--texto-3);font-size:12px;margin-top:5px}
+input[type=text],input[type=number],input[type=date],input[type=search],select,textarea{width:100%;background:var(--branco);border:1px solid var(--linha);border-radius:9px;padding:9px 11px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--petroleo);box-shadow:0 0 0 3px rgba(14,59,68,.08)}
+textarea{resize:vertical;min-height:60px}
+.linha2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.linha3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.pilha > * + *{margin-top:14px}
+
+.cartao{background:var(--branco);border:1px solid var(--linha);border-radius:var(--raio);box-shadow:var(--sombra)}
+.secao{padding:20px 22px;border-bottom:1px solid var(--linha-2)}
+.secao:last-child{border-bottom:0}
+.secao > h3{margin-bottom:14px}
+
+.chip{display:inline-flex;align-items:center;gap:6px;font:600 11.5px/1 'Texto';padding:5px 9px;border-radius:99px;background:var(--linha-2);color:var(--texto-2);white-space:nowrap}
+.chip.ok{background:var(--ok-bg);color:var(--ok)}
+.chip.aviso{background:var(--aviso-bg);color:var(--aviso)}
+.chip.erro{background:var(--erro-bg);color:var(--erro)}
+.amostra{width:12px;height:12px;border-radius:3px;border:1px solid rgba(0,0,0,.15);display:inline-block}
+.amostra.clara{background:#F2EADF} .amostra.escura{background:#0E3B44}
+.aviso-faixa{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:10px;background:var(--aviso-bg);color:var(--aviso);font-size:13px}
+.aviso-faixa.info{background:#E8EEEF;color:var(--petroleo)}
+.aviso-faixa.ok{background:var(--ok-bg);color:var(--ok)}
+.aviso-faixa svg{width:18px;height:18px;flex:none;margin-top:1px}
+
+/* ---------- lista de pastas */
+.busca{display:flex;gap:10px;margin-bottom:14px}
+.busca input{max-width:340px}
+table{width:100%;border-collapse:collapse}
+th{font:600 11px/1 'Texto';letter-spacing:.12em;text-transform:uppercase;color:var(--texto-3);text-align:left;padding:12px 16px;border-bottom:1px solid var(--linha)}
+td{padding:14px 16px;border-bottom:1px solid var(--linha-2);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tr.clicavel{cursor:pointer} tr.clicavel:hover td{background:#FBFAF7}
+.t-nome{font-weight:600}
+.t-sub{color:var(--texto-3);font-size:12.5px;margin-top:2px}
+.vazio{padding:48px 24px;text-align:center;color:var(--texto-2)}
+.vazio h2{margin-bottom:6px}
+
+/* ---------- assistente */
+.passos{display:flex;gap:8px;margin:4px 0 22px;flex-wrap:wrap}
+.passo{display:flex;align-items:center;gap:8px;padding:7px 12px 7px 8px;border-radius:99px;background:var(--branco);border:1px solid var(--linha);color:var(--texto-3);font-weight:600;font-size:13px}
+.passo i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--linha-2);font-size:12px}
+.passo.atual{color:var(--petroleo);border-color:var(--petroleo)}
+.passo.atual i{background:var(--petroleo);color:var(--bege)}
+.passo.feito{color:var(--ok)} .passo.feito i{background:var(--ok-bg)}
+.padroes{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.padrao{border:2px solid var(--linha);border-radius:14px;background:var(--branco);padding:14px;cursor:pointer;text-align:left;transition:border-color .15s}
+.padrao img{width:100%;display:block;border-radius:6px;box-shadow:0 2px 10px rgba(14,59,68,.15)}
+.padrao .rot{display:flex;align-items:center;justify-content:space-between;margin-top:12px;font-weight:600}
+.padrao .rot small{display:block;font-weight:400;color:var(--texto-3);font-size:12.5px}
+.padrao .bolinha{width:20px;height:20px;border-radius:50%;border:2px solid var(--linha);flex:none}
+.padrao.sel{border-color:var(--petroleo)}
+.padrao.sel .bolinha{border:6px solid var(--petroleo)}
+.opcoes{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:16px}
+.opcao{padding:20px}
+.opcao h2{font-size:16px;margin-bottom:6px}
+.opcao p{color:var(--texto-2);font-size:13px;margin-bottom:14px}
+.solta{display:block;border:1.5px dashed #CFC6B6;border-radius:12px;padding:22px;text-align:center;color:var(--texto-2);background:#FCFBF8;cursor:pointer;transition:background .15s,border-color .15s}
+.solta:hover,.solta.arrastando{background:#F6F2EA;border-color:var(--petroleo)}
+.solta b{color:var(--petroleo)}
+.solta small{display:block;margin-top:4px;color:var(--texto-3)}
+.lendo{display:flex;align-items:center;gap:12px;padding:18px;border-radius:12px;background:#E8EEEF;margin-top:16px}
+.giro{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(14,59,68,.2);border-top-color:var(--petroleo);animation:g .8s linear infinite;flex:none}
+@keyframes g{to{transform:rotate(360deg)}}
+
+/* ---------- edicao com previa */
+.editor{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:22px;align-items:start}
+.previa{position:sticky;top:80px}
+.previa .barra{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--linha-2);border-radius:10px;padding:3px}
+.seg button{border:0;background:transparent;padding:6px 12px;border-radius:8px;font-weight:600;font-size:12.5px;cursor:pointer;color:var(--texto-2)}
+.seg button.on{background:var(--branco);color:var(--petroleo);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.moldura{position:relative;width:100%;aspect-ratio:297/210;border-radius:8px;overflow:hidden;box-shadow:0 6px 24px rgba(14,59,68,.18);background:#e9e4dc}
+.moldura iframe{position:absolute;left:0;top:0;width:1123px;height:794px;border:0;transform-origin:0 0}
+.previa .nota{font-size:12px;color:var(--texto-3);margin-top:10px}
+.mods{border:1px solid var(--linha);border-radius:10px;overflow:hidden}
+.mod{display:grid;grid-template-columns:30px minmax(0,1fr) 84px auto;gap:10px;align-items:start;padding:10px 12px;border-bottom:1px solid var(--linha-2);background:var(--branco)}
+.mod:last-child{border-bottom:0}
+.mod .n{font:500 15px/36px 'Titulo';color:var(--texto-3)}
+.mod .acoes{display:flex;gap:2px;padding-top:4px}
+.mod .acoes button{width:28px;height:28px;border:0;background:transparent;border-radius:6px;cursor:pointer;color:var(--texto-3);display:grid;place-items:center}
+.mod .acoes button:hover{background:var(--linha-2);color:var(--petroleo)}
+.mod .acoes svg{width:15px;height:15px}
+.mod input.desc{margin-top:6px;font-size:12.5px;padding:7px 10px}
+.soma{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;font-size:13px}
+.arquivo{display:flex;align-items:center;gap:12px}
+.arquivo .thumb{width:120px;height:44px;border:1px dashed var(--linha);border-radius:8px;display:grid;place-items:center;background:#FCFBF8;overflow:hidden;color:var(--texto-3);font-size:11.5px}
+.arquivo .thumb img{max-width:100%;max-height:100%;display:block}
+.trocar{display:flex;align-items:center;gap:10px}
+.ass{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.ass .amost{height:58px;border-radius:8px;border:1px solid var(--linha);display:grid;place-items:center;overflow:hidden;font-size:11.5px;color:var(--texto-3);padding:6px}
+.ass .amost img{width:100%;height:100%;object-fit:contain;display:block;min-width:0}
+.ass .amost.escura{background:#0E3B44;color:#8FA9AD;border-color:#0E3B44}
+.ass .amost.clara{background:#F2EADF}
+.ass-acoes{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.ass-acoes select{width:auto;max-width:100%;padding:6px 10px;font-size:12.5px;border-radius:8px}
+.check{display:flex;gap:9px;align-items:flex-start;font-size:13px;cursor:pointer}
+.check input{margin-top:3px}
+.bib{display:grid;grid-template-columns:150px 1fr auto;gap:12px;align-items:center;padding:10px 0;border-bottom:1px solid var(--linha-2)}
+.bib:last-child{border-bottom:0}
+.rodape-acao{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.96);backdrop-filter:blur(6px);border-top:1px solid var(--linha);z-index:15}
+.rodape-acao > div{max-width:1240px;margin:0 auto;padding:12px 24px;display:flex;gap:12px;align-items:center;justify-content:flex-end}
+.rodape-acao .esq{margin-right:auto;color:var(--texto-2);font-size:13px}
+
+/* ---------- pasta */
+.pasta-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.abas{display:flex;gap:4px;border-bottom:1px solid var(--linha);margin:24px 0 20px}
+.abas button{border:0;background:transparent;padding:10px 14px;font-weight:600;color:var(--texto-3);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+.abas button.on{color:var(--petroleo);border-bottom-color:var(--petroleo)}
+.emitir{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;align-items:start}
+.lista-nomes td{padding:7px 12px}
+.lista-nomes input{border-color:transparent;background:transparent;padding:6px 8px}
+.lista-nomes input:hover{border-color:var(--linha)}
+.lista-nomes input:focus{background:var(--branco)}
+.lista-nomes .num{color:var(--texto-3);width:44px;font-feature-settings:"tnum"}
+.resumo-emissao{padding:20px}
+.resumo-emissao .grande{font:700 40px/1 'Titulo';letter-spacing:-.02em;margin:10px 0 4px}
+.codigo{font:600 12.5px 'Texto';letter-spacing:.06em;font-feature-settings:"tnum"}
+.barra-prog{height:8px;background:var(--linha-2);border-radius:99px;overflow:hidden;margin:16px 0 8px}
+.barra-prog i{display:block;height:100%;background:var(--petroleo);width:0;transition:width .12s}
+
+/* ---------- modal e aviso */
+.fundo-modal{position:fixed;inset:0;background:rgba(9,18,22,.45);display:flex;align-items:center;justify-content:center;padding:20px;z-index:50}
+.modal{background:var(--branco);border-radius:16px;width:min(980px,100%);max-height:92vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.modal .mcab{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--linha-2)}
+.modal .mcorpo{padding:20px}
+.modal.estreito{width:min(460px,100%)}
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:var(--petroleo);color:var(--bege);padding:11px 16px;border-radius:10px;font-weight:500;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:60;max-width:min(560px,92vw)}
+@media (max-width:980px){
+  .editor,.emitir{grid-template-columns:1fr}
+  .previa{position:static}
+  .opcoes{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  main{padding:20px 16px 120px}
+  .topo .menu{display:none}
+  .padroes,.linha2,.linha3{grid-template-columns:1fr}
+  .mod{grid-template-columns:24px minmax(0,1fr) 64px}
+  .mod .acoes{grid-column:2 / 4}
+  th:nth-child(3),td:nth-child(3),th:nth-child(4),td:nth-child(4){display:none}
+}
+</style>
+</head>
+<body>
+<div class="proto"><b>Protótipo da plataforma</b><span>Leitura de arquivos e geração de PDFs são simuladas. Os dados ficam só neste navegador.</span>
+  <button id="zerar">Recomeçar protótipo</button></div>
+<div class="topo">
+  <img src="../template/assets/logo-azul-petroleo.png" alt="MENTOREI">
+  <nav class="menu"><span>Mentorias</span><span>Arsenal</span><span class="ativo">Gestão</span><span>Relatórios</span></nav>
+  <div class="user"><span>Cintia</span><span class="av">CI</span></div>
+</div>
+<main id="app"></main>
+<div id="camada"></div>
+
+<script src="qr.js"></script>
+<script>
+/* =================================================================== configuração */
+var CONFIG = {
+  baseVerificacao: 'https://certificados.mentorei.com.br',   // endereço impresso no QR (definitivo)
+  template: '../template/certificado.html',
+  responsavelPadrao: { nome: '[NOME DO RESPONSÁVEL]', cargo: '[CARGO] · Mentorei' }
+};
+var CHAVE = 'mentorei-certificados-prototipo';
+var TIPOS = ['programa', 'curso', 'mentoria', 'trilha', 'workshop', 'formação', 'imersão', 'palestra'];
+var FEMININOS = ['mentoria','trilha','formação','jornada','palestra','imersão','oficina'];
+var MESES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+
+/* =================================================================== ícones */
+var I = {
+  mais:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  pasta:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  subir:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4M7 9l5-5 5 5M5 20h14"/></svg>',
+  baixar:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>',
+  cima:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg>',
+  baixo:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
+  ok:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.7 2.7L16 10"/></svg>',
+  olho:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+  link:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+  lapis:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>'
+};
+
+/* =================================================================== utilidades */
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function $(s, r){ return (r || document).querySelector(s); }
+function $$(s, r){ return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+function id(){ return Math.random().toString(36).slice(2, 10); }
+function hojeISO(){ var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function dataLonga(iso){ if (!iso) return ''; var p = iso.split('-'); return parseInt(p[2], 10) + ' de ' + MESES[parseInt(p[1], 10) - 1] + ' de ' + p[0]; }
+function periodoTexto(ini, fim){
+  if (!ini && !fim) return ''; if (!fim || ini === fim) return dataLonga(ini || fim);
+  var a = ini.split('-'), b = fim.split('-');
+  var d1 = parseInt(a[2], 10), m1 = MESES[parseInt(a[1], 10) - 1], d2 = parseInt(b[2], 10), m2 = MESES[parseInt(b[1], 10) - 1];
+  if (a[0] === b[0] && a[1] === b[1]) return d1 + ' a ' + d2 + ' de ' + m1 + ' de ' + a[0];
+  if (a[0] === b[0]) return d1 + ' de ' + m1 + ' a ' + d2 + ' de ' + m2 + ' de ' + b[0];
+  return d1 + ' de ' + m1 + ' de ' + a[0] + ' a ' + d2 + ' de ' + m2 + ' de ' + b[0];
+}
+function horasTexto(h){ var n = Number(String(h).replace(',', '.')); if (!n) return ''; var s = String(n).replace('.', ','); return s + (n === 1 ? ' hora' : ' horas'); }
+function horasMod(h){ var n = Number(String(h).replace(',', '.')); return n ? String(n).replace('.', ',') + 'h' : ''; }
+function limparNome(n){ return String(n || '').replace(/ /g, ' ').replace(/\s+/g, ' ').trim(); }
+function ajustarCaixa(n){
+  var minus = ['de','da','do','das','dos','e','di','du','del','van','von'];
+  return limparNome(n).toLowerCase().split(' ').map(function(p, i){
+    if (i > 0 && minus.indexOf(p) >= 0) return p;
+    return p.split('-').map(function(q){ return q.charAt(0).toUpperCase() + q.slice(1); }).join('-');
+  }).join(' ');
+}
+var ALFA = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+function novoCodigo(usados){
+  var ano = String(new Date().getFullYear()).slice(2);
+  function bloco(){ var a = new Uint32Array(4); crypto.getRandomValues(a); return Array.from(a).map(function(x){ return ALFA[x % ALFA.length]; }).join(''); }
+  var c; do { c = 'MTR-' + ano + '-' + bloco() + '-' + bloco(); } while (usados[c]); usados[c] = 1; return c;
+}
+function toast(msg){ $$('.toast').forEach(function(x){ x.remove(); }); var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function(){ t.remove(); }, 3600); }
+function baixarTexto(nome, texto, tipo){
+  var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + texto], { type: tipo || 'text/csv;charset=utf-8' }));
+  a.download = nome; document.body.appendChild(a); a.click(); setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function lerArquivoComoDataURL(f){ return new Promise(function(ok, erro){ var r = new FileReader(); r.onload = function(){ ok(r.result); }; r.onerror = erro; r.readAsDataURL(f); }); }
+function lerArquivoComoTexto(f){ return new Promise(function(ok, erro){ var r = new FileReader(); r.onload = function(){ ok(r.result); }; r.onerror = erro; r.readAsText(f, 'utf-8'); }); }
+
+/* =================================================================== dados (protótipo: localStorage) */
+function modelo(){ return {
+  variacao: 'clara', tipo: 'programa', curso: '', cliente: '', cliente_logo: '',
+  inicio: '', fim: '', periodo: '', periodo_manual: false, carga_horas: '', cidade: '', data_emissao_iso: hojeISO(),
+  resp1_nome: CONFIG.responsavelPadrao.nome, resp1_cargo: CONFIG.responsavelPadrao.cargo, resp1_assinatura: '',
+  mostrar_resp2: false, resp2_nome: '', resp2_cargo: '', resp2_assinatura: '',
+  modulos: [] }; }
+function semente(){
+  var d = modelo();
+  Object.assign(d, { variacao: 'escura', tipo: 'programa', cliente: 'Cooperativa Exemplo',
+    curso: 'Programa de Desenvolvimento e Aceleração da Maturidade Profissional para Negócio',
+    inicio: '2026-08-25', fim: '2026-10-14', carga_horas: 23, cidade: 'Florianópolis', data_emissao_iso: '2026-10-20',
+    modulos: [{ titulo: 'Protagonismo e Autorresponsabilidade', descricao: '', horas: 3 }, { titulo: 'Análise de Resultado', descricao: '', horas: 3 },
+      { titulo: 'Comunicação Não Violenta', descricao: '', horas: 3 }, { titulo: 'Feedback e Construção de PDI', descricao: '', horas: 3 },
+      { titulo: 'Team Building', descricao: '', horas: 11 }] });
+  d.periodo = periodoTexto(d.inicio, d.fim);
+  var usados = {};
+  var certs = ['Ana Paula Souza', 'Maria Eduarda Albuquerque de Vasconcelos Figueiredo', 'João Pedro Ramos', 'Lúcia Helena Gonçalves'].map(function(n){
+    return { codigo: novoCodigo(usados), participante: n, status: 'valido', emitido_em: '2026-10-20' }; });
+  return { pastas: [{ id: id(), nome: 'Cooperativa Exemplo · Desenvolvimento e Aceleração · 2026', criado_em: '2026-10-19', dados: d, certificados: certs }] };
+}
+var DB;
+function carregar(){ try { DB = JSON.parse(localStorage.getItem(CHAVE)); } catch (e) { DB = null; } if (!DB || !DB.pastas) { DB = semente(); salvar(); } if (!DB.assinaturas) DB.assinaturas = []; }
+function salvar(){ try { localStorage.setItem(CHAVE, JSON.stringify(DB)); } catch (e) {} }
+function pasta(pid){ return DB.pastas.filter(function(p){ return p.id === pid; })[0]; }
+function todosCodigos(){ var u = {}; DB.pastas.forEach(function(p){ p.certificados.forEach(function(c){ u[c.codigo] = 1; }); }); return u; }
+
+/* assinatura guardada como { clara: PNG tinta azul-petróleo, escura: PNG tinta bege }; o certificado usa a da variação */
+function imgAssinatura(a, variacao){ if (!a) return ''; if (typeof a === 'string') return a; return a[variacao === 'escura' ? 'escura' : 'clara'] || ''; }
+
+/* transforma os dados da pasta no formato que o modelo do certificado entende */
+function dadosCertificado(d, extra){
+  var r = {
+    variacao: d.variacao, tipo: d.tipo, curso: d.curso, cliente: d.cliente, cliente_logo: d.cliente_logo,
+    periodo: d.periodo, carga: horasTexto(d.carga_horas), cidade: d.cidade, data_emissao: dataLonga(d.data_emissao_iso),
+    resp1_nome: d.resp1_nome, resp1_cargo: d.resp1_cargo, resp1_assinatura: imgAssinatura(d.resp1_assinatura, d.variacao),
+    mostrar_resp2: !!d.mostrar_resp2, resp2_nome: d.resp2_nome, resp2_cargo: d.resp2_cargo, resp2_assinatura: imgAssinatura(d.resp2_assinatura, d.variacao),
+    modulos: (d.modulos || []).map(function(m){ return { titulo: m.titulo, descricao: m.descricao, horas: horasMod(m.horas) }; }),
+    participante: '[NOME DO PARTICIPANTE]', codigo: '[CÓDIGO]', url_verificacao: CONFIG.baseVerificacao.replace(/^https?:\/\//, ''), qr_imagem: ''
+  };
+  return Object.assign(r, extra || {});
+}
+
+/* =================================================================== prévia (iframe com o modelo) */
+function montarPrevia(el, face){
+  el.innerHTML = '<iframe title="Prévia do certificado" src="' + CONFIG.template + '?previa=' + (face || 'frente') + '"></iframe>';
+  var f = $('iframe', el), pronto = false, fila = null, faceAtual = face || 'frente';
+  function escalar(){ f.style.transform = 'scale(' + (el.clientWidth / 1123) + ')'; }
+  new ResizeObserver(escalar).observe(el); escalar();
+  f.addEventListener('load', function(){ pronto = true; if (fila) enviar(fila); mudarFace(faceAtual); });
+  var t;
+  function enviar(dados){ fila = dados; if (!pronto) return; clearTimeout(t); t = setTimeout(function(){ f.contentWindow.postMessage({ tipo: 'certificado:dados', dados: dados }, '*'); }, 120); }
+  function mudarFace(fc){ faceAtual = fc; if (pronto) f.contentWindow.postMessage({ tipo: 'certificado:face', face: fc }, '*'); }
+  return { enviar: enviar, face: mudarFace };
+}
+
+/* =================================================================== roteador */
+function ir(h){ location.hash = h; }
+window.addEventListener('hashchange', rota);
+function rota(){
+  var h = location.hash.replace(/^#\/?/, '').split('/');
+  window.scrollTo(0, 0); $('#camada').innerHTML = '';
+  if (h[0] === 'nova') return telaNova();
+  if (h[0] === 'pasta' && pasta(h[1])) return h[2] === 'editar' ? telaEditar(h[1]) : telaPasta(h[1], h[2]);
+  telaLista();
+}
+
+/* =================================================================== 1. lista de pastas */
+function telaLista(){
+  var app = $('#app');
+  app.innerHTML =
+    '<p class="migalha">Gestão</p>' +
+    '<div class="cab"><div><h1>Emitir certificados</h1>' +
+    '<p class="sub">Crie uma pasta para cada cliente e programa. Dentro dela, importe a lista de nomes e baixe todos os certificados prontos, já com o QR code de verificação.</p></div>' +
+    '<div style="display:flex;gap:8px"><button class="btn" id="bibAss">Assinaturas salvas</button><button class="btn pri" id="nova">' + I.mais + 'Nova pasta</button></div></div>' +
+    '<div class="busca"><input type="search" id="q" placeholder="Buscar por cliente ou programa"></div>' +
+    '<div class="cartao" id="tab"></div>';
+  $('#nova').onclick = function(){ ir('#/nova'); };
+  $('#bibAss').onclick = modalBiblioteca;
+  function desenhar(){
+    var q = $('#q').value.toLowerCase().trim();
+    var lista = DB.pastas.filter(function(p){ return !q || (p.nome + ' ' + p.dados.cliente + ' ' + p.dados.curso).toLowerCase().indexOf(q) >= 0; });
+    if (!DB.pastas.length) { $('#tab').innerHTML = '<div class="vazio"><h2>Nenhuma pasta ainda</h2><p>Comece criando a pasta do primeiro cliente.</p></div>'; return; }
+    if (!lista.length) { $('#tab').innerHTML = '<div class="vazio"><p>Nada encontrado para "' + esc(q) + '".</p></div>'; return; }
+    $('#tab').innerHTML = '<table><thead><tr><th>Pasta</th><th>Padrão</th><th>Certificados</th><th>Criada em</th></tr></thead><tbody>' +
+      lista.map(function(p){
+        var v = p.certificados.filter(function(c){ return c.status === 'valido'; }).length;
+        return '<tr class="clicavel" data-id="' + p.id + '"><td><div class="t-nome">' + esc(p.nome) + '</div><div class="t-sub">' + esc(p.dados.cliente || 'Sem cliente') + ' · ' + esc(p.dados.tipo) + '</div></td>' +
+          '<td><span class="chip"><span class="amostra ' + p.dados.variacao + '"></span>' + (p.dados.variacao === 'escura' ? 'Escuro' : 'Claro') + '</span></td>' +
+          '<td>' + (v ? '<span class="chip ok">' + v + ' emitido' + (v > 1 ? 's' : '') + '</span>' : '<span class="chip">Nenhum ainda</span>') + '</td>' +
+          '<td>' + esc(dataLonga(p.criado_em)) + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    $$('tr.clicavel').forEach(function(tr){ tr.onclick = function(){ ir('#/pasta/' + tr.getAttribute('data-id')); }; });
+  }
+  $('#q').oninput = desenhar; desenhar();
+}
+
+/* =================================================================== 2. nova pasta (assistente) */
+var NOVA = null;
+function telaNova(){ NOVA = { passo: 1, dados: modelo(), origem: null }; passoNova(); }
+function cabecalhoPassos(n){
+  var nomes = ['Padrão', 'Importar proposta ou trilha', 'Revisar e criar a pasta'];
+  return '<div class="passos">' + nomes.map(function(t, i){ var k = i + 1; return '<span class="passo ' + (k === n ? 'atual' : k < n ? 'feito' : '') + '"><i>' + (k < n ? '✓' : k) + '</i>' + t + '</span>'; }).join('') + '</div>';
+}
+function passoNova(){
+  var app = $('#app'), n = NOVA.passo;
+  var topo = '<p class="migalha"><a href="#/">Emitir certificados</a> › Nova pasta</p><div class="cab"><div><h1>Nova pasta de certificados</h1></div></div>' + cabecalhoPassos(n);
+  if (n === 1) {
+    app.innerHTML = topo +
+      '<p class="sub" style="margin:-6px 0 18px">Escolha o padrão do certificado. Os dois têm o mesmo desenho; use cores diferentes para diferenciar trilhas, por exemplo quando a mesma pessoa conclui duas.</p>' +
+      '<div class="padroes">' + ['clara', 'escura'].map(function(v){
+        return '<button class="padrao ' + (NOVA.dados.variacao === v ? 'sel' : '') + '" data-v="' + v + '"><img src="img/padrao-' + v + '.jpg" alt="">' +
+          '<div class="rot"><div>' + (v === 'clara' ? 'Claro' : 'Escuro') + '<small>' + (v === 'clara' ? 'Fundo bege, textos em azul-petróleo' : 'Fundo azul-petróleo, textos em branco') + '</small></div><span class="bolinha"></span></div></button>';
+      }).join('') + '</div>' + rodapeAcao('', '<a class="btn" href="#/">Cancelar</a><button class="btn pri" id="seg">Continuar</button>');
+    $$('.padrao').forEach(function(b){ b.onclick = function(){ NOVA.dados.variacao = b.getAttribute('data-v'); $$('.padrao').forEach(function(x){ x.classList.toggle('sel', x === b); }); }; });
+    $('#seg').onclick = function(){ NOVA.passo = 2; passoNova(); };
+  }
+  if (n === 2) {
+    app.innerHTML = topo +
+      '<div class="opcoes">' +
+        '<div class="cartao opcao"><h2>Enviar a proposta ou a trilha</h2><p>Envie o arquivo do programa. A plataforma lê e preenche o nome, o cliente, os módulos e as horas. Você revisa tudo antes de criar a pasta.</p>' +
+          '<label class="solta" id="solta"><input type="file" id="arq" accept=".pptx,.pdf,.docx,.doc,.ppt" hidden>' + I.subir.replace('<svg', '<svg style="width:22px;height:22px;margin-bottom:6px"') +
+          '<div><b>Clique para escolher</b> ou arraste o arquivo aqui</div><small>PowerPoint, PDF ou Word</small></label><div id="lendo"></div></div>' +
+        '<div class="cartao opcao"><h2>Usar uma trilha cadastrada</h2><p>Puxa os módulos e as horas de uma trilha que já existe na plataforma.</p>' +
+          '<select id="trilha"><option value="">Escolha a trilha</option><option value="t1">Liderança que Inspira · 6 módulos</option><option value="t2">Comunicação Influente para Lideranças · 4 encontros</option></select>' +
+          '<button class="btn" id="usarTrilha" style="margin-top:12px" disabled>Usar esta trilha</button></div>' +
+        '<div class="cartao opcao"><h2>Preencher do zero</h2><p>Para um programa que não tem proposta nem trilha. Você digita as informações.</p><button class="btn" id="zero">Começar em branco</button></div>' +
+      '</div>' + rodapeAcao('', '<button class="btn" id="volta">Voltar</button>');
+    $('#volta').onclick = function(){ NOVA.passo = 1; passoNova(); };
+    $('#zero').onclick = function(){ NOVA.origem = { tipo: 'manual' }; NOVA.passo = 3; passoNova(); };
+    $('#trilha').onchange = function(){ $('#usarTrilha').disabled = !this.value; };
+    $('#usarTrilha').onclick = function(){ aplicarExemplo($('#trilha').value); NOVA.origem = { tipo: 'trilha', nome: $('#trilha').selectedOptions[0].text }; NOVA.passo = 3; passoNova(); };
+    var solta = $('#solta');
+    ['dragenter','dragover'].forEach(function(e){ solta.addEventListener(e, function(ev){ ev.preventDefault(); solta.classList.add('arrastando'); }); });
+    ['dragleave','drop'].forEach(function(e){ solta.addEventListener(e, function(ev){ ev.preventDefault(); solta.classList.remove('arrastando'); }); });
+    solta.addEventListener('drop', function(ev){ if (ev.dataTransfer.files[0]) lerProposta(ev.dataTransfer.files[0]); });
+    $('#arq').onchange = function(){ if (this.files[0]) lerProposta(this.files[0]); };
+  }
+  if (n === 3) {
+    app.innerHTML = topo + '<div id="ed"></div>';
+    editorDados($('#ed'), NOVA.dados, NOVA.origem, true);
+  }
+}
+function lerProposta(arq){
+  $('#lendo').innerHTML = '<div class="lendo"><span class="giro"></span><div><b>Lendo ' + esc(arq.name) + '</b><div style="font-size:12.5px;color:var(--texto-2)">Procurando programa, cliente, módulos e horas</div></div></div>';
+  // PROTÓTIPO: simula a leitura. Na plataforma: POST /api/certificados/extrair (arquivo) devolve os campos (ver ESPECIFICACAO.md).
+  setTimeout(function(){ aplicarExemplo('proposta'); NOVA.origem = { tipo: 'arquivo', nome: arq.name }; NOVA.passo = 3; passoNova(); }, 1400);
+}
+function aplicarExemplo(qual){
+  var d = NOVA.dados;
+  if (qual === 't2') {
+    Object.assign(d, { tipo: 'trilha', curso: 'Comunicação Influente para Lideranças', carga_horas: 12,
+      modulos: [{ titulo: 'Comunicação consciente', descricao: '', horas: 3 }, { titulo: 'Escuta que resolve', descricao: '', horas: 3 },
+        { titulo: 'Feedback e conversas difíceis', descricao: '', horas: 3 }, { titulo: 'Mediação com confiança', descricao: '', horas: 3 }] });
+    return;
+  }
+  if (qual === 't1') {
+    Object.assign(d, { tipo: 'mentoria', curso: 'Mentoria Liderança que Inspira', carga_horas: 18,
+      modulos: [{ titulo: 'Autoconhecimento e estilo de liderança', descricao: 'Diagnóstico de perfil e pontos de desenvolvimento', horas: 3 },
+        { titulo: 'Escuta ativa e perguntas poderosas', descricao: '', horas: 3 }, { titulo: 'Feedback que desenvolve', descricao: '', horas: 3 },
+        { titulo: 'Conversas difíceis', descricao: '', horas: 3 }, { titulo: 'Delegação com combinados claros', descricao: '', horas: 3 },
+        { titulo: 'Plano de desenvolvimento individual', descricao: '', horas: 3 }] });
+    return;
+  }
+  Object.assign(d, { tipo: 'programa', cliente: 'Cooperativa Exemplo de Crédito', curso: 'Liderança Gestora na Prática',
+    inicio: '2027-03-09', fim: '2027-06-29', carga_horas: 24, cidade: 'Florianópolis',
+    modulos: [{ titulo: 'Papel do líder gestor', descricao: '', horas: 4 }, { titulo: 'Comunicação influente', descricao: '', horas: 4 },
+      { titulo: 'Feedback e PDI', descricao: '', horas: 4 }, { titulo: 'Gestão de resultados', descricao: '', horas: 4 },
+      { titulo: 'Delegação e autonomia', descricao: '', horas: 4 }, { titulo: 'Plano de ação e encerramento', descricao: '', horas: 4 }] });
+  d.periodo = periodoTexto(d.inicio, d.fim);
+}
+function rodapeAcao(esq, dir){ return '<div class="rodape-acao"><div><span class="esq">' + (esq || '') + '</span>' + dir + '</div></div>'; }
+
+/* =================================================================== formulário de dados + prévia (nova pasta e editar) */
+function editorDados(el, d, origem, nova, pastaExistente){
+  if (!d.modulos) d.modulos = [];
+  var nomeSugerido = function(){ var ano = (d.fim || d.inicio || hojeISO()).slice(0, 4); var c = d.curso.replace(/^(Programa de|Programa|Mentoria|Trilha|Curso de|Curso)\s+/i, '');
+    return [d.cliente || 'Sem cliente', c || 'Programa', ano].join(' · '); };
+  var nomePasta = pastaExistente ? pastaExistente.nome : nomeSugerido(), nomeEditado = !!pastaExistente;
+  var avisoOrigem = '';
+  if (origem && origem.tipo === 'arquivo') avisoOrigem = '<div class="aviso-faixa info" style="margin-bottom:16px">' + I.info + '<div>Preenchemos estes campos a partir de <b>' + esc(origem.nome) + '</b>. Confira tudo antes de criar a pasta: o que não estava no arquivo ficou em branco. <i>No protótipo, a leitura usa dados de exemplo.</i></div></div>';
+  if (origem && origem.tipo === 'trilha') avisoOrigem = '<div class="aviso-faixa info" style="margin-bottom:16px">' + I.info + '<div>Módulos e horas vieram da trilha <b>' + esc(origem.nome) + '</b>. Complete o cliente e as datas desta turma.</div></div>';
+  if (pastaExistente && pastaExistente.certificados.length) avisoOrigem = '<div class="aviso-faixa" style="margin-bottom:16px">' + I.info + '<div>Esta pasta já tem <b>' + pastaExistente.certificados.length + ' certificados emitidos</b>. As mudanças valem para as próximas emissões. Para corrigir os já emitidos, use "Gerar de novo" na aba Emitidos.</div></div>';
+
+  el.innerHTML = avisoOrigem + '<div class="editor"><div class="cartao" id="form"></div><div class="previa">' +
+    '<div class="barra"><div class="seg" id="faces"><button class="on" data-f="frente">Frente</button><button data-f="verso">Verso</button></div>' +
+    '<input type="text" id="nomeTeste" placeholder="Testar com um nome" style="max-width:240px"></div>' +
+    '<div class="moldura" id="moldura"></div><p class="nota">Prévia com o nome de teste e QR code de exemplo. Cada aluno recebe o próprio código ao gerar.</p></div></div>' +
+    rodapeAcao('', (nova ? '<button class="btn" id="volta">Voltar</button><button class="btn pri" id="criar">' + I.pasta + 'Criar pasta</button>'
+                         : '<a class="btn" href="#/pasta/' + pastaExistente.id + '">Cancelar</a><button class="btn pri" id="criar">Salvar alterações</button>'));
+
+  var f = $('#form');
+  f.innerHTML =
+    '<div class="secao"><h3>Pasta</h3><label class="campo"><span>Nome da pasta</span><input type="text" id="nomePasta"><small>Sugerido a partir do cliente, do programa e do ano. Pode mudar.</small></label></div>' +
+    '<div class="secao"><h3>Padrão</h3><div class="seg" id="variacao"><button data-v="clara"><span class="amostra clara"></span> Claro</button><button data-v="escura"><span class="amostra escura"></span> Escuro</button></div></div>' +
+    '<div class="secao pilha"><h3>Programa</h3>' +
+      '<div class="linha2" style="grid-template-columns:160px 1fr"><label class="campo"><span>Tipo</span><select data-k="tipo">' + TIPOS.map(function(t){ return '<option>' + t + '</option>'; }).join('') + '</select></label>' +
+      '<label class="campo"><span>Nome do programa</span><textarea data-k="curso" rows="2" placeholder="Ex.: Programa de Desenvolvimento de Lideranças"></textarea></label></div>' +
+      '<p style="font-size:12.5px;color:var(--texto-3)" id="fraseTipo"></p></div>' +
+    '<div class="secao pilha"><h3>Cliente</h3>' +
+      '<label class="campo"><span>Nome do cliente</span><input type="text" data-k="cliente" placeholder="Ex.: Sicoob Cooprem"><small>Aparece no verso como "Realizado para". Deixe vazio em turma aberta.</small></label>' +
+      '<div class="campo"><span style="display:block;font-weight:600;font-size:12.5px;margin-bottom:6px">Logo do cliente (opcional)</span><div class="arquivo"><div class="thumb" id="logoThumb">sem logo</div>' +
+      '<label class="btn peq">' + I.subir + 'Enviar logo<input type="file" accept="image/png,image/jpeg,image/svg+xml" id="logoArq" hidden></label><button class="btn peq fantasma" id="logoTirar">Remover</button></div>' +
+      '<small style="display:block;color:var(--texto-3);font-size:12px;margin-top:5px">PNG com fundo transparente fica melhor. Sem logo, aparece o nome.</small></div></div>' +
+    '<div class="secao pilha"><h3>Datas e carga horária</h3>' +
+      '<div class="linha2"><label class="campo"><span>Início</span><input type="date" data-k="inicio"></label><label class="campo"><span>Fim</span><input type="date" data-k="fim"></label></div>' +
+      '<label class="campo"><span>Período (como aparece no certificado)</span><input type="text" data-k="periodo"><small id="periodoAjuda">Escrito sozinho a partir das datas. Pode ajustar.</small></label>' +
+      '<div class="linha3"><label class="campo"><span>Carga horária total (horas)</span><input type="number" min="0" step="0.5" data-k="carga_horas"></label>' +
+      '<label class="campo"><span>Cidade</span><input type="text" data-k="cidade"></label>' +
+      '<label class="campo"><span>Data de emissão</span><input type="date" data-k="data_emissao_iso"></label></div></div>' +
+    '<div class="secao"><h3>Módulos do verso</h3><div class="mods" id="mods"></div>' +
+      '<div class="soma"><button class="btn peq" id="addMod">' + I.mais + 'Adicionar módulo</button><span id="soma"></span></div></div>' +
+    '<div class="secao pilha"><h3>Assinaturas</h3>' + blocoAssinatura(1) +
+      '<label style="display:flex;gap:8px;align-items:center;font-weight:600;font-size:13px;cursor:pointer"><input type="checkbox" data-k="mostrar_resp2"> Incluir uma segunda assinatura</label>' +
+      '<div id="ass2">' + blocoAssinatura(2) + '</div>' +
+      '<p style="font-size:12px;color:var(--texto-3)">Envie uma foto ou o escaneamento da assinatura uma vez só. A plataforma tira o fundo e ajusta a cor para o padrão claro e o escuro. Sem imagem, fica a linha para assinar à mão.</p></div>';
+
+  // preencher campos
+  $('#nomePasta').value = nomePasta;
+  $('#nomePasta').oninput = function(){ nomeEditado = true; };
+  $$('[data-k]', f).forEach(function(inp){
+    var k = inp.getAttribute('data-k');
+    if (inp.type === 'checkbox') inp.checked = !!d[k]; else inp.value = d[k] == null ? '' : d[k];
+    inp.addEventListener(inp.tagName === 'SELECT' || inp.type === 'checkbox' || inp.type === 'date' ? 'change' : 'input', function(){
+      d[k] = inp.type === 'checkbox' ? inp.checked : inp.value;
+      if (k === 'periodo') d.periodo_manual = true;
+      if ((k === 'inicio' || k === 'fim') && !d.periodo_manual) { d.periodo = periodoTexto(d.inicio, d.fim); $('[data-k=periodo]', f).value = d.periodo; }
+      if (!nomeEditado && (k === 'cliente' || k === 'curso' || k === 'fim' || k === 'inicio')) $('#nomePasta').value = nomeSugerido();
+      atualizar();
+    });
+  });
+  function botoesVariacao(){ $$('#variacao button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-v') === d.variacao); }); }
+  $$('#variacao button').forEach(function(b){ b.onclick = function(){ d.variacao = b.getAttribute('data-v'); botoesVariacao(); atualizar(); }; });
+  botoesVariacao();
+
+  // arquivos (logo e assinaturas)
+  function thumb(){ $('#logoThumb').innerHTML = d.cliente_logo ? '<img src="' + d.cliente_logo + '" alt="">' : 'sem logo'; }
+  $('#logoArq').onchange = function(){ var a = this.files[0]; if (a) lerArquivoComoDataURL(a).then(function(u){ d.cliente_logo = u; thumb(); atualizar(); }); };
+  $('#logoTirar').onclick = function(){ d.cliente_logo = ''; thumb(); atualizar(); };
+  thumb();
+  var atualizarSlots = [];
+  [1, 2].forEach(function(n){
+    var k = 'resp' + n + '_assinatura';
+    atualizarSlots.push(t);
+    function t(){
+      var a = d[k];
+      $('#assC' + n).innerHTML = a ? '<img src="' + imgAssinatura(a, 'clara') + '" alt="">' : 'sem assinatura';
+      $('#assE' + n).innerHTML = a ? '<img src="' + imgAssinatura(a, 'escura') + '" alt="">' : 'sem assinatura';
+      $('#assTirar' + n).style.display = a ? '' : 'none';
+      var sel = $('#assSel' + n);
+      sel.innerHTML = '<option value="">' + (DB.assinaturas.length ? 'Usar uma assinatura salva' : 'Nenhuma assinatura salva ainda') + '</option>' +
+        DB.assinaturas.map(function(x){ return '<option value="' + x.id + '">' + esc(x.nome) + (x.cargo ? ' · ' + esc(x.cargo) : '') + '</option>'; }).join('');
+      sel.disabled = !DB.assinaturas.length;
+    }
+    function aplicar(x){
+      d[k] = { clara: x.clara, escura: x.escura, assinatura_id: x.id || '' };
+      if (x.nome) { d['resp' + n + '_nome'] = x.nome; $('[data-k=resp' + n + '_nome]', f).value = x.nome; }
+      if (x.cargo) { d['resp' + n + '_cargo'] = x.cargo; $('[data-k=resp' + n + '_cargo]', f).value = x.cargo; }
+      atualizarSlots.forEach(function(fn){ fn(); }); atualizar();
+    }
+    $('#assSel' + n).onchange = function(){ var x = DB.assinaturas.filter(function(y){ return y.id === this.value; }, this)[0]; if (x) aplicar(x); this.value = ''; };
+    $('#assNova' + n).onclick = function(){
+      var nomeAtual = d['resp' + n + '_nome'], cargoAtual = d['resp' + n + '_cargo'];
+      modalAssinatura({ nome: /^\[/.test(nomeAtual || '') ? '' : nomeAtual, cargo: /^\[/.test(cargoAtual || '') ? '' : cargoAtual }, function(x){ aplicar(x); });
+    };
+    $('#assTirar' + n).onclick = function(){ d[k] = ''; t(); atualizar(); };
+    t();
+  });
+
+  // modulos
+  function desenharMods(){
+    var box = $('#mods');
+    if (!d.modulos.length) box.innerHTML = '<div style="padding:16px;color:var(--texto-3);font-size:13px">Nenhum módulo. Sem módulos, o verso mostra só a carga horária.</div>';
+    else box.innerHTML = d.modulos.map(function(m, i){
+      return '<div class="mod" data-i="' + i + '"><span class="n">' + String(i + 1).padStart(2, '0') + '</span>' +
+        '<div><input type="text" data-m="titulo" value="' + esc(m.titulo) + '" placeholder="Título do módulo"><input type="text" class="desc" data-m="descricao" value="' + esc(m.descricao) + '" placeholder="Descrição curta (opcional)"></div>' +
+        '<input type="number" min="0" step="0.5" data-m="horas" value="' + esc(m.horas) + '" placeholder="Horas" title="Horas">' +
+        '<div class="acoes"><button data-a="cima" title="Subir">' + I.cima + '</button><button data-a="baixo" title="Descer">' + I.baixo + '</button><button data-a="tirar" title="Remover">' + I.x + '</button></div></div>';
+    }).join('');
+    $$('.mod', box).forEach(function(row){
+      var i = +row.getAttribute('data-i');
+      $$('[data-m]', row).forEach(function(inp){ inp.oninput = function(){ d.modulos[i][inp.getAttribute('data-m')] = inp.value; atualizar(); }; });
+      $$('[data-a]', row).forEach(function(b){ b.onclick = function(){
+        var a = b.getAttribute('data-a'), j = a === 'cima' ? i - 1 : i + 1;
+        if (a === 'tirar') d.modulos.splice(i, 1);
+        else if (j >= 0 && j < d.modulos.length) { var tmp = d.modulos[i]; d.modulos[i] = d.modulos[j]; d.modulos[j] = tmp; }
+        desenharMods(); atualizar(); }; });
+    });
+  }
+  $('#addMod').onclick = function(){ d.modulos.push({ titulo: '', descricao: '', horas: '' }); desenharMods(); atualizar(); var ins = $$('#mods [data-m=titulo]'); if (ins.length) ins[ins.length - 1].focus(); };
+  desenharMods();
+
+  // previa
+  var pv = montarPrevia($('#moldura'), 'frente');
+  $$('#faces button').forEach(function(b){ b.onclick = function(){ $$('#faces button').forEach(function(x){ x.classList.toggle('on', x === b); }); pv.face(b.getAttribute('data-f')); }; });
+  $('#nomeTeste').oninput = atualizar;
+
+  function atualizar(){
+    $('#ass2').style.display = d.mostrar_resp2 ? '' : 'none';
+    var art = FEMININOS.indexOf(d.tipo) >= 0 ? 'a' : 'o';
+    $('#fraseTipo').textContent = 'No certificado: "concluiu ' + art + ' ' + d.tipo + '" e, no verso, "Conteúdo ' + (art === 'a' ? 'da' : 'do') + ' ' + d.tipo + '".';
+    var soma = d.modulos.reduce(function(s, m){ return s + (Number(String(m.horas).replace(',', '.')) || 0); }, 0);
+    var total = Number(String(d.carga_horas).replace(',', '.')) || 0;
+    var s = $('#soma');
+    if (!d.modulos.length) s.innerHTML = '';
+    else if (!total) s.innerHTML = '<span class="chip aviso">Preencha a carga horária total</span>';
+    else if (Math.abs(soma - total) < 0.01) s.innerHTML = '<span class="chip ok">Soma dos módulos: ' + horasTexto(soma) + ' ✓</span>';
+    else s.innerHTML = '<span class="chip aviso">Soma dos módulos: ' + (horasTexto(soma) || '0 horas') + ' · total: ' + horasTexto(total) + '</span>';
+    var link = CONFIG.baseVerificacao + '/MTR-26-XXXX-XXXX';
+    pv.enviar(dadosCertificado(d, { participante: $('#nomeTeste').value.trim() || 'Nome do Participante', codigo: 'MTR-26-XXXX-XXXX', qr_imagem: QRMini.dataUri(link) }));
+    validar();
+  }
+  function faltando(){
+    var f = [];
+    if (!d.curso.trim()) f.push('nome do programa');
+    if (!Number(String(d.carga_horas).replace(',', '.'))) f.push('carga horária');
+    if (!d.periodo.trim()) f.push('período');
+    if (!d.cidade.trim()) f.push('cidade');
+    if (!d.data_emissao_iso) f.push('data de emissão');
+    if (d.modulos.some(function(m){ return !String(m.titulo).trim(); })) f.push('título de algum módulo');
+    return f;
+  }
+  function validar(){
+    var f = faltando(), b = $('#criar');
+    $('.rodape-acao .esq').innerHTML = f.length ? 'Falta preencher: ' + f.join(', ') : '';
+    b.disabled = !!f.length;
+  }
+  atualizar();
+
+  if ($('#volta')) $('#volta').onclick = function(){ NOVA.passo = 2; passoNova(); };
+  $('#criar').onclick = function(){
+    if (faltando().length) return;
+    var nome = $('#nomePasta').value.trim() || nomeSugerido();
+    if (nova) {
+      var p = { id: id(), nome: nome, criado_em: hojeISO(), dados: JSON.parse(JSON.stringify(d)), certificados: [] };
+      DB.pastas.unshift(p); salvar(); toast('Pasta criada. Agora importe a lista de nomes.'); ir('#/pasta/' + p.id);
+    } else {
+      pastaExistente.nome = nome; pastaExistente.dados = JSON.parse(JSON.stringify(d)); salvar(); toast('Alterações salvas.'); ir('#/pasta/' + pastaExistente.id);
+    }
+  };
+}
+function blocoAssinatura(n){
+  return '<div class="linha2"><label class="campo"><span>Nome do ' + (n === 1 ? 'responsável' : 'segundo responsável') + '</span><input type="text" data-k="resp' + n + '_nome"></label>' +
+    '<label class="campo"><span>Cargo</span><input type="text" data-k="resp' + n + '_cargo" placeholder="' + (n === 1 ? 'Ex.: Sócia · Mentorei' : 'Ex.: Diretora de Pessoas · Cliente') + '"></label></div>' +
+    '<div class="ass"><div class="amost clara" id="assC' + n + '" title="No padrão claro"></div><div class="amost escura" id="assE' + n + '" title="No padrão escuro"></div></div>' +
+    '<div class="ass-acoes"><select id="assSel' + n + '"></select><button class="btn peq" id="assNova' + n + '">' + I.subir + 'Enviar assinatura</button>' +
+    '<button class="btn peq fantasma perigo" id="assTirar' + n + '">Tirar assinatura</button></div>';
+}
+
+/* =================================================================== assinaturas */
+/* Tira o fundo de uma foto ou escaneamento e devolve duas versões transparentes:
+   tinta azul-petróleo (padrão claro) e tinta bege (padrão escuro).
+   PROTÓTIPO no navegador; na plataforma, o mesmo passo roda no servidor (ver referencia/assinatura.py). */
+function processarAssinatura(arquivo){
+  return lerArquivoComoDataURL(arquivo).then(function(url){ return new Promise(function(ok, erro){
+    var img = new Image();
+    img.onload = function(){
+      var esc_ = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight));
+      var w = Math.round(img.naturalWidth * esc_), h = Math.round(img.naturalHeight * esc_);
+      var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+      var cx = cv.getContext('2d'); cx.drawImage(img, 0, 0, w, h);
+      var px = cx.getImageData(0, 0, w, h).data, n = w * h, lum = new Float32Array(n), alfaOrig = new Float32Array(n), i;
+      for (i = 0; i < n; i++) { lum[i] = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2]; alfaOrig[i] = px[i * 4 + 3] / 255; }
+      // brilho do papel por blocos (corrige sombra de foto de celular)
+      var B = 48, bw = Math.ceil(w / B), bh = Math.ceil(h / B), fundo = new Float32Array(bw * bh);
+      for (var by = 0; by < bh; by++) for (var bx = 0; bx < bw; bx++) {
+        var vals = [];
+        for (var y = by * B; y < Math.min(h, by * B + B); y += 2) for (var x = bx * B; x < Math.min(w, bx * B + B); x += 2) { var j = y * w + x; if (alfaOrig[j] > 0.5) vals.push(lum[j]); }
+        vals.sort(function(a, b){ return a - b; }); fundo[by * bw + bx] = vals.length ? vals[Math.floor(vals.length * 0.8)] : 255;
+      }
+      var alfa = new Float32Array(n), x0 = w, y0 = h, x1 = -1, y1 = -1;
+      for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
+        i = y * w + x;
+        var fb = fundo[Math.min(bh - 1, Math.floor(y / B)) * bw + Math.min(bw - 1, Math.floor(x / B))];
+        var a = Math.max(0, Math.min(1, (fb - lum[i] - 28) / 70));
+        if (alfaOrig[i] < 0.5) a = 0; else if (alfaOrig[i] < 0.99) a = Math.max(a, lum[i] < 200 ? alfaOrig[i] : 0);
+        alfa[i] = a;
+        if (a > 0.15) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+      }
+      if (x1 < 0) return erro(new Error('Não encontramos a assinatura. Use caneta escura em papel branco, sem linhas.'));
+      var m = Math.round(0.03 * Math.max(x1 - x0, y1 - y0)) + 4;
+      x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m); x1 = Math.min(w - 1, x1 + m); y1 = Math.min(h - 1, y1 + m);
+      var cw = x1 - x0 + 1, ch = y1 - y0 + 1;
+      function pintar(r, g, b){
+        var c2 = document.createElement('canvas'); c2.width = cw; c2.height = ch;
+        var x2 = c2.getContext('2d'), out = x2.createImageData(cw, ch);
+        for (var yy = 0; yy < ch; yy++) for (var xx = 0; xx < cw; xx++) {
+          var o = (yy * cw + xx) * 4; out.data[o] = r; out.data[o + 1] = g; out.data[o + 2] = b; out.data[o + 3] = Math.round(alfa[(yy + y0) * w + xx + x0] * 255);
+        }
+        x2.putImageData(out, 0, 0); return c2.toDataURL('image/png');
+      }
+      ok({ clara: pintar(14, 59, 68), escura: pintar(242, 234, 223) });
+    };
+    img.onerror = function(){ erro(new Error('Não conseguimos abrir esta imagem. Envie JPG ou PNG.')); };
+    img.src = url;
+  }); });
+}
+
+function modalAssinatura(preset, usar){
+  var res = null;
+  $('#camada').innerHTML = '<div class="fundo-modal" id="fm"><div class="modal" style="width:min(640px,100%)"><div class="mcab"><h2>Enviar assinatura</h2><button class="btn peq fantasma" id="fechar">' + I.x + '</button></div>' +
+    '<div class="mcorpo pilha">' +
+    '<label class="solta" id="soltaA"><input type="file" id="arqA" accept="image/png,image/jpeg,image/webp" hidden>' + I.subir.replace('<svg', '<svg style="width:22px;height:22px;margin-bottom:6px"') +
+    '<div><b>Escolha a foto ou o escaneamento</b> da assinatura</div><small>Caneta escura em papel branco, sem pauta. Foto de celular serve.</small></label>' +
+    '<div id="resA"></div>' +
+    '<div class="linha2"><label class="campo"><span>Nome de quem assina</span><input type="text" id="nomeA"></label><label class="campo"><span>Cargo</span><input type="text" id="cargoA" placeholder="Ex.: Sócia · Mentorei"></label></div>' +
+    '<label class="check"><input type="checkbox" id="salvarA" checked><span>Salvar na lista de assinaturas, para usar em outras pastas</span></label>' +
+    '<label class="check"><input type="checkbox" id="autA"><span>Tenho autorização desta pessoa para usar a assinatura dela nos certificados</span></label>' +
+    '<div style="display:flex;justify-content:flex-end;gap:8px"><button class="btn" id="cancA">Cancelar</button><button class="btn pri" id="usarA" disabled>Usar esta assinatura</button></div>' +
+    '</div></div></div>';
+  $('#nomeA').value = preset.nome || ''; $('#cargoA').value = preset.cargo || '';
+  function fechar(){ $('#camada').innerHTML = ''; }
+  $('#fechar').onclick = fechar; $('#cancA').onclick = fechar;
+  function pode(){ $('#usarA').disabled = !(res && $('#autA').checked && $('#nomeA').value.trim()); }
+  $('#autA').onchange = pode; $('#nomeA').oninput = pode;
+  function tratar(arq){
+    $('#resA').innerHTML = '<div class="lendo" style="margin:0"><span class="giro"></span><div>Tirando o fundo e ajustando as cores…</div></div>';
+    processarAssinatura(arq).then(function(r){
+      res = r;
+      $('#resA').innerHTML = '<div class="ass" style="margin:0"><div class="amost clara" style="height:96px"><img src="' + r.clara + '" alt=""></div><div class="amost escura" style="height:96px"><img src="' + r.escura + '" alt=""></div></div>' +
+        '<p style="font-size:12px;color:var(--texto-3);margin-top:6px">Assim ela aparece no padrão claro e no escuro. Se ficou falhada ou com sujeira, tente outra foto com mais luz.</p>';
+      pode();
+    }, function(e){ res = null; $('#resA').innerHTML = '<div class="aviso-faixa">' + I.info + '<div>' + esc(e.message) + '</div></div>'; pode(); });
+  }
+  var sa = $('#soltaA');
+  ['dragenter','dragover'].forEach(function(e){ sa.addEventListener(e, function(ev){ ev.preventDefault(); sa.classList.add('arrastando'); }); });
+  ['dragleave','drop'].forEach(function(e){ sa.addEventListener(e, function(ev){ ev.preventDefault(); sa.classList.remove('arrastando'); }); });
+  sa.addEventListener('drop', function(ev){ if (ev.dataTransfer.files[0]) tratar(ev.dataTransfer.files[0]); });
+  $('#arqA').onchange = function(){ if (this.files[0]) tratar(this.files[0]); };
+  $('#usarA').onclick = function(){
+    var x = { id: id(), nome: $('#nomeA').value.trim(), cargo: $('#cargoA').value.trim(), clara: res.clara, escura: res.escura, criado_em: hojeISO() };
+    if ($('#salvarA').checked) { DB.assinaturas.unshift(x); salvar(); } else x.id = '';
+    fechar(); usar(x);
+  };
+}
+
+function modalBiblioteca(){
+  function desenhar(){
+    $('#camada').innerHTML = '<div class="fundo-modal" id="fm"><div class="modal" style="width:min(640px,100%)"><div class="mcab"><div><h2>Assinaturas salvas</h2><div class="t-sub">Enviadas uma vez e usadas em qualquer pasta.</div></div><button class="btn peq fantasma" id="fechar">' + I.x + '</button></div>' +
+      '<div class="mcorpo">' + (DB.assinaturas.length ? DB.assinaturas.map(function(x){
+        return '<div class="bib"><div class="ass" style="margin:0;grid-template-columns:1fr"><div class="amost clara" style="height:52px"><img src="' + x.clara + '" alt=""></div></div>' +
+          '<div><div class="t-nome">' + esc(x.nome) + '</div><div class="t-sub">' + esc(x.cargo || '') + '</div></div>' +
+          '<button class="btn peq fantasma perigo" data-tirar="' + x.id + '">Excluir</button></div>'; }).join('')
+        : '<p style="color:var(--texto-2)">Nenhuma assinatura salva. Elas são adicionadas quando você envia uma assinatura dentro de uma pasta.</p>') +
+      '<div style="margin-top:16px"><button class="btn" id="addA">' + I.mais + 'Adicionar assinatura</button></div></div></div></div>';
+    $('#fechar').onclick = function(){ $('#camada').innerHTML = ''; };
+    $$('[data-tirar]').forEach(function(b){ b.onclick = function(){ DB.assinaturas = DB.assinaturas.filter(function(x){ return x.id !== b.getAttribute('data-tirar'); }); salvar(); desenhar(); }; });
+    $('#addA').onclick = function(){ modalAssinatura({}, function(){ toast('Assinatura salva.'); modalBiblioteca(); }); };
+  }
+  desenhar();
+}
+
+/* =================================================================== 3. editar pasta */
+function telaEditar(pid){
+  var p = pasta(pid);
+  $('#app').innerHTML = '<p class="migalha"><a href="#/">Emitir certificados</a> › <a href="#/pasta/' + p.id + '">' + esc(p.nome) + '</a> › Editar</p>' +
+    '<div class="cab"><div><h1>Editar informações</h1></div></div><div id="ed"></div>';
+  editorDados($('#ed'), JSON.parse(JSON.stringify(p.dados)), null, false, p);
+}
+
+/* =================================================================== 4. pasta: emitir e emitidos */
+var FILA = {};   // nomes importados por pasta (não salvos até gerar)
+function telaPasta(pid, aba){
+  var p = pasta(pid), d = p.dados; aba = aba || (p.certificados.length ? 'emitidos' : 'emitir');
+  var validos = p.certificados.filter(function(c){ return c.status === 'valido'; }).length;
+  $('#app').innerHTML =
+    '<p class="migalha"><a href="#/">Emitir certificados</a> › ' + esc(p.nome) + '</p>' +
+    '<div class="pasta-cab"><div><h1>' + esc(p.nome) + '</h1>' +
+      '<div class="chips"><span class="chip"><span class="amostra ' + d.variacao + '"></span>' + (d.variacao === 'escura' ? 'Escuro' : 'Claro') + '</span>' +
+      '<span class="chip">' + esc(d.tipo) + '</span><span class="chip">' + esc(horasTexto(d.carga_horas)) + '</span>' +
+      '<span class="chip">' + d.modulos.length + ' módulo' + (d.modulos.length === 1 ? '' : 's') + '</span>' +
+      (d.cliente ? '<span class="chip">' + esc(d.cliente) + '</span>' : '') + '</div>' +
+      '<p class="sub">' + esc(d.curso) + ' · ' + esc(d.periodo) + '</p></div>' +
+      '<a class="btn" href="#/pasta/' + p.id + '/editar">' + I.lapis + 'Editar informações</a></div>' +
+    '<div class="abas"><button data-a="emitir">Emitir certificados</button><button data-a="emitidos">Emitidos (' + validos + ')</button></div><div id="conteudo"></div>';
+  $$('.abas button').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-a') === aba); b.onclick = function(){ ir('#/pasta/' + p.id + '/' + b.getAttribute('data-a')); }; });
+  if (aba === 'emitidos') abaEmitidos(p); else abaEmitir(p);
+}
+
+function abaEmitir(p){
+  var nomes = FILA[p.id] || [];
+  var c = $('#conteudo');
+  c.innerHTML = '<div class="emitir"><div>' +
+      '<div class="cartao"><div class="secao"><h3>1. Lista de nomes</h3>' +
+        '<label class="solta" id="solta"><input type="file" id="arq" accept=".csv,.txt,.xlsx,.xls" hidden>' + I.subir.replace('<svg', '<svg style="width:22px;height:22px;margin-bottom:6px"') +
+        '<div><b>Envie a planilha</b> ou arraste aqui</div><small>Excel ou CSV com uma coluna "Nome". Também serve um arquivo de texto com um nome por linha.</small></label>' +
+        '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:600;font-size:13px">Ou cole os nomes</summary>' +
+        '<textarea id="cola" rows="5" style="margin-top:10px" placeholder="Um nome por linha"></textarea><button class="btn peq" id="usarCola" style="margin-top:8px">Adicionar à lista</button></details></div>' +
+      '<div class="secao" id="listaBox"></div></div></div>' +
+    '<div class="cartao resumo-emissao" id="painel"></div></div>';
+
+  var solta = $('#solta');
+  ['dragenter','dragover'].forEach(function(e){ solta.addEventListener(e, function(ev){ ev.preventDefault(); solta.classList.add('arrastando'); }); });
+  ['dragleave','drop'].forEach(function(e){ solta.addEventListener(e, function(ev){ ev.preventDefault(); solta.classList.remove('arrastando'); }); });
+  solta.addEventListener('drop', function(ev){ if (ev.dataTransfer.files[0]) importar(ev.dataTransfer.files[0]); });
+  $('#arq').onchange = function(){ if (this.files[0]) importar(this.files[0]); this.value = ''; };
+  $('#usarCola').onclick = function(){ adicionar($('#cola').value.split(/\r?\n/)); $('#cola').value = ''; };
+
+  function importar(arq){
+    if (/\.xlsx?$/i.test(arq.name)) { toast('No protótipo, envie CSV ou cole os nomes. A plataforma vai ler Excel.'); return; }
+    lerArquivoComoTexto(arq).then(function(t){
+      var linhas = t.split(/\r?\n/).filter(function(l){ return l.trim(); });
+      if (/\.csv$/i.test(arq.name) && linhas.length) {
+        var sep = (linhas[0].match(/;/g) || []).length >= (linhas[0].match(/,/g) || []).length ? ';' : ',';
+        var cab = linhas[0].split(sep).map(function(x){ return x.trim().toLowerCase().replace(/"/g, ''); });
+        var col = cab.indexOf('nome'); if (col < 0) col = cab.indexOf('nome completo');
+        var corpo = col >= 0 ? linhas.slice(1) : linhas; if (col < 0) col = 0;
+        linhas = corpo.map(function(l){ return (l.split(sep)[col] || '').replace(/^"|"$/g, ''); });
+      }
+      adicionar(linhas); toast(arq.name + ' importado.');
+    });
+  }
+  function adicionar(lista){ lista.forEach(function(n){ n = limparNome(n); if (n) nomes.push(n); }); FILA[p.id] = nomes; desenhar(); }
+
+  function desenhar(){
+    var ja = {}; p.certificados.forEach(function(x){ if (x.status === 'valido') ja[x.participante.toLowerCase()] = 1; });
+    var vistos = {}, rep = 0, emitidos = 0;
+    var box = $('#listaBox');
+    if (!nomes.length) { box.innerHTML = '<p style="color:var(--texto-3);font-size:13px">Nenhum nome ainda.</p>'; painel(0, 0, 0); return; }
+    box.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap"><h3 style="margin:0">' + nomes.length + ' nome' + (nomes.length > 1 ? 's' : '') + '</h3>' +
+      '<div style="display:flex;gap:6px"><button class="btn peq" id="caixa" title="ANA PAULA SOUZA vira Ana Paula Souza">Ajustar maiúsculas</button><button class="btn peq fantasma perigo" id="limpar">Limpar lista</button></div></div>' +
+      '<table class="lista-nomes"><tbody>' + nomes.map(function(n, i){
+        var k = n.toLowerCase(), aviso = '';
+        if (vistos[k]) { aviso = '<span class="chip aviso">Repetido</span>'; rep++; }
+        else if (ja[k]) { aviso = '<span class="chip aviso">Já tem certificado nesta pasta</span>'; emitidos++; }
+        else if (n.length > 70) aviso = '<span class="chip aviso">Nome muito longo</span>';
+        vistos[k] = 1;
+        return '<tr><td class="num">' + (i + 1) + '</td><td><input type="text" data-i="' + i + '" value="' + esc(n) + '"></td><td style="width:1%;white-space:nowrap">' + aviso + '</td>' +
+          '<td style="width:1%"><button class="btn peq fantasma" data-tirar="' + i + '" title="Remover">' + I.x + '</button></td></tr>';
+      }).join('') + '</tbody></table>';
+    $$('input[data-i]', box).forEach(function(inp){ inp.onchange = function(){ nomes[+inp.getAttribute('data-i')] = limparNome(inp.value); desenhar(); }; });
+    $$('[data-tirar]', box).forEach(function(b){ b.onclick = function(){ nomes.splice(+b.getAttribute('data-tirar'), 1); desenhar(); }; });
+    $('#caixa').onclick = function(){ for (var i = 0; i < nomes.length; i++) nomes[i] = ajustarCaixa(nomes[i]); desenhar(); };
+    $('#limpar').onclick = function(){ nomes.length = 0; desenhar(); };
+    painel(nomes.length, rep, emitidos);
+  }
+  function painel(n, rep, emitidos){
+    var d = p.dados;
+    $('#painel').innerHTML = '<h3>2. Gerar</h3><div class="grande">' + n + '</div><p style="color:var(--texto-2)">certificado' + (n === 1 ? '' : 's') + ' para gerar</p>' +
+      '<div style="margin:14px 0;font-size:13px;color:var(--texto-2)"><div>Padrão <b style="color:var(--petroleo)">' + (d.variacao === 'escura' ? 'escuro' : 'claro') + '</b>, frente e verso</div>' +
+      '<div>Cada aluno ganha um código e um QR code próprios</div><div>Você recebe um ZIP com um PDF por aluno e uma planilha de resumo</div></div>' +
+      (rep ? '<div class="aviso-faixa" style="margin-bottom:10px">' + I.info + '<div>' + rep + ' nome' + (rep > 1 ? 's' : '') + ' repetido' + (rep > 1 ? 's' : '') + '. Remova se não for de propósito.</div></div>' : '') +
+      (emitidos ? '<div class="aviso-faixa" style="margin-bottom:10px">' + I.info + '<div>' + emitidos + ' pessoa' + (emitidos > 1 ? 's já têm' : ' já tem') + ' certificado nesta pasta. Gerar de novo cria um segundo código.</div></div>' : '') +
+      '<button class="btn pri" id="gerar" style="width:100%;justify-content:center;padding:12px" ' + (n ? '' : 'disabled') + '>Gerar ' + (n || '') + ' certificado' + (n === 1 ? '' : 's') + '</button>' +
+      '<button class="btn fantasma" id="verPrevia" style="width:100%;justify-content:center;margin-top:8px" ' + (n ? '' : 'disabled') + '>' + I.olho + 'Ver o primeiro antes</button>';
+    if (n) {
+      $('#gerar').onclick = function(){ gerar(p, nomes.slice()); };
+      $('#verPrevia').onclick = function(){ modalCertificado(p, { participante: nomes[0], codigo: 'MTR-26-XXXX-XXXX' }, true); };
+    }
+  }
+  desenhar();
+}
+
+function gerar(p, nomes){
+  // PROTÓTIPO: cria os códigos aqui. Na plataforma: POST /api/certificados/pastas/:id/lotes e acompanhar o progresso.
+  var camada = $('#camada');
+  camada.innerHTML = '<div class="fundo-modal"><div class="modal estreito"><div class="mcorpo" id="mg"><h2>Gerando certificados</h2>' +
+    '<div class="barra-prog"><i id="bp"></i></div><p id="bt" style="color:var(--texto-2);font-size:13px">Preparando…</p></div></div></div>';
+  var usados = todosCodigos(), novos = [], i = 0;
+  (function passo(){
+    if (i < nomes.length) {
+      novos.push({ codigo: novoCodigo(usados), participante: nomes[i], status: 'valido', emitido_em: hojeISO() });
+      i++; $('#bp').style.width = (100 * i / nomes.length) + '%'; $('#bt').textContent = i + ' de ' + nomes.length + ' · ' + nomes[i - 1];
+      return setTimeout(passo, Math.max(60, 900 / nomes.length));
+    }
+    p.certificados = novos.concat(p.certificados); salvar(); FILA[p.id] = [];
+    $('#mg').innerHTML = '<div class="aviso-faixa ok" style="margin-bottom:14px">' + I.ok + '<div><b>' + novos.length + ' certificado' + (novos.length > 1 ? 's gerados' : ' gerado') + '</b></div></div>' +
+      '<p style="color:var(--texto-2);font-size:13px">O ZIP traz um PDF por aluno (frente e verso), um PDF único para imprimir tudo de uma vez e a planilha com os códigos.</p>' +
+      '<div style="display:flex;flex-direction:column;gap:8px;margin-top:16px">' +
+      '<button class="btn pri" id="zip" style="justify-content:center">' + I.baixar + 'Baixar todos (ZIP)</button>' +
+      '<button class="btn" id="csv" style="justify-content:center">Baixar só a planilha de códigos</button>' +
+      '<button class="btn fantasma" id="fechar" style="justify-content:center">Ver emitidos</button></div>';
+    $('#zip').onclick = function(){ toast('No protótipo não geramos PDFs. Na plataforma, este botão baixa o ZIP pronto.'); };
+    $('#csv').onclick = function(){ baixarResumo(p, novos); };
+    $('#fechar').onclick = function(){ camada.innerHTML = ''; ir('#/pasta/' + p.id + '/emitidos'); };
+  })();
+}
+function baixarResumo(p, lista){
+  var linhas = [['Número', 'Participante', 'Código', 'Link de verificação', 'Emitido em', 'Situação']];
+  lista.forEach(function(c, i){ linhas.push([i + 1, c.participante, c.codigo, CONFIG.baseVerificacao + '/' + c.codigo, dataLonga(c.emitido_em), c.status === 'valido' ? 'Válido' : 'Cancelado']); });
+  baixarTexto('Códigos · ' + p.nome.replace(/[\\/:*?"<>|]/g, '') + '.csv', linhas.map(function(l){ return l.map(function(x){ return '"' + String(x).replace(/"/g, '""') + '"'; }).join(';'); }).join('\r\n'));
+}
+
+function abaEmitidos(p){
+  var c = $('#conteudo');
+  if (!p.certificados.length) { c.innerHTML = '<div class="cartao vazio"><h2>Nenhum certificado emitido</h2><p>Vá em "Emitir certificados" e importe a lista de nomes.</p></div>'; return; }
+  c.innerHTML = '<div class="cab" style="margin-bottom:12px;align-items:center"><input type="search" id="q" placeholder="Buscar nome ou código" style="max-width:320px">' +
+    '<div style="display:flex;gap:8px"><button class="btn" id="csv">Baixar planilha de códigos</button><button class="btn pri" id="zip">' + I.baixar + 'Baixar todos (ZIP)</button></div></div><div class="cartao" id="tab"></div>';
+  $('#csv').onclick = function(){ baixarResumo(p, p.certificados); };
+  $('#zip').onclick = function(){ toast('No protótipo não geramos PDFs. Na plataforma, este botão baixa o ZIP pronto.'); };
+  function desenhar(){
+    var q = $('#q').value.toLowerCase().trim();
+    var lista = p.certificados.filter(function(x){ return !q || (x.participante + ' ' + x.codigo).toLowerCase().indexOf(q) >= 0; });
+    $('#tab').innerHTML = '<table><thead><tr><th>Participante</th><th>Código</th><th>Emitido em</th><th>Situação</th><th></th></tr></thead><tbody>' +
+      lista.map(function(x){
+        return '<tr><td class="t-nome">' + esc(x.participante) + '</td><td class="codigo">' + x.codigo + '</td><td>' + esc(dataLonga(x.emitido_em)) + '</td>' +
+          '<td>' + (x.status === 'valido' ? '<span class="chip ok">Válido</span>' : '<span class="chip erro">Cancelado</span>') + '</td>' +
+          '<td style="white-space:nowrap;text-align:right"><button class="btn peq fantasma" data-ver="' + x.codigo + '">' + I.olho + 'Ver</button>' +
+          '<button class="btn peq fantasma" data-link="' + x.codigo + '" title="Copiar o link de verificação">' + I.link + '</button>' +
+          '<button class="btn peq fantasma" data-mais="' + x.codigo + '">Mais</button></td></tr>';
+      }).join('') + '</tbody></table>';
+    $$('[data-ver]').forEach(function(b){ b.onclick = function(){ modalCertificado(p, cert(b.getAttribute('data-ver'))); }; });
+    $$('[data-link]').forEach(function(b){ b.onclick = function(){
+      var l = CONFIG.baseVerificacao + '/' + b.getAttribute('data-link');
+      (navigator.clipboard ? navigator.clipboard.writeText(l) : Promise.reject()).then(function(){ toast('Link copiado: ' + l); }, function(){ toast(l); }); }; });
+    $$('[data-mais]').forEach(function(b){ b.onclick = function(){ modalMais(p, cert(b.getAttribute('data-mais')), desenhar); }; });
+  }
+  function cert(cod){ return p.certificados.filter(function(x){ return x.codigo === cod; })[0]; }
+  $('#q').oninput = desenhar; desenhar();
+}
+
+function modalCertificado(p, x, previa){
+  var link = CONFIG.baseVerificacao + '/' + x.codigo;
+  $('#camada').innerHTML = '<div class="fundo-modal" id="fm"><div class="modal"><div class="mcab"><div><h2>' + esc(x.participante) + '</h2>' +
+    '<div class="t-sub">' + (previa ? 'Prévia antes de gerar' : '<span class="codigo">' + x.codigo + '</span>') + '</div></div>' +
+    '<div style="display:flex;gap:8px;align-items:center"><div class="seg" id="faces"><button class="on" data-f="frente">Frente</button><button data-f="verso">Verso</button></div>' +
+    (previa ? '' : '<button class="btn peq" id="pdf">' + I.baixar + 'PDF</button><a class="btn peq" target="_blank" href="verificacao.html?codigo=' + x.codigo + '">Abrir verificação</a>') +
+    '<button class="btn peq fantasma" id="fechar">' + I.x + '</button></div></div><div class="mcorpo"><div class="moldura" id="mm"></div></div></div></div>';
+  var pv = montarPrevia($('#mm'), 'frente');
+  pv.enviar(dadosCertificado(p.dados, { participante: x.participante, codigo: x.codigo, qr_imagem: previa ? QRMini.dataUri(CONFIG.baseVerificacao + '/MTR-26-XXXX-XXXX') : QRMini.dataUri(link) }));
+  $$('#faces button').forEach(function(b){ b.onclick = function(){ $$('#faces button').forEach(function(y){ y.classList.toggle('on', y === b); }); pv.face(b.getAttribute('data-f')); }; });
+  $('#fechar').onclick = function(){ $('#camada').innerHTML = ''; };
+  $('#fm').onclick = function(e){ if (e.target.id === 'fm') $('#camada').innerHTML = ''; };
+  if ($('#pdf')) $('#pdf').onclick = function(){ toast('Na plataforma, baixa o PDF deste aluno.'); };
+}
+
+function modalMais(p, x, depois){
+  $('#camada').innerHTML = '<div class="fundo-modal" id="fm"><div class="modal estreito"><div class="mcab"><h2>' + esc(x.participante) + '</h2><button class="btn peq fantasma" id="fechar">' + I.x + '</button></div>' +
+    '<div class="mcorpo pilha">' +
+    '<div><h3 style="margin-bottom:8px">Corrigir o nome</h3><input type="text" id="novoNome" value="' + esc(x.participante) + '"><p style="font-size:12.5px;color:var(--texto-3);margin-top:6px">Mantém o mesmo código e QR code. Gere o PDF de novo depois de salvar.</p>' +
+    '<button class="btn" id="salvarNome" style="margin-top:8px">Salvar e gerar de novo</button></div>' +
+    '<div style="border-top:1px solid var(--linha-2);padding-top:14px"><h3 style="margin-bottom:8px">' + (x.status === 'valido' ? 'Cancelar certificado' : 'Reativar certificado') + '</h3>' +
+    '<p style="font-size:12.5px;color:var(--texto-3)">' + (x.status === 'valido' ? 'A página de verificação passa a mostrar "Certificado cancelado". Use quando foi emitido por engano.' : 'Volta a aparecer como válido na verificação.') + '</p>' +
+    '<button class="btn ' + (x.status === 'valido' ? 'perigo' : '') + '" id="status" style="margin-top:8px">' + (x.status === 'valido' ? 'Cancelar este certificado' : 'Reativar') + '</button></div></div></div></div>';
+  function fechar(){ $('#camada').innerHTML = ''; depois(); }
+  $('#fechar').onclick = fechar;
+  $('#salvarNome').onclick = function(){ var n = limparNome($('#novoNome').value); if (n) { x.participante = n; salvar(); toast('Nome corrigido. Na plataforma, o PDF é gerado de novo com o mesmo código.'); } fechar(); };
+  $('#status').onclick = function(){ x.status = x.status === 'valido' ? 'cancelado' : 'valido'; x.cancelado_em = x.status === 'cancelado' ? hojeISO() : ''; salvar(); fechar(); };
+}
+
+/* =================================================================== início */
+$('#zerar').onclick = function(){ try { localStorage.removeItem(CHAVE); } catch (e) {} FILA = {}; carregar(); ir('#/'); rota(); toast('Protótipo recomeçado.'); };
+carregar(); rota();
+</script>
+</body>
+</html>
