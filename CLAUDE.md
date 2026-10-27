@@ -368,7 +368,11 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   lista deles) e marca `status='suspenso'` com `suspenso_em`, `suspenso_por`, `suspensao_motivo` e `suspensao` (jsonb: situação
   anterior, mentores, sessões canceladas com a situação de antes), e grava `historico` acao='suspender_programa'. Nada é apagado.
   Ficha suspensa: faixa vermelha com data, quem e motivo; somem suspender, trocar mentor, sessão extra, remarcar e "Abrir sessão N".
-  Agenda e Google Agenda tratam 'suspenso' como 'desligado'. Lista de mentorados: filtro "Suspensos". Ainda não há "Reativar".
+  Agenda e Google Agenda tratam 'suspenso' como 'desligado'. Lista de mentorados: filtro "Suspensos".
+  REATIVAR (mesmo dia): botão "Reativar programa" na faixa vermelha (admin), caixa "Confirmo" obrigatória, motivo opcional; rpc
+  `reativar_programa` (no mesmo script 45): volta `status_antes`, reinsere os mentores guardados e devolve as sessões que a suspensão
+  cancelou à situação anterior (as que ficaram no passado: a janela manda usar "Remarcar várias de uma vez"). `suspensao` ganha
+  reativado_em/por/por_nome/reativacao_motivo e a ficha mostra a faixa "Programa reativado em…"; historico acao='reativar_programa'.
 - EDITAR SESSÃO CONCLUÍDA (2026-10-14, pedido dos mentores: voltam no fim do dia para completar): no mesmo dia a Juliana pediu
   SEM PRAZO (o script 36 dava 7 dias; o 37 substitui). `trava_sessao_concluida` e `protege_tarefa`: o mentor do mentorado completa e
   corrige qualquer sessão concluída (não muda `concluida_em`/`concluida_por`). Sem o script 37 o salvamento do mentor mostra

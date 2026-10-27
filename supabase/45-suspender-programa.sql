@@ -5,6 +5,9 @@
 --   - marca o mentorado como "suspenso".
 -- Nada é apagado: ficha, sessões feitas, anotações, tarefas e resultados continuam guardados para a administração.
 -- Fica registrado quem suspendeu (o login de quem clicou), quando e por quê: no próprio mentorado e no histórico.
+-- REATIVAR (pedido dela no mesmo dia): desfaz a suspensão. Volta a situação anterior do mentorado, devolve os mesmos mentores
+-- e as sessões que a suspensão cancelou voltam como estavam (as que ficaram com data no passado precisam de data nova:
+-- "Remarcar várias de uma vez"). Também fica registrado quem reativou, quando e por quê.
 -- Pode rodar de novo sem problema.
 
 alter table public.mentorados drop constraint if exists mentorados_status_check;
@@ -68,3 +71,58 @@ end $$;
 
 revoke all on function public.suspender_programa(uuid, text) from public, anon;
 grant execute on function public.suspender_programa(uuid, text) to authenticated;
+
+create or replace function public.reativar_programa(p_mentorado uuid, p_motivo text)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare
+  m mentorados%rowtype;
+  v_motivo text := nullif(trim(coalesce(p_motivo, '')), '');
+  v_susp jsonb;
+  v_sessoes int;
+  v_passado int;
+  v_mentores int;
+  v_detalhes jsonb;
+begin
+  if not eh_admin() then raise exception 'Só a administração reativa um programa de mentoria.'; end if;
+  select * into m from mentorados where id = p_mentorado for update;
+  if not found then raise exception 'Mentorado não encontrado.'; end if;
+  if m.status <> 'suspenso' then raise exception 'O programa deste mentorado não está suspenso.'; end if;
+  v_susp := coalesce(m.suspensao, '{}'::jsonb);
+
+  -- as sessões que a suspensão cancelou (e que continuam canceladas) voltam como estavam
+  with antes as (
+    select (x ->> 'id')::uuid as id, x ->> 'situacao' as situacao, x ->> 'motivo_falta' as motivo_falta
+      from jsonb_array_elements(coalesce(v_susp -> 'sessoes_canceladas', '[]'::jsonb)) x),
+  voltou as (
+    update sessoes s set situacao = coalesce(a.situacao, 'agendada'), motivo_falta = a.motivo_falta
+      from antes a
+     where s.id = a.id and s.situacao = 'cancelada' and s.concluida_em is null
+    returning s.data_hora)
+  select count(*), count(*) filter (where data_hora < now()) into v_sessoes, v_passado from voltou;
+
+  -- os mesmos mentores voltam a acompanhar (quem ainda tem cadastro)
+  with volta as (
+    insert into mentor_mentorado (mentorado_id, mentor_id, ordem)
+    select p_mentorado, (x ->> 'mentor_id')::uuid, coalesce((x ->> 'ordem')::int, 1)
+      from jsonb_array_elements(coalesce(v_susp -> 'mentores', '[]'::jsonb)) x
+     where exists (select 1 from perfis where id = (x ->> 'mentor_id')::uuid)
+    on conflict (mentorado_id, mentor_id) do nothing
+    returning 1)
+  select count(*) into v_mentores from volta;
+
+  v_detalhes := v_susp || jsonb_build_object('reativado_em', now(), 'reativado_por', auth.uid(),
+    'reativado_por_nome', (select nome from perfis where id = auth.uid()), 'reativacao_motivo', v_motivo,
+    'suspenso_em', m.suspenso_em, 'sessoes_voltaram', v_sessoes, 'mentores_voltaram', v_mentores);
+
+  update mentorados set status = coalesce(nullif(v_susp ->> 'status_antes', 'suspenso'), 'ativo'),
+         suspenso_em = null, suspenso_por = null, suspensao_motivo = null, suspensao = v_detalhes
+   where id = p_mentorado;
+
+  insert into historico (perfil_id, acao, tabela, registro_id, antes, depois)
+  values (auth.uid(), 'reativar_programa', 'mentorados', p_mentorado::text, to_jsonb(m), v_detalhes);
+
+  return jsonb_build_object('sessoes', v_sessoes, 'no_passado', v_passado, 'mentores', v_mentores);
+end $$;
+
+revoke all on function public.reativar_programa(uuid, text) from public, anon;
+grant execute on function public.reativar_programa(uuid, text) to authenticated;

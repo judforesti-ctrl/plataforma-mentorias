@@ -69,7 +69,10 @@ export async function render(ctx, el, [id]) {
     </div>
     ${suspenso ? `<div class="aviso erro mt"><b>Programa de mentoria suspenso</b>${m.suspenso_em ? ` em ${dataHoraBR(m.suspenso_em)}` : ''}${SUSP(m).por_nome ? ` por <b>${esc(SUSP(m).por_nome)}</b>` : ''}.
       ${m.suspensao_motivo ? `<br>Motivo: ${esc(m.suspensao_motivo)}` : ''}
-      ${SUSP(m).sessoes_canceladas ? `<br><span class="peq">${SUSP(m).sessoes_canceladas.length} ${SUSP(m).sessoes_canceladas.length === 1 ? 'sessão cancelada' : 'sessões canceladas'}${(SUSP(m).mentores || []).length ? ` · mentores liberados: ${SUSP(m).mentores.map((x) => esc(x.nome)).join(', ')}` : ''}. Os dados abaixo continuam guardados.</span>` : ''}</div>` : ''}
+      ${SUSP(m).sessoes_canceladas ? `<br><span class="peq">${SUSP(m).sessoes_canceladas.length} ${SUSP(m).sessoes_canceladas.length === 1 ? 'sessão cancelada' : 'sessões canceladas'}${(SUSP(m).mentores || []).length ? ` · mentores liberados: ${SUSP(m).mentores.map((x) => esc(x.nome)).join(', ')}` : ''}. Os dados abaixo continuam guardados.</span>` : ''}
+      ${ctx.ehAdmin ? '<div class="mt"><button class="btn peq pri" id="reativar" title="Devolve os mentores e as sessões canceladas pela suspensão">Reativar programa</button></div>' : ''}</div>`
+    : SUSP(m).reativado_em ? `<div class="aviso mt peq">Programa reativado em ${dataHoraBR(SUSP(m).reativado_em)}${SUSP(m).reativado_por_nome ? ` por <b>${esc(SUSP(m).reativado_por_nome)}</b>` : ''}${SUSP(m).reativacao_motivo ? ` (${esc(SUSP(m).reativacao_motivo)})` : ''}.
+      Estava suspenso${SUSP(m).suspenso_em ? ` desde ${dataHoraBR(SUSP(m).suspenso_em)}` : ''}${SUSP(m).por_nome ? ` por ${esc(SUSP(m).por_nome)}` : ''}${SUSP(m).motivo ? `: ${esc(SUSP(m).motivo)}` : ''}.</div>` : ''}
 
     <div class="abas mt2" role="tablist">
       <button class="atual" data-aba="geral">Visão geral</button>
@@ -243,6 +246,11 @@ export async function render(ctx, el, [id]) {
     if (ev.target.id === 'suspender') {   // mentorado desligado da empresa: suspende o programa (com confirmação)
       const { abrirSuspender } = await import('./suspender.js');
       abrirSuspender(ctx, m, { sessoes: sess, mentores, aoSalvar: () => ctx.irPara(`#/mentorado/${m.id}`) });
+      return;
+    }
+    if (ev.target.id === 'reativar') {   // desfaz a suspensão (com confirmação)
+      const { abrirReativar } = await import('./suspender.js');
+      abrirReativar(ctx, m, { sessoes: sess, aoSalvar: () => ctx.irPara(`#/mentorado/${m.id}`) });
       return;
     }
     const tm = ev.target.closest('[data-trocar-mentor]');   // outro mentor atende (no meio do processo)
