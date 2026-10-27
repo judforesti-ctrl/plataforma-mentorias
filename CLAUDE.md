@@ -312,7 +312,9 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
 - ALUNOS DAS TURMAS E ÁREA DO ALUNO (2026-10-27, script 44, pedido da Juliana: os alunos das trilhas recebem convite, entram com
   senha e veem a trilha). Papel novo `aluno` (perfis/convites). Tabela `turma_alunos` (uma linha por turma; e-mail minúsculo e ligado
   ao login pelo gatilho `ligar_aluno_perfil` e por `criar_perfil_do_convite`; `ativo` = está na turma; `convidado_em`). Página da turma:
-  cartão "Alunos da trilha" (`telas/alunos-turma.js`): administração cola a lista da planilha (nome, e-mail, WhatsApp, cargo; tab, ; ou ,),
+  cartão "Alunos da trilha" (`telas/alunos-turma.js`): administração cola a lista da planilha (nome, e-mail, WhatsApp, cargo; tab, ; ou ,)
+  ou IMPORTA a planilha (.xlsx/.xls/.csv/.ods, SheetJS do CDN; `linhasDaPlanilha` acha o cabeçalho Nome/E-mail/WhatsApp-Celular/Cargo
+  nas 10 primeiras linhas e ignora as outras colunas; sem cabeçalho, manda a linha inteira; o resultado cai na mesma caixa e prévia),
   corrige e-mail/WhatsApp na tabela, manda convite por e-mail ("Convidar todos de uma vez" = todos ainda sem convite; ou os marcados;
   ou "Enviar convite"/"Reenviar" em cada linha, pedido dela 27/10) ou WhatsApp (link que não expira), tira/volta aluno; mentor só vê
   os nomes. Nada sai sozinho. `/api/convidar` aceita `papel: 'aluno'` + `turma_aluno_id` (e-mail do convite fala da trilha:
