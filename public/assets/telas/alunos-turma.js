@@ -21,7 +21,8 @@ export const cartaoAlunos = () => '<div class="cartao" id="alunos-turma"><p clas
 export function lerListaColada(texto) {
   const pessoas = [];
   for (const linha of String(texto || '').split(/\r?\n/)) {
-    const partes = linha.split(/\t|;|,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map((x) => x.replace(/^"|"$/g, '').trim()).filter(Boolean);
+    // vindo do Excel (com tab), a vírgula é parte do texto ("Supervisora, atendimento"); digitado, ; e , separam
+    const partes = (linha.includes('\t') ? linha.split('\t') : linha.split(/;|,(?=(?:[^"]*"[^"]*")*[^"]*$)/)).map((x) => x.replace(/^"|"$/g, '').trim()).filter(Boolean);
     if (!partes.length) continue;
     const email = (partes.find((x) => EMAIL.test(x)) || '').toLowerCase();
     const whatsapp = partes.find((x) => !x.includes('@') && x.replace(/\D/g, '').length >= 10 && !/[a-z]{3}/i.test(x)) || '';
@@ -31,6 +32,31 @@ export function lerListaColada(texto) {
     pessoas.push({ nome: nome.replace(/\s+/g, ' ').slice(0, 120), email, whatsapp, cargo: (textos[1] || '').slice(0, 120) });
   }
   return pessoas;
+}
+
+// Linhas da planilha (cada uma uma lista de células) → texto no formato do "colar" (nome, e-mail, WhatsApp, cargo, separados por tab).
+// Com cabeçalho reconhecido (Nome, E-mail, WhatsApp/Celular/Telefone, Cargo/Função), usa as colunas certas e ignora as outras;
+// sem cabeçalho, manda a linha inteira e o leitor do "colar" acha o e-mail e o telefone sozinho.
+export function linhasDaPlanilha(linhas) {
+  const sem = (x) => String(x || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const achar = (cab, re, fora) => cab.findIndex((c) => re.test(sem(c)) && !(fora && fora.test(sem(c))));
+  let col = null, inicio = 0;
+  for (let i = 0; i < Math.min(linhas.length, 10); i += 1) {
+    const cab = linhas[i] || [];
+    const nome = achar(cab, /^(nome|participante|aluno|colaborador)/, /empresa|gestor|lider|cooperativa|agencia|unidade|setor/);
+    const email = achar(cab, /e-?mail/);
+    if (nome >= 0 && email >= 0) {
+      col = { nome, email, whats: achar(cab, /whats|celular|telefone|fone|contato/), cargo: achar(cab, /cargo|funcao|posicao/) };
+      inicio = i + 1;
+      break;
+    }
+  }
+  const celula = (l, k) => (k >= 0 ? String(l[k] == null ? '' : l[k]).replace(/[\t\r\n]+/g, ' ').trim() : '');
+  return linhas.slice(inicio).map((l) => (col
+    ? [celula(l, col.nome), celula(l, col.email), celula(l, col.whats), celula(l, col.cargo)]
+    : (l || []).map((c) => String(c == null ? '' : c).replace(/[\t\r\n]+/g, ' ').trim()))
+    .join('\t').replace(/\t+$/, ''))
+    .filter((t) => t.replace(/\t/g, '').trim()).join('\n');
 }
 
 async function chamarConvite(corpo) {
@@ -195,7 +221,9 @@ export async function ligarAlunos(ctx, el, turma) {
 async function janelaAdicionar(turma, existentes, aoTerminar) {
   const { janela } = await import('./agenda-dados.js');
   const j = janela('Adicionar alunos', `<div class="grade" style="gap:12px">
-    <p class="peq">Copie da planilha as colunas <b>nome</b>, <b>e-mail</b> e, se tiver, <b>WhatsApp</b> e <b>cargo</b>, e cole aqui (uma pessoa por linha).
+    <div class="linha" style="gap:10px"><label class="btn pri" style="cursor:pointer">📄 Importar planilha (Excel ou CSV)<input type="file" id="ad-arquivo" accept=".xlsx,.xls,.csv,.ods" hidden></label>
+      <span class="peq apagado" id="ad-arquivo-msg">A planilha precisa ter uma coluna com o nome e outra com o e-mail. WhatsApp e cargo, se tiver.</span></div>
+    <p class="peq">Ou copie da planilha as colunas <b>nome</b>, <b>e-mail</b> e, se tiver, <b>WhatsApp</b> e <b>cargo</b>, e cole aqui (uma pessoa por linha).
       Também dá para digitar: <i>Maria Souza; maria@empresa.com.br; 41 99999-0000</i>.</p>
     <textarea id="ad-lista" style="min-height:180px" placeholder="Maria Souza	maria@empresa.com.br	41 99999-0000	Coordenadora"></textarea>
     <div id="ad-previa"></div>
@@ -221,6 +249,27 @@ async function janelaAdicionar(turma, existentes, aoTerminar) {
     b.textContent = entram.length ? `Adicionar ${entram.length} aluno${entram.length > 1 ? 's' : ''}` : 'Adicionar';
   };
   j.corpo.querySelector('#ad-lista').addEventListener('input', previa);
+  // planilha: vira a mesma lista do "colar" (dá para conferir e corrigir na caixa antes de adicionar)
+  j.corpo.querySelector('#ad-arquivo').addEventListener('change', async (ev) => {
+    const arq = ev.target.files && ev.target.files[0];
+    ev.target.value = '';
+    if (!arq) return;
+    const msg = j.corpo.querySelector('#ad-arquivo-msg');
+    msg.textContent = `Lendo ${arq.name}…`;
+    try {
+      const XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs');
+      const livro = XLSX.read(await arq.arrayBuffer(), { type: 'array' });
+      const aba = livro.SheetNames.map((n) => livro.Sheets[n]).find((s) => XLSX.utils.sheet_to_json(s, { header: 1, blankrows: false }).length) || livro.Sheets[livro.SheetNames[0]];
+      const linhas = XLSX.utils.sheet_to_json(aba, { header: 1, blankrows: false, defval: '', raw: false });
+      const texto = linhasDaPlanilha(linhas);
+      if (!texto) { msg.textContent = 'Não achei nomes nem e-mails nessa planilha. Confira se é a planilha certa ou copie e cole as colunas aqui embaixo.'; return; }
+      const caixa = j.corpo.querySelector('#ad-lista');
+      caixa.value = caixa.value.trim() ? `${caixa.value.trim()}\n${texto}` : texto;
+      previa();
+      const n = lerListaColada(texto).length;
+      msg.textContent = `${n} pessoa${n === 1 ? '' : 's'} lida${n === 1 ? '' : 's'} de ${arq.name}. Confira a lista abaixo e clique em Adicionar.`;
+    } catch (_) { msg.textContent = 'Não consegui abrir essa planilha. Salve como Excel (.xlsx) ou CSV e tente de novo, ou copie e cole as colunas aqui embaixo.'; }
+  });
   j.corpo.querySelector('#ad-ok').addEventListener('click', async (ev) => {
     const entram = lista.filter((p) => !p.repetido);
     ev.target.closest('button').disabled = true;
