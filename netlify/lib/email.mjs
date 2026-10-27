@@ -52,13 +52,15 @@ export async function diagnosticarEmail() {
 
 // Modelo com a identidade da Mentorei. Blocos (texto puro, a função protege):
 // { p }, { titulo }, { lista: [...] }, { botao: { texto, link } }, { nota }
-export function modeloEmail({ assunto, titulo, blocos = [], rodape = 'Mensagem automática da plataforma de mentorias da Mentorei.' }) {
+// logo = { url, alt }: logo do cliente acima do título (convite dos alunos de uma trilha)
+export function modeloEmail({ assunto, titulo, blocos = [], rodape = 'Mensagem automática da plataforma de mentorias da Mentorei.', logo = null }) {
   const P = (t) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#2B3538">${esc(t).replace(/\n/g, '<br>')}</p>`;
   const html = `<!doctype html><html lang="pt-BR"><body style="margin:0;padding:0;background:#F3F5F4">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F5F4;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#FFFFFF;border-radius:16px;font-family:Arial,Helvetica,sans-serif">
 <tr><td style="background:#091216;border-radius:16px 16px 0 0;padding:20px 28px;color:#C8F04A;font-size:18px;font-weight:bold;letter-spacing:1px">MENTOREI</td></tr>
 <tr><td style="padding:26px 28px 10px">
+${logo && logo.url ? `<p style="margin:0 0 18px"><img src="${esc(logo.url)}" alt="${esc(logo.alt || '')}" style="max-height:56px;max-width:220px;height:auto;display:block;border:0"></p>` : ''}
 <h1 style="margin:0 0 16px;font-size:21px;line-height:1.3;color:#091216">${esc(titulo || assunto)}</h1>
 ${blocos.map((b) => {
     if (b.p) return P(b.p);

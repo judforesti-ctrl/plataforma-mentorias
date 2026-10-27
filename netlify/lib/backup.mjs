@@ -17,7 +17,7 @@ export const TABELAS = [
   ['empresas', 'Empresas'], ['programas', 'Programas'], ['programa_temas', 'Temas dos programas'], ['mentorados', 'Mentorados'],
   ['mentor_mentorado', 'Mentor x mentorado'], ['sessoes', 'Sessões'], ['sessoes_interno', 'Sessões - interno'], ['tarefas', 'Tarefas'], ['avaliacoes_sessao', 'Avaliações'],
   ['testes', 'Testes e ferramentas online'], ['turmas', 'Turmas'], ['modulos', 'Aulas das turmas'], ['modulo_mentores', 'Mentores das aulas'],
-  ['modulo_arquivos', 'Arquivos das aulas'], ['modulo_materiais', 'Materiais das aulas'], ['agenda_bloqueios', 'Agenda - bloqueios'], ['agenda_reservas', 'Agenda - pré-bloqueios'],
+  ['modulo_arquivos', 'Arquivos das aulas'], ['modulo_materiais', 'Materiais das aulas'], ['turma_alunos', 'Alunos das turmas'], ['gravacoes', 'Gravações das aulas'], ['agenda_bloqueios', 'Agenda - bloqueios'], ['agenda_reservas', 'Agenda - pré-bloqueios'],
   ['agenda_reserva_datas', 'Pré-bloqueios - datas'], ['agenda_reserva_mentores', 'Pré-bloqueios - mentores'], ['agenda_reunioes', 'Agenda - reuniões'],
   ['perfis', 'Equipe e logins'], ['convites', 'Convites'], ['ferramentas', 'Arsenal'], ['arsenal_tags', 'Arsenal - temas'],
   ['ferramentas_enviadas', 'Ferramentas enviadas'], ['importacoes_proposta', 'Propostas importadas'], ['notas_fiscais', 'Notas fiscais'], ['configuracoes', 'Configurações'],

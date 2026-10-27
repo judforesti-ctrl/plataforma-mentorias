@@ -309,6 +309,45 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   módulos" da turma (sem o pronto, sem repetir). Editam e marcam: administração e mentor do módulo; outros mentores da turma só leem.
   Sem o script 40 o cartão avisa (administração: "falta rodar o script 40"; mentor: "avise a Cintia"). Teste local: launch.json
   "materiais-teste" (porta 8809) do site do Radar, scratchpad da sessão f7f49e9c (`?sem40=1` = sem o script; md1 tem itens).
+- ALUNOS DAS TURMAS E ÁREA DO ALUNO (2026-10-27, script 44, pedido da Juliana: os alunos das trilhas recebem convite, entram com
+  senha e veem a trilha). Papel novo `aluno` (perfis/convites). Tabela `turma_alunos` (uma linha por turma; e-mail minúsculo e ligado
+  ao login pelo gatilho `ligar_aluno_perfil` e por `criar_perfil_do_convite`; `ativo` = está na turma; `convidado_em`). Página da turma:
+  cartão "Alunos da trilha" (`telas/alunos-turma.js`): administração cola a lista da planilha (nome, e-mail, WhatsApp, cargo; tab, ; ou ,),
+  corrige e-mail/WhatsApp na tabela, manda convite por e-mail ("Convidar todos de uma vez" = todos ainda sem convite; ou os marcados;
+  ou "Enviar convite"/"Reenviar" em cada linha, pedido dela 27/10) ou WhatsApp (link que não expira), tira/volta aluno; mentor só vê
+  os nomes. Nada sai sozinho. `/api/convidar` aceita `papel: 'aluno'` + `turma_aluno_id` (e-mail do convite fala da trilha:
+  `enviarLinkPorEmail({ trilha })`); quem já tem login (mentorado individual, ou aluno de outra trilha que já entrou) só é ligado, sem
+  e-mail (`ja_tem_login`; `reenviar: true` força o link novo). "Ver como o aluno vê" = `#/trilha/<turma>` em PRÉVIA para equipe.
+  ÁREA DO ALUNO `#/trilha[/<turma>]` (`telas/minha-trilha.js`, menu "Minha trilha" + "Meus dados"; mentorado com trilha também ganha o
+  item): tudo vem da função `minhas_trilhas()` (security definer) — o aluno NUNCA lê turmas/modulos direto (percepções e recomendações
+  são internas). Mostra empresa, trilha, próxima aula com "Entrar na aula" (link do módulo), módulos com data, mentores, slides para
+  alunos, tarefas, gravação e "Avaliar esta aula" (janela de `avaliacao-regras.js`). Primeiro acesso do aluno: `TERMO_ALUNO` e
+  `AUTORIZACOES_ALUNO` (termos.js; WhatsApp opcional); sem lembrete de foto.
+  LOGO E CORES DO CLIENTE (pedido dela 27/10): `empresas.marca` jsonb { logo: {caminho, largura, altura}, principal, destaque, paleta
+  ('azul'… de PALETAS, 'logo' ou 'propria'; vazio = Mentorei) }, vale para todas as trilhas da empresa. Cartão "Logo e cores da área do
+  aluno" na página da turma, só administração (`telas/marca-cliente.js`): logo na pasta pública `fotos/logos/<empresa>/` (mesmo
+  `paraPng`/`logoAnterior` das propostas, exportados de proposta.js; "Usar o logo da proposta"), 9 paletas, "Usar as cores do logo"
+  (`coresDaImagem`), duas cores à mão e prévia. Regras em `public/assets/marca.js`: `tema()` ajusta o tom até ler bem (principal × branco
+  ≥ 7; destaque × principal ≥ 4,5; texto do botão preto ou branco ≥ 4,5) e devolve as variáveis (--petroleo, --bege…, --tr-btn-texto)
+  que minha-trilha.js põe no elemento da tela (classe `tr-marca`); o menu continua da Mentorei. Logo também no e-mail do convite
+  (`modeloEmail({ logo })`). A tela de login é a mesma para todos (antes de entrar não se sabe a empresa).
+  MÓDULO: cartão "Para os alunos" (`telas/alunos-modulo.js`): `modulo_arquivos.tipo` 'aluno' (PDF dos slides para alunos; os slides
+  oficiais/do mentor continuam só da equipe, decisão dela) e 'tarefa' (tarefa/ferramenta: PDF, Office, ZIP, imagem), pastas
+  `turmas/<módulo>/aluno|tarefa/`; envia administração e mentor do módulo; o aluno baixa pelo storage (política `turmas_aluno_ler`).
+  GRAVAÇÕES (decisões dela: gravações do Zoom TODAS numa pasta só do Drive da contato@; link "qualquer pessoa com o link", visível só
+  dentro da plataforma): tabela `gravacoes` (drive_id único; modulo_id vazio = sem aula; `ignorada`; `compartilhada`; `aviso`).
+  `netlify/lib/gravacoes.mjs`: lê a pasta e subpastas (3 níveis, só vídeo), data pelo nome (GMT… do Zoom na nuvem = UTC; pasta
+  "AAAA-MM-DD hh.mm.ss Tópico" = Brasília; dd-mm-aaaa = dia) ou pela chegada no Drive; liga ao módulo online cujo horário bate
+  (−90 min a fim+30); empate = palavras do nome vs empresa/turma/título, senão fica para a administração; ignora antes de 25/07/2026;
+  libera `anyone/reader` só no que está ligado a módulo (desligar/ignorar fecha). Regras testadas com node (scratchpad 81051e2a
+  testes/regras.mjs). `/api/gravacoes` (status, pasta, ler, ligar, ignorar, colar [admin ou mentor do módulo]), `gravacoes-agendada`
+  (minuto 40 de cada hora) → `gravacoes-fundo` (background). Cartão "Gravações das aulas" na lista de Turmas (`telas/gravacoes-admin.js`):
+  conectar o Google de novo (o escopo passou de drive.file para `drive` completo em google-conectar), colar a pasta, procurar agora,
+  "Gravações sem aula" para escolher e "Colocar gravação à mão" (escolhe a aula + link). GRAVAÇÃO À MÃO (pedido dela 27/10): também
+  no módulo, botão "+ Colocar gravação à mão" (link do Drive, YouTube, Vimeo ou Zoom; `/api/gravacoes` acao colar, `gravada_em` = data
+  do módulo; link do Drive é liberado sozinho); a colocada à mão tem "Apagar" (administração ou quem colocou). Vídeo só no computador:
+  subir para o Drive (arquivo de vídeo não vai para o Supabase, limite de 50 MB). Se o Workspace bloquear compartilhar fora do domínio, o aviso aparece com o passo a passo do admin.
+  Teste local: launch.json "alunos-teste" (porta 8820) do site do Radar, scratchpad da sessão 81051e2a (teste/, `?quem=u-aluno`, `?sem44`).
 - AVALIAÇÃO DAS TURMAS (2026-10-11, script 31; substitui o Google Forms e o QR colado à mão do script 30, cuja tabela `qr_avaliacao`
   ficou sem uso). Proposta aprovada: https://claude.ai/artifact/7bBE6Xw7sfgMtnF5tt6JH4. Decisões dela: TUDO ANÔNIMO (não se grava
   nome, login, IP nem aparelho; nem a Mentorei sabe quem respondeu); o aluno vê no fim a MÉDIA de recomendação 0–10 e o total de
@@ -484,6 +523,9 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- ALUNOS/GRAVAÇÕES (2026-10-27): ela rodar o script 44; reconectar o Google (contato@) para o escopo `drive`; colar a pasta das
+  gravações em Turmas; conferir se o Workspace deixa "qualquer pessoa com o link"; revisão jurídica do TERMO_ALUNO. Nada testado com
+  login real nem com a pasta real (sem acesso daqui).
 - CONTRATO DE PRESTAÇÃO DE SERVIÇO DO MENTOR (pedido da Juliana em 2026-10-07, ela ainda vai mandar o texto): o mentor precisa
   concordar no primeiro acesso (cadastro); se escolher "ler depois", depois de 7 dias aparece uma mensagem pedindo para assinar.
   Perguntar a ela pelo contrato antes de mandar os convites aos mentores. Ainda NÃO implementado.

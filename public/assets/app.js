@@ -1,5 +1,5 @@
 // Navegação da plataforma: confere o login, monta o menu de cada papel e abre a tela pedida no endereço (#/...).
-import { sessaoAtual, meuPerfil, registrarAcesso, sair, esc, explicarErro } from './base.js';
+import { sb, sessaoAtual, meuPerfil, registrarAcesso, sair, esc, explicarErro } from './base.js';
 import { montarMenu } from './menu.js';
 
 const tela = document.getElementById('tela');
@@ -39,6 +39,12 @@ const individual = atende && perfil.atende_individual !== false;
 const grupo = atende && perfil.atende_grupo === true;
 
 const mentorado = perfil.papel === 'mentorado';
+// aluno de turma (script 44); um mentorado individual que também faz uma trilha ganha "Minha trilha" no menu
+const aluno = perfil.papel === 'aluno';
+let temTrilha = aluno;
+if (mentorado) {
+  try { const { data } = await sb.rpc('minhas_trilhas'); temTrilha = Array.isArray(data) && data.length > 0; } catch (_) { /* sem o script 44 */ }
+}
 
 // Menu: UMA lista (grupo → itens com nome, ícone, rota e quem pode ver), usada pelos dois formatos (topo e lateral) e pelo celular.
 // As permissões são as mesmas do menu antigo; grupo sem nenhum item visível some. O mentorado continua com os 3 itens dele
@@ -51,8 +57,9 @@ const GRUPOS = [
     { nome: ehAdmin ? 'Agenda' : 'Minha agenda', icone: 'calendar', rota: '#/agenda', pode: ehAdmin || atende },
     { nome: 'Arsenal', icone: 'wrench', rota: '#/arsenal', pode: ehAdmin || atende },
     { nome: 'Minha mentoria', icone: 'compass', rota: '#/minha-area', pode: mentorado },
+    { nome: 'Minha trilha', icone: 'layers', rota: '#/trilha', pode: temTrilha },
     { nome: 'Ferramentas', icone: 'wrench', rota: '#/biblioteca', pode: mentorado },
-    { nome: 'Meus dados', icone: 'circle-user', rota: '#/perfil', pode: mentorado },
+    { nome: 'Meus dados', icone: 'circle-user', rota: '#/perfil', pode: mentorado || aluno },
   ] },
   { id: 'gestao', nome: 'Gestão', icone: 'sliders-horizontal', itens: [
     { nome: 'Painel', icone: 'layout-dashboard', rota: '#/painel', pode: ehAdmin },
@@ -61,7 +68,7 @@ const GRUPOS = [
     { nome: 'Checklist', icone: 'list-checks', rota: '#/checklist', pode: ehAdmin || atende },
     { nome: 'Avaliações', icone: 'star', rota: '#/avaliacoes', pode: ehAdmin },
     { nome: 'Importar planilha', icone: 'file-up', rota: '#/importar', pode: ehAdmin },
-    { nome: 'Meu perfil', icone: 'circle-user', rota: '#/perfil', pode: !mentorado },
+    { nome: 'Meu perfil', icone: 'circle-user', rota: '#/perfil', pode: !mentorado && !aluno },
   ] },
   { id: 'negocio', nome: 'Negócio', icone: 'briefcase', itens: [
     { nome: 'Relatórios', icone: 'bar-chart-3', rota: '#/relatorios', pode: ehAdmin },
@@ -70,10 +77,10 @@ const GRUPOS = [
   ] },
 ];
 // papel de quem está usando, em letra pequena embaixo do nome (ex.: "Admin · Mentor(a)")
-const papelTexto = [ehAdmin && 'Admin', atende && 'Mentor(a)', mentorado && 'Mentorado(a)'].filter(Boolean).join(' · ');
+const papelTexto = [ehAdmin && 'Admin', atende && 'Mentor(a)', mentorado && 'Mentorado(a)', aluno && 'Aluno(a)'].filter(Boolean).join(' · ');
 const menu = montarMenu(document.getElementById('navegacao'), { grupos: GRUPOS, usuario: { nome: perfil.nome, papel: papelTexto, foto: perfil.foto_url }, aoSair: sair });
 
-const inicio = ehAdmin ? '#/painel' : individual ? '#/meus' : grupo ? '#/turmas' : atende ? '#/perfil' : '#/minha-area';
+const inicio = ehAdmin ? '#/painel' : individual ? '#/meus' : grupo ? '#/turmas' : atende ? '#/perfil' : aluno ? '#/trilha' : '#/minha-area';
 
 // telas: cada uma é um módulo com render(ctx, elemento, parametros)
 const ROTAS = {
@@ -104,6 +111,7 @@ const ROTAS = {
   'relatorio-turmas': () => import('./telas/relatorio-turmas.js'),
   avaliacoes: () => import('./telas/avaliacoes.js'),
   convites: () => import('./telas/convites.js'),
+  trilha: () => import('./telas/minha-trilha.js'),
 };
 
 // Marca no menu a página atual e devolve o caminho "Grupo › Página" (escondido no primeiro acesso, quando o menu fica escondido).
@@ -127,7 +135,7 @@ async function abrir() {
   if (!rota || !ROTAS[rota]) { location.replace(inicio); return; }
   if (telaAtual && telaAtual.sair) telaAtual.sair();
   const caminho = montarTopo(rota === 'mentorado' || rota === 'sessao' ? (ehAdmin ? 'mentorados' : 'meus') : rota === 'carregar-arsenal' ? 'arsenal'
-    : rota === 'ferramenta' ? (perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota === 'pessoa' ? (params[1] === 'mentores' ? 'mentores' : 'equipe') : rota === 'turma' || rota === 'modulo' || rota === 'importar-proposta' ? 'turmas' : rota === 'relatorio-turmas' ? 'relatorios' : rota,
+    : rota === 'ferramenta' ? (perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota === 'pessoa' ? (params[1] === 'mentores' ? 'mentores' : 'equipe') : rota === 'turma' || rota === 'modulo' || rota === 'importar-proposta' || (rota === 'trilha' && (ehAdmin || atende)) ? 'turmas' : rota === 'relatorio-turmas' ? 'relatorios' : rota,
   precisaPrimeiroAcesso);
   // cada tela nasce num elemento novo, para os cliques de uma tela não se acumularem na outra
   const alvo = document.createElement('div');

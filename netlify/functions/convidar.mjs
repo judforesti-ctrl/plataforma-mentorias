@@ -120,15 +120,35 @@ export default async (req) => {
   const papel = b.papel;
   if (!EMAIL.test(email)) return resposta('E-mail inválido.', 400);
   if (!nome) return resposta('Informe o nome.', 400);
-  if (!['admin', 'mentor', 'mentorado'].includes(papel)) return resposta('Tipo de acesso inválido.', 400);
+  if (!['admin', 'mentor', 'mentorado', 'aluno'].includes(papel)) return resposta('Tipo de acesso inválido.', 400);
   const mentoradoId = papel === 'mentorado' ? b.mentorado_id : null;
   if (papel === 'mentorado' && !UUID.test(String(mentoradoId || ''))) return resposta('Mentorado inválido.', 400);
+  const PAPEIS = { admin: 'administração', mentor: 'mentor', mentorado: 'mentorado', aluno: 'aluno' };
+
+  // Aluno de turma (script 44): o convite é de uma linha da lista de alunos da turma.
+  let aluno = null;
+  if (papel === 'aluno') {
+    if (!UUID.test(String(b.turma_aluno_id || ''))) return resposta('Aluno inválido.', 400);
+    const a = await chamar(`/rest/v1/turma_alunos?id=eq.${b.turma_aluno_id}&select=id,email,turma:turmas(nome,empresa:empresas(nome,marca))`, { chave: secreta });
+    aluno = a.ok && a.dados && a.dados[0];
+    if (!aluno) return resposta(a.ok ? 'Aluno não encontrado na turma.' : 'Falta rodar o script 44-alunos-das-turmas.sql no Supabase.', a.ok ? 404 : 500);
+    if (aluno.email !== email) await chamar(`/rest/v1/turma_alunos?id=eq.${aluno.id}`, { metodo: 'PATCH', chave: secreta, corpo: { email } });
+  }
+  const marcarAluno = (mud) => (aluno ? chamar(`/rest/v1/turma_alunos?id=eq.${aluno.id}`, { metodo: 'PATCH', chave: secreta, prefer: 'return=minimal', corpo: mud }) : null);
+  const emp = aluno && aluno.turma && aluno.turma.empresa;
+  const logoCaminho = emp && emp.marca && emp.marca.logo && emp.marca.logo.caminho;
+  const trilha = aluno && aluno.turma ? { nome: aluno.turma.nome, empresa: emp && emp.nome,
+    logo: logoCaminho ? `${SUPABASE_URL}/storage/v1/object/public/fotos/${logoCaminho.split('/').map(encodeURIComponent).join('/')}` : null } : null;
 
   // 2b. O e-mail já é de alguém da plataforma com outro papel? Então não gera convite nem link.
-  const existente = await chamar(`/rest/v1/perfis?email=eq.${encodeURIComponent(email)}&select=nome,papel`, { chave: secreta });
+  const existente = await chamar(`/rest/v1/perfis?email=eq.${encodeURIComponent(email)}&select=id,nome,papel,termo_aceito_em`, { chave: secreta });
   const dono = existente.ok && existente.dados && existente.dados[0];
-  if (dono && dono.papel !== papel) {
-    const PAPEIS = { admin: 'administração', mentor: 'mentor', mentorado: 'mentorado' };
+  if (dono && (dono.papel !== papel || (aluno && dono.termo_aceito_em && !b.reenviar))) {
+    // aluno que já entra na plataforma (mentorado individual, ou aluno de outra trilha): a trilha só passa a aparecer na área dele
+    if (aluno) {
+      await marcarAluno({ perfil_id: dono.id, convidado_em: new Date().toISOString() });
+      return resposta(`${dono.nome} já entra na plataforma com este e-mail (${PAPEIS[dono.papel] || dono.papel}). A trilha passou a aparecer em "Minha trilha", com a mesma senha. Nenhum e-mail foi enviado.`, 200, { ja_tem_login: true });
+    }
     return resposta(`Este e-mail já é o login de ${dono.nome} (${PAPEIS[dono.papel] || dono.papel}). Use outro e-mail para ${nome}.`, 409);
   }
 
@@ -145,6 +165,7 @@ export default async (req) => {
   if (b.canal === 'link') {
     const login = await garantirLogin(secreta, email, nome);
     if (!login.id) return resposta('Não foi possível preparar o acesso.', 502, { detalhe: login.erro });
+    await marcarAluno({ perfil_id: login.id, convidado_em: new Date().toISOString() });
     return resposta('Link de acesso gerado. Nenhum e-mail foi enviado.', 200, { link: linkDeAcesso(site, login.id) });
   }
 
@@ -153,7 +174,7 @@ export default async (req) => {
     const cria = await chamar('/auth/v1/admin/users', {
       metodo: 'POST', chave: secreta, corpo: { email, email_confirm: true, user_metadata: { nome } },
     });
-    if (cria.ok) return resposta(`${nome} foi preparado(a). Nenhum e-mail foi enviado.`);
+    if (cria.ok) { if (cria.dados && cria.dados.id) await marcarAluno({ perfil_id: cria.dados.id }); return resposta(`${nome} foi preparado(a). Nenhum e-mail foi enviado.`); }
     if (cria.status === 422 || /already|exists|registered/i.test(JSON.stringify(cria.dados || ''))) {
       return resposta(`${nome} já estava preparado(a). Nenhum e-mail foi enviado.`);
     }
@@ -163,8 +184,12 @@ export default async (req) => {
   // 4c. Envia o e-mail de convite pelo Brevo, com o link que não expira.
   const login = await garantirLogin(secreta, email, nome);
   if (login.id) {
-    const envio = await enviarLinkPorEmail({ email, nome, link: linkDeAcesso(site, login.id) });
-    if (envio.enviado) return resposta(`Convite enviado para ${email}. O link não expira: vale até a pessoa criar a senha.`);
+    await marcarAluno({ perfil_id: login.id });
+    const envio = await enviarLinkPorEmail({ email, nome, link: linkDeAcesso(site, login.id), trilha });
+    if (envio.enviado) {
+      await marcarAluno({ convidado_em: new Date().toISOString() });
+      return resposta(`Convite enviado para ${email}. O link não expira: vale até a pessoa criar a senha.`);
+    }
     console.warn('Convite pelo Brevo não saiu:', envio.mensagem);
   }
 

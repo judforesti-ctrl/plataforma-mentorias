@@ -2,7 +2,7 @@
 // "#/pessoa/<id>": a administração edita o perfil de outra pessoa da equipe ("#/pessoa/<id>/mentores" volta para a aba Mentores).
 import { sb, esc, autoSalvar, lerCampos, avisar, explicarErro, dataBR } from '../base.js';
 import { htmlFoto, ligarFoto, htmlContato, htmlTrajetoria, lerTrajetoria, htmlDadosMentorado, lerDadosMentorado, gravarComRedes } from './perfil-comum.js';
-import { AUTORIZACOES_MENTORADO } from '../termos.js';
+import { AUTORIZACOES_MENTORADO, AUTORIZACOES_ALUNO } from '../termos.js';
 
 export async function render(ctx, el, [id, origem] = []) {
   const outro = !!(id && ctx.ehAdmin && id !== ctx.perfil.id);
@@ -14,6 +14,7 @@ export async function render(ctx, el, [id, origem] = []) {
     p = data;
   }
   const ehMentorado = p.papel === 'mentorado';
+  const ehAluno = p.papel === 'aluno';
   const atende = p.papel === 'mentor' || p.tambem_mentor;
   let mentorado = null;
   if (ehMentorado) { const { data } = await sb.from('mentorados').select('*').eq('perfil_id', p.id).maybeSingle(); mentorado = data; }
@@ -22,7 +23,7 @@ export async function render(ctx, el, [id, origem] = []) {
   const pendente = /@pendente\.mentorei\.com\.br$/i.test(String(p.email || ''));
 
   el.innerHTML = `
-    <div class="cab"><div>${origem === 'mentores' ? '<p class="peq apagado"><a href="#/mentores">← Mentores</a></p>' : outro ? '<p class="peq apagado"><a href="#/equipe">← Equipe</a></p>' : ''}<h1>${outro ? `Perfil de ${esc(p.nome)}` : ehMentorado ? 'Meus dados' : 'Meu perfil'}</h1><p class="sub">${pendente ? 'Cadastro simples: ainda sem e-mail' : esc(p.email)}${outro ? ' · você está editando como administração' : ''}</p></div>
+    <div class="cab"><div>${origem === 'mentores' ? '<p class="peq apagado"><a href="#/mentores">← Mentores</a></p>' : outro ? '<p class="peq apagado"><a href="#/equipe">← Equipe</a></p>' : ''}<h1>${outro ? `Perfil de ${esc(p.nome)}` : ehMentorado || ehAluno ? 'Meus dados' : 'Meu perfil'}</h1><p class="sub">${pendente ? 'Cadastro simples: ainda sem e-mail' : esc(p.email)}${outro ? ' · você está editando como administração' : ''}</p></div>
       <div class="acoes"><span class="salvo" id="indicador"></span></div></div>
     <div class="grade g2" style="align-items:start">
       <div>
@@ -41,8 +42,8 @@ export async function render(ctx, el, [id, origem] = []) {
           <p class="peq apagado mt">A plataforma escreve este texto a partir da sua trajetória. Você ajusta o que quiser e aprova. Só depois de aprovado ele aparece para os seus mentorados.</p>
           <textarea id="apres" class="mt" style="min-height:180px" placeholder="Preencha a sua trajetória ao lado e clique em Gerar com IA.">${esc(p.resumo_apresentacao || '')}</textarea>
           <div class="linha mt"><button type="button" class="btn peq escuro" id="gerar-apres">✨ Gerar com IA</button><button type="button" class="btn peq pri" id="aprovar-apres">Aprovar e publicar</button></div></div>` : ''}
-        ${ehMentorado && !outro ? `<div class="cartao"><h3>Suas autorizações</h3><div class="lista mt">
-          ${AUTORIZACOES_MENTORADO.filter((a) => !a.obrigatoria).map((a) => `<label class="check"><input type="checkbox" data-aut="${a.chave}"${aut[a.chave] ? ' checked' : ''}><span>${a.texto}</span></label>`).join('')}
+        ${(ehMentorado || ehAluno) && !outro ? `<div class="cartao"><h3>Suas autorizações</h3><div class="lista mt">
+          ${(ehAluno ? AUTORIZACOES_ALUNO : AUTORIZACOES_MENTORADO).filter((a) => !a.obrigatoria).map((a) => `<label class="check"><input type="checkbox" data-aut="${a.chave}"${aut[a.chave] ? ' checked' : ''}><span>${a.texto}</span></label>`).join('')}
           </div><p class="peq apagado mt">O termo de consentimento foi aceito em ${p.termo_aceito_em ? new Date(p.termo_aceito_em).toLocaleDateString('pt-BR') : '—'}. Para retirar o consentimento, escreva para contato@mentorei.com.br.</p></div>` : ''}
         ${outro && pendente ? `<div class="cartao" style="border-color:var(--ocre)"><h3>E-mail de acesso</h3>
           <p class="peq apagado mt">Esta pessoa foi cadastrada sem e-mail (veio das trilhas da planilha). Coloque o e-mail dela para poder mandar o convite.</p>
@@ -61,7 +62,7 @@ export async function render(ctx, el, [id, origem] = []) {
       const mud = { ...lerCampos(el), foto_url: foto };
       if ('nome' in mud && !mud.nome) delete mud.nome; // nome em branco não apaga o nome que já existe
       if (atende) mud.trajetoria = lerTrajetoria(el);
-      if (ehMentorado && !outro) {
+      if ((ehMentorado || ehAluno) && !outro) {
         const a = { ...aut }; el.querySelectorAll('[data-aut]').forEach((c) => { a[c.dataset.aut] = c.checked; }); mud.autorizacoes = a;
       }
       const { error } = await gravarComRedes('perfis', p.id, mud);

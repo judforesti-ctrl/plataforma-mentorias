@@ -84,7 +84,7 @@ function blocoPrecos(el, inicial, { bloqueado = false } = {}) {
 }
 
 // Logo do cliente: vira PNG no navegador (sem bordas sobrando, no máximo 900 × 450) e vai para a pasta pública "fotos".
-function paraPng(arquivo) {
+export function paraPng(arquivo) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(arquivo);
     const img = new Image();
@@ -112,8 +112,8 @@ function paraPng(arquivo) {
     img.src = url;
   });
 }
-const linkLogo = (logo) => (logo && logo.caminho ? sb.storage.from('fotos').getPublicUrl(logo.caminho).data.publicUrl : '');
-async function logoAnterior(empresaId) {
+export const linkLogo = (logo) => (logo && logo.caminho ? sb.storage.from('fotos').getPublicUrl(logo.caminho).data.publicUrl : '');
+export async function logoAnterior(empresaId) {
   try {
     const { data } = await sb.from('propostas').select('logo:conteudo->logo, criado_em, oportunidade:oportunidades!inner(empresa_id)')
       .eq('oportunidade.empresa_id', empresaId).not('conteudo->logo', 'is', null).order('criado_em', { ascending: false }).limit(1);

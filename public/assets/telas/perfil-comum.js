@@ -3,7 +3,7 @@ import { sb, esc, avatar, avisar, explicarErro } from '../base.js';
 
 const v = (x) => esc(x == null ? '' : x);
 
-export const paraQuemAparece = (perfil) => (perfil.papel === 'mentorado' ? 'os seus mentores' : 'os seus mentorados e a equipe da Mentorei');
+export const paraQuemAparece = (perfil) => (perfil.papel === 'mentorado' ? 'os seus mentores' : perfil.papel === 'aluno' ? 'a equipe da Mentorei' : 'os seus mentorados e a equipe da Mentorei');
 
 // outro = a administração está colocando a foto de outra pessoa
 export function htmlFoto(perfil, { outro = false } = {}) {

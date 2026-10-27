@@ -33,7 +33,8 @@ export function lerCodigo(codigo) {
 }
 
 // E-mail com o link (pelo Brevo, com a identidade da Mentorei). Devolve { enviado, mensagem }.
-export function enviarLinkPorEmail({ email, nome, link, tipo = 'c' }) {
+// trilha = { nome, empresa, logo }: convite de aluno de turma (o texto fala da trilha, não de sessões individuais).
+export function enviarLinkPorEmail({ email, nome, link, tipo = 'c', trilha = null }) {
   const primeiro = String(nome || '').trim().split(' ')[0];
   const copiar = { p: `Se o botão não abrir, copie este endereço no navegador:\n${link}` };
   const m = tipo === 'c'
@@ -41,7 +42,9 @@ export function enviarLinkPorEmail({ email, nome, link, tipo = 'c' }) {
       assunto: 'Seu acesso à plataforma de mentorias da Mentorei',
       titulo: `Olá${primeiro ? `, ${primeiro}` : ''}! Seu acesso está pronto`,
       blocos: [
-        { p: 'Você foi convidado(a) para a plataforma de mentorias da Mentorei. Lá ficam o seu programa, as datas das sessões, os resumos, as tarefas e as ferramentas.' },
+        { p: trilha
+          ? `Você foi convidado(a) para a área dos alunos da trilha ${trilha.nome}${trilha.empresa ? ` (${trilha.empresa})` : ''} na plataforma da Mentorei. Lá ficam os módulos com as datas, o link para entrar nas aulas online, os slides, as tarefas e as gravações das aulas.`
+          : 'Você foi convidado(a) para a plataforma de mentorias da Mentorei. Lá ficam o seu programa, as datas das sessões, os resumos, as tarefas e as ferramentas.' },
         { p: 'Para entrar, crie a sua senha:' },
         { botao: { texto: 'Criar minha senha', link } },
         { nota: `Este link não expira: pode usar quando puder. Ele vale até você criar a sua senha. Depois, é só entrar em plataforma.mentorei.com.br com este e-mail (${email}) e a sua senha.` },
@@ -49,6 +52,7 @@ export function enviarLinkPorEmail({ email, nome, link, tipo = 'c' }) {
         { p: 'Qualquer dúvida, é só responder este e-mail.\nEquipe Mentorei' },
       ],
       rodape: 'Mentorei · mentorei.com.br · Você recebeu este e-mail porque a Mentorei cadastrou você em um programa de mentoria. Se não esperava este convite, pode ignorar.',
+      ...(trilha && trilha.logo ? { logo: { url: trilha.logo, alt: trilha.empresa || '' } } : {}),
     })
     : modeloEmail({
       assunto: 'Crie uma nova senha · Mentorei',

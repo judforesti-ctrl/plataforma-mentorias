@@ -617,3 +617,31 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
   .mat-novo select { grid-column: 1 / -1; width: 100%; }
   .mat-previa-linha { grid-template-columns: 1fr; gap: 2px; }
 }
+
+/* Área do aluno da turma ("Minha trilha", telas/minha-trilha.js) */
+.tr-lista { display: grid; gap: 10px; }
+.tr-mod { padding: 16px 18px; }
+.tr-mod.tr-proxima { border-color: var(--bege-escuro); box-shadow: 0 0 0 2px var(--bege-claro); }
+.tr-cab { display: flex; gap: 14px; align-items: flex-start; }
+.tr-num { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: var(--petroleo); color: var(--bege); font-family: var(--f-titulo); font-weight: 800; font-size: 16px; }
+.tr-corpo { display: grid; gap: 10px; margin: 12px 0 0 52px; padding-top: 12px; border-top: 1px solid var(--linha); }
+.tr-grupo { display: grid; gap: 6px; }
+@media (max-width: 640px) { .tr-cab { flex-wrap: wrap; } .tr-cab > .selo { margin-left: 52px; } .tr-corpo { margin-left: 0; } }
+/* logo e cores do cliente (telas/marca-cliente.js e minha-trilha.js) */
+.tr-marca .btn.pri, .tr-marca .cartao.destaque .btn, .mc-previa .btn.pri { color: var(--tr-btn-texto, var(--petroleo)); }
+.tr-logo { flex: none; display: inline-flex; align-items: center; justify-content: center; background: #fff; border-radius: 12px; padding: 8px 12px; max-width: 180px; }
+.tr-logo img { max-height: 48px; max-width: 156px; object-fit: contain; display: block; }
+.mc-logo { display: inline-flex; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--linha); border-radius: 12px; padding: 10px 14px; }
+.mc-logo img { max-height: 64px; max-width: 220px; object-fit: contain; display: block; }
+.mc-paletas { display: flex; flex-wrap: wrap; gap: 8px; }
+.mc-paleta { display: inline-flex; align-items: center; gap: 4px; padding: 6px 10px 6px 6px; border: 1px solid var(--linha); border-radius: 999px; background: var(--papel); cursor: pointer; font: inherit; font-size: 13px; color: var(--texto); }
+.mc-paleta i { width: 18px; height: 18px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0, 0, 0, .12); }
+.mc-paleta span { margin-left: 4px; }
+.mc-paleta.atual { border-color: var(--petroleo); box-shadow: 0 0 0 2px var(--bege-claro); font-weight: 700; }
+.mc-cor { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13.5px; line-height: 1.3; }
+.mc-cor input[type=color] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--linha); border-radius: 8px; background: #fff; cursor: pointer; }
+.mc-previa { border-radius: var(--raio); overflow: hidden; border: 1px solid var(--linha); background: var(--papel); }
+.mc-previa-topo { background: var(--petroleo); padding: 16px; display: flex; gap: 12px; align-items: center; }
+.mc-previa-corpo { padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
+.mc-previa .tr-num { width: 32px; height: 32px; font-size: 14px; }
+@media (max-width: 640px) { .tr-logo { max-width: 130px; } .tr-logo img { max-width: 110px; max-height: 40px; } }

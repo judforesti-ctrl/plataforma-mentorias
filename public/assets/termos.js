@@ -27,6 +27,25 @@ export const TERMO_MENTOR = `
 </ol>
 <p>Sei que a plataforma registra os meus acessos e as alterações que faço, e que as sessões concluídas só podem ser alteradas pela administração. Leia também a <a href="/privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a>.</p>`;
 
+// Aluno de turma (trilha em grupo, script 44). Mesma ressalva do jurídico acima.
+export const TERMO_ALUNO = `
+<p><b>Bem-vindo à área da sua trilha na Mentorei.</b></p>
+<p>Aqui ficam os módulos da trilha com as datas, o link para entrar nas aulas online, os slides, as tarefas e as gravações das aulas. A plataforma é operada pela Mentorei, que é a responsável pelos seus dados.</p>
+<ul>
+  <li><b>O que guardamos.</b> Seu nome, e-mail, WhatsApp (se você informar), cargo, foto (se você colocar) e os seus acessos à plataforma.</li>
+  <li><b>Quem vê.</b> A equipe da Mentorei e os mentores da sua turma veem o seu nome na lista de alunos. Seus colegas de turma não veem os seus dados.</li>
+  <li><b>Gravações.</b> As aulas online podem ser gravadas. As gravações ficam disponíveis só para os alunos da turma, pelo link que aparece aqui. Não compartilhe esses links com quem não é da turma.</li>
+  <li><b>Avaliação das aulas.</b> A avaliação de cada encontro é anônima: nem a Mentorei nem o mentor sabem quem respondeu.</li>
+  <li><b>Seus direitos.</b> Você pode pedir a qualquer momento uma cópia dos seus dados, a correção do que estiver errado ou o fim do uso dos seus dados, pelo e-mail ${CONTATO_DADOS}.</li>
+</ul>
+<p>Leia também a <a href="/privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a> completa.</p>`;
+
+export const AUTORIZACOES_ALUNO = [
+  { chave: 'termo', obrigatoria: true, texto: '<b>Li e aceito</b> a Política de Privacidade e autorizo a Mentorei a tratar meus dados para conduzir a trilha.' },
+  { chave: 'email', texto: 'Autorizo receber avisos da trilha (datas, materiais e gravações) por <b>e-mail</b>.' },
+  { chave: 'whatsapp', texto: 'Autorizo receber avisos da trilha pelo <b>WhatsApp</b> informado no meu cadastro.' },
+];
+
 export const AUTORIZACOES_MENTORADO = [
   { chave: 'termo', obrigatoria: true, texto: '<b>Li e aceito</b> a Política de Privacidade e autorizo a Mentorei a tratar meus dados para conduzir a minha mentoria, inclusive as anotações das sessões feitas pelos meus mentores.' },
   { chave: 'whatsapp', texto: 'Autorizo receber os resumos das sessões e as tarefas também pelo <b>WhatsApp</b> informado no meu cadastro.' },

@@ -5,6 +5,9 @@ import { sb, esc, avatar, dataBR, dataHoraBR, diaMes, horaBR, autoSalvar, avisar
 import { ITENS_VIAGEM, QUEM_VIAGEM } from '../agenda-regras.js';
 import { cartaoAvaliacao, ligarAvaliacao } from './avaliacao-modulo.js';
 import { cartaoMateriais, ligarMateriais } from './materiais-modulo.js';
+import { cartaoAlunos, ligarAlunos } from './alunos-turma.js';
+import { cartaoMarca, ligarMarca } from './marca-cliente.js';
+import { cartaoParaAlunos, ligarParaAlunos } from './alunos-modulo.js';
 
 const FORMATO = { meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro', indefinido: 'Local a definir' };
 const STATUS = { planejada: ['Planejada', 'neutro'], em_andamento: ['Em andamento', ''], concluida: ['Concluída', 'neutro'], pausada: ['Pausada', 'alerta'] };
@@ -75,6 +78,7 @@ async function lista(ctx, el) {
       ${semPercepcao.length ? `<div class="cartao pend-bloco urgente"><h3>Aulas sem as suas percepções <span class="selo erro">${semPercepcao.length}</span></h3>
         <p class="peq apagado">Conte como foi: engajamento, pontos de atenção e quantas pessoas vieram.</p><div class="lista mt">${semPercepcao.map(linhaAula).join('')}</div></div>` : ''}
     </div>` : ''}
+    ${ctx.ehAdmin ? '<div class="cartao" id="gravacoes-admin"><p class="peq apagado">Verificando as gravações das aulas…</p></div>' : ''}
     <h2 class="mt2">${ctx.ehAdmin ? 'Todas as turmas' : 'Turmas em que você dá aula'}</h2>
     <div class="linha mt">
       <input type="search" id="t-busca" placeholder="Buscar por cliente, tema ou mentor…" aria-label="Buscar por cliente, tema ou mentor" style="flex:1;min-width:220px">
@@ -157,6 +161,7 @@ async function lista(ctx, el) {
   desenhar();
 
   if (!ctx.ehAdmin) return;
+  import('./gravacoes-admin.js').then(({ cartaoGravacoes }) => cartaoGravacoes(el.querySelector('#gravacoes-admin')));
   el.querySelector('#nova').addEventListener('click', () => { const f = el.querySelector('#form-nova'); f.hidden = !f.hidden; });
   el.querySelector('#t-empresa').addEventListener('change', async (ev) => {
     if (ev.target.value !== 'nova') return;
@@ -244,8 +249,13 @@ async function paginaTurma(ctx, el, id) {
           ${m.percepcoes_em ? '<span class="selo">Percepções ✓</span>' : pedePercepcao(m) ? '<span class="selo alerta">Sem percepções</span>' : passou(m) ? '<span class="selo neutro">Realizada</span>' : '<span class="selo neutro">A acontecer</span>'}</a>`).join('')
           || '<p class="apagado">Nenhum módulo ainda.</p>'}</div>
       </div>
-    </div>`;
+    </div>
+    ${cartaoAlunos()}
+    ${adm ? cartaoMarca() : ''}`;
 
+  // alunos da trilha (script 44): a administração cadastra e convida; o mentor vê a lista
+  ligarAlunos(ctx, el, t);
+  ligarMarca(ctx, el, t);   // logo e cores do cliente na área do aluno (administração)
   if (!adm) return;
   const salvador = autoSalvar({
     indicador: el.querySelector('#indicador'),
@@ -506,6 +516,7 @@ async function paginaModulo(ctx, el, id) {
           ${souMentor || adm ? botaoEnvio('mentor', souMentor ? 'Enviar os meus slides' : 'Enviar slides do mentor') : ''}
           <p class="peq apagado mt" id="progresso"></p>
         </div>
+        ${cartaoParaAlunos(ctx, m, adm || souMentor)}
         <div class="cartao" style="${podePercepcao ? 'border-color:var(--verde);background:linear-gradient(var(--verde-claro), var(--papel) 90px)' : ''}">
           <h3>Percepções sobre a aula</h3>
           <p class="peq">${podePercepcao ? 'Depois da aula, conte como foi: engajamento, o que funcionou, pontos de atenção e sugestões para os próximos módulos. Só a equipe da Mentorei lê.' : 'Escritas pelo mentor depois da aula.'}</p>
@@ -591,6 +602,8 @@ async function paginaModulo(ctx, el, id) {
   ligarAvaliacao(ctx, el, m, souMentor);
   // materiais necessários: checklist e arquivos de apoio (script 40)
   ligarMateriais(ctx, el, m, adm || souMentor);
+  // para os alunos: PDF dos slides, tarefas e gravação (script 44)
+  ligarParaAlunos(ctx, el, m, adm || souMentor);
   el.querySelector('[data-ir-qr]')?.addEventListener('click', (ev) => { ev.preventDefault(); el.querySelector('#avaliacao-turma').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 
   // envio de slides
