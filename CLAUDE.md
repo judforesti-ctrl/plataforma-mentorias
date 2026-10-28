@@ -456,6 +456,13 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   resposta, pontos por palavras do título/turma/empresa + apelidos ("desenvolvimento de líderes" = Sicredi Expansão; "trilha"/"lideranças"
   = Cresol Conexão); sem certeza fica sem módulo. Histórico não dispara e-mail (marca avaliacao_aviso_em). No relatório, respostas sem
   módulo aparecem agrupadas por mês ("Histórico de <mês>") e a didática conta na nota de mentor da visão geral (`notasDe`).
+  FICHAS DE PAPEL (2026-10-28, script 50): quando a turma não consegue usar o QR, a equipe tabula as fichas numa planilha e elas entram
+  com origem 'papel' ligadas ao módulo (1º lote: Cresol Amazônia, Formação Ativa Idade, 26/10, Viviane, 11 fichas, `extras.lote`
+  = 'papel-ativa-idade-2026-10-26'). Conversão (Muito satisfeito 5 … Insatisfeito 1, marcação dupla não conta, média arredondada):
+  geral = nota geral; mentor = conhecimento/esclarecimento/linguagem/relacionamento; conteúdo = conteúdo/qualidade do assunto/assuntos
+  práticos; aula = qualidade da apresentação/tempo de duração; ferramentas e NPS vazios; comentário = positivos + melhorar + sugestões;
+  critérios originais em `extras.criterios_1a5`; nome de aluno escrito na ficha é tirado. Não reabre o e-mail ao mentor (aviso já marcado).
+  Próximo lote: gerar o SQL do mesmo jeito (scratchpad desta sessão: %TEMP%\aval\scripts\gerar.py lê a planilha sem openpyxl).
 - LINK DE CONVITE QUE NÃO EXPIRA (2026-10-12, reclamação: quem não entrava na hora mandava "link expirado"): o código do Supabase
   vence em horas, então o convite (e-mail e WhatsApp) leva `definir-senha.html?c=<código nosso>` assinado com HMAC da
   SUPABASE_SECRET_KEY (`netlify/lib/acesso.mjs`; trocar a chave invalida os links). Ao abrir, `/api/acesso` acao `abrir` confere,

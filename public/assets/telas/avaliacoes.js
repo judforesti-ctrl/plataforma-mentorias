@@ -1,7 +1,8 @@
 // Gestão › Avaliações ("#/avaliacoes/<aba>", só administração): como as turmas avaliaram os encontros (script 31).
 // Abas: visão geral, por módulo, por mentor, comentários e temas pedidos. Filtros por período, empresa, turma e mentor;
 // baixar em Excel. Tudo anônimo: nenhuma resposta tem nome. As respostas antigas do Google Forms entram com origem
-// "google_forms" (sem módulo; o nome da formação que o aluno escreveu fica em "formacao").
+// "google_forms" (sem módulo; o nome da formação que o aluno escreveu fica em "formacao"); as fichas de papel tabuladas,
+// com origem "papel" e ligadas ao módulo (script 50).
 import { sb, esc, dataBR, avisar, explicarErro } from '../base.js';
 import { resumir, nps, num1, APRENDEU, TEMPO, MELHORAR } from '../avaliacao-regras.js';
 
@@ -161,7 +162,7 @@ function abaGeral(alvo, lista) {
   const notasMentor = lista.flatMap(notasDe);
   const satMentor = notasMentor.length ? Math.round((notasMentor.filter((x) => x >= 4).length / notasMentor.length) * 100) : null;
   const quantas = (k) => lista.filter((a) => a[k] != null).length;
-  const novas = lista.filter((a) => a.origem !== 'google_forms').length;   // as perguntas novas só existem no formulário da plataforma
+  const novas = lista.filter((a) => a.origem === 'plataforma').length;   // as perguntas novas só existem no formulário da plataforma (nem no Forms, nem na ficha de papel)
   // taxa de resposta: só módulos com presença anotada pelo mentor
   const porModulo = new Map();
   lista.forEach((a) => { if (a.modulo && a.modulo.participantes_presentes) porModulo.set(a.modulo.id, { pres: a.modulo.participantes_presentes, n: (porModulo.get(a.modulo.id)?.n || 0) + 1 }); });
@@ -195,7 +196,7 @@ function abaGeral(alvo, lista) {
           <span class="base">${taxa == null ? 'o mentor anota os presentes no módulo' : 'respostas ÷ presentes'}</span></div>
       </div>
     </div>
-    <p class="peq apagado mt">${fmt(r.total)} no período. Aula e nota geral do encontro são perguntas novas: só aparecem nas avaliações feitas pelo QR code da plataforma.</p>
+    <p class="peq apagado mt">${fmt(r.total)} no período. Aula e nota geral do encontro são perguntas novas: só aparecem nas avaliações feitas pelo QR code da plataforma (e nas fichas de papel tabuladas).</p>
     <div class="grade g2 mt2" style="align-items:start">
       <div class="cartao"><h3>Recomendação mês a mês (NPS)</h3>
         ${n ? graficoMeses(lista) || '<p class="apagado mt">Precisa de pelo menos dois meses com respostas.</p>' : '<p class="apagado mt">Sem notas de recomendação no período.</p>'}
@@ -327,7 +328,7 @@ async function baixarExcel(lista, nomes) {
     a.modulo ? `Módulo ${a.modulo.numero} · ${a.modulo.titulo}` : (a.formacao || ''), mentoresDe(a).map((id) => nomes.get(id) || '').join(', '),
     a.geral, a.aula, (a.notas || []).length ? a.notas.map((n) => `${String(nomes.get(n.mentor_id) || '').split(' ')[0]}: ${n.nota}`).join(', ') : notasDe(a).join(''), a.conteudo, a.ferramentas,
     APRENDEU[a.aprendeu] || '', TEMPO[a.tempo] || '', a.nps, (a.marcas || []).join(', '), a.comentario || '', (a.temas || []).join(', '),
-    a.origem === 'google_forms' ? 'Google Forms' : 'Plataforma']));
+    a.origem === 'google_forms' ? 'Google Forms' : a.origem === 'papel' ? 'Ficha de papel' : 'Plataforma']));
   const porModulo = [['Encontro', 'Data', 'Respostas', 'Presentes', 'Nota geral', 'Aula', 'Mentor', 'Conteúdo', 'Ferramentas', 'NPS']];
   grupos(lista).forEach((g) => {
     const r = resumir(g.lista), notasM = g.lista.flatMap(notasDe);
