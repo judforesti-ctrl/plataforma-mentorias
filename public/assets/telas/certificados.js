@@ -10,6 +10,7 @@ import { bibliotecaQr } from './avaliacao-modulo.js';
 import * as R from '../certificados-regras.js';
 import { carregarAssinaturas, janelaEnviar, janelaLista, amostrasAssinatura } from './certificados-assinaturas.js';
 import { abaEmitir, abaEmitidos } from './certificados-emitir.js';
+import { prepararLogo, TRATAMENTO_LOGO } from '../logo-certificado.js';
 
 const FALTA = '<div class="aviso erro">Para usar os certificados, falta rodar o script <b>47-certificados.sql</b> no Supabase (SQL Editor → New query → colar → Run).</div>';
 const CODIGO_EXEMPLO = 'MTR-26-XXXX-XXXX';
@@ -192,6 +193,7 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
     carregarAssinaturas([d.resp1_assinatura_id, d.resp2_assinatura_id]).catch(() => []),
   ]);
   let nomeEditado = !!existente;
+  let qrExemplo = '';   // QR de exemplo da prévia (chega em seguida)
   const ass = (n) => `<div class="grade g2" style="gap:12px">
       <div class="campo"><label for="ct-r${n}n">${n === 1 ? 'Nome de quem assina pela Mentorei' : 'Nome de quem assina pelo cliente'}</label><input id="ct-r${n}n" data-k="resp${n}_nome" type="text"></div>
       <div class="campo"><label for="ct-r${n}c">Cargo</label><input id="ct-r${n}c" data-k="resp${n}_cargo" type="text" placeholder="${n === 1 ? 'Ex.: Sócia · Mentorei' : 'Ex.: Diretora de Pessoas · Sicoob Exemplo'}"></div></div>
@@ -254,17 +256,41 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
   el.querySelectorAll('#ct-var button').forEach((b) => b.addEventListener('click', () => { d.variacao = b.dataset.v; variacao(); atualizar(); }));
   variacao();
 
-  // cliente cadastrado: preenche o nome e oferece o logo que a plataforma já tem (área do aluno ou proposta anterior)
+  // Logo do cliente: o fundo sai e cada padrão usa a versão que aparece bem (cores do logo ou uma cor só, que dá para trocar).
+  // Cliente cadastrado: preenche o nome e oferece o logo que a plataforma já tem (área do aluno ou proposta anterior).
   const logoBox = $('#ct-logo');
   let logoDoCliente = null;
-  const desenharLogo = (enviando = false) => {
+  const desenharLogo = (msg = '') => {
     const l = d.cliente_logo && d.cliente_logo.caminho ? d.cliente_logo : null;
-    const oferta = !l && logoDoCliente;
-    logoBox.innerHTML = `<div class="ct-logo">${l ? `<img src="${esc(linkLogo(l))}" alt="Logo do cliente">` : '<span class="peq apagado">Sem logo</span>'}
-      <label class="btn peq" style="cursor:pointer">${l ? 'Trocar logo' : 'Enviar logo'}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden></label>
-      ${l ? '<button class="btn peq" type="button" data-tirar>Remover</button>' : ''}${oferta ? '<button class="btn peq" type="button" data-cliente>Usar o logo já cadastrado do cliente</button>' : ''}
-      ${enviando ? '<span class="peq apagado">Enviando…</span>' : ''}</div>`;
+    const amostra = (v) => `<div><span class="peq apagado">No padrão ${v === 'clara' ? 'claro' : 'escuro'}</span>
+      <div class="ct-logo-amostra ${v}"><img src="${esc(linkLogo({ caminho: R.caminhoLogo(l, v) }))}" alt="Logo no padrão ${v === 'clara' ? 'claro' : 'escuro'}"></div>
+      ${l.versoes ? `<div class="ct-seg mt" data-logo-v="${v}" style="margin-top:6px">${[['cores', 'Cores do logo'], ['uma_cor', 'Uma cor só']].map(([m, t]) => `<button type="button" data-m="${m}" class="${(l[v] || 'cores') === m ? 'on' : ''}">${t}</button>`).join('')}</div>` : ''}</div>`;
+    logoBox.innerHTML = `${l ? `<div class="ct-logo-grade">${amostra('clara')}${amostra('escura')}</div>
+        ${l.versoes ? `<p class="peq apagado mt">${l.fundo_removido ? 'Tiramos o fundo do logo. ' : ''}"Uma cor só" usa a cor do certificado, para o logo não sumir no fundo.</p>` : ''}` : ''}
+      <div class="ct-logo mt">${l ? '' : '<span class="peq apagado">Sem logo</span>'}
+        <label class="btn peq" style="cursor:pointer">${l ? 'Trocar logo' : 'Enviar logo'}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden></label>
+        ${l ? '<button class="btn peq" type="button" data-tirar>Remover</button>' : ''}${!l && logoDoCliente ? '<button class="btn peq" type="button" data-cliente>Usar o logo já cadastrado do cliente</button>' : ''}
+        ${msg ? `<span class="peq apagado">${esc(msg)}</span>` : ''}</div>`;
   };
+  // tira o fundo, confere o contraste e guarda as três versões (cores, uma cor no claro, uma cor no escuro)
+  const tratarLogo = async (blob, original = null) => {
+    desenharLogo('Preparando o logo: tirando o fundo e conferindo o contraste…');
+    try {
+      const r = await prepararLogo(blob);
+      const base = `logos/${d.empresa_id || 'certificados'}/${Date.now()}`;
+      const subir = async (sufixo, b) => {
+        const { error } = await sb.storage.from('fotos').upload(`${base}-${sufixo}.png`, b, { contentType: 'image/png', upsert: false });
+        if (error) throw error;
+        return `${base}-${sufixo}.png`;
+      };
+      const [cores, clara, escura] = await Promise.all([subir('cores', r.cores.blob), subir('claro-uma-cor', r.clara_uma_cor.blob), subir('escuro-uma-cor', r.escura_uma_cor.blob)]);
+      d.cliente_logo = { caminho: cores, original, trat: TRATAMENTO_LOGO, largura: r.largura, altura: r.altura, fundo_removido: r.fundoRemovido,
+        versoes: { cores, clara_uma_cor: clara, escura_uma_cor: escura }, clara: r.sugestao.clara, escura: r.sugestao.escura };
+      desenharLogo(); atualizar();
+      return true;
+    } catch (e) { avisar(e.message || explicarErro(e), true); desenharLogo(); return false; }
+  };
+  const doEndereco = async (l) => { const r = await fetch(linkLogo(l)); if (!r.ok) throw new Error('Não consegui abrir o logo guardado. Envie o arquivo do logo de novo.'); return r.blob(); };
   const buscarLogo = async () => {
     const e = (empresas || []).find((x) => x.id === d.empresa_id);
     logoDoCliente = e && e.marca && e.marca.logo && e.marca.logo.caminho ? e.marca.logo : (e ? await logoAnterior(e.id) : null);
@@ -272,20 +298,23 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
   };
   logoBox.addEventListener('change', async (ev) => {
     const arq = ev.target.files && ev.target.files[0]; if (!arq) return;
+    ev.target.value = '';
     if (arq.size > 8 * 1024 * 1024) { avisar('A imagem é grande demais (máximo 8 MB).', true); return; }
-    desenharLogo(true);
-    try {
-      const png = await paraPng(arq);
-      const caminho = `logos/${d.empresa_id || 'certificados'}/${Date.now()}.png`;
-      const { error } = await sb.storage.from('fotos').upload(caminho, png.blob, { contentType: 'image/png', upsert: false });
-      if (error) throw error;
-      d.cliente_logo = { caminho, largura: png.largura, altura: png.altura };
-    } catch (e) { avisar(explicarErro(e), true); }
-    desenharLogo(); atualizar();
+    // guarda também o arquivo como veio (para tratar de novo se a regra melhorar); a pasta "fotos" aceita até 2 MB
+    let original = null;
+    const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[arq.type];
+    if (ext && arq.size <= 2 * 1024 * 1024) {
+      const c = `logos/${d.empresa_id || 'certificados'}/${Date.now()}-original.${ext}`;
+      const { error } = await sb.storage.from('fotos').upload(c, arq, { contentType: arq.type, upsert: false });
+      if (!error) original = c;
+    }
+    await tratarLogo(arq, original);
   });
-  logoBox.addEventListener('click', (ev) => {
-    if (ev.target.closest('[data-tirar]')) { d.cliente_logo = null; desenharLogo(); atualizar(); }
-    if (ev.target.closest('[data-cliente]')) { d.cliente_logo = logoDoCliente; desenharLogo(); atualizar(); }
+  logoBox.addEventListener('click', async (ev) => {
+    if (ev.target.closest('[data-tirar]')) { d.cliente_logo = null; desenharLogo(); atualizar(); return; }
+    if (ev.target.closest('[data-cliente]')) { try { await tratarLogo(await doEndereco(logoDoCliente), logoDoCliente.caminho); } catch (e) { avisar(e.message, true); } return; }
+    const m = ev.target.closest('[data-logo-v] [data-m]');
+    if (m && d.cliente_logo) { d.cliente_logo = { ...d.cliente_logo, [m.closest('[data-logo-v]').dataset.logoV]: m.dataset.m }; desenharLogo(); atualizar(); }
   });
   $('#ct-emp').addEventListener('change', () => {
     const antes = (empresas || []).find((x) => x.id === d.empresa_id);
@@ -296,6 +325,15 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
     buscarLogo(); atualizar();
   });
   desenharLogo(); buscarLogo();
+  // logo guardado sem tratamento ou com uma regra mais antiga (pastas antigas, ou vindo da turma): trata agora; vale ao salvar.
+  // Parte do arquivo original, quando guardado.
+  const tratarAntigo = () => {
+    const l = d.cliente_logo;
+    if (!l || !l.caminho || (l.versoes && (l.trat || 1) >= TRATAMENTO_LOGO)) return;
+    const fonte = l.original || l.caminho;
+    doEndereco({ caminho: fonte }).then((b) => tratarLogo(b, fonte)).then((ok) => { if (ok && existente) avisar('Ajustamos o logo do cliente desta pasta. Clique em "Salvar alterações" para usar.'); })
+      .catch((e) => avisar(e.message, true));
+  };
 
   // módulos: título, descrição curta, horas; subir, descer e remover
   const mods = $('#ct-mods');
@@ -365,7 +403,6 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
     el.querySelectorAll('#ct-face button').forEach((x) => x.classList.toggle('on', x === b)); previa.face(b.dataset.f);
   }));
   $('#ct-teste').addEventListener('input', () => atualizar());
-  const qrExemplo = await qrDataUri(R.linkVerificacao(CODIGO_EXEMPLO)).catch(() => '');
 
   function atualizar() {
     $('#ct-ass2').hidden = !d.mostrar_resp2;
@@ -379,13 +416,15 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
         : `<span class="chip ct-alerta">Soma dos módulos: ${R.horasTexto(soma) || '0 horas'} · total: ${R.horasTexto(total)}</span>`;
     previa.enviar(R.dadosDoModelo(R.retrato(d), {
       participante: $('#ct-teste').value.trim() || 'Nome do Participante', codigo: CODIGO_EXEMPLO, qr: qrExemplo,
-      imagens: { logo: d.cliente_logo && d.cliente_logo.caminho ? linkLogo(d.cliente_logo) : '', resp1: imgAss(d.resp1_assinatura_id), resp2: imgAss(d.resp2_assinatura_id) },
+      imagens: { logo: d.cliente_logo && d.cliente_logo.caminho ? linkLogo({ caminho: R.caminhoLogo(d.cliente_logo, d.variacao) }) : '', resp1: imgAss(d.resp1_assinatura_id), resp2: imgAss(d.resp2_assinatura_id) },
     }));
     const falta = R.faltando(d);
     $('#ct-falta').textContent = falta.length ? `Falta preencher: ${falta.join(', ')}.` : '';
     $('#ct-salvar').disabled = !!falta.length;
   }
   atualizar();
+  tratarAntigo();
+  qrDataUri(R.linkVerificacao(CODIGO_EXEMPLO)).then((q) => { qrExemplo = q; atualizar(); }).catch(() => {});
 
   if (voltar) $('#ct-volta').addEventListener('click', voltar);
   $('#ct-salvar').addEventListener('click', async () => {

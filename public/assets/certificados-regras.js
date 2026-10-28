@@ -98,8 +98,17 @@ export function retrato(p) {
     // referências das imagens (não vão para o modelo)
     ref_resp1_assinatura: p.resp1_assinatura_id || null,
     ref_resp2_assinatura: p.mostrar_resp2 ? (p.resp2_assinatura_id || null) : null,
-    ref_cliente_logo: p.cliente_logo && p.cliente_logo.caminho ? p.cliente_logo.caminho : null,
+    ref_cliente_logo: caminhoLogo(p.cliente_logo, p.variacao),
   };
+}
+
+// Logo do cliente na versão do padrão: sem fundo, nas cores do logo ou de uma cor só (o que a pessoa escolheu na pasta).
+// Logo guardado antes do tratamento (sem "versoes") vai como estava.
+export function caminhoLogo(l, variacao) {
+  if (!l || !l.caminho) return null;
+  if (!l.versoes) return l.caminho;
+  const v = variacao === 'escura' ? 'escura' : 'clara';
+  return l[v] === 'uma_cor' ? (l.versoes[`${v}_uma_cor`] || l.versoes.cores) : (l.versoes.cores || l.caminho);
 }
 
 // Do retrato para o pacote do modelo: imagens já resolvidas (data URI ou endereço) em { resp1, resp2, logo }.
