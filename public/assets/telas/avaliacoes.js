@@ -87,7 +87,28 @@ const quando = (a) => (a.modulo && a.modulo.data_hora) || a.criado_em;
 const notasDe = (a) => ((a.notas || []).length ? a.notas.map((n) => n.nota)
   : a.extras && a.extras.escala_antiga && a.extras.escala_antiga.didatica ? [Math.ceil(a.extras.escala_antiga.didatica / 2)] : []);
 const NOME_MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-const mentoresDe = (a) => (a.modulo && a.modulo.mentores ? a.modulo.mentores.map((x) => x.mentor_id) : []);
+const mentoresDe = (a) => a._mentores || [];
+// mentores da resposta: os do módulo, os que têm nota e, no histórico do Forms, os da planilha de mentores (script 51).
+// Quem não tem cadastro entra pelo nome, com a chave "h:<nome>" (didática de 1 a 10 vira 1 a 5, como em notasDe).
+const planilhaDe = (a) => (a.extras && a.extras.planilha_mentores && a.extras.planilha_mentores.mentores) || [];
+const semAcento = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+function prepararMentores(todas, nomes) {
+  todas.forEach((a) => {
+    const ids = new Set([...(a.modulo && a.modulo.mentores ? a.modulo.mentores.map((x) => x.mentor_id) : []), ...(a.notas || []).map((n) => n.mentor_id)]);
+    const primeiros = new Set([...ids].map((id) => semAcento(String(nomes.get(id) || '').split(' ')[0])));
+    planilhaDe(a).forEach((m) => {
+      if (m.perfil_id) { ids.add(m.perfil_id); return; }
+      if (!m.nome || primeiros.has(semAcento(m.nome))) return;
+      ids.add(`h:${m.nome}`);
+      nomes.set(`h:${m.nome}`, m.nome);
+    });
+    a._mentores = [...ids];
+  });
+}
+const notasDoMentor = (a, id) => (id.startsWith('h:')
+  ? planilhaDe(a).filter((m) => `h:${m.nome}` === id && m.didatica).map((m) => Math.ceil(m.didatica / 2))
+  : (a.notas || []).filter((n) => n.mentor_id === id).map((n) => n.nota));
+const encontroDe = (a) => (a.modulo ? a.modulo.id : (a.extras && a.extras.planilha_mentores && a.extras.planilha_mentores.encontro) || a.formacao || String(quando(a)).slice(0, 10));
 
 function filtrar(todas) {
   const limite = est.periodo === 'tudo' ? 0 : Date.now() - Number(est.periodo) * 86400000;
@@ -112,6 +133,7 @@ export async function render(ctx, el, [aba0]) {
       : `<div class="aviso erro">${esc(explicarErro(d.erro))}</div>`;
     return;
   }
+  prepararMentores(d.todas, d.nomes);
   const empresas = new Map(), turmas = new Map(), mentores = new Set();
   d.todas.forEach((a) => {
     if (a.empresa) empresas.set(a.empresa.id, a.empresa.nome);
@@ -272,18 +294,18 @@ function abaMentores(alvo, lista, nomes) {
   lista.forEach((a) => mentoresDe(a).forEach((id) => {
     if (!por.has(id)) por.set(id, { respostas: [], modulos: new Set(), notas: [] });
     const x = por.get(id);
-    x.respostas.push(a); x.modulos.add(a.modulo.id);
-    (a.notas || []).filter((n) => n.mentor_id === id).forEach((n) => x.notas.push(n.nota));
+    x.respostas.push(a); x.modulos.add(encontroDe(a));
+    x.notas.push(...notasDoMentor(a, id));
   }));
   const linhas = [...por.entries()].map(([id, x]) => ({ id, nome: nomes.get(id) || 'Mentor', ...x, r: resumir(x.respostas), media: media(x.notas) }))
     .sort((a, b) => (b.media || 0) - (a.media || 0));
   alvo.innerHTML = linhas.length ? `<div class="cartao"><div class="tabela"><table>
     <thead><tr><th>Mentor</th><th>Encontros</th><th>Respostas</th><th>Nota como mentor</th><th>Satisfeitos</th><th>Geral dos encontros</th><th>Conteúdo</th><th>NPS</th></tr></thead>
-    <tbody>${linhas.map((l) => `<tr><td><b>${esc(l.nome)}</b></td><td class="num">${l.modulos.size}</td><td class="num">${l.respostas.length}</td>
+    <tbody>${linhas.map((l) => `<tr><td><b>${esc(l.nome)}</b>${l.id.startsWith('h:') ? ' <span class="peq apagado">(histórico, sem cadastro)</span>' : ''}</td><td class="num">${l.modulos.size}</td><td class="num">${l.respostas.length}</td>
       <td>${pill(l.media, 5)}</td><td class="num">${l.notas.length ? `${Math.round((l.notas.filter((v) => v >= 4).length / l.notas.length) * 100)}%` : '—'}</td>
       <td>${pill(l.r.geral, 10)}</td><td>${pill(l.r.conteudo, 5)}</td><td>${pill(l.r.nps ? l.r.nps.valor : null, 'nps')}</td></tr>`).join('')}</tbody></table></div>
     <p class="peq apagado mt">Só a administração vê esta comparação. Cada mentor vê apenas a própria nota, no módulo e no e-mail.</p></div>`
-    : '<div class="vazio">Nenhuma avaliação ligada a um mentor neste período (as respostas antigas do Google Forms não têm mentor).</div>';
+    : '<div class="vazio">Nenhuma avaliação ligada a um mentor neste período.</div>';
 }
 
 // ---------- comentários ----------

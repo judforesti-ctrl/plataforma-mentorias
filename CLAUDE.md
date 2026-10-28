@@ -463,6 +463,17 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   práticos; aula = qualidade da apresentação/tempo de duração; ferramentas e NPS vazios; comentário = positivos + melhorar + sugestões;
   critérios originais em `extras.criterios_1a5`; nome de aluno escrito na ficha é tirado. Não reabre o e-mail ao mentor (aviso já marcado).
   Próximo lote: gerar o SQL do mesmo jeito (scratchpad desta sessão: %TEMP%\aval\scripts\gerar.py lê a planilha sem openpyxl).
+  O módulo é achado pelo DIA da ficha (Cresol + "ativa idade"; mais de um no dia = o que tem a Viviane): a Cresol tem uma turma
+  "Ativa Idade" por cidade, quase todo dia; janela de vários dias deu "não achei" (1ª tentativa dela, 28/10).
+  MENTORES DO HISTÓRICO (2026-10-28, script 51, planilha `mentorei_avaliacoes_por_mentor.csv`: 2.317 respostas do Forms com o mentor,
+  2.337 notas; "Ju Vivi" = Juliana + Viviane; confiança Alta/Provável): liga cada linha à resposta já importada pelo horário exato
+  (Brasília ou UTC, o que achar mais) + didática, e grava `extras.planilha_mentores` {id, encontro, mentores: [{nome, didatica,
+  confianca, perfil_id?}]}; quem tem cadastro (mesmo 1º nome entre mentores/tambem_mentor, só se único; "Lu" = mentora "Lu…" do
+  André Decker) ganha `avaliacao_mentores` (ceil(didática/2)). Respostas mais novas que a última importada (16 a 20/10) entram como
+  google_forms novas (`extras.id_planilha`, sem módulo). Menos de 90% ligadas = nada gravado. Tela: `prepararMentores()` em
+  avaliacoes.js junta mentores do módulo, das notas e da planilha; sem cadastro = chave "h:<nome>" ("histórico, sem cadastro"),
+  vale em Por mentor e no filtro de mentor. Gerador: %TEMP%\aval\scripts\gerar51.py. Teste local: launch.json "avaliacoes-teste"
+  (porta 8851), kit em %TEMP%\avt (cópia do lmst com av-h1…h5).
 - LINK DE CONVITE QUE NÃO EXPIRA (2026-10-12, reclamação: quem não entrava na hora mandava "link expirado"): o código do Supabase
   vence em horas, então o convite (e-mail e WhatsApp) leva `definir-senha.html?c=<código nosso>` assinado com HMAC da
   SUPABASE_SECRET_KEY (`netlify/lib/acesso.mjs`; trocar a chave invalida os links). Ao abrir, `/api/acesso` acao `abrir` confere,

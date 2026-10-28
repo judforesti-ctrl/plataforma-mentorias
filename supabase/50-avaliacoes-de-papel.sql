@@ -33,38 +33,40 @@ begin
     return;
   end if;
 
-  -- o módulo: Cresol, "Ativa Idade" no nome do módulo ou da turma, de 25 a 27/10/2026 (a ficha diz 26/10; horário de Brasília)
+  -- o módulo: Cresol, "Ativa Idade" no nome do módulo ou da turma, no dia das fichas (26/10/2026, horário de Brasília).
+  -- Se houver mais de um nesse dia (várias cidades), fica o que tem a Viviane.
   select count(*) into v_qtd from modulos m join turmas t on t.id = m.turma_id left join empresas e on e.id = t.empresa_id
-   where (m.data_hora at time zone 'America/Sao_Paulo')::date between date '2026-10-25' and date '2026-10-27'
+   where (m.data_hora at time zone 'America/Sao_Paulo')::date = date '2026-10-26'
      and (e.nome ilike '%cresol%' or t.nome ilike '%cresol%')
      and (m.titulo ilike '%ativa%idade%' or t.nome ilike '%ativa%idade%');
-  if v_qtd = 1 then
-    select m.id, m.turma_id, t.empresa_id, m.data_hora into v_mod, v_turma, v_empresa, v_quando
-      from modulos m join turmas t on t.id = m.turma_id left join empresas e on e.id = t.empresa_id
-     where (m.data_hora at time zone 'America/Sao_Paulo')::date between date '2026-10-25' and date '2026-10-27'
-       and (e.nome ilike '%cresol%' or t.nome ilike '%cresol%')
-       and (m.titulo ilike '%ativa%idade%' or t.nome ilike '%ativa%idade%');
-  else
-    -- sem o nome: o único módulo da Cresol nesse dia que tem a Viviane
+  if v_qtd > 1 then
     select count(*) into v_qtd from modulos m join turmas t on t.id = m.turma_id left join empresas e on e.id = t.empresa_id
-     where (m.data_hora at time zone 'America/Sao_Paulo')::date between date '2026-10-25' and date '2026-10-27'
+     where (m.data_hora at time zone 'America/Sao_Paulo')::date = date '2026-10-26'
        and (e.nome ilike '%cresol%' or t.nome ilike '%cresol%')
+       and (m.titulo ilike '%ativa%idade%' or t.nome ilike '%ativa%idade%')
        and exists (select 1 from modulo_mentores mm join perfis p on p.id = mm.mentor_id where mm.modulo_id = m.id and p.nome ilike 'viviane%');
     if v_qtd = 1 then
       select m.id, m.turma_id, t.empresa_id, m.data_hora into v_mod, v_turma, v_empresa, v_quando
         from modulos m join turmas t on t.id = m.turma_id left join empresas e on e.id = t.empresa_id
-       where (m.data_hora at time zone 'America/Sao_Paulo')::date between date '2026-10-25' and date '2026-10-27'
+       where (m.data_hora at time zone 'America/Sao_Paulo')::date = date '2026-10-26'
          and (e.nome ilike '%cresol%' or t.nome ilike '%cresol%')
+         and (m.titulo ilike '%ativa%idade%' or t.nome ilike '%ativa%idade%')
          and exists (select 1 from modulo_mentores mm join perfis p on p.id = mm.mentor_id where mm.modulo_id = m.id and p.nome ilike 'viviane%');
     end if;
+  elsif v_qtd = 1 then
+    select m.id, m.turma_id, t.empresa_id, m.data_hora into v_mod, v_turma, v_empresa, v_quando
+      from modulos m join turmas t on t.id = m.turma_id left join empresas e on e.id = t.empresa_id
+     where (m.data_hora at time zone 'America/Sao_Paulo')::date = date '2026-10-26'
+       and (e.nome ilike '%cresol%' or t.nome ilike '%cresol%')
+       and (m.titulo ilike '%ativa%idade%' or t.nome ilike '%ativa%idade%');
   end if;
   if v_mod is null then
-    select string_agg(format('%s · %s · Módulo %s · %s', to_char(m.data_hora at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI'), t.nome, m.numero, m.titulo), ' | ')
+    select string_agg(format('%s · %s · %s · Módulo %s · %s', to_char(m.data_hora at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI'), e.nome, t.nome, m.numero, m.titulo), ' | ')
       into v_lista
       from modulos m join turmas t on t.id = m.turma_id left join empresas e on e.id = t.empresa_id
-     where m.data_hora between timestamptz '2026-10-20 00:00-03' and timestamptz '2026-10-31 23:59-03'
+     where (m.data_hora at time zone 'America/Sao_Paulo')::date between date '2026-10-25' and date '2026-10-27'
        and (e.nome ilike '%cresol%' or t.nome ilike '%cresol%');
-    raise exception 'NÃO ACHEI o módulo da Cresol (Ativa Idade) de 25 a 27/10/2026. Nada foi gravado. Módulos da Cresol de 20 a 31/10: %',
+    raise exception 'NÃO ACHEI um módulo só da Cresol (Ativa Idade) no dia 26/10/2026. Nada foi gravado. Módulos da Cresol de 25 a 27/10: %',
       coalesce(v_lista, 'nenhum');
   end if;
 
