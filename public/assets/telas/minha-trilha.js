@@ -1,6 +1,8 @@
 // Área do aluno da turma (script 44, pedido da Juliana em 27/10/2026): "#/trilha" ou "#/trilha/<turma>".
 // Visual da opção A (28/10/2026, peças em area-aluno.js): saudação, cartão escuro com o quanto já fez, números, próximo encontro,
 // jornada em bolinhas e, embaixo, todos os módulos com materiais e gravações.
+// Fase 2 (script 48): "Ferramentas da sua trilha", as ferramentas online que a administração escolheu para a turma, cada uma
+// aberta desde o começo ou a partir do dia de um módulo; o resultado fica com o aluno e os mentores (testes_alunos).
 // O aluno vê o nome da trilha e da empresa, a próxima aula com o botão de entrar, e todos os módulos: data, mentores, link da sala,
 // slides em PDF, tarefas e ferramentas para baixar, a gravação da aula e o atalho para avaliar o encontro.
 // Os dados do aluno vêm só da função minhas_trilhas() (nada de percepções, recomendações ou slides internos).
@@ -9,6 +11,8 @@ import { sb, esc, avatar, dataBR, horaBR, avisar, explicarErro } from '../base.j
 import { janelaAvaliacao, linkAvaliacao } from '../avaliacao-regras.js';
 import { tema, temMarca } from '../marca.js';
 import { saudacao, faltam, anel, numero, blocoData, jornada, icone } from './area-aluno.js';
+import { ONLINE as FERRAMENTAS_ONLINE, htmlResultado } from '../ferramentas-online.js';
+import { janela } from './agenda-dados.js';
 
 const TZ = 'America/Sao_Paulo';
 const diaSemana = (iso) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: TZ, weekday: 'long', day: '2-digit', month: 'long' });
@@ -107,6 +111,28 @@ export async function render(ctx, el, [turmaId]) {
   el.classList.toggle('tr-marca', temMarca(marca));
   if (temMarca(marca)) el.setAttribute('style', tema(marca).estilo); else el.removeAttribute('style');
 
+  // ferramentas da trilha (script 48; sem o script, a parte não aparece)
+  const { data: ferrs } = await sb.rpc('ferramentas_da_trilha', { p_turma: t.id });
+  const ferramentas = (Array.isArray(ferrs) ? ferrs : []).filter((f) => FERRAMENTAS_ONLINE[f.ferramenta_id] && FERRAMENTAS_ONLINE[f.ferramenta_id].interna);
+  const aberta = (f) => !f.modulo_id || (!!f.modulo_data && diaISO(agora) >= diaISO(Date.parse(f.modulo_data)));
+  const nova = (f) => aberta(f) && !f.feito_em && !!f.modulo_data && agora - Date.parse(f.modulo_data) < 14 * 86400000;
+  const ferrFeitas = ferramentas.filter((f) => f.feito_em).length;
+  const cartaoFerramenta = (f, i) => {
+    const estado = f.feito_em ? 'feita' : aberta(f) ? 'aberta' : 'fechada';
+    const link = `#/ferramenta/${esc(f.ferramenta_id)}/${t.id}`;
+    const resumo = String(f.resumo || '').length > 140 ? `${String(f.resumo).slice(0, 137).replace(/\s+\S*$/, '')}…` : String(f.resumo || '');
+    return `<article class="aa-ferr ${estado}">
+      ${nova(f) ? '<span class="selo escuro aa-ferr-selo">Nova</span>' : ''}
+      <span class="aa-ferr-ic c${i % 4}">${icone(estado === 'fechada' ? 'cadeado' : 'ferramenta', 22)}</span>
+      <b>${esc(f.nome)}</b>${resumo ? `<span class="peq apagado">${esc(resumo)}</span>` : ''}
+      <div class="aa-ferr-rodape">${estado === 'feita'
+        ? `<span class="aa-ferr-ok">${icone('check', 15)} Feita em ${new Date(`${f.feito_em}T12:00:00`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</span>
+          <div class="linha" style="gap:6px">${previa ? '' : `<button class="btn peq" type="button" data-meu-resultado="${esc(f.ferramenta_id)}">Ver meu resultado</button>`}<a class="btn peq" href="${link}">Fazer de novo</a></div>`
+        : estado === 'aberta' ? `<a class="btn escuro" href="${link}">Fazer agora</a>`
+        : `<span class="peq apagado">Abre no módulo ${f.modulo_numero}${f.modulo_data ? ` · ${new Date(f.modulo_data).toLocaleDateString('pt-BR', { timeZone: TZ, day: '2-digit', month: '2-digit' })}` : ' (data a definir)'}</span>`}</div>
+    </article>`;
+  };
+
   // números do cartão escuro e da jornada
   const pct = mods.length ? Math.round((feitas / mods.length) * 100) : 0;
   const nArquivos = mods.reduce((n, m) => n + (m.arquivos || []).length, 0);
@@ -147,7 +173,8 @@ export async function render(ctx, el, [turmaId]) {
       </section>
       <div class="aa-numeros">
         ${numero({ ic: 'check', cor: 'ok', valor: `${feitas} de ${mods.length}`, texto: `encontro${mods.length === 1 ? '' : 's'} realizado${feitas === 1 ? '' : 's'}` })}
-        ${numero({ ic: 'arquivo', cor: 'bege', valor: nArquivos, texto: nArquivos === 1 ? 'material para baixar' : 'materiais para baixar' })}
+        ${ferramentas.length ? numero({ ic: 'ferramenta', cor: 'bege', valor: `${ferrFeitas} de ${ferramentas.length}`, texto: 'ferramentas feitas' })
+          : numero({ ic: 'arquivo', cor: 'bege', valor: nArquivos, texto: nArquivos === 1 ? 'material para baixar' : 'materiais para baixar' })}
         ${numero({ ic: 'play', cor: 'azul', valor: nGravacoes, texto: nGravacoes === 1 ? 'gravação para assistir' : 'gravações para assistir' })}
       </div>
     </div>
@@ -179,6 +206,12 @@ export async function render(ctx, el, [turmaId]) {
       </section>
     </div>
 
+    ${ferramentas.length ? `<section class="aa-cartao" id="tr-ferramentas" aria-labelledby="tr-ferr">
+      <div><h3 id="tr-ferr">Ferramentas da sua trilha</h3>
+        <p class="peq apagado" style="margin-top:4px">Escolhidas pela Mentorei para a sua turma. Novas aparecem ao longo dos encontros. O resultado fica com você e com os mentores; a sua empresa não vê.</p></div>
+      <div class="aa-ferramentas">${ferramentas.map(cartaoFerramenta).join('')}</div>
+    </section>` : ''}
+
     <section class="aa-secao" id="tr-modulos" aria-labelledby="tr-mods">
       <h2 id="tr-mods">Os módulos da trilha</h2>
       <div class="tr-lista">${mods.map((m) => { const [st, cls] = situacaoDe(m); const extras = `${arquivosHtml(m)}${gravacaoHtml(m)}`; return `
@@ -206,6 +239,14 @@ export async function render(ctx, el, [turmaId]) {
 
   const arquivos = mods.flatMap((m) => m.arquivos || []);
   el.addEventListener('click', async (ev) => {
+    const mr = ev.target.closest('[data-meu-resultado]');
+    if (mr) {
+      const { data: r, error: e } = await sb.from('testes_alunos').select('nome, resultado, feito_em').eq('turma_id', t.id).eq('perfil_id', ctx.perfil.id)
+        .eq('ferramenta_id', mr.dataset.meuResultado).order('atualizado_em', { ascending: false }).limit(1).maybeSingle();
+      if (e || !r) { avisar(e ? explicarErro(e) : 'Não achei o seu resultado. Tente fazer a ferramenta de novo.', true); return; }
+      janela(r.nome, `<p class="peq apagado">Só você e os mentores da trilha veem.</p><div class="mt">${htmlResultado(r)}</div>`, { largura: 680 });
+      return;
+    }
     const ir = ev.target.closest('[data-ir]');
     if (ir) {
       const alvo = el.querySelector(ir.dataset.ir === 'modulos' ? '#tr-modulos' : `#tr-mod-${ir.dataset.ir}`);

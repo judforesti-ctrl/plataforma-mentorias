@@ -17,6 +17,7 @@ const ICONES = {
   ferramenta: '<rect width="20" height="14" x="2" y="7" rx="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />',
   resumo: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />',
   seta: '<path d="M5 12h14" /><path d="m12 5 7 7-7 7" />',
+  cadeado: '<rect width="18" height="11" x="3" y="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />',
 };
 export const icone = (nome, tam = 18) => `<svg width="${tam}" height="${tam}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONES[nome] || ''}</svg>`;
 

@@ -6,6 +6,7 @@ import { ITENS_VIAGEM, QUEM_VIAGEM } from '../agenda-regras.js';
 import { cartaoAvaliacao, ligarAvaliacao } from './avaliacao-modulo.js';
 import { cartaoMateriais, ligarMateriais } from './materiais-modulo.js';
 import { cartaoAlunos, ligarAlunos } from './alunos-turma.js';
+import { cartaoFerramentasTurma, ligarFerramentasTurma } from './ferramentas-turma.js';
 import { cartaoMarca, ligarMarca } from './marca-cliente.js';
 import { cartaoParaAlunos, ligarParaAlunos } from './alunos-modulo.js';
 
@@ -251,10 +252,12 @@ async function paginaTurma(ctx, el, id) {
       </div>
     </div>
     ${cartaoAlunos()}
+    ${cartaoFerramentasTurma()}
     ${adm ? cartaoMarca() : ''}`;
 
   // alunos da trilha (script 44): a administração cadastra e convida; o mentor vê a lista
   ligarAlunos(ctx, el, t);
+  ligarFerramentasTurma(ctx, el, t);   // ferramentas online da trilha (script 48)
   ligarMarca(ctx, el, t);   // logo e cores do cliente na área do aluno (administração)
   if (!adm) return;
   const salvador = autoSalvar({
