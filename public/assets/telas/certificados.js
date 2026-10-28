@@ -10,7 +10,7 @@ import { bibliotecaQr } from './avaliacao-modulo.js';
 import * as R from '../certificados-regras.js';
 import { carregarAssinaturas, janelaEnviar, janelaLista, amostrasAssinatura } from './certificados-assinaturas.js';
 import { abaEmitir, abaEmitidos } from './certificados-emitir.js';
-import { prepararLogo } from '../logo-certificado.js';
+import { prepararLogo, TRATAMENTO_LOGO } from '../logo-certificado.js';
 
 const FALTA = '<div class="aviso erro">Para usar os certificados, falta rodar o script <b>47-certificados.sql</b> no Supabase (SQL Editor → New query → colar → Run).</div>';
 const CODIGO_EXEMPLO = 'MTR-26-XXXX-XXXX';
@@ -273,7 +273,7 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
         ${msg ? `<span class="peq apagado">${esc(msg)}</span>` : ''}</div>`;
   };
   // tira o fundo, confere o contraste e guarda as três versões (cores, uma cor no claro, uma cor no escuro)
-  const tratarLogo = async (blob) => {
+  const tratarLogo = async (blob, original = null) => {
     desenharLogo('Preparando o logo: tirando o fundo e conferindo o contraste…');
     try {
       const r = await prepararLogo(blob);
@@ -284,7 +284,7 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
         return `${base}-${sufixo}.png`;
       };
       const [cores, clara, escura] = await Promise.all([subir('cores', r.cores.blob), subir('claro-uma-cor', r.clara_uma_cor.blob), subir('escuro-uma-cor', r.escura_uma_cor.blob)]);
-      d.cliente_logo = { caminho: cores, largura: r.largura, altura: r.altura, fundo_removido: r.fundoRemovido,
+      d.cliente_logo = { caminho: cores, original, trat: TRATAMENTO_LOGO, largura: r.largura, altura: r.altura, fundo_removido: r.fundoRemovido,
         versoes: { cores, clara_uma_cor: clara, escura_uma_cor: escura }, clara: r.sugestao.clara, escura: r.sugestao.escura };
       desenharLogo(); atualizar();
       return true;
@@ -300,11 +300,19 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
     const arq = ev.target.files && ev.target.files[0]; if (!arq) return;
     ev.target.value = '';
     if (arq.size > 8 * 1024 * 1024) { avisar('A imagem é grande demais (máximo 8 MB).', true); return; }
-    await tratarLogo(arq);
+    // guarda também o arquivo como veio (para tratar de novo se a regra melhorar); a pasta "fotos" aceita até 2 MB
+    let original = null;
+    const ext = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' }[arq.type];
+    if (ext && arq.size <= 2 * 1024 * 1024) {
+      const c = `logos/${d.empresa_id || 'certificados'}/${Date.now()}-original.${ext}`;
+      const { error } = await sb.storage.from('fotos').upload(c, arq, { contentType: arq.type, upsert: false });
+      if (!error) original = c;
+    }
+    await tratarLogo(arq, original);
   });
   logoBox.addEventListener('click', async (ev) => {
     if (ev.target.closest('[data-tirar]')) { d.cliente_logo = null; desenharLogo(); atualizar(); return; }
-    if (ev.target.closest('[data-cliente]')) { try { await tratarLogo(await doEndereco(logoDoCliente)); } catch (e) { avisar(e.message, true); } return; }
+    if (ev.target.closest('[data-cliente]')) { try { await tratarLogo(await doEndereco(logoDoCliente), logoDoCliente.caminho); } catch (e) { avisar(e.message, true); } return; }
     const m = ev.target.closest('[data-logo-v] [data-m]');
     if (m && d.cliente_logo) { d.cliente_logo = { ...d.cliente_logo, [m.closest('[data-logo-v]').dataset.logoV]: m.dataset.m }; desenharLogo(); atualizar(); }
   });
@@ -317,10 +325,13 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
     buscarLogo(); atualizar();
   });
   desenharLogo(); buscarLogo();
-  // logo guardado antes do tratamento (pastas antigas, ou vindo da turma): trata agora; vale ao salvar
+  // logo guardado sem tratamento ou com uma regra mais antiga (pastas antigas, ou vindo da turma): trata agora; vale ao salvar.
+  // Parte do arquivo original, quando guardado.
   const tratarAntigo = () => {
-    if (!d.cliente_logo || !d.cliente_logo.caminho || d.cliente_logo.versoes) return;
-    doEndereco(d.cliente_logo).then(tratarLogo).then((ok) => { if (ok && existente) avisar('Ajustamos o logo do cliente desta pasta. Clique em "Salvar alterações" para usar.'); })
+    const l = d.cliente_logo;
+    if (!l || !l.caminho || (l.versoes && (l.trat || 1) >= TRATAMENTO_LOGO)) return;
+    const fonte = l.original || l.caminho;
+    doEndereco({ caminho: fonte }).then((b) => tratarLogo(b, fonte)).then((ok) => { if (ok && existente) avisar('Ajustamos o logo do cliente desta pasta. Clique em "Salvar alterações" para usar.'); })
       .catch((e) => avisar(e.message, true));
   };
 

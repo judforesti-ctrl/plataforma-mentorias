@@ -5,6 +5,8 @@
 // `tratarPixels` é pura (recebe os pixels RGBA) para poder ser testada fora do navegador.
 import { abrirImagem } from './assinatura.js';
 
+// versão da regra de tratamento: logo guardado com versão menor é tratado de novo ao abrir a pasta
+export const TRATAMENTO_LOGO = 2;
 export const FUNDOS = { clara: [242, 234, 223], escura: [14, 59, 68] };
 export const TINTAS = { clara: [14, 59, 68], escura: [242, 234, 223] };
 const MAIOR_L = 1600, MAIOR_A = 800;
@@ -22,27 +24,61 @@ export function tratarPixels(px, w, h) {
   const n = w * h;
   const alfa = new Float32Array(n), cor = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) { alfa[i] = px[i * 4 + 3] / 255; cor[i * 3] = px[i * 4]; cor[i * 3 + 1] = px[i * 4 + 1]; cor[i * 3 + 2] = px[i * 4 + 2]; }
-  // 1. fundo: se a borda já é transparente, nada a tirar; senão, a cor que domina a borda vira transparente (no logo inteiro,
-  //    para sumir também o miolo das letras), com borda suave e sem o "halo" claro (a cor da borda é descontada do fundo)
-  const borda = [];
-  for (let x = 0; x < w; x++) borda.push(x, (h - 1) * w + x);
-  for (let y = 1; y < h - 1; y++) borda.push(y * w, y * w + w - 1);
-  const transparentes = borda.filter((i) => alfa[i] < 0.5).length / borda.length;
-  let fundoRemovido = false;
-  if (transparentes < 0.5) {
+  // 1. fundo, por camadas (até 4 voltas), sempre olhando a borda do retângulo que ainda tem desenho:
+  //    borda quase toda transparente → aperta o retângulo até o desenho (logo salvo com margem transparente);
+  //    borda de uma cor só → essa cor vira transparente no logo todo (some também o miolo das letras), com borda suave e sem
+  //    "halo" (a cor de fundo é descontada). Da segunda camada em diante, ou depois de uma margem transparente, só sai placa
+  //    CLARA (branca ou quase): um contorno fino em volta da placa branca sai, mas um logo que é uma caixa colorida fica.
+  let fundoRemovido = false, camadas = 0, apertou = false;
+  let rx0 = 0, ry0 = 0, rx1 = w - 1, ry1 = h - 1;
+  const caixa = (lim) => {
+    let a0 = w, b0 = h, a1 = -1, b1 = -1;
+    for (let y = ry0; y <= ry1; y++) for (let x = rx0; x <= rx1; x++) if (alfa[y * w + x] > lim) { if (x < a0) a0 = x; if (x > a1) a1 = x; if (y < b0) b0 = y; if (y > b1) b1 = y; }
+    return a1 < 0 ? null : [a0, b0, a1, b1];
+  };
+  const bordaDe = (x0, y0, x1, y1) => {
+    const b = [];
+    for (let x = x0; x <= x1; x++) b.push(y0 * w + x, y1 * w + x);
+    for (let y = y0 + 1; y < y1; y++) b.push(y * w + x0, y * w + x1);
+    return b;
+  };
+  const corDe = (lista) => [0, 1, 2].map((k) => mediana(lista.map((i) => cor[i * 3 + k])));
+  const claraCor = (c) => (0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]) / 255 > 0.85;
+  // contorno fino: logo depois dele (até 6 px para dentro) vem uma placa clara
+  const contornoFino = (bg) => {
+    for (let d = 1; d <= 6 && rx1 - rx0 > 2 * d && ry1 - ry0 > 2 * d; d++) {
+      const b = bordaDe(rx0 + d, ry0 + d, rx1 - d, ry1 - d).filter((i) => alfa[i] >= 0.5);
+      if (!b.length) return false;
+      const c = corDe(b);
+      if (dist(c[0], c[1], c[2], bg) >= 40) return claraCor(c);
+    }
+    return false;
+  };
+  for (let volta = 0; volta < 4; volta++) {
+    const borda = bordaDe(rx0, ry0, rx1, ry1);
     const opacos = borda.filter((i) => alfa[i] >= 0.5);
-    const bg = [0, 1, 2].map((k) => mediana(opacos.map((i) => cor[i * 3 + k])));
-    const parecidos = opacos.filter((i) => dist(cor[i * 3], cor[i * 3 + 1], cor[i * 3 + 2], bg) < 40).length / Math.max(1, opacos.length);
-    if (parecidos >= 0.6) {
-      fundoRemovido = true;
+    let nova = null;
+    if (opacos.length < 0.5 * borda.length) {
+      nova = caixa(0.5);
+      apertou = true;
+    } else {
+      const bg = corDe(opacos);
+      const parecidos = opacos.filter((i) => dist(cor[i * 3], cor[i * 3 + 1], cor[i * 3 + 2], bg) < 40).length / opacos.length;
+      if (parecidos < 0.6) break;
+      if ((camadas > 0 || apertou) && !claraCor(bg) && !contornoFino(bg)) break;
       for (let i = 0; i < n; i++) {
+        if (alfa[i] === 0) continue;
         const d = dist(cor[i * 3], cor[i * 3 + 1], cor[i * 3 + 2], bg);
         if (d >= LONGE) continue;
         const a = Math.max(0, Math.min(1, (d - PERTO) / (LONGE - PERTO)));
         if (a > 0) for (let k = 0; k < 3; k++) cor[i * 3 + k] = Math.max(0, Math.min(255, (cor[i * 3 + k] - (1 - a) * bg[k]) / a));
         alfa[i] *= a;
       }
+      fundoRemovido = true; camadas++;
+      nova = caixa(0.04);
     }
+    if (!nova || (nova[0] === rx0 && nova[1] === ry0 && nova[2] === rx1 && nova[3] === ry1)) break;
+    [rx0, ry0, rx1, ry1] = nova;
   }
   // 2. recorte com margem pequena
   let x0 = w, y0 = h, x1 = -1, y1 = -1;

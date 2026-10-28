@@ -490,6 +490,12 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   clara, escura ('cores'|'uma_cor'), fundo_removido}; a pasta escolhe por padrão (botões "Cores do logo"/"Uma cor só" com amostra nos dois
   fundos). `caminhoLogo(l, variacao)` em certificados-regras.js (retrato e prévias). Logo antigo sem `versoes` é tratado sozinho ao abrir o
   editor (vale ao salvar). Certificados já emitidos mantêm o retrato antigo: "Gerar de novo todos".
+  POR CAMADAS (28/10, 2º teste dela: logo da Isidorus ainda com a placa branca, que tinha margem transparente e/ou contorno em volta):
+  a borda olhada é a do retângulo que ainda tem desenho; borda transparente → aperta; 1ª camada sai qualquer cor uniforme; depois (ou
+  depois de margem transparente) só sai placa CLARA, ou um contorno fino (até 6 px) que tenha placa clara logo dentro; caixa colorida
+  de propósito fica. `TRATAMENTO_LOGO` = 2 em `cliente_logo.trat`: logo com versão menor é tratado de novo ao abrir a pasta, a partir de
+  `cliente_logo.original` (o arquivo como veio, guardado em fotos/logos/…-original.<ext> quando é PNG/JPG/WEBP até 2 MB). Testes dos 6
+  casos em Node: scratchpad 76384cb3 logos-teste.mjs.
   EMISSÃO (etapa 3, `telas/certificados-emitir.js`): lista de nomes por .xlsx/.xls/.ods (SheetJS; cabeçalho "Nome"/"Nome completo" nas 5
   primeiras linhas), .csv (";" ou ","; cabeçalho só na 1ª linha), .txt ou colado; avisos Repetido / Já tem certificado nesta pasta / Nome
   muito longo (> 70) sem bloquear; "Ajustar maiúsculas"; "Ver o primeiro antes"; pasta sem assinatura pede confirmação. Gerar = rpc
