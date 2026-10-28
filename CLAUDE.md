@@ -473,7 +473,13 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   pasta privada `certificados` (assinaturas, PDFs, propostas). Sem CPF. Decisões dela (27/10): QR = https://certificados.mentorei.com.br/CODIGO;
   escolhe quem assina pela Mentorei E pelo cliente (2ª assinatura); pode gerar SEM assinatura (aviso "sem assinatura") e depois gerar de
   novo a versão final com os mesmos códigos; PDFs prontos guardados 45 dias (depois gera de novo igual, a qualquer momento, um aluno ou todos).
-  Etapas: (1) banco, pastas e prévia [feita: turma cadastrada ou do zero]; (2) assinaturas; (3) nomes, PDFs (Chromium na Netlify) e ZIP
+  ASSINATURAS (etapa 2, `telas/certificados-assinaturas.js` + `public/assets/assinatura.js`): o fundo sai NO NAVEGADOR com o mesmo
+  cálculo de `referencia/assinatura.py` (mediana 31×31 em 1/4 do tamanho por histograma, piso = percentil 60, (fundo-brilho-28)/70,
+  partes < max(30, 0,04% da área) saem, contorno de 3 px, margem 3%+4, PNG de até 1600 px); conferido com a referência em Node
+  (scratchpad 76384cb3 ass/: mesmo recorte, diferença máxima 0,0017; foto com sombra forte num canto deixa a mesma mancha nas duas).
+  HEIC pelo heic2any (CDN). Guarda original + clara + escura em `certificados/assinaturas/<id>/`; links temporários de 1 h, nunca
+  públicos; "Usar" só com nome e aceite. "Não salvar na lista" = grava já com excluido_em (vale só naquela pasta).
+  Etapas: (1) banco, pastas e prévia [feita: turma cadastrada ou do zero]; (2) assinaturas [feita]; (3) nomes, PDFs (Chromium na Netlify) e ZIP
   montado no navegador (limite de 50 MB por arquivo do Supabase grátis); (4) verificação pública (domínio alias + rewrite); (5) IA lendo a
   proposta (`docs/certificados/extracao`). O QR da plataforma (qrcode-generator) escolhe outra máscara que o `referencia/qr.py`: desenho
   diferente, mesmo conteúdo (conferido com jsQR). Teste local: launch.json "certificados-teste" (porta 8811), scratchpad da sessão
@@ -556,7 +562,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
-- CERTIFICADOS (2026-10-27): ela rodar o script 47; etapas 2 a 5 do módulo ainda por fazer.
+- CERTIFICADOS (2026-10-27): script 47 RODADO; etapas 3 a 5 do módulo ainda por fazer.
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
   gravações em Turmas; conferir se o Workspace deixa "qualquer pessoa com o link"; revisão jurídica do TERMO_ALUNO. Nada testado com
   login real nem com a pasta real (sem acesso daqui).

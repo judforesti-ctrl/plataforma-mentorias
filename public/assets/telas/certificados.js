@@ -8,6 +8,7 @@ import { faltaScript } from './agenda-dados.js';
 import { paraPng, linkLogo, logoAnterior } from './proposta.js';
 import { bibliotecaQr } from './avaliacao-modulo.js';
 import * as R from '../certificados-regras.js';
+import { carregarAssinaturas, janelaEnviar, janelaLista, amostrasAssinatura } from './certificados-assinaturas.js';
 
 const FALTA = '<div class="aviso erro">Para usar os certificados, falta rodar o script <b>47-certificados.sql</b> no Supabase (SQL Editor → New query → colar → Run).</div>';
 const CODIGO_EXEMPLO = 'MTR-26-XXXX-XXXX';
@@ -38,11 +39,12 @@ async function lista(ctx, el) {
   if (error && !falta) throw error;
   const pastas = data || [];
   el.innerHTML = `${titulo('Emitir certificados', 'Crie uma pasta para cada cliente e programa. Dentro dela, importe a lista de nomes e baixe todos os certificados prontos, já com o QR code de verificação.',
-    `<button class="btn pri" type="button" id="ct-nova"${falta ? ' disabled' : ''}>+ Nova pasta</button>`)}
+    `<button class="btn" type="button" id="ct-ass"${falta ? ' disabled' : ''}>Assinaturas salvas</button><button class="btn pri" type="button" id="ct-nova"${falta ? ' disabled' : ''}>+ Nova pasta</button>`)}
     ${falta ? FALTA : ''}
     <div class="linha ag-filtros"><input type="search" id="ct-q" placeholder="Buscar por cliente ou programa" style="width:auto;min-width:260px" aria-label="Buscar"></div>
     <div id="ct-tab"></div>`;
   el.querySelector('#ct-nova').addEventListener('click', () => ir('#/certificados/nova'));
+  el.querySelector('#ct-ass').addEventListener('click', () => janelaLista(ctx));
   const tab = el.querySelector('#ct-tab');
   const desenhar = () => {
     const q = el.querySelector('#ct-q').value.toLocaleLowerCase('pt-BR').trim();
@@ -184,11 +186,15 @@ async function editar(ctx, el, id) {
 
 // ---------- formulário + prévia ao vivo (nova pasta e editar) ----------
 async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null, salvar }) {
-  const { data: empresas } = await sb.from('empresas').select('id, nome, marca').order('nome');
+  const [{ data: empresas }, assinaturas] = await Promise.all([
+    sb.from('empresas').select('id, nome, marca').order('nome'),
+    carregarAssinaturas([d.resp1_assinatura_id, d.resp2_assinatura_id]).catch(() => []),
+  ]);
   let nomeEditado = !!existente;
   const ass = (n) => `<div class="grade g2" style="gap:12px">
       <div class="campo"><label for="ct-r${n}n">${n === 1 ? 'Nome de quem assina pela Mentorei' : 'Nome de quem assina pelo cliente'}</label><input id="ct-r${n}n" data-k="resp${n}_nome" type="text"></div>
-      <div class="campo"><label for="ct-r${n}c">Cargo</label><input id="ct-r${n}c" data-k="resp${n}_cargo" type="text" placeholder="${n === 1 ? 'Ex.: Sócia · Mentorei' : 'Ex.: Diretora de Pessoas · Sicoob Exemplo'}"></div></div>`;
+      <div class="campo"><label for="ct-r${n}c">Cargo</label><input id="ct-r${n}c" data-k="resp${n}_cargo" type="text" placeholder="${n === 1 ? 'Ex.: Sócia · Mentorei' : 'Ex.: Diretora de Pessoas · Sicoob Exemplo'}"></div></div>
+    <div class="ct-ass-bloco mt" data-ass="${n}"></div>`;
   el.innerHTML = `${aviso ? `<div class="aviso" style="margin-bottom:16px">${aviso}</div>` : ''}
     <div class="ct-editor"><form class="cartao ct-form" id="ct-form" novalidate>
       <section><h3>Pasta</h3><div class="campo"><label for="ct-nome">Nome da pasta</label><input id="ct-nome" type="text"><small>Sugerido a partir do cliente, do programa e do ano. Pode mudar.</small></div></section>
@@ -212,7 +218,7 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
       <section><h3>Assinaturas</h3>${ass(1)}
         <label class="check mt"><input type="checkbox" data-k="mostrar_resp2"><span>Incluir a assinatura de alguém do cliente</span></label>
         <div id="ct-ass2" class="mt">${ass(2)}</div>
-        <p class="peq apagado mt">A imagem da assinatura (foto ou escaneamento, enviada uma vez só) entra na próxima etapa. Sem a imagem, o certificado sai com a linha para assinar e a pasta fica marcada como "sem assinatura": dá para gerar assim para conferir e, depois de colocar a assinatura, gerar de novo a versão final com os mesmos códigos.</p></section>
+        <p class="peq apagado mt">Envie uma foto ou o escaneamento da assinatura uma vez só: a plataforma tira o fundo e ajusta a cor para o padrão claro e o escuro. Sem a imagem, o certificado sai com a linha para assinar e a pasta fica marcada como "sem assinatura": dá para gerar assim para conferir e, depois de colocar a assinatura, gerar de novo a versão final com os mesmos códigos.</p></section>
     </form>
     <div class="ct-previa"><div class="linha"><div class="ct-seg" id="ct-face"><button type="button" class="on" data-f="frente">Frente</button><button type="button" data-f="verso">Verso</button></div>
         <input type="text" id="ct-teste" placeholder="Testar com um nome" aria-label="Testar com um nome" style="flex:1;min-width:160px"></div>
@@ -317,6 +323,41 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
   });
   desenharMods();
 
+  // assinaturas: usar uma salva (preenche nome e cargo), enviar uma nova ou tirar
+  const imgAss = (id) => { const a = assinaturas.find((x) => x.id === id); return a && a.url ? a.url[d.variacao === 'escura' ? 'escura' : 'clara'] : ''; };
+  const opcoes = (n) => {
+    const salvas = assinaturas.filter((a) => !a.excluido_em);
+    const grupo = (l, t) => { const xs = salvas.filter((a) => a.lado === l); return xs.length ? `<optgroup label="${t}">${xs.map((a) => `<option value="${a.id}">${esc(a.nome)}${a.cargo ? ` · ${esc(a.cargo)}` : ''}</option>`).join('')}</optgroup>` : ''; };
+    const ordem = n === 1 ? [['mentorei', 'Pela Mentorei'], ['cliente', 'Pelo cliente']] : [['cliente', 'Pelo cliente'], ['mentorei', 'Pela Mentorei']];
+    return `<option value="">${salvas.length ? 'Usar uma assinatura salva' : 'Nenhuma assinatura salva ainda'}</option>${ordem.map(([l, t]) => grupo(l, t)).join('')}`;
+  };
+  const desenharAss = () => [1, 2].forEach((n) => {
+    const box = el.querySelector(`[data-ass="${n}"]`), a = assinaturas.find((x) => x.id === d[`resp${n}_assinatura_id`]);
+    box.innerHTML = `${amostrasAssinatura(a)}<div class="linha mt" style="gap:8px"><select data-ass-sel="${n}" aria-label="Usar uma assinatura salva" style="width:auto;max-width:100%"${assinaturas.some((x) => !x.excluido_em) ? '' : ' disabled'}>${opcoes(n)}</select>
+      <button class="btn peq" type="button" data-ass-nova="${n}">Enviar assinatura</button>${a ? `<button class="btn peq perigo" type="button" data-ass-tirar="${n}">Tirar assinatura</button>` : ''}</div>
+      ${a && a.excluido_em ? '<p class="peq apagado mt">Esta assinatura não está na lista de assinaturas salvas, mas esta pasta continua com ela.</p>' : ''}`;
+  });
+  const aplicarAss = (n, a) => {
+    d[`resp${n}_assinatura_id`] = a.id;
+    d[`resp${n}_nome`] = a.nome; $(`#ct-r${n}n`).value = a.nome;
+    d[`resp${n}_cargo`] = a.cargo || ''; $(`#ct-r${n}c`).value = a.cargo || '';
+    desenharAss(); atualizar();
+  };
+  f.addEventListener('change', (ev) => {
+    const sel = ev.target.closest('[data-ass-sel]'); if (!sel || !sel.value) return;
+    const a = assinaturas.find((x) => x.id === sel.value); if (a) aplicarAss(+sel.dataset.assSel, a);
+  });
+  f.addEventListener('click', (ev) => {
+    const nova = ev.target.closest('[data-ass-nova]'), tirar = ev.target.closest('[data-ass-tirar]');
+    if (tirar) { d[`resp${tirar.dataset.assTirar}_assinatura_id`] = null; desenharAss(); atualizar(); }
+    if (nova) {
+      const n = +nova.dataset.assNova;
+      janelaEnviar(ctx, { nome: d[`resp${n}_nome`], cargo: d[`resp${n}_cargo`], lado: n === 1 ? 'mentorei' : 'cliente', empresa_id: d.empresa_id },
+        (a) => { assinaturas.push(a); aplicarAss(n, a); });
+    }
+  });
+  desenharAss();
+
   // prévia
   const previa = montarPrevia($('#ct-moldura'));
   el.querySelectorAll('#ct-face button').forEach((b) => b.addEventListener('click', () => {
@@ -337,7 +378,7 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
         : `<span class="chip ct-alerta">Soma dos módulos: ${R.horasTexto(soma) || '0 horas'} · total: ${R.horasTexto(total)}</span>`;
     previa.enviar(R.dadosDoModelo(R.retrato(d), {
       participante: $('#ct-teste').value.trim() || 'Nome do Participante', codigo: CODIGO_EXEMPLO, qr: qrExemplo,
-      imagens: { logo: d.cliente_logo && d.cliente_logo.caminho ? linkLogo(d.cliente_logo) : '' },
+      imagens: { logo: d.cliente_logo && d.cliente_logo.caminho ? linkLogo(d.cliente_logo) : '', resp1: imgAss(d.resp1_assinatura_id), resp2: imgAss(d.resp2_assinatura_id) },
     }));
     const falta = R.faltando(d);
     $('#ct-falta').textContent = falta.length ? `Falta preencher: ${falta.join(', ')}.` : '';
@@ -426,7 +467,10 @@ async function pasta(ctx, el, id, aba) {
       caixa.querySelectorAll('#ct-face button').forEach((x) => x.classList.toggle('on', x === b)); previa.face(b.dataset.f);
     }));
     const qr = await qrDataUri(R.linkVerificacao(CODIGO_EXEMPLO)).catch(() => '');
-    previa.enviar(R.dadosDoModelo(R.retrato(p), { participante: 'Nome do Participante', codigo: CODIGO_EXEMPLO, qr, imagens: { logo: p.cliente_logo ? linkLogo(p.cliente_logo) : '' } }));
+    const ass = await carregarAssinaturas([p.resp1_assinatura_id, p.resp2_assinatura_id]).catch(() => []);
+    const img = (id) => { const a = ass.find((x) => x.id === id); return a && a.url ? a.url[p.variacao === 'escura' ? 'escura' : 'clara'] : ''; };
+    previa.enviar(R.dadosDoModelo(R.retrato(p), { participante: 'Nome do Participante', codigo: CODIGO_EXEMPLO, qr,
+      imagens: { logo: p.cliente_logo ? linkLogo(p.cliente_logo) : '', resp1: img(p.resp1_assinatura_id), resp2: img(p.resp2_assinatura_id) } }));
     return;
   }
   caixa.innerHTML = lista.length ? `<div class="tabela cartao" style="padding:0"><table><thead><tr><th>Participante</th><th>Código</th><th>Emitido em</th><th>Situação</th></tr></thead><tbody>
