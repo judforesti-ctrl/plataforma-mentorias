@@ -680,7 +680,7 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
 - FERRAMENTAS DA TRILHA (2026-10-28): ela rodar o script 48 no Supabase (até lá o cartão da turma avisa e o aluno não vê a seção).
-- CERTIFICADOS (2026-10-28): as 5 etapas publicadas (Chromium já gerou lotes reais); falta ela ligar certificados.mentorei.com.br (alias na Netlify + CNAME na Hostinger), testar a IA com uma proposta real e ler o QR impresso com o celular.
+- CERTIFICADOS (2026-10-28): as 5 etapas publicadas e testadas por ela (PDFs reais, logo, IA lendo proposta real "leu certinho"); falta ela ligar certificados.mentorei.com.br (alias na Netlify + CNAME na Hostinger) e ler o QR impresso com o celular.
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
   gravações em Turmas; conferir se o Workspace deixa "qualquer pessoa com o link"; revisão jurídica do TERMO_ALUNO. Nada testado com
   login real nem com a pasta real (sem acesso daqui).
