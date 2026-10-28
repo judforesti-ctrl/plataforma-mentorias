@@ -369,9 +369,19 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   SEMPRE lateral (sem a escolha topo/lateral; `html.area-aluno` esconde o seletor e o caminho "Grupo › Página"; o grupo se chama
   "Minha área") e o MENU TAMBÉM GANHA AS CORES DO CLIENTE (app.js chama `aplicarMarca`: --mn-fundo/--mn-destaque e as variáveis da
   tela; marca do programa do mentorado, senão a da 1ª trilha; sem marca = petróleo e bege, não o lima da equipe). A equipe não muda.
-  Próximas fases (decididas, ainda não feitas): 2) ferramentas online escolhidas por turma e liberadas por módulo (resultado: aluno e
-  mentores; empresa nunca); 3) gráfico "Sua participação"; 4) "Pausa só para você": autoavaliação que SÓ o aluno lê (nem a
-  administração; RLS de verdade). Teste local: launch.json "area-aluno-teste" (porta 8830) do worktree, servidor em
+  FASE 2, FERRAMENTAS DA TRILHA (2026-10-28, script 48): `turma_ferramentas` (turma, ferramenta do arsenal, `modulo_id` = abre no DIA
+  do módulo, vazio = desde o começo; só administração muda, mentor da turma lê) e `testes_alunos` (resultado do aluno: turma + perfil;
+  aluno cria/atualiza/lê o dele, mentor da turma e administração leem; a empresa nunca). Cartão "Ferramentas da trilha" na página da
+  turma (`telas/ferramentas-turma.js`): incluir (só as ONLINE `interna` com ficha no arsenal), escolher o módulo em que abre, tirar
+  (respostas ficam), "N de M alunos já fizeram" (M = todos os ativos, até quem não entrou), "Ver respostas" (janela com quem fez,
+  quem falta e o resultado por `htmlResultado`), "Ver a ferramenta" (prévia). Aluno: rpc `ferramentas_da_trilha(turma)` (security
+  definer; nome, resumo, módulo, data e o `feito_em` dele) → seção "Ferramentas da sua trilha" em minha-trilha.js (feita / aberta com
+  "Fazer agora" / fechada com cadeado "Abre no módulo N · data"; "Nova" = aberta há menos de 14 dias e não feita; "Ver meu resultado")
+  e o número do meio do cartão vira "ferramentas feitas". A ferramenta abre em `#/ferramenta/<id>/<turma>`: ferramenta-online.js
+  guarda em `testes_alunos` (aluno ou mentorado que faz a trilha), manda nome/e-mail/WhatsApp/cargo de `turma_alunos` e a empresa da
+  trilha; sem turma continua o caminho do mentorado (`testes`). Sem o script 48 a seção do aluno some e o cartão avisa.
+  Próximas fases (decididas, ainda não feitas): 3) gráfico "Sua participação"; 4) "Pausa só para você": autoavaliação que SÓ o aluno
+  lê (nem a administração; RLS de verdade). Teste local: launch.json "area-aluno-teste" (porta 8830) do worktree, servidor em
   `%TEMP%\aa-teste` (cópia do kit da sessão 81051e2a; caminho curto porque o Python não abre o scratchpad, longo demais);
   `?quem=u-aluno`, `?quem=u-mtd`, `&marca=verde`. Prints de página inteira: Edge headless (`--screenshot`, largura mínima ~500 px).
 - AVALIAÇÃO DAS TURMAS (2026-10-11, script 31; substitui o Google Forms e o QR colado à mão do script 30, cuja tabela `qr_avaliacao`
@@ -604,6 +614,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- FERRAMENTAS DA TRILHA (2026-10-28): ela rodar o script 48 no Supabase (até lá o cartão da turma avisa e o aluno não vê a seção).
 - CERTIFICADOS (2026-10-28): script 47 RODADO; etapa 3 publicada (conferir na Netlify se o Chromium rodou no 1º lote real); etapas 4 e 5 por fazer.
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
   gravações em Turmas; conferir se o Workspace deixa "qualquer pessoa com o link"; revisão jurídica do TERMO_ALUNO. Nada testado com

@@ -158,7 +158,7 @@ async function abrir() {
   if (!rota || !ROTAS[rota]) { location.replace(inicio); return; }
   if (telaAtual && telaAtual.sair) telaAtual.sair();
   const caminho = montarTopo(rota === 'mentorado' || rota === 'sessao' ? (ehAdmin ? 'mentorados' : 'meus') : rota === 'carregar-arsenal' ? 'arsenal'
-    : rota === 'ferramenta' ? (perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota === 'pessoa' ? (params[1] === 'mentores' ? 'mentores' : 'equipe') : rota === 'turma' || rota === 'modulo' || rota === 'importar-proposta' || (rota === 'trilha' && (ehAdmin || atende)) ? 'turmas' : rota === 'relatorio-turmas' ? 'relatorios' : rota === 'rh' && ehAdmin ? 'painel' : rota,
+    : rota === 'ferramenta' ? (params[1] ? (ehAdmin || atende ? 'turmas' : 'trilha') : perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota === 'pessoa' ? (params[1] === 'mentores' ? 'mentores' : 'equipe') : rota === 'turma' || rota === 'modulo' || rota === 'importar-proposta' || (rota === 'trilha' && (ehAdmin || atende)) ? 'turmas' : rota === 'relatorio-turmas' ? 'relatorios' : rota === 'rh' && ehAdmin ? 'painel' : rota,
   precisaPrimeiroAcesso);
   // cada tela nasce num elemento novo, para os cliques de uma tela não se acumularem na outra
   const alvo = document.createElement('div');
