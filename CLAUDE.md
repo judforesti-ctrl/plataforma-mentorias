@@ -464,7 +464,10 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   `#/certificados[/nova|/<pasta>[/emitir|/emitidos|/editar]]`). Pacote dela em `docs/certificados/` (ESPECIFICACAO.md, protótipos,
   referência Python, exemplos; FORA do site: a Netlify só publica `public/`). REGRA: o desenho não muda; `public/certificados/modelo/`
   é CÓPIA IDÊNTICA de `docs/certificados/template` (conferir com sha1 se mexer) e só recebe dados por `CertificadoMentorei.render(dados)`
-  ou postMessage (prévia em iframe 1123×794 escalado, `montarPrevia`). Regras e textos (datas por extenso, período, horas, maiúsculas,
+  ou postMessage (prévia em iframe 1123×794 escalado, `montarPrevia`). ÚNICA MUDANÇA NO DESENHO, pedida por ela (28/10): verso sem o traço
+  (.fio) e slogan centralizado embaixo do logo; frente com "Educação Corporativa" (`.logo-sub`, mesma letra do slogan) embaixo do logo;
+  os dois centrados na palavra MENTOREI (21 mm da esquerda do logo, sem o ®). Feita nas DUAS cópias (docs e public continuam idênticas);
+  os PDFs de docs/certificados/exemplos são de antes disso. Regras e textos (datas por extenso, período, horas, maiúsculas,
   retrato, QR SVG #0E3B44 margem 1, CSV com BOM e ";", nomes dos arquivos) em `public/assets/certificados-regras.js` (telas e servidor).
   Tabelas: `cert_pastas` (uma por cliente e programa; logo do cliente na pasta pública fotos/logos, o mesmo das propostas/área do aluno),
   `cert_assinaturas` (lista reaproveitável; lado mentorei/cliente; exclusão só marcada), `cert_certificados` (código único

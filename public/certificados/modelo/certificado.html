@@ -78,6 +78,8 @@ body.previa.face-frente .pagina:last-child, body.previa.face-verso .pagina:first
 
 /* =========================================================== FRENTE */
 .logo{ position: absolute; left: 30mm; top: 28.6mm; width: 44mm; height: auto; display: block; }
+.logo-sub{ position: absolute; left: 51mm; top: 38.6mm; transform: translateX(-50%); margin: 0; padding-left: .34em; white-space: nowrap;
+  font: 600 5.5pt/1 'Texto'; letter-spacing: .34em; text-transform: uppercase; color: var(--tinta); }
 .rotulo{
   position: absolute; right: 30mm; top: 29.2mm;
   font: 600 6.9pt/1 'Texto'; letter-spacing: .34em; text-transform: uppercase;
@@ -129,8 +131,8 @@ body.tema-escura .qr.pendente span{ border-color: #0E3B44; color: #0E3B44; }
 /* =========================================================== VERSO */
 .marca{ position: absolute; left: 30mm; top: 28.6mm; }
 .marca img{ width: 44mm; height: auto; display: block; }
-.marca .fio{ width: 12mm; height: .3mm; background: var(--acento); margin: 4.4mm 0 3.3mm; }
-.marca .slogan{ font: 600 5.5pt/1 'Texto'; letter-spacing: .34em; text-transform: uppercase; color: var(--tinta); }
+.marca .slogan{ font: 600 5.5pt/1 'Texto'; letter-spacing: .34em; text-transform: uppercase; color: var(--tinta);
+  width: max-content; margin: 4.1mm 0 0 21mm; transform: translateX(-50%); padding-left: .34em; white-space: nowrap; }
 
 .medalhao{
   position: absolute; left: 61mm; top: 112mm; width: 48mm; transform: translate(-50%, -50%);
@@ -192,6 +194,7 @@ body.tema-escura .qr.pendente span{ border-color: #0E3B44; color: #0E3B44; }
   </svg>
   <img class="logo so-clara" src="assets/logo-azul-petroleo.png" alt="MENTOREI">
   <img class="logo so-escura" src="assets/logo-branco.png" alt="MENTOREI">
+  <p class="logo-sub">Educação Corporativa</p>
   <div class="rotulo">Certificado de conclusão</div>
   <div class="miolo">
     <p class="intro">A Mentorei certifica que</p>
@@ -239,7 +242,6 @@ body.tema-escura .qr.pendente span{ border-color: #0E3B44; color: #0E3B44; }
   <div class="marca">
     <img class="so-clara" src="assets/logo-azul-petroleo.png" alt="MENTOREI">
     <img class="so-escura" src="assets/logo-branco.png" alt="MENTOREI">
-    <div class="fio"></div>
     <p class="slogan">Liderar pode ser inspirador</p>
   </div>
   <div class="rotulo">Conteúdo <span class="contracao"></span> <span data-campo="tipo"></span></div>
