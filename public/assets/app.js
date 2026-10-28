@@ -1,6 +1,8 @@
 // Navegação da plataforma: confere o login, monta o menu de cada papel e abre a tela pedida no endereço (#/...).
 import { sb, sessaoAtual, meuPerfil, registrarAcesso, sair, esc, explicarErro } from './base.js';
 import { montarMenu } from './menu.js';
+import { temMarca } from './marca.js';
+import { aplicarMarca } from './telas/area-aluno.js';
 
 const tela = document.getElementById('tela');
 
@@ -41,16 +43,30 @@ const grupo = atende && perfil.atende_grupo === true;
 const mentorado = perfil.papel === 'mentorado';
 // aluno de turma (script 44); um mentorado individual que também faz uma trilha ganha "Minha trilha" no menu
 const aluno = perfil.papel === 'aluno';
-let temTrilha = aluno;
-if (mentorado) {
-  try { const { data } = await sb.rpc('minhas_trilhas'); temTrilha = Array.isArray(data) && data.length > 0; } catch (_) { /* sem o script 44 */ }
+let trilhas = [];
+if (aluno || mentorado) {
+  try { const { data } = await sb.rpc('minhas_trilhas'); trilhas = Array.isArray(data) ? data : []; } catch (_) { /* sem o script 44 */ }
+}
+const temTrilha = aluno || trilhas.length > 0;
+// Aluno e mentorado (opção A, 28/10/2026): menu sempre na lateral, sem a escolha do formato, e com as cores do cliente
+// (empresas.marca: a do programa do mentorado ou a da trilha; sem marca = cores da Mentorei) no menu e nas telas.
+if (aluno || mentorado) {
+  document.documentElement.classList.add('area-aluno');
+  document.documentElement.dataset.menu = 'lateral';
+  let marca = trilhas[0] && trilhas[0].marca;
+  if (mentorado) {
+    const { data } = await sb.from('mentorados').select('programa:programas(empresa:empresas(marca))').eq('perfil_id', perfil.id).maybeSingle();
+    const m = data && data.programa && data.programa.empresa && data.programa.empresa.marca;
+    if (temMarca(m)) marca = m;
+  }
+  aplicarMarca(marca);
 }
 
 // Menu: UMA lista (grupo → itens com nome, ícone, rota e quem pode ver), usada pelos dois formatos (topo e lateral) e pelo celular.
 // As permissões são as mesmas do menu antigo; grupo sem nenhum item visível some. O mentorado continua com os 3 itens dele
 // (Minha mentoria, Ferramentas, Meus dados), todos em Mentoria.
 const GRUPOS = [
-  { id: 'mentoria', nome: 'Mentoria', icone: 'compass', itens: [
+  { id: 'mentoria', nome: aluno || mentorado ? 'Minha área' : 'Mentoria', icone: 'compass', itens: [
     { nome: 'Mentorados', icone: 'users', rota: '#/mentorados', pode: ehAdmin },
     { nome: 'Meus mentorados', icone: 'user-check', rota: '#/meus', pode: individual },
     { nome: ehAdmin ? 'Turmas' : 'Minhas turmas', icone: 'layers', rota: '#/turmas', pode: ehAdmin || grupo },

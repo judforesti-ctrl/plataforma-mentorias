@@ -362,6 +362,18 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   antes e depois do 46). Ajustes no Zoom para o aluno assistir: desligar "exigir autenticação para ver gravações na nuvem"; conferir
   se apaga gravações depois de N dias. Testes com Zoom e banco de mentira: scratchpad 81051e2a testes/zoom.mjs.
   Teste local: launch.json "alunos-teste" (porta 8820) do site do Radar, scratchpad da sessão 81051e2a (teste/, `?quem=u-aluno`, `?sem44`).
+- VISUAL NOVO DA ÁREA DO ALUNO E DO MENTORADO (2026-10-28, opção A da prévia https://claude.ai/artifact/LpvHnCNkQNPoE4LkZHHhPK,
+  fase 1 de 4). Peças em `telas/area-aluno.js` (saudação, cartão escuro com anel de %, números, bloco da data, jornada em bolinhas,
+  `aplicarMarca`) e classes `.aa-*` no fim do app.css; usadas por minha-trilha.js e minha-area.js (Minha mentoria perdeu a tabela
+  "Próximas sessões": a jornada mostra as sessões; falta/cancelada = bolinha riscada). Decisões dela: para aluno e mentorado o menu é
+  SEMPRE lateral (sem a escolha topo/lateral; `html.area-aluno` esconde o seletor e o caminho "Grupo › Página"; o grupo se chama
+  "Minha área") e o MENU TAMBÉM GANHA AS CORES DO CLIENTE (app.js chama `aplicarMarca`: --mn-fundo/--mn-destaque e as variáveis da
+  tela; marca do programa do mentorado, senão a da 1ª trilha; sem marca = petróleo e bege, não o lima da equipe). A equipe não muda.
+  Próximas fases (decididas, ainda não feitas): 2) ferramentas online escolhidas por turma e liberadas por módulo (resultado: aluno e
+  mentores; empresa nunca); 3) gráfico "Sua participação"; 4) "Pausa só para você": autoavaliação que SÓ o aluno lê (nem a
+  administração; RLS de verdade). Teste local: launch.json "area-aluno-teste" (porta 8830) do worktree, servidor em
+  `%TEMP%\aa-teste` (cópia do kit da sessão 81051e2a; caminho curto porque o Python não abre o scratchpad, longo demais);
+  `?quem=u-aluno`, `?quem=u-mtd`, `&marca=verde`. Prints de página inteira: Edge headless (`--screenshot`, largura mínima ~500 px).
 - AVALIAÇÃO DAS TURMAS (2026-10-11, script 31; substitui o Google Forms e o QR colado à mão do script 30, cuja tabela `qr_avaliacao`
   ficou sem uso). Proposta aprovada: https://claude.ai/artifact/7bBE6Xw7sfgMtnF5tt6JH4. Decisões dela: TUDO ANÔNIMO (não se grava
   nome, login, IP nem aparelho; nem a Mentorei sabe quem respondeu); o aluno vê no fim a MÉDIA de recomendação 0–10 e o total de

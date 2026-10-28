@@ -706,3 +706,80 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ct-acoes { display: flex; flex-wrap: wrap; gap: 4px; }
 .cartao .ct-rodape { background: linear-gradient(to top, var(--papel) 70%, transparent); }
 #ce-corpo code { white-space: nowrap; }
+
+/* Visual da área do aluno e do mentorado (opção A, aprovada em 28/10/2026; telas/area-aluno.js, minha-trilha.js e minha-area.js).
+   Tudo pelas variáveis de cor: a marca do cliente troca --petroleo, --bege... na página e --mn-* no menu (aplicarMarca). */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+html.area-aluno .mn-formato, html.area-aluno .mn-caminho { display: none !important; }
+/* minmax(0, 1fr): a jornada (que rola de lado) não alarga a página no celular */
+.aa { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.aa .btn.pri { color: var(--tr-btn-texto, var(--petroleo)); }
+.aa-linha { display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch; }
+.aa-cab h1 { font-size: 30px; }
+.aa-cab p { margin-top: 4px; color: var(--apagado); font-size: 15px; }
+/* cartão escuro do alto */
+.aa-heroi { flex: 3 1 460px; background: var(--petroleo); color: #fff; border-radius: 24px; padding: 28px; display: flex; flex-wrap: wrap; gap: 24px; align-items: center; min-width: 0; }
+.aa-heroi-texto { flex: 1 1 280px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.aa-kicker { color: var(--bege); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.aa-heroi h2 { color: #fff; font-size: 30px; letter-spacing: -.02em; }
+.aa-heroi .aa-sub { color: rgba(255, 255, 255, .82); }
+.aa-heroi .btn:not(.pri) { background: transparent; color: #fff; border-color: rgba(255, 255, 255, .38); }
+.aa-heroi .btn:not(.pri):hover { background: rgba(255, 255, 255, .08); }
+.aa-heroi-lado { display: flex; flex-direction: column; align-items: center; gap: 14px; flex: none; }
+.aa-anel { position: relative; width: 150px; height: 150px; flex: none; }
+.aa-anel svg { display: block; }
+.aa-anel circle { fill: none; stroke-width: 14; }
+.aa-anel-fundo { stroke: var(--petroleo-3); }
+.aa-anel-feito { stroke: var(--bege); stroke-linecap: round; }
+.aa-anel > div { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; line-height: 1.15; }
+.aa-anel b { font: 800 34px var(--f-titulo); letter-spacing: -.02em; }
+.aa-anel span { font-size: 12px; color: rgba(255, 255, 255, .78); }
+/* números */
+/* ao lado do cartão escuro os três ficam empilhados; quando descem para baixo dele, ficam lado a lado */
+.aa-numeros { flex: 1 1 260px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 14px; align-content: stretch; }
+.aa-num { background: var(--papel); border: 1px solid var(--linha); border-radius: 20px; padding: 16px 18px; display: grid; grid-template-columns: auto 1fr; column-gap: 14px; align-items: center; }
+.aa-num .aa-num-ic { grid-row: span 2; }
+.aa-num b { font: 800 26px var(--f-titulo); letter-spacing: -.02em; line-height: 1.1; }
+.aa-num > span:last-child { font-size: 13px; color: var(--apagado); font-weight: 600; }
+.aa-num-ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center; }
+.aa-num-ic.ok { background: var(--ok-claro); color: var(--ok); }
+.aa-num-ic.bege { background: var(--bege-claro); color: var(--bege-texto); }
+.aa-num-ic.azul { background: #DCE9EC; color: #1C4F5C; }
+/* cartões brancos */
+.aa-cartao { background: var(--papel); border: 1px solid var(--linha); border-radius: 24px; padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.aa-cartao h3 { font-size: 17px; }
+.aa-titulo { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.aa-titulo > :first-child { flex: 1; }
+.aa-prox { flex: 1 1 320px; }
+.aa-jorn { flex: 2 1 460px; }
+.aa-prox-cab { display: flex; gap: 16px; align-items: center; }
+.aa-prox-cab b { font: 800 17px var(--f-titulo); line-height: 1.25; display: block; }
+.aa-data { flex: none; width: 76px; border-radius: 16px; background: var(--bege-claro); padding: 10px 0; display: grid; justify-items: center; line-height: 1.1; }
+.aa-data span { font-size: 12px; font-weight: 700; color: var(--bege-texto); }
+.aa-data b { font: 800 30px var(--f-titulo); }
+.aa-preparo { background: var(--faixa); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; }
+.aa-preparo > b { font-size: 13px; color: var(--bege-texto); }
+.aa-rodape { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; border-top: 1px solid var(--linha); padding-top: 16px; }
+.aa-rodape > span { flex: 1 1 200px; font-size: 13px; color: var(--apagado); }
+/* jornada em bolinhas */
+.aa-jornada { list-style: none; margin: 0; padding: 4px 2px 6px; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(88px, 1fr); gap: 6px; overflow-x: auto; }
+.aa-jornada li { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; min-width: 0; }
+.aa-bola { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; font: 800 16px var(--f-titulo); background: var(--faixa); border: 2px solid var(--linha); color: var(--apagado); box-sizing: border-box; }
+.aa-jornada li.feito .aa-bola { background: var(--petroleo); border-color: var(--petroleo); color: var(--bege); }
+.aa-jornada li.atual .aa-bola { background: var(--bege); border-color: var(--bege); color: var(--tr-btn-texto, var(--petroleo)); box-shadow: 0 0 0 5px var(--bege-claro); }
+.aa-jornada li.cancelado .aa-bola { text-decoration: line-through; }
+.aa-trilho { height: 4px; width: 100%; border-radius: 2px; background: var(--linha); }
+.aa-jornada li.feito .aa-trilho { background: var(--petroleo); }
+.aa-jornada li b { font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; }
+.aa-jornada li.futuro b, .aa-jornada li.cancelado b { color: var(--apagado); }
+.aa-jsub { font-size: 11.5px; color: var(--apagado); }
+.aa-jornada li.atual .aa-jsub { color: var(--bege-texto); font-weight: 700; }
+/* listas de baixo */
+.aa .tr-mod { border-radius: 20px; box-shadow: none; }
+.aa .tr-lista { margin-top: 14px; }
+.aa-secao > h2 { font-size: 20px; }
+@media (max-width: 640px) {
+  .aa-cab h1 { font-size: 24px; }
+  .aa-heroi { padding: 22px; } .aa-heroi h2 { font-size: 24px; }
+  .aa-cartao { padding: 18px; border-radius: 20px; }
+}
