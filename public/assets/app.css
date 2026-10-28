@@ -699,3 +699,10 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ct-ass-lista { display: grid; gap: 10px; }
 .ct-ass-item { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 10px; border: 1px solid var(--linha); border-radius: 12px; }
 @media (max-width: 640px) { .ct-ass-item { grid-template-columns: 1fr; } }
+.ct-andamento { margin-top: 0; } .ct-andamento .linha { justify-content: space-between; }
+.ct-barra { height: 10px; border-radius: 999px; background: var(--faixa); border: 1px solid var(--linha); overflow: hidden; }
+.ct-barra span { display: block; height: 100%; background: var(--bege-escuro); transition: width .4s; }
+.ct-nomes input[data-nome] { min-width: 220px; }
+.ct-acoes { display: flex; flex-wrap: wrap; gap: 4px; }
+.cartao .ct-rodape { background: linear-gradient(to top, var(--papel) 70%, transparent); }
+#ce-corpo code { white-space: nowrap; }

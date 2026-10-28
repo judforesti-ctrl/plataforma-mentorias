@@ -110,6 +110,7 @@ export function dadosDoModelo(r, { participante, codigo, qr = '', imagens = {} }
     ...d,
     participante: participante != null ? participante : (r.participante || ''),
     codigo: codigo != null ? codigo : (r.codigo || ''),
+    url_verificacao: r.url_verificacao || URL_VERIFICACAO.replace(/^https?:\/\//, ''),
     qr_imagem: qr,
     resp1_assinatura: imagens.resp1 || '',
     resp2_assinatura: r.mostrar_resp2 ? (imagens.resp2 || '') : '',
@@ -151,9 +152,9 @@ export function nomeZip(cliente, curso) {
   return `${`Certificados · ${limpo(cliente || 'Cliente')} · ${limpo(curso || 'Programa')}`.slice(0, 120).trim()}.zip`;
 }
 
-// planilha de códigos: separador ";" e BOM (abre certo no Excel)
+// planilha de códigos: separador ";" e BOM (abre certo no Excel); o número é a ordem na lista, como os PDFs do ZIP
 export function csvCodigos(lista) {
   const q = (v) => { const s = String(v == null ? '' : v); return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-  const linhas = [['Número', 'Participante', 'Código', 'Link de verificação'], ...lista.map((c, i) => [c.numero || i + 1, c.participante, c.codigo, linkVerificacao(c.codigo)])];
+  const linhas = [['Número', 'Participante', 'Código', 'Link de verificação'], ...lista.map((c, i) => [i + 1, c.participante, c.codigo, linkVerificacao(c.codigo)])];
   return `﻿${linhas.map((l) => l.map(q).join(';')).join('\r\n')}\r\n`;
 }

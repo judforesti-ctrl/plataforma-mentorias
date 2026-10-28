@@ -479,8 +479,21 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (scratchpad 76384cb3 ass/: mesmo recorte, diferença máxima 0,0017; foto com sombra forte num canto deixa a mesma mancha nas duas).
   HEIC pelo heic2any (CDN). Guarda original + clara + escura em `certificados/assinaturas/<id>/`; links temporários de 1 h, nunca
   públicos; "Usar" só com nome e aceite. "Não salvar na lista" = grava já com excluido_em (vale só naquela pasta).
-  Etapas: (1) banco, pastas e prévia [feita: turma cadastrada ou do zero]; (2) assinaturas [feita]; (3) nomes, PDFs (Chromium na Netlify) e ZIP
-  montado no navegador (limite de 50 MB por arquivo do Supabase grátis); (4) verificação pública (domínio alias + rewrite); (5) IA lendo a
+  EMISSÃO (etapa 3, `telas/certificados-emitir.js`): lista de nomes por .xlsx/.xls/.ods (SheetJS; cabeçalho "Nome"/"Nome completo" nas 5
+  primeiras linhas), .csv (";" ou ","; cabeçalho só na 1ª linha), .txt ou colado; avisos Repetido / Já tem certificado nesta pasta / Nome
+  muito longo (> 70) sem bloquear; "Ajustar maiúsculas"; "Ver o primeiro antes"; pasta sem assinatura pede confirmação. Gerar = rpc
+  cert_emitir (códigos no banco) → `/api/certificados` (admin) → `certificados-fundo` (background; chave HMAC por lote; para aos 12 min e
+  chama a si mesmo) → `netlify/lib/certificados.mjs`: @sparticuz/chromium 153 + puppeteer-core 25.13 (external_node_modules no netlify.toml),
+  abre `${SITE}/certificados/modelo/certificado.html` uma vez, render → pdf (viewport 1280×720 como a referência), QR com qrcode-generator
+  1.4.4 (a mesma do vendor), assinaturas/logo em data URI, PDF em `certificados/pdf/<pasta>/<código>.pdf`; "feito neste lote" = pdf_em >
+  lote.criado_em. Tela acompanha `cert_lotes` (barra, "Tentar de novo"). ZIP MONTADO NO NAVEGADOR (JSZip + pdf-lib do CDN): "001 Nome.pdf"
+  numerados pela ordem do ZIP, todos-para-imprimir.pdf (até 150) e codigos.csv; PDF que falta (45 dias ou mudou) é gerado de novo antes.
+  Emitidos: busca por nome ou código, Ver (retrato + QR real), Baixar PDF, Copiar link, Corrigir o nome (mesmo código; regera),
+  Cancelar (motivo; opção LGPD apaga o nome e o PDF, sem volta) / Reativar, "Gerar de novo todos" (válidos ganham o retrato atual da pasta
+  e a assinatura, mesmos códigos). Tudo no `historico` do certificado. `certificados-limpeza` (todo dia 4h) apaga PDFs com mais de 45 dias.
+  Conferido: PDFs locais (Chrome + modelo sem os local() da Manrope, porque o Windows dela tem Manrope) iguais aos de docs/certificados/exemplos
+  (mesmas fontes Inter/Poppins, 842×595, 2 páginas; muda só a máscara do QR); scratchpad 76384cb3 proj/gerar-teste.mjs e comparar.py.
+  Etapas: (1) banco, pastas e prévia [feita: turma cadastrada ou do zero]; (2) assinaturas [feita]; (3) nomes, PDFs e ZIP [feita]; (4) verificação pública (domínio alias + rewrite); (5) IA lendo a
   proposta (`docs/certificados/extracao`). O QR da plataforma (qrcode-generator) escolhe outra máscara que o `referencia/qr.py`: desenho
   diferente, mesmo conteúdo (conferido com jsQR). Teste local: launch.json "certificados-teste" (porta 8811), scratchpad da sessão
   76384cb3 (teste/ com cert_pastas no base-falso.js; `?sem47`).
@@ -562,7 +575,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
-- CERTIFICADOS (2026-10-27): script 47 RODADO; etapas 3 a 5 do módulo ainda por fazer.
+- CERTIFICADOS (2026-10-28): script 47 RODADO; etapa 3 publicada (conferir na Netlify se o Chromium rodou no 1º lote real); etapas 4 e 5 por fazer.
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
   gravações em Turmas; conferir se o Workspace deixa "qualquer pessoa com o link"; revisão jurídica do TERMO_ALUNO. Nada testado com
   login real nem com a pasta real (sem acesso daqui).

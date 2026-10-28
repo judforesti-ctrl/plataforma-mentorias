@@ -9,6 +9,7 @@ import { paraPng, linkLogo, logoAnterior } from './proposta.js';
 import { bibliotecaQr } from './avaliacao-modulo.js';
 import * as R from '../certificados-regras.js';
 import { carregarAssinaturas, janelaEnviar, janelaLista, amostrasAssinatura } from './certificados-assinaturas.js';
+import { abaEmitir, abaEmitidos } from './certificados-emitir.js';
 
 const FALTA = '<div class="aviso erro">Para usar os certificados, falta rodar o script <b>47-certificados.sql</b> no Supabase (SQL Editor → New query → colar → Run).</div>';
 const CODIGO_EXEMPLO = 'MTR-26-XXXX-XXXX';
@@ -439,7 +440,7 @@ export function montarPrevia(el, face = 'frente') {
 async function pasta(ctx, el, id, aba) {
   const [{ data: p, error }, certs] = await Promise.all([
     sb.from('cert_pastas').select('*').eq('id', id).maybeSingle(),
-    sb.from('cert_certificados').select('id, codigo, numero, participante, status, sem_assinatura, emitido_em').eq('pasta_id', id).order('numero'),
+    sb.from('cert_certificados').select('*').eq('pasta_id', id).order('numero'),
   ]);
   if (error) { if (faltaScript(error)) { el.innerHTML = FALTA; return; } throw error; }
   if (!p) { el.innerHTML = '<div class="vazio">Pasta não encontrada. <a href="#/certificados">Voltar para a lista</a></div>'; return; }
@@ -458,23 +459,11 @@ async function pasta(ctx, el, id, aba) {
     b.addEventListener('click', () => ir(`#/certificados/${p.id}/${b.dataset.aba}`));
   });
   const caixa = el.querySelector('#ct-aba');
-  if (aba === 'emitir') {
-    caixa.innerHTML = `<div class="aviso">Importar a lista de nomes, gerar os PDFs e baixar o ZIP chegam na etapa 3. Abaixo, a prévia de como o certificado desta pasta vai sair.</div>
-      <div class="cartao mt" style="max-width:760px"><div class="linha"><div class="ct-seg" id="ct-face"><button type="button" class="on" data-f="frente">Frente</button><button type="button" data-f="verso">Verso</button></div></div>
-        <div class="ct-moldura mt" id="ct-moldura"></div></div>`;
-    const previa = montarPrevia(caixa.querySelector('#ct-moldura'));
-    caixa.querySelectorAll('#ct-face button').forEach((b) => b.addEventListener('click', () => {
-      caixa.querySelectorAll('#ct-face button').forEach((x) => x.classList.toggle('on', x === b)); previa.face(b.dataset.f);
-    }));
-    const qr = await qrDataUri(R.linkVerificacao(CODIGO_EXEMPLO)).catch(() => '');
-    const ass = await carregarAssinaturas([p.resp1_assinatura_id, p.resp2_assinatura_id]).catch(() => []);
-    const img = (id) => { const a = ass.find((x) => x.id === id); return a && a.url ? a.url[p.variacao === 'escura' ? 'escura' : 'clara'] : ''; };
-    previa.enviar(R.dadosDoModelo(R.retrato(p), { participante: 'Nome do Participante', codigo: CODIGO_EXEMPLO, qr,
-      imagens: { logo: p.cliente_logo ? linkLogo(p.cliente_logo) : '', resp1: img(p.resp1_assinatura_id), resp2: img(p.resp2_assinatura_id) } }));
-    return;
-  }
-  caixa.innerHTML = lista.length ? `<div class="tabela cartao" style="padding:0"><table><thead><tr><th>Participante</th><th>Código</th><th>Emitido em</th><th>Situação</th></tr></thead><tbody>
-      ${lista.map((c) => `<tr><td>${esc(c.participante)}</td><td><code>${esc(c.codigo)}</code></td><td>${esc(dataBR(c.emitido_em))}</td>
-        <td>${c.status === 'valido' ? '<span class="chip ct-ok">Válido</span>' : '<span class="chip ct-cancelado">Cancelado</span>'}${c.sem_assinatura ? ' <span class="peq apagado">sem assinatura</span>' : ''}</td></tr>`).join('')}</tbody></table></div>`
-    : '<div class="vazio">Nenhum certificado emitido nesta pasta ainda.</div>';
+  // depois de cancelar, corrigir ou gerar: desenha a pasta de novo (na aba pedida)
+  const recarregar = (qual) => {
+    const h = `#/certificados/${p.id}/${qual || aba}`;
+    if (location.hash === h) pasta(ctx, el, id, qual || aba).catch((e) => avisar(explicarErro(e), true)); else ir(h);
+  };
+  if (aba === 'emitir') await abaEmitir(ctx, caixa, p, lista, recarregar);
+  else await abaEmitidos(ctx, caixa, p, lista, recarregar);
 }

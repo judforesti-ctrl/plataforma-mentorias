@@ -5,6 +5,10 @@
   publish = "public"
   functions = "netlify/functions"
 
+# O Chromium que gera os PDFs dos certificados vai como pacote separado (sem isso o empacotador tenta juntar tudo e quebra).
+[functions."certificados-fundo"]
+  external_node_modules = ["@sparticuz/chromium", "puppeteer-core"]
+
 [[headers]]
   for = "/*"
   [headers.values]
