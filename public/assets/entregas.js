@@ -1,6 +1,8 @@
 // Envios do mentorado (script 37, tabela "entregas", pasta privada "entregas"): tarefa feita, ferramenta preenchida ou outro
 // documento, com arquivos e um recado. O mentorado envia e vê o que mandou; os mentores dele e a administração recebem
 // (ficha, tela da sessão e pendências) e o primeiro mentor que abre um arquivo marca como visto. Os mentores recebem e-mail (/api/entrega).
+// Script 49: o aluno da turma também envia (turma_aluno_id; pasta "<id do aluno na turma>/…"), para os mentores da turma,
+// e o mentor pode responder (retorno): quem enviou vê a resposta e recebe e-mail, se autorizou.
 import { sb, esc, dataHoraBR, diaMes, avisar, explicarErro } from './base.js';
 
 const TAMANHO_MAX = 26214400; // 25 MB por arquivo, o mesmo limite da pasta
@@ -27,22 +29,60 @@ export async function carregarEntregas(filtro = (q) => q) {
   return { existe: true, lista: data || [] };
 }
 
-// Lista para ler. mentor = visão da equipe ("novo" até alguém abrir); senão, visão do mentorado (visto ou não, e Apagar).
-export function htmlEntregas(lista, { mentor = false } = {}) {
+// Lista para ler. mentor = visão da equipe ("novo" até alguém abrir, e Responder); senão, visão de quem enviou (visto ou não, a
+// resposta do mentor e Apagar). e._quem (opcional) = de quem é / de qual módulo, mostrado embaixo do título.
+export function htmlEntregas(lista, { mentor = false, responder = mentor } = {}) {
   return `<div class="lista mt">${lista.map((e) => `<div class="cartao entrega" style="background:var(--bg);border:0" data-entrega="${e.id}">
-    <div class="linha" style="gap:8px"><b style="flex:1;min-width:180px">${ROTULO[e.tipo] || 'Documento'}${e.titulo ? `: ${esc(e.titulo)}` : ''}</b>
+    <div class="linha" style="gap:8px"><b style="flex:1;min-width:180px">${ROTULO[e.tipo] || 'Documento'}${e.titulo ? `: ${esc(e.titulo)}` : ''}${e._quem ? `<br><span class="peq apagado" style="font-weight:400">${esc(e._quem)}</span>` : ''}</b>
       <span class="peq apagado">${dataHoraBR(e.enviado_em)}</span>
       ${mentor ? (e.visto_em ? '' : '<span class="selo">novo</span>')
         : `${e.visto_em ? `<span class="selo">Visto pelo mentor em ${diaMes(e.visto_em)}</span>` : '<span class="selo neutro">Ainda não visto</span>'}
            <button type="button" class="btn peq" data-entrega-apagar="${e.id}" title="Apagar este envio" aria-label="Apagar este envio">✕</button>`}</div>
     ${e.mensagem ? `<p class="peq mt" style="white-space:pre-wrap">${mentor ? '<b>Recado:</b> ' : ''}${esc(e.mensagem)}</p>` : ''}
     ${(e.arquivos || []).length ? `<div class="chips mt">${e.arquivos.map((a, i) => `<button type="button" class="btn peq" data-entrega-baixar="${e.id}" data-i="${i}" title="Baixar">📎 ${esc(a.nome)} <span class="apagado">· ${tamanhoTexto(a.tamanho || 0)}</span></button>`).join('')}</div>` : ''}
+    <div data-retorno="${e.id}">${e.retorno ? `<div class="aviso ok mt peq" style="white-space:pre-wrap"><b>Resposta do mentor${e.retorno_em ? ` (${diaMes(e.retorno_em)})` : ''}:</b> ${esc(e.retorno)}</div>` : ''}
+      ${responder ? `<button type="button" class="btn peq mt" data-entrega-responder="${e.id}">${e.retorno ? 'Mudar a resposta' : 'Responder'}</button>` : ''}</div>
   </div>`).join('')}</div>`;
 }
 
 // Cliques da lista: baixar (o mentor que abre marca como visto) e apagar (mentorado).
 export function ligarEntregas(raiz, lista, { marcarVisto = false, perfilId = null, aoMudar = () => {} } = {}) {
   raiz.addEventListener('click', async (ev) => {
+    // resposta do mentor: escreve ali mesmo e salva; quem enviou recebe e-mail (se autorizou)
+    const rp = ev.target.closest('[data-entrega-responder]');
+    if (rp) {
+      const e = lista.find((x) => x.id === rp.dataset.entregaResponder); if (!e) return;
+      const caixa = raiz.querySelector(`[data-retorno="${e.id}"]`);
+      caixa.innerHTML = `<div class="campo mt"><label for="rt-${e.id}">Sua resposta (quem enviou vai ler)</label>
+        <textarea id="rt-${e.id}" style="min-height:90px" placeholder="Um retorno curto: o que ficou bom, o que ajustar, o próximo passo.">${esc(e.retorno || '')}</textarea></div>
+        <div class="linha mt" style="gap:6px"><button type="button" class="btn peq pri" data-rt-salvar>Enviar a resposta</button><button type="button" class="btn peq" data-rt-desistir>Desistir</button></div>`;
+      caixa.querySelector('textarea').focus();
+      const desenhar = () => {
+        caixa.innerHTML = `${e.retorno ? `<div class="aviso ok mt peq" style="white-space:pre-wrap"><b>Resposta do mentor (${diaMes(e.retorno_em)}):</b> ${esc(e.retorno)}</div>` : ''}
+          <button type="button" class="btn peq mt" data-entrega-responder="${e.id}">${e.retorno ? 'Mudar a resposta' : 'Responder'}</button>`;
+      };
+      caixa.querySelector('[data-rt-desistir]').addEventListener('click', desenhar);
+      caixa.querySelector('[data-rt-salvar]').addEventListener('click', async (ev2) => {
+        const texto = caixa.querySelector('textarea').value.trim();
+        if (!texto) { avisar('Escreva a resposta.', true); return; }
+        ev2.target.disabled = true;
+        const agora = new Date().toISOString();
+        const mud = { retorno: texto, retorno_em: agora, retorno_por: perfilId, ...(e.visto_em ? {} : { visto_em: agora, visto_por: perfilId }) };
+        const { error } = await sb.from('entregas').update(mud).eq('id', e.id);
+        if (error) { avisar(/retorno|schema cache|42703/.test(`${error.code} ${error.message}`) ? 'Para responder, falta rodar o script 49 no Supabase.' : explicarErro(error), true); ev2.target.disabled = false; return; }
+        const primeira = !e.retorno;
+        Object.assign(e, mud);
+        try {
+          const { data: { session } } = await sb.auth.getSession();
+          fetch('/api/entrega', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify({ id: e.id, acao: 'retorno', primeira }) }).catch(() => {});
+        } catch (_) { /* sem e-mail */ }
+        avisar('Resposta enviada.');
+        raiz.querySelector(`[data-entrega="${e.id}"]`)?.querySelector('.selo')?.remove();
+        desenhar();
+      });
+      return;
+    }
     const dl = ev.target.closest('[data-entrega-baixar]');
     if (dl) {
       const e = lista.find((x) => x.id === dl.dataset.entregaBaixar); const a = e && e.arquivos[Number(dl.dataset.i)];
@@ -74,7 +114,8 @@ export function ligarEntregas(raiz, lista, { marcarVisto = false, perfilId = nul
 
 // Janela do mentorado para enviar. tipo: 'tarefa' (tarefa = { id, texto, sessao_id, feita_em, legado }), 'ferramenta'
 // (ferramenta = { id, nome }, sessaoId opcional) ou 'documento'.
-export function abrirEnvio(ctx, { mentoradoId, tipo = 'documento', tarefa = null, ferramenta = null, sessaoId = null, aoEnviar = () => {} }) {
+// Aluno da turma (script 49): alunoId (turma_alunos.id) no lugar de mentoradoId, moduloId e, na tarefa do módulo, arquivoId.
+export function abrirEnvio(ctx, { mentoradoId = null, alunoId = null, moduloId = null, arquivoId = null, tipo = 'documento', tarefa = null, ferramenta = null, sessaoId = null, aoEnviar = () => {} }) {
   const titulo = tipo === 'tarefa' ? tarefa.texto : tipo === 'ferramenta' ? ferramenta.nome : '';
   const fundo = document.createElement('div');
   fundo.style.cssText = 'position:fixed;inset:0;background:rgba(9,18,22,.55);z-index:40;display:grid;place-items:center;padding:16px';
@@ -88,7 +129,7 @@ export function abrirEnvio(ctx, { mentoradoId, tipo = 'documento', tarefa = null
       <p class="peq apagado">PDF, Word, Excel, PowerPoint, foto ou texto, até 25 MB cada. No celular, dá para tirar foto da folha preenchida.</p></div>
     <div class="lista mt" id="en-lista"></div>
     <div class="campo mt"><label for="en-msg">Recado para o mentor (opcional)</label><textarea id="en-msg" style="min-height:80px" placeholder="Conte como foi, o que funcionou, onde teve dúvida…"></textarea></div>
-    ${tipo === 'tarefa' && !tarefa.feita_em ? '<label class="linha mt" style="gap:8px"><input type="checkbox" id="en-feita" checked> Marcar a tarefa como feita</label>' : ''}
+    ${tipo === 'tarefa' && !alunoId && !tarefa.feita_em ? '<label class="linha mt" style="gap:8px"><input type="checkbox" id="en-feita" checked> Marcar a tarefa como feita</label>' : ''}
     <div class="linha mt"><button class="btn pri" id="en-enviar">Enviar</button><span class="peq apagado" id="en-prog"></span></div>
   </div>`;
   document.body.appendChild(fundo);
@@ -127,22 +168,23 @@ export function abrirEnvio(ctx, { mentoradoId, tipo = 'documento', tarefa = null
       for (const [i, f] of escolhidos.entries()) {
         prog.textContent = `Enviando ${i + 1} de ${escolhidos.length}…`;
         const ext = (f.name.split('.').pop() || '').toLowerCase();
-        const caminho = `${mentoradoId}/${id}/${i + 1}-${nomeSeguro(f.name)}`;
+        const caminho = `${alunoId || mentoradoId}/${id}/${i + 1}-${nomeSeguro(f.name)}`;
         const up = await sb.storage.from('entregas').upload(caminho, f, { contentType: TIPO_POR_EXT[ext] || f.type });
         if (up.error) throw up.error;
         arquivos.push({ caminho, nome: f.name, tamanho: f.size, tipo: TIPO_POR_EXT[ext] || f.type });
       }
       prog.textContent = 'Guardando…';
-      const { error } = await sb.from('entregas').insert({ id, mentorado_id: mentoradoId, tipo, enviado_por: ctx.perfil.id,
-        tarefa_id: tipo === 'tarefa' && !tarefa.legado ? tarefa.id : null,
-        sessao_id: (tipo === 'tarefa' ? tarefa.sessao_id : sessaoId) || null,
+      const { error } = await sb.from('entregas').insert({ id, tipo, enviado_por: ctx.perfil.id,
+        ...(alunoId ? { turma_aluno_id: alunoId, modulo_id: moduloId, arquivo_id: arquivoId } : { mentorado_id: mentoradoId }),
+        tarefa_id: tipo === 'tarefa' && !alunoId && !tarefa.legado ? tarefa.id : null,
+        sessao_id: (tipo === 'tarefa' && !alunoId ? tarefa.sessao_id : sessaoId) || null,
         ferramenta_id: tipo === 'ferramenta' ? ferramenta.id : null,
         titulo: tipo === 'documento' ? (fundo.querySelector('#en-titulo').value.trim() || null) : titulo,
         mensagem: mensagem || null, arquivos });
       if (error) throw error;
     } catch (e) {
       if (arquivos.length) await sb.storage.from('entregas').remove(arquivos.map((a) => a.caminho));
-      avisar(faltaTabela(e) || /bucket/i.test(e.message || '') ? 'O envio de arquivos ainda não foi ligado. Avise a Mentorei.' : explicarErro(e), true);
+      avisar(faltaTabela(e) || /bucket/i.test(e.message || '') || (alunoId && /turma_aluno|modulo_id|arquivo_id|row-level/i.test(e.message || '')) ? 'O envio de arquivos ainda não foi ligado. Avise a Mentorei.' : explicarErro(e), true);
       btn.disabled = false; prog.textContent = '';
       return;
     }

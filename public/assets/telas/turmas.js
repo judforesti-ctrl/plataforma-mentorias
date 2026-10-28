@@ -8,6 +8,8 @@ import { cartaoMateriais, ligarMateriais } from './materiais-modulo.js';
 import { cartaoAlunos, ligarAlunos } from './alunos-turma.js';
 import { cartaoMarca, ligarMarca } from './marca-cliente.js';
 import { cartaoParaAlunos, ligarParaAlunos } from './alunos-modulo.js';
+import { cartaoPresenca, ligarPresenca } from './presenca-modulo.js';
+import { cartaoEnviosAlunos, ligarEnviosAlunos, enviosNovosAlunos } from './envios-alunos.js';
 
 const FORMATO = { meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro', indefinido: 'Local a definir' };
 const STATUS = { planejada: ['Planejada', 'neutro'], em_andamento: ['Em andamento', ''], concluida: ['Concluída', 'neutro'], pausada: ['Pausada', 'alerta'] };
@@ -51,6 +53,8 @@ async function lista(ctx, el) {
   const meusModulos = todas.flatMap((t) => (t.modulos || []).filter((m) => ministra(m, ctx.perfil.id)).map((m) => ({ ...m, turma: t })));
   const proximas = meusModulos.filter((m) => m.data_hora && !passou(m)).sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
   const semPercepcao = meusModulos.filter(pedePercepcao);
+  const minhasTurmas = [...new Set(meusModulos.map((m) => m.turma.id))];
+  const envios = ctx.ehAdmin || !minhasTurmas.length ? [] : await enviosNovosAlunos(minhasTurmas);
   // quem dá a aula: os mentores do módulo (ou o convidado da planilha, se ainda não tem cadastro)
   const quemDa = (m) => nomesMentores(m) || ((String(m.recomendacoes || '').match(/Quem conduz: ([^(.;]+)/i) || [])[1] || '').trim();
   const linhaAula = (m) => `<a class="pend" href="#/modulo/${m.id}"><b>${diaMes(m.data_hora)}<br>${horaBR(m.data_hora)}</b>
@@ -73,10 +77,12 @@ async function lista(ctx, el) {
         <div class="campo" style="grid-column:1/-1"><label for="t-perfil">Perfil da turma</label><textarea id="t-perfil" placeholder="Cargos, nível de liderança, principais desafios, o que a empresa espera do programa."></textarea></div>
         <div class="linha"><button class="btn pri" type="submit">Criar turma</button></div>
       </form></div>` : ''}
-    ${proximas.length || semPercepcao.length ? `<div class="grade g2">
+    ${proximas.length || semPercepcao.length || envios.length ? `<div class="grade g2">
       ${proximas.length ? `<div class="cartao pend-bloco"><h3>Suas próximas aulas <span class="selo neutro">${proximas.length}</span></h3><div class="lista mt">${proximas.slice(0, 8).map(linhaAula).join('')}</div></div>` : ''}
       ${semPercepcao.length ? `<div class="cartao pend-bloco urgente"><h3>Aulas sem as suas percepções <span class="selo erro">${semPercepcao.length}</span></h3>
         <p class="peq apagado">Conte como foi: engajamento, pontos de atenção e quantas pessoas vieram.</p><div class="lista mt">${semPercepcao.map(linhaAula).join('')}</div></div>` : ''}
+      ${envios.length ? `<div class="cartao pend-bloco"><h3>Envios novos dos alunos <span class="selo neutro">${envios.length}</span></h3>
+        <p class="peq apagado">Tarefas e documentos que os alunos mandaram e ninguém abriu ainda.</p><div class="lista mt">${envios.slice(0, 8).map((e) => `<a class="pend" href="${e.link}"><b>${diaMes(e.enviado_em)}</b><span>${e.texto}</span></a>`).join('')}</div></div>` : ''}
     </div>` : ''}
     ${ctx.ehAdmin ? '<div class="cartao" id="gravacoes-admin"><p class="peq apagado">Verificando as gravações das aulas…</p></div>' : ''}
     <h2 class="mt2">${ctx.ehAdmin ? 'Todas as turmas' : 'Turmas em que você dá aula'}</h2>
@@ -251,10 +257,12 @@ async function paginaTurma(ctx, el, id) {
       </div>
     </div>
     ${cartaoAlunos()}
+    ${cartaoEnviosAlunos()}
     ${adm ? cartaoMarca() : ''}`;
 
   // alunos da trilha (script 44): a administração cadastra e convida; o mentor vê a lista
   ligarAlunos(ctx, el, t);
+  ligarEnviosAlunos(ctx, el, { turma: t, souMentor: !adm });   // tarefas e documentos que os alunos mandaram (script 49)
   ligarMarca(ctx, el, t);   // logo e cores do cliente na área do aluno (administração)
   if (!adm) return;
   const salvador = autoSalvar({
@@ -517,6 +525,8 @@ async function paginaModulo(ctx, el, id) {
           <p class="peq apagado mt" id="progresso"></p>
         </div>
         ${cartaoParaAlunos(ctx, m, adm || souMentor)}
+        ${cartaoPresenca()}
+        ${cartaoEnviosAlunos()}
         <div class="cartao" style="${podePercepcao ? 'border-color:var(--verde);background:linear-gradient(var(--verde-claro), var(--papel) 90px)' : ''}">
           <h3>Percepções sobre a aula</h3>
           <p class="peq">${podePercepcao ? 'Depois da aula, conte como foi: engajamento, o que funcionou, pontos de atenção e sugestões para os próximos módulos. Só a equipe da Mentorei lê.' : 'Escritas pelo mentor depois da aula.'}</p>
@@ -604,6 +614,9 @@ async function paginaModulo(ctx, el, id) {
   ligarMateriais(ctx, el, m, adm || souMentor);
   // para os alunos: PDF dos slides, tarefas e gravação (script 44)
   ligarParaAlunos(ctx, el, m, adm || souMentor);
+  // lista de chamada (Zoom, arquivo ou à mão) e envios dos alunos (script 49)
+  ligarPresenca(ctx, el, m, adm || souMentor);
+  ligarEnviosAlunos(ctx, el, { modulo: m, souMentor });
   el.querySelector('[data-ir-qr]')?.addEventListener('click', (ev) => { ev.preventDefault(); el.querySelector('#avaliacao-turma').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 
   // envio de slides
@@ -762,12 +775,15 @@ export async function resumoGrupo(el) {
   const proximos = (data || []).filter((m) => m.data_hora && !passou(m) && new Date(m.data_hora).getTime() < em14).sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora));
   const pendentes = (data || []).filter(pedePercepcao);
   const semMentor = (data || []).filter((m) => !passou(m) && !(m.mentores || []).length);
+  const envios = await enviosNovosAlunos();
   const item = (m) => `<a class="pend" href="#/modulo/${m.id}"><b>${m.data_hora ? `${diaMes(m.data_hora)}<br>${horaBR(m.data_hora)}` : 'sem data'}</b>
     <span>${esc(m.turma ? m.turma.nome : '')} · módulo ${m.numero}<br><span class="peq apagado">${esc(m.titulo)} · ${esc(nomesMentores(m) || 'sem mentor')}</span></span></a>`;
-  if (!proximos.length && !pendentes.length && !semMentor.length) {
+  if (!proximos.length && !pendentes.length && !semMentor.length && !envios.length) {
     el.innerHTML = (data || []).length ? '<div class="aviso ok">Nenhum módulo nos próximos 14 dias e nenhuma percepção pendente.</div>' : '<p class="apagado">Nenhuma turma cadastrada. <a href="#/turmas">Criar a primeira turma</a>.</p>';
     return;
   }
   const bloco = (titulo, itens, cls = '') => (itens.length ? `<div class="cartao pend-bloco ${cls}"><h3>${titulo} <span class="selo ${cls ? 'erro' : 'neutro'}">${itens.length}</span></h3><div class="lista mt">${itens.slice(0, 8).map(item).join('')}</div></div>` : '');
-  el.innerHTML = `<div class="grade g2">${bloco('Módulos nos próximos 14 dias', proximos)}${bloco('Aulas sem percepções do mentor', pendentes, 'urgente')}${bloco('Módulos sem mentor definido', semMentor, 'urgente')}</div>`;
+  const blocoEnvios = envios.length ? `<div class="cartao pend-bloco"><h3>Envios novos dos alunos <span class="selo neutro">${envios.length}</span></h3><div class="lista mt">${envios.slice(0, 8)
+    .map((e) => `<a class="pend" href="${e.link}"><b>${diaMes(e.enviado_em)}</b><span>${e.texto}</span></a>`).join('')}</div></div>` : '';
+  el.innerHTML = `<div class="grade g2">${bloco('Módulos nos próximos 14 dias', proximos)}${bloco('Aulas sem percepções do mentor', pendentes, 'urgente')}${bloco('Módulos sem mentor definido', semMentor, 'urgente')}${blocoEnvios}</div>`;
 }

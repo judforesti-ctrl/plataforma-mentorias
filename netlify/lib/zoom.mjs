@@ -108,6 +108,57 @@ export async function tirarContaZoom(id) {
   await gravarContasZoom(contas.filter((c) => c.id !== id));
 }
 
+// ---------- presença: quem entrou na reunião do módulo (script 49) ----------
+// O link do módulo traz o número da reunião (zoom.us/j/123...). Em cada conta ligada: acha a vez em que a reunião aconteceu mais
+// perto da data do módulo (reunião recorrente usa o mesmo número toda semana) e lê o relatório de participantes.
+// O app do Zoom precisa de mais duas permissões: ver as reuniões que já aconteceram e o relatório de participantes.
+export const ESCOPOS_PRESENCA = 'meeting:read:list_past_instances:admin e report:read:list_meeting_participants:admin';
+export const numeroDaReuniao = (link) => ((String(link || '').match(/zoom\.us\/(?:j|w|s|wc\/join|wc)\/(\d{9,12})/i) || [])[1]
+  || (String(link || '').match(/[?&](?:confno|meetingId)=(\d{9,12})/i) || [])[1] || null);
+// o Zoom pede o código da reunião "codificado duas vezes" quando ele começa com / ou tem //
+const codigoReuniao = (uuid) => (/^\/|\/\//.test(uuid) ? encodeURIComponent(encodeURIComponent(uuid)) : encodeURIComponent(uuid));
+
+export async function participantesDaReuniao({ link, dataHora }) {
+  const numero = numeroDaReuniao(link);
+  if (!numero) return { ok: false, mensagem: 'O link da sala deste módulo não é de uma reunião do Zoom (zoom.us/j/…). Importe a lista de presença por arquivo.' };
+  const contas = await lerContasZoom();
+  if (!contas.length) return { ok: false, mensagem: 'Nenhuma conta do Zoom ligada à plataforma. Ligue em Turmas → Gravações das aulas, ou importe a lista de presença por arquivo.' };
+  const alvo = Date.parse(dataHora || '') || null;
+  let semPermissao = false, achou = false;
+  for (const conta of contas) {
+    let token;
+    try { token = await tokenZoom(conta); } catch (_) { continue; }
+    // as vezes em que a reunião aconteceu
+    const inst = await zoom(token, `/past_meetings/${numero}/instances`);
+    if (!inst.ok) { if (semEscopo(inst)) semPermissao = true; continue; }
+    const vezes = (inst.dados.meetings || []).filter((v) => v.uuid && v.start_time);
+    if (!vezes.length) continue;
+    achou = true;
+    const vez = alvo
+      ? vezes.map((v) => ({ v, d: Math.abs(Date.parse(v.start_time) - alvo) })).sort((a, b) => a.d - b.d)[0]
+      : { v: vezes.sort((a, b) => Date.parse(b.start_time) - Date.parse(a.start_time))[0], d: 0 };
+    if (alvo && vez.d > 12 * 3600000) return { ok: false, mensagem: 'O Zoom não tem esta reunião no dia do módulo. Confira a data do módulo ou importe a lista por arquivo.' };
+    // relatório de participantes (uma linha por entrada na sala; duração em segundos)
+    const linhas = [];
+    let pagina = '';
+    do {
+      const r = await zoom(token, `/report/meetings/${codigoReuniao(vez.v.uuid)}/participants?page_size=300${pagina ? `&next_page_token=${pagina}` : ''}`);
+      if (!r.ok) {
+        if (semEscopo(r)) return { ok: false, mensagem: `O app do Zoom "${conta.nome}" está sem a permissão do relatório de participantes. Na página do app, em "Scopes", acrescente: ${ESCOPOS_PRESENCA}.` };
+        return { ok: false, mensagem: `O Zoom não entregou a lista de participantes (erro ${r.status}). Tente de novo daqui a pouco ou importe por arquivo.` };
+      }
+      for (const p of r.dados.participants || []) {
+        const seg = Number(p.duration) || (p.join_time && p.leave_time ? (Date.parse(p.leave_time) - Date.parse(p.join_time)) / 1000 : 0);
+        linhas.push({ nome: p.name || '', email: p.user_email || '', minutos: seg / 60 });
+      }
+      pagina = r.dados.next_page_token || '';
+    } while (pagina);
+    return { ok: true, conta: conta.nome, inicio: vez.v.start_time, linhas };
+  }
+  if (semPermissao) return { ok: false, mensagem: `O app do Zoom está sem a permissão de ver as reuniões que já aconteceram. Na página do app, em "Scopes", acrescente: ${ESCOPOS_PRESENCA}.` };
+  return { ok: false, mensagem: achou ? 'Não achei a reunião deste módulo.' : 'Não achei esta reunião nas contas do Zoom ligadas. Ela pode ter sido feita em outra conta: importe a lista de presença por arquivo.' };
+}
+
 // ---------- leitura de todas as contas ----------
 export async function lerZoom({ modulos, limiteMs = 20000 } = {}) {
   const contas = await lerContasZoom();

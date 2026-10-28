@@ -5,7 +5,11 @@
 // slides em PDF, tarefas e ferramentas para baixar, a gravação da aula e o atalho para avaliar o encontro.
 // Os dados do aluno vêm só da função minhas_trilhas() (nada de percepções, recomendações ou slides internos).
 // A administração e o mentor da turma abrem a mesma tela em PRÉVIA ("Ver como o aluno vê", na página da turma).
+// Script 49: presença em cada encontro (da chamada do módulo), "Enviar a tarefa feita" e "Seus envios" (com a resposta do mentor)
+// e as aulas na agenda do aluno: cada aula no Google Agenda (link pronto) ou todas de uma vez, que se atualizam sozinhas
+// (/api/trilha-calendario: Google Agenda, celular e Outlook).
 import { sb, esc, avatar, dataBR, horaBR, avisar, explicarErro } from '../base.js';
+import { carregarEntregas, htmlEntregas, ligarEntregas, abrirEnvio } from '../entregas.js';
 import { janelaAvaliacao, linkAvaliacao } from '../avaliacao-regras.js';
 import { tema, temMarca } from '../marca.js';
 import { saudacao, faltam, anel, numero, blocoData, jornada, icone } from './area-aluno.js';
@@ -16,6 +20,12 @@ const diaISO = (ms) => new Date(ms).toLocaleDateString('sv-SE', { timeZone: TZ }
 const fimDa = (m) => Date.parse(m.data_hora) + (Number(m.duracao_min) || 180) * 60000;
 const ONLINE = { meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', outro: 'Online' };
 const urlBoa = (x) => (x && /^https?:\/\//i.test(x) ? x : x ? `https://${x}` : '');
+const utc = (ms) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+// "Pôr no Google Agenda": abre o Google com a aula já preenchida (a pessoa só confirma)
+const linkGoogle = (m, t) => `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(`Módulo ${m.numero} · ${m.titulo} (${t.nome})`)}`
+  + `&dates=${utc(Date.parse(m.data_hora))}/${utc(fimDa(m))}&ctz=${TZ}`
+  + `&details=${encodeURIComponent(`${m.link ? `Entrar na aula: ${urlBoa(m.link)}\n` : ''}Área da trilha: https://plataforma.mentorei.com.br/app.html#/trilha/${t.id}`)}`
+  + `&location=${encodeURIComponent(m.formato === 'presencial' ? (m.local || '') : urlBoa(m.link || ''))}`;
 
 // Mesma forma que minhas_trilhas() devolve, montada pelas tabelas (para a prévia da equipe).
 async function trilhaDaEquipe(turmaId) {
@@ -83,7 +93,8 @@ export async function render(ctx, el, [turmaId]) {
     const tarefas = (m.arquivos || []).filter((a) => a.tipo === 'tarefa');
     const botoes = (xs, ic) => xs.map((a) => `<button class="btn peq" type="button" data-baixar="${a.id}" title="Baixar ${esc(a.nome)}">${ic} ${esc(a.nome.replace(/\.[^.]+$/, ''))}</button>`).join('');
     return `${slides.length ? `<div class="tr-grupo"><span class="peq"><b>Slides da aula</b></span><div class="linha" style="gap:6px">${botoes(slides, icone('arquivo', 15))}</div></div>` : ''}
-      ${tarefas.length ? `<div class="tr-grupo"><span class="peq"><b>Tarefas e ferramentas</b></span><div class="linha" style="gap:6px">${botoes(tarefas, icone('tarefa', 15))}</div></div>` : ''}`;
+      ${tarefas.length ? `<div class="tr-grupo"><span class="peq"><b>Tarefas e ferramentas</b></span><div class="linha" style="gap:6px">${botoes(tarefas, icone('tarefa', 15))}</div>
+        ${podeEnviar ? `<div class="linha" style="gap:6px">${tarefas.map((a) => `<button class="btn peq pri" type="button" data-enviar-tarefa="${a.id}" data-modulo="${m.id}">Enviar ${tarefas.length > 1 ? `“${esc(a.nome.replace(/\.[^.]+$/, ''))}”` : 'a tarefa'} feita</button>`).join('')}</div>` : ''}</div>` : ''}`;
   };
   const gravacaoHtml = (m) => {
     const gs = m.gravacoes || [];
@@ -100,6 +111,12 @@ export async function render(ctx, el, [turmaId]) {
     if (!m.data_hora || Date.parse(m.data_hora) > agora) return '';
     return janelaAvaliacao(m, agora).estado === 'aberta' ? `<a class="btn peq" href="${esc(linkAvaliacao(m.id))}" target="_blank" rel="noopener">Avaliar esta aula</a>` : '';
   };
+
+  // envios do aluno (script 49): só fora da prévia e com o registro do aluno na turma
+  const podeEnviar = !previa && !!t.aluno_id;
+  const envios = podeEnviar ? await carregarEntregas((q) => q.eq('turma_aluno_id', t.aluno_id)) : { existe: false, lista: [] };
+  const titulos = new Map(mods.map((m) => [m.id, `Módulo ${m.numero} · ${m.titulo}`]));
+  envios.lista.forEach((e) => { e._quem = titulos.get(e.modulo_id) || ''; });
 
   // logo e cores do cliente (empresas.marca): as variáveis de cor valem só dentro desta tela
   const marca = t.marca || {};
@@ -161,8 +178,8 @@ export async function render(ctx, el, [turmaId]) {
               <span class="peq apagado">${esc(diaSemana(proxima.data_hora))} · ${horaBR(proxima.data_hora)} às ${horaBR(new Date(fimDa(proxima)).toISOString())} · ${ondeE(proxima)}</span></div></div>
           ${rostos(proxima) ? `<div class="linha" style="gap:6px">${rostos(proxima)}</div>` : ''}
           ${(proxima.arquivos || []).length ? `<div class="aa-preparo"><b>Materiais deste encontro</b>${arquivosHtml(proxima)}</div>` : ''}
-          ${botaoEntrar(proxima, true) ? `<div class="linha">${botaoEntrar(proxima, true)}</div>`
-            : proxima.formato !== 'presencial' ? '<p class="peq apagado">O link da sala aparece aqui antes da aula.</p>' : ''}`
+          ${botaoEntrar(proxima, true) ? `<div class="linha">${botaoEntrar(proxima, true)}<a class="btn" href="${esc(linkGoogle(proxima, t))}" target="_blank" rel="noopener">Pôr no Google Agenda</a></div>`
+            : `${proxima.formato !== 'presencial' ? '<p class="peq apagado">O link da sala aparece aqui antes da aula.</p>' : ''}<div class="linha"><a class="btn peq" href="${esc(linkGoogle(proxima, t))}" target="_blank" rel="noopener">Pôr no Google Agenda</a></div>`}`
           : `<p class="apagado">${terminou ? 'Você completou todos os encontros desta trilha.' : 'As datas dos próximos encontros ainda vão ser marcadas. Elas aparecem aqui assim que forem definidas.'}</p>`}
       </section>
 
@@ -191,21 +208,68 @@ export async function render(ctx, el, [turmaId]) {
             ${rostos(m) ? `<div class="linha mt" style="gap:6px">${rostos(m)}</div>` : ''}
           </div>
           <span class="selo ${cls}">${st}</span>
+          ${m.presente === true ? '<span class="selo">Você esteve</span>' : m.presente === false ? '<span class="selo neutro">Falta registrada</span>' : ''}
         </div>
-        ${extras.trim() || (m.data_hora && fimDa(m) > agora && m.link) || avaliarHtml(m) ? `<div class="tr-corpo">
-          ${m.data_hora && fimDa(m) > agora ? `<div class="linha" style="gap:6px">${botaoEntrar(m)}</div>` : ''}
+        ${extras.trim() || (m.data_hora && fimDa(m) > agora) || avaliarHtml(m) ? `<div class="tr-corpo">
+          ${m.data_hora && fimDa(m) > agora ? `<div class="linha" style="gap:6px">${botaoEntrar(m)}<a class="btn peq" href="${esc(linkGoogle(m, t))}" target="_blank" rel="noopener">Pôr no Google Agenda</a></div>` : ''}
           ${extras}
           ${avaliarHtml(m) ? `<div class="linha" style="gap:6px">${avaliarHtml(m)}</div>` : ''}
         </div>` : ''}
       </div>`; }).join('') || '<p class="apagado">Os módulos desta trilha ainda vão ser cadastrados.</p>'}</div>
     </section>
 
+    ${podeEnviar && envios.existe ? `<section class="aa-cartao" id="tr-envios" aria-labelledby="tr-envios-t">
+      <div class="aa-titulo"><h3 id="tr-envios-t">Seus envios</h3><button class="btn peq pri" type="button" data-enviar-doc>+ Enviar um documento</button></div>
+      <p class="peq apagado">O que você manda vai para os mentores da sua turma. Quando o mentor responder, a resposta aparece aqui.</p>
+      ${envios.lista.length ? htmlEntregas(envios.lista) : '<p class="apagado peq mt">Você ainda não enviou nada. Para mandar uma tarefa feita, use o botão "Enviar a tarefa feita" no módulo.</p>'}</section>` : ''}
+
+    ${!previa && comData.some((m) => fimDa(m) > agora) ? `<section class="aa-cartao" id="tr-agenda" aria-labelledby="tr-agenda-t"><h3 id="tr-agenda-t">As aulas na sua agenda</h3>
+      <p class="peq apagado">Coloque todas as aulas da trilha de uma vez na sua agenda. Se uma data mudar, a sua agenda muda sozinha (o Google pode levar algumas horas para atualizar).</p>
+      <div class="linha" id="tr-agenda-botoes"><span class="peq apagado">Preparando o link…</span></div></section>` : ''}
+
     <section class="aa-cartao" aria-labelledby="tr-ajuda-t"><h3 id="tr-ajuda-t">Precisa de ajuda?</h3>
       <p class="peq apagado">Dúvidas sobre datas, acesso ou materiais: fale com a coordenação da Mentorei.</p>
       <div class="linha"><button class="btn" type="button" id="tr-ajuda">Falar pelo WhatsApp</button><a class="btn" href="mailto:contato@mentorei.com.br">contato@mentorei.com.br</a></div></section>`;
 
   const arquivos = mods.flatMap((m) => m.arquivos || []);
+  const recarregar = () => ctx.irPara(location.hash);
+  const caixaEnvios = el.querySelector('#tr-envios');
+  if (caixaEnvios) ligarEntregas(caixaEnvios, envios.lista, { aoMudar: recarregar });
+  // todas as aulas na agenda: link secreto do aluno, que o Google Agenda, o celular e o Outlook leem e atualizam sozinhos
+  const caixaAgenda = el.querySelector('#tr-agenda-botoes');
+  if (caixaAgenda) {
+    (async () => {
+      try {
+        const { data: { session } } = await sb.auth.getSession();
+        const r = await fetch('/api/trilha-calendario', { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } });
+        const j = await r.json();
+        if (!r.ok || !j.url) throw new Error(j.mensagem || '');
+        const webcal = j.url.replace(/^https?:/, 'webcal:');
+        caixaAgenda.innerHTML = `<a class="btn pri" href="https://calendar.google.com/calendar/render?cid=${encodeURIComponent(webcal)}" target="_blank" rel="noopener">Google Agenda</a>
+          <a class="btn" href="${esc(webcal)}">iPhone, Outlook ou celular</a>
+          <button class="btn" type="button" data-copiar-agenda="${esc(j.url)}">Copiar o link da agenda</button>`;
+      } catch (_) { caixaAgenda.innerHTML = '<span class="peq apagado">Não consegui preparar o link agora. Use "Pôr no Google Agenda" em cada aula.</span>'; }
+    })();
+  }
   el.addEventListener('click', async (ev) => {
+    const et = ev.target.closest('[data-enviar-tarefa]');
+    if (et) {
+      const a = arquivos.find((x) => x.id === et.dataset.enviarTarefa);
+      abrirEnvio(ctx, { alunoId: t.aluno_id, moduloId: et.dataset.modulo, arquivoId: a.id, tipo: 'tarefa', tarefa: { texto: a.nome.replace(/\.[^.]+$/, '') }, aoEnviar: recarregar });
+      return;
+    }
+    if (ev.target.closest('[data-enviar-doc]')) {
+      // documento: vai para o módulo mais recente que já aconteceu (ou o próximo), para chegar ao mentor certo
+      const mod = ultima || proxima;
+      abrirEnvio(ctx, { alunoId: t.aluno_id, moduloId: mod ? mod.id : null, tipo: 'documento', aoEnviar: recarregar });
+      return;
+    }
+    const ca = ev.target.closest('[data-copiar-agenda]');
+    if (ca) {
+      try { await navigator.clipboard.writeText(ca.dataset.copiarAgenda); avisar('Link copiado. No Outlook: Adicionar calendário → Da Internet → colar.'); }
+      catch (_) { window.prompt('Copie o link da agenda:', ca.dataset.copiarAgenda); }
+      return;
+    }
     const ir = ev.target.closest('[data-ir]');
     if (ir) {
       const alvo = el.querySelector(ir.dataset.ir === 'modulos' ? '#tr-modulos' : `#tr-mod-${ir.dataset.ir}`);

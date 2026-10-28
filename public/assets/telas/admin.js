@@ -79,6 +79,7 @@ async function visaoGeral(ctx, el) {
     <h2 class="mt2">Checklist da equipe</h2>
     <div id="checklist" class="mt"><p class="carregando">Carregando…</p></div>
     <h2 class="mt2">Mentoria em grupo</h2>
+    <div id="lms" class="mt"></div>
     <div id="grupo" class="mt"><p class="carregando">Carregando…</p></div>
     <h2 class="mt2">Mentores</h2>
     <div class="chips mt">${d.mentores.map((x) => `<a class="btn peq" href="#/pessoa/${x.id}">${esc(x.nome)}</a>`).join('') || '<span class="apagado">Nenhum mentor ativo.</span>'}
@@ -121,11 +122,13 @@ async function visaoGeral(ctx, el) {
       <div class="cartao numero"><b>${g.abertos}<small style="font-size:14px;color:var(--apagado)"> de ${g.modulos}</small></b><span>módulos abertos${g.semPercepcoes ? ` (${g.semPercepcoes} sem percepções)` : ''}</span></div>
       <div class="cartao numero"><b>${mentoresAtivos.size}<small style="font-size:14px;color:var(--apagado)"> de ${d.mentores.length}</small></b><span>mentores com agenda à frente</span></div></div>
       ${n.semRegistro || n.atrasadas ? `<div class="aviso mt">${n.semRegistro ? `<b>${n.semRegistro}</b> sessão(ões) já passaram há mais de 48 horas sem registro. ` : ''}${n.atrasadas ? `<b>${n.atrasadas}</b> tarefa(s) atrasada(s).` : ''}</div>` : ''}`;
+    numerosTrilhas(el.querySelector('#lms'), fe || null);
     const emps = d.empresas.filter((e) => !fe || e.id === fe);
     el.querySelector('#empresas').innerHTML = emps.length ? emps.map((e) => {
       const ps = progs.filter((p) => p.empresa_id === e.id);
       return `<div class="cartao"><div class="linha"><h3>${esc(e.nome)}</h3><span class="selo neutro">${ps.length} programa(s)</span>
-        <a class="btn peq" style="margin-left:auto" href="#/painel/novo-programa/${e.id}">+ Programa</a></div>
+        <button class="btn peq" type="button" style="margin-left:auto" data-rh="${e.id}" title="Login do RH da empresa: painel só com números">Acesso do RH</button>
+        <a class="btn peq" href="#/painel/novo-programa/${e.id}">+ Programa</a></div>
         ${ps.length ? `<div class="tabela mt"><table><tr><th>Programa</th><th>Mentorados</th><th>Sessões por pessoa</th><th>Feitas / previstas</th><th>Presença</th><th>Período</th><th>Situação</th></tr>
         ${ps.map((p) => {
           const ms = d.mentorados.filter((m) => m.programa_id === p.id); const ids = new Set(ms.map((m) => m.id));
@@ -148,12 +151,44 @@ async function visaoGeral(ctx, el) {
   import('./foto-lembrete.js').then(({ cartaoFotos }) => cartaoFotos(ctx, el.querySelector('#fotos')));
   el.addEventListener('click', async (ev) => {
     const tr = ev.target.closest('[data-ir]'); if (tr) { location.hash = tr.dataset.ir; return; }
+    const rh = ev.target.closest('[data-rh]');
+    if (rh) { const { janelaRh } = await import('./rh-acesso.js'); janelaRh(ctx, d.empresas.find((x) => x.id === rh.dataset.rh)); return; }
     if (ev.target.id === 'nova-empresa') {
       const nome = window.prompt('Nome da empresa:'); if (!nome || !nome.trim()) return;
       const { error } = await sb.from('empresas').insert({ nome: nome.trim() });
       if (error) avisar(explicarErro(error), true); else { avisar('Empresa criada.'); ctx.irPara('#/painel'); }
     }
   });
+}
+
+// Números das trilhas em grupo (script 49): alunos, presença, conclusão, avaliações, certificados, envios e gravações.
+// Somados no banco (numeros_trilhas), seguindo o filtro de empresa. Sem o script 49, o bloco avisa e o resto do Painel segue.
+let pedidoNumeros = 0;
+async function numerosTrilhas(box, empresaId) {
+  const meu = ++pedidoNumeros;
+  const { data: n, error } = await sb.rpc('numeros_trilhas', { p_empresa: empresaId });
+  if (meu !== pedidoNumeros) return;   // o filtro mudou enquanto carregava
+  if (error) {
+    box.innerHTML = /numeros_trilhas|PGRST202|schema cache/.test(`${error.code} ${error.message}`)
+      ? '<div class="aviso peq">Para ver presença, conclusão, avaliações e certificados das trilhas aqui, falta rodar o script <b>49-presenca-rh-envios-lembretes.sql</b> no Supabase.</div>' : '';
+    return;
+  }
+  const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '—');
+  const nps = n.nps_n ? Math.round(((n.promotores - n.detratores) / n.nps_n) * 100) : null;
+  const card = (valor, texto, extra = '') => `<div class="cartao numero"><b>${valor}${extra ? `<small style="font-size:14px;color:var(--apagado)"> ${extra}</small>` : ''}</b><span>${texto}</span></div>`;
+  box.innerHTML = `<div class="grade g4">
+      ${card(n.alunos, 'alunos nas trilhas', `${n.alunos_entraram} já entraram`)}
+      ${card(n.freq_media == null ? '—' : `${n.freq_media}%`, 'frequência média dos alunos', n.presencas + n.faltas ? `${n.faltas} falta${n.faltas === 1 ? '' : 's'}` : '')}
+      ${card(n.concluintes_base ? pct(n.concluintes, n.concluintes_base) : '—', 'concluíram as trilhas (75% de presença)', n.concluintes_base ? `${n.concluintes} de ${n.concluintes_base}` : '')}
+      ${card(n.modulos_realizados, 'encontros realizados', `de ${n.modulos}${n.modulos_realizados ? ` · ${n.modulos_chamada} com chamada` : ''}`)}</div>
+    <div class="grade g4 mt">
+      ${card(n.nota == null ? '—' : String(n.nota).replace('.', ','), 'nota média dos encontros (0 a 10)', `${n.avaliacoes} avaliações`)}
+      ${card(nps == null ? '—' : nps, 'NPS (−100 a +100)')}
+      ${card(n.aprendeu_n ? pct(n.aprendeu_bastante, n.aprendeu_n) : '—', 'disseram que aprenderam bastante ou muito')}
+      ${card(n.certificados, 'certificados emitidos')}</div>
+    <p class="peq apagado mt">${n.turmas_andamento} turma${n.turmas_andamento === 1 ? '' : 's'} em andamento e ${n.turmas_concluidas} concluída${n.turmas_concluidas === 1 ? '' : 's'}
+      · ${n.envios} envio${n.envios === 1 ? '' : 's'} dos alunos (${n.envios_respondidos} respondido${n.envios_respondidos === 1 ? '' : 's'}${n.envios_sem_abrir ? `, ${n.envios_sem_abrir} ainda sem abrir` : ''})
+      · ${n.gravacoes} gravaç${n.gravacoes === 1 ? 'ão' : 'ões'} nos módulos. Avaliações e NPS incluem o histórico do Google Forms. Detalhes em <a href="#/avaliacoes">Avaliações</a>.</p>`;
 }
 
 // Cartão da Google Agenda: mostra a conta conectada e o botão de conectar (usado ao remarcar sessões).

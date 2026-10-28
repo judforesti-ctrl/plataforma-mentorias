@@ -2,6 +2,7 @@
 // A administração cola a lista da planilha (nome, e-mail, WhatsApp, cargo), manda os convites (e-mail ou WhatsApp, quando ela quiser:
 // nada sai sozinho) e vê quem já entrou. O mentor da turma só vê os nomes. "Ver como o aluno vê" abre a área do aluno em prévia.
 import { sb, esc, avisar, explicarErro, dataBR } from '../base.js';
+import { frequencia, FREQUENCIA_MINIMA } from '../presenca-regras.js';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SEL = 'id, nome, email, whatsapp, cargo, ativo, convidado_em, perfil_id, perfil:perfis!turma_alunos_perfil_id_fkey(termo_aceito_em)';
@@ -84,6 +85,13 @@ export async function ligarAlunos(ctx, el, turma) {
   const alunos = data || [];
   const ativos = alunos.filter((a) => a.ativo);
   const conta = (s) => ativos.filter((a) => situacao(a) === s).length;
+  // presença de cada aluno nos encontros com chamada feita (script 49; sem o script a coluna não aparece)
+  const idsModulos = (turma.modulos || []).map((m) => m.id);
+  const pres = idsModulos.length && alunos.length ? await sb.from('presencas').select('turma_aluno_id, presente').in('modulo_id', idsModulos) : { data: [] };
+  const freq = pres.error ? null : frequencia(pres.data);
+  const comChamada = freq ? ativos.filter((a) => freq[a.id]) : [];
+  const freqMedia = comChamada.length ? Math.round(comChamada.reduce((n, a) => n + freq[a.id].pct, 0) / comChamada.length) : null;
+  const celulaFreq = (a) => { const f = freq && freq[a.id]; return f ? `<span class="${f.pct < FREQUENCIA_MINIMA ? 'selo alerta' : 'peq'}">${f.presencas} de ${f.presencas + f.faltas} (${f.pct}%)</span>` : '<span class="peq apagado">—</span>'; };
 
   box.innerHTML = `
     <div class="linha"><h3 style="flex:1">Alunos da trilha <span class="selo neutro">${ativos.length}</span></h3>
@@ -93,21 +101,23 @@ export async function ligarAlunos(ctx, el, turma) {
       : 'Quem faz esta trilha. Eles veem, na área deles, os slides para alunos, as tarefas e as gravações que você colocar em cada módulo.'}</p>
     ${ativos.length ? `<p class="peq mt">${[['entrou', 'já entrou', 'já entraram'], ['convidado', 'convidado que ainda não entrou', 'convidados que ainda não entraram'],
       ['novo', 'ainda não convidado', 'ainda não convidados'], ['sem_email', 'sem e-mail', 'sem e-mail']]
-      .filter(([k]) => conta(k)).map(([k, um, varios]) => `<b>${conta(k)}</b> ${conta(k) === 1 ? um : varios}`).join(' · ')}</p>` : ''}
+      .filter(([k]) => conta(k)).map(([k, um, varios]) => `<b>${conta(k)}</b> ${conta(k) === 1 ? um : varios}`).join(' · ')}${freqMedia != null ? ` · frequência média <b>${freqMedia}%</b>` : ''}</p>` : ''}
     ${alunos.length ? `<div class="tabela mt"><table>
-      <tr>${adm ? '<th><input type="checkbox" id="al-todos" aria-label="Marcar todos"></th>' : ''}<th>Aluno</th>${adm ? '<th>E-mail (login)</th><th>WhatsApp</th>' : ''}<th>Situação</th>${adm ? '<th></th>' : ''}</tr>
+      <tr>${adm ? '<th><input type="checkbox" id="al-todos" aria-label="Marcar todos"></th>' : ''}<th>Aluno</th>${adm ? '<th>E-mail (login)</th><th>WhatsApp</th>' : ''}<th>Situação</th>${freq ? '<th>Presença</th>' : ''}${adm ? '<th></th>' : ''}</tr>
       ${alunos.map((a) => { const s = situacao(a); return `<tr data-aluno="${a.id}"${a.ativo ? '' : ' class="apagado"'}>
         ${adm ? `<td><input type="checkbox" data-marca="${a.id}"${a.email && a.ativo ? '' : ' disabled'} aria-label="Marcar ${esc(a.nome)}"></td>` : ''}
         <td><b>${esc(a.nome)}</b>${a.cargo ? `<br><span class="peq apagado">${esc(a.cargo)}</span>` : ''}</td>
         ${adm ? `<td><input type="email" data-email="${a.id}" value="${esc(a.email || '')}" placeholder="e-mail" aria-label="E-mail de ${esc(a.nome)}" style="min-width:200px"></td>
           <td><input type="tel" data-whats="${a.id}" value="${esc(a.whatsapp || '')}" placeholder="(DDD) número" aria-label="WhatsApp de ${esc(a.nome)}" style="min-width:130px"></td>` : ''}
         <td><span class="selo ${SITUACAO[s][1]}">${SITUACAO[s][0]}</span>${a.convidado_em && s === 'convidado' ? `<br><span class="peq apagado">convite em ${dataBR(a.convidado_em)}</span>` : ''}<div class="peq" data-envio="${a.id}"></div></td>
+        ${freq ? `<td style="white-space:nowrap">${celulaFreq(a)}</td>` : ''}
         ${adm ? `<td style="white-space:nowrap">${a.ativo ? `<button class="btn peq${s === 'novo' ? ' pri' : ''}" type="button" data-um="${a.id}"${a.email ? ' title="Mandar o convite por e-mail"' : ' disabled title="Coloque o e-mail primeiro"'}>${s === 'novo' || s === 'sem_email' ? 'Enviar convite' : 'Reenviar'}</button>
           <button class="btn peq" type="button" data-whatsapp="${a.id}"${a.email ? '' : ' disabled'}>WhatsApp</button>
           <button class="btn peq" type="button" data-sair="${a.id}" aria-label="Tirar ${esc(a.nome)} da turma">Tirar</button>` : `<button class="btn peq" type="button" data-voltar="${a.id}">Voltar para a turma</button>`}</td>` : ''}
       </tr>`; }).join('')}</table></div>` : `<p class="apagado mt">${adm ? 'Nenhum aluno ainda. Clique em "+ Adicionar alunos" e cole a lista da planilha.' : 'A coordenação ainda não cadastrou os alunos.'}</p>`}
     ${adm && ativos.length ? `<div class="linha mt">${conta('novo') ? `<button class="btn pri" type="button" id="al-todos-novos">Convidar todos de uma vez (${conta('novo')} aluno${conta('novo') > 1 ? 's' : ''} ainda sem convite)</button>` : ''}
       <button class="btn" type="button" id="al-enviar"></button><span class="peq apagado" id="al-progresso" role="status"></span></div>
+      ${freq ? `<p class="peq apagado mt">Presença: encontros com a chamada feita no módulo. Abaixo de ${FREQUENCIA_MINIMA}% aparece em destaque.</p>` : ''}
       <p class="peq apagado mt">O link do convite não expira: vale até a pessoa criar a senha. Quem já entra na plataforma (por exemplo, um mentorado individual) não recebe e-mail: a trilha só aparece na área dele.</p>` : ''}`;
   if (!adm) return;
 

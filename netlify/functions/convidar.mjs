@@ -120,10 +120,10 @@ export default async (req) => {
   const papel = b.papel;
   if (!EMAIL.test(email)) return resposta('E-mail inválido.', 400);
   if (!nome) return resposta('Informe o nome.', 400);
-  if (!['admin', 'mentor', 'mentorado', 'aluno'].includes(papel)) return resposta('Tipo de acesso inválido.', 400);
+  if (!['admin', 'mentor', 'mentorado', 'aluno', 'rh'].includes(papel)) return resposta('Tipo de acesso inválido.', 400);
   const mentoradoId = papel === 'mentorado' ? b.mentorado_id : null;
   if (papel === 'mentorado' && !UUID.test(String(mentoradoId || ''))) return resposta('Mentorado inválido.', 400);
-  const PAPEIS = { admin: 'administração', mentor: 'mentor', mentorado: 'mentorado', aluno: 'aluno' };
+  const PAPEIS = { admin: 'administração', mentor: 'mentor', mentorado: 'mentorado', aluno: 'aluno', rh: 'RH da empresa' };
 
   // Aluno de turma (script 44): o convite é de uma linha da lista de alunos da turma.
   let aluno = null;
@@ -134,16 +134,32 @@ export default async (req) => {
     if (!aluno) return resposta(a.ok ? 'Aluno não encontrado na turma.' : 'Falta rodar o script 44-alunos-das-turmas.sql no Supabase.', a.ok ? 404 : 500);
     if (aluno.email !== email) await chamar(`/rest/v1/turma_alunos?id=eq.${aluno.id}`, { metodo: 'PATCH', chave: secreta, corpo: { email } });
   }
-  const marcarAluno = (mud) => (aluno ? chamar(`/rest/v1/turma_alunos?id=eq.${aluno.id}`, { metodo: 'PATCH', chave: secreta, prefer: 'return=minimal', corpo: mud }) : null);
-  const emp = aluno && aluno.turma && aluno.turma.empresa;
+  // RH da empresa cliente (script 49): o convite é de uma linha de empresa_rh (painel só com números da empresa)
+  let rh = null;
+  if (papel === 'rh') {
+    if (!UUID.test(String(b.empresa_rh_id || ''))) return resposta('Pessoa do RH inválida.', 400);
+    const a = await chamar(`/rest/v1/empresa_rh?id=eq.${b.empresa_rh_id}&select=id,email,empresa:empresas(nome,marca)`, { chave: secreta });
+    rh = a.ok && a.dados && a.dados[0];
+    if (!rh) return resposta(a.ok ? 'Pessoa do RH não encontrada.' : 'Falta rodar o script 49-presenca-rh-envios-lembretes.sql no Supabase.', a.ok ? 404 : 500);
+    if (rh.email !== email) await chamar(`/rest/v1/empresa_rh?id=eq.${rh.id}`, { metodo: 'PATCH', chave: secreta, corpo: { email } });
+  }
+  const marcarAluno = (mud) => (aluno ? chamar(`/rest/v1/turma_alunos?id=eq.${aluno.id}`, { metodo: 'PATCH', chave: secreta, prefer: 'return=minimal', corpo: mud })
+    : rh ? chamar(`/rest/v1/empresa_rh?id=eq.${rh.id}`, { metodo: 'PATCH', chave: secreta, prefer: 'return=minimal', corpo: mud }) : null);
+  const emp = (aluno && aluno.turma && aluno.turma.empresa) || (rh && rh.empresa);
   const logoCaminho = emp && emp.marca && emp.marca.logo && emp.marca.logo.caminho;
-  const trilha = aluno && aluno.turma ? { nome: aluno.turma.nome, empresa: emp && emp.nome,
-    logo: logoCaminho ? `${SUPABASE_URL}/storage/v1/object/public/fotos/${logoCaminho.split('/').map(encodeURIComponent).join('/')}` : null } : null;
+  const logoUrl = logoCaminho ? `${SUPABASE_URL}/storage/v1/object/public/fotos/${logoCaminho.split('/').map(encodeURIComponent).join('/')}` : null;
+  const trilha = aluno && aluno.turma ? { nome: aluno.turma.nome, empresa: emp && emp.nome, logo: logoUrl } : null;
+  const empresaRh = rh ? { empresa: emp && emp.nome, logo: logoUrl } : null;
 
   // 2b. O e-mail já é de alguém da plataforma com outro papel? Então não gera convite nem link.
   const existente = await chamar(`/rest/v1/perfis?email=eq.${encodeURIComponent(email)}&select=id,nome,papel,termo_aceito_em`, { chave: secreta });
   const dono = existente.ok && existente.dados && existente.dados[0];
-  if (dono && (dono.papel !== papel || (aluno && dono.termo_aceito_em && !b.reenviar))) {
+  if (dono && (dono.papel !== papel || ((aluno || rh) && dono.termo_aceito_em && !b.reenviar))) {
+    // RH que já entra (cuida de outra empresa também): a empresa nova passa a aparecer no painel dele
+    if (rh && dono.papel === 'rh') {
+      await marcarAluno({ perfil_id: dono.id, convidado_em: new Date().toISOString() });
+      return resposta(`${dono.nome} já entra na plataforma com este e-mail. A empresa passou a aparecer no painel do RH, com a mesma senha. Nenhum e-mail foi enviado.`, 200, { ja_tem_login: true });
+    }
     // aluno que já entra na plataforma (mentorado individual, ou aluno de outra trilha): a trilha só passa a aparecer na área dele
     if (aluno) {
       await marcarAluno({ perfil_id: dono.id, convidado_em: new Date().toISOString() });
@@ -185,7 +201,7 @@ export default async (req) => {
   const login = await garantirLogin(secreta, email, nome);
   if (login.id) {
     await marcarAluno({ perfil_id: login.id });
-    const envio = await enviarLinkPorEmail({ email, nome, link: linkDeAcesso(site, login.id), trilha });
+    const envio = await enviarLinkPorEmail({ email, nome, link: linkDeAcesso(site, login.id), trilha, rh: empresaRh });
     if (envio.enviado) {
       await marcarAluno({ convidado_em: new Date().toISOString() });
       return resposta(`Convite enviado para ${email}. O link não expira: vale até a pessoa criar a senha.`);

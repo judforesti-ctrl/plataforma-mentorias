@@ -1,7 +1,7 @@
 // Primeiro acesso: aceite do termo, autorizações e dados pessoais. Só depois disso o resto da plataforma abre.
 import { sb, esc, avisar, explicarErro, lerCampos } from '../base.js';
 import { TERMO_VERSAO } from '../config.js';
-import { TERMO_MENTORADO, TERMO_MENTOR, TERMO_ALUNO, AUTORIZACOES_MENTORADO, AUTORIZACOES_MENTOR, AUTORIZACOES_ALUNO } from '../termos.js';
+import { TERMO_MENTORADO, TERMO_MENTOR, TERMO_ALUNO, TERMO_RH, AUTORIZACOES_MENTORADO, AUTORIZACOES_MENTOR, AUTORIZACOES_ALUNO, AUTORIZACOES_RH } from '../termos.js';
 import { htmlFoto, ligarFoto, htmlContato, htmlTrajetoria, lerTrajetoria, trajetoriaCompleta, htmlDadosMentorado, lerDadosMentorado, redes, gravarComRedes } from './perfil-comum.js';
 
 export async function render(ctx, el) {
@@ -14,7 +14,8 @@ export async function render(ctx, el) {
     mentorado = data || {};
   }
   const ehAluno = p.papel === 'aluno';
-  const autorizacoes = ehMentorado ? AUTORIZACOES_MENTORADO : ehAluno ? AUTORIZACOES_ALUNO : AUTORIZACOES_MENTOR;
+  const ehRh = p.papel === 'rh';
+  const autorizacoes = ehMentorado ? AUTORIZACOES_MENTORADO : ehAluno ? AUTORIZACOES_ALUNO : ehRh ? AUTORIZACOES_RH : AUTORIZACOES_MENTOR;
   let fotoUrl = p.foto_url;
   const jaAceitou = !!p.termo_aceito_em;
 
@@ -26,10 +27,10 @@ export async function render(ctx, el) {
     <section class="cartao" ${jaAceitou ? 'hidden' : ''}>
       <span class="selo escuro">Passo 1 de 2</span>
       <h2 class="mt">${ehMentorado || ehAluno ? 'Termo de consentimento' : 'Termo de confidencialidade'}</h2>
-      <div class="texto-termo mt">${ehMentorado ? TERMO_MENTORADO : ehAluno ? TERMO_ALUNO : TERMO_MENTOR}</div>
+      <div class="texto-termo mt">${ehMentorado ? TERMO_MENTORADO : ehAluno ? TERMO_ALUNO : ehRh ? TERMO_RH : TERMO_MENTOR}</div>
       <div class="lista mt">${autorizacoes.map((a) => `<label class="check"><input type="checkbox" data-aut="${a.chave}"${a.obrigatoria ? ' required' : ' checked'}>
         <span>${a.texto} ${a.obrigatoria ? '<span class="selo neutro">obrigatório</span>' : '<span class="selo">opcional</span>'}</span></label>`).join('')}</div>
-      ${ehMentorado || ehAluno ? '<p class="peq apagado mt">As autorizações opcionais podem ser mudadas quando você quiser, em "Meus dados".</p>' : ''}
+      ${ehMentorado || ehAluno || ehRh ? '<p class="peq apagado mt">As autorizações opcionais podem ser mudadas quando você quiser, em "Meus dados".</p>' : ''}
     </section>
 
     <section class="cartao" id="dados">
@@ -56,7 +57,7 @@ export async function render(ctx, el) {
     el.querySelectorAll('[data-aut]').forEach((c) => { aut[c.dataset.aut] = c.checked; });
     if (!jaAceitou && autorizacoes.some((a) => a.obrigatoria && !aut[a.chave])) { msg.textContent = 'Para continuar, marque as caixas obrigatórias do termo.'; return; }
     const dados = lerCampos(el.querySelector('#dados'));
-    if (!dados.whatsapp && !ehAluno) { msg.textContent = 'Preencha o seu WhatsApp.'; return; }
+    if (!dados.whatsapp && !ehAluno && !ehRh) { msg.textContent = 'Preencha o seu WhatsApp.'; return; }
     const trajetoria = atende ? lerTrajetoria(el) : p.trajetoria;
     if (atende && !trajetoriaCompleta(trajetoria)) { msg.textContent = 'Preencha pelo menos cargo, anos liderando, empresas, especialidades e como é a sua mentoria.'; return; }
     msg.textContent = 'Salvando…';

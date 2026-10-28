@@ -2,7 +2,7 @@
 // "#/pessoa/<id>": a administração edita o perfil de outra pessoa da equipe ("#/pessoa/<id>/mentores" volta para a aba Mentores).
 import { sb, esc, autoSalvar, lerCampos, avisar, explicarErro, dataBR } from '../base.js';
 import { htmlFoto, ligarFoto, htmlContato, htmlTrajetoria, lerTrajetoria, htmlDadosMentorado, lerDadosMentorado, gravarComRedes } from './perfil-comum.js';
-import { AUTORIZACOES_MENTORADO, AUTORIZACOES_ALUNO } from '../termos.js';
+import { AUTORIZACOES_MENTORADO, AUTORIZACOES_ALUNO, AUTORIZACOES_RH } from '../termos.js';
 
 export async function render(ctx, el, [id, origem] = []) {
   const outro = !!(id && ctx.ehAdmin && id !== ctx.perfil.id);
@@ -14,7 +14,8 @@ export async function render(ctx, el, [id, origem] = []) {
     p = data;
   }
   const ehMentorado = p.papel === 'mentorado';
-  const ehAluno = p.papel === 'aluno';
+  const ehAluno = p.papel === 'aluno' || p.papel === 'rh';   // aluno e RH da empresa: só os dados e as autorizações
+  const ehRh = p.papel === 'rh';
   const atende = p.papel === 'mentor' || p.tambem_mentor;
   let mentorado = null;
   if (ehMentorado) { const { data } = await sb.from('mentorados').select('*').eq('perfil_id', p.id).maybeSingle(); mentorado = data; }
@@ -43,7 +44,7 @@ export async function render(ctx, el, [id, origem] = []) {
           <textarea id="apres" class="mt" style="min-height:180px" placeholder="Preencha a sua trajetória ao lado e clique em Gerar com IA.">${esc(p.resumo_apresentacao || '')}</textarea>
           <div class="linha mt"><button type="button" class="btn peq escuro" id="gerar-apres">✨ Gerar com IA</button><button type="button" class="btn peq pri" id="aprovar-apres">Aprovar e publicar</button></div></div>` : ''}
         ${(ehMentorado || ehAluno) && !outro ? `<div class="cartao"><h3>Suas autorizações</h3><div class="lista mt">
-          ${(ehAluno ? AUTORIZACOES_ALUNO : AUTORIZACOES_MENTORADO).filter((a) => !a.obrigatoria).map((a) => `<label class="check"><input type="checkbox" data-aut="${a.chave}"${aut[a.chave] ? ' checked' : ''}><span>${a.texto}</span></label>`).join('')}
+          ${(ehRh ? AUTORIZACOES_RH : ehAluno ? AUTORIZACOES_ALUNO : AUTORIZACOES_MENTORADO).filter((a) => !a.obrigatoria).map((a) => `<label class="check"><input type="checkbox" data-aut="${a.chave}"${aut[a.chave] ? ' checked' : ''}><span>${a.texto}</span></label>`).join('')}
           </div><p class="peq apagado mt">O termo de consentimento foi aceito em ${p.termo_aceito_em ? new Date(p.termo_aceito_em).toLocaleDateString('pt-BR') : '—'}. Para retirar o consentimento, escreva para contato@mentorei.com.br.</p></div>` : ''}
         ${outro && pendente ? `<div class="cartao" style="border-color:var(--ocre)"><h3>E-mail de acesso</h3>
           <p class="peq apagado mt">Esta pessoa foi cadastrada sem e-mail (veio das trilhas da planilha). Coloque o e-mail dela para poder mandar o convite.</p>

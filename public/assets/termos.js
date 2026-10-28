@@ -35,10 +35,29 @@ export const TERMO_ALUNO = `
   <li><b>O que guardamos.</b> Seu nome, e-mail, WhatsApp (se você informar), cargo, foto (se você colocar) e os seus acessos à plataforma.</li>
   <li><b>Quem vê.</b> A equipe da Mentorei e os mentores da sua turma veem o seu nome na lista de alunos. Seus colegas de turma não veem os seus dados.</li>
   <li><b>Gravações.</b> As aulas online podem ser gravadas. As gravações ficam disponíveis só para os alunos da turma, pelo link que aparece aqui. Não compartilhe esses links com quem não é da turma.</li>
+  <li><b>Presença e envios.</b> A Mentorei registra a sua presença em cada encontro (pela lista da sala online ou pelo mentor). O que você envia pela plataforma (tarefas e documentos) vai só para os mentores da sua turma e a equipe da Mentorei.</li>
+  <li><b>O que a empresa vê.</b> A área de RH da empresa que contratou a trilha vê a sua presença nos encontros e se você concluiu a trilha. Ela não vê o que você envia aos mentores nem as suas respostas às avaliações.</li>
   <li><b>Avaliação das aulas.</b> A avaliação de cada encontro é anônima: nem a Mentorei nem o mentor sabem quem respondeu.</li>
   <li><b>Seus direitos.</b> Você pode pedir a qualquer momento uma cópia dos seus dados, a correção do que estiver errado ou o fim do uso dos seus dados, pelo e-mail ${CONTATO_DADOS}.</li>
 </ul>
 <p>Leia também a <a href="/privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a> completa.</p>`;
+
+// RH da empresa cliente (script 49). Mesma ressalva do jurídico acima.
+export const TERMO_RH = `
+<p><b>Bem-vindo à área de acompanhamento da sua empresa na Mentorei.</b></p>
+<p>Aqui você acompanha os programas que a sua empresa contratou: trilhas em grupo e mentorias individuais. A plataforma é operada pela Mentorei.</p>
+<ul>
+  <li><b>O que você vê.</b> Só números: quem está inscrito, presença nos encontros e nas sessões, conclusão, tarefas cumpridas, a nota média das avaliações dos encontros e os certificados emitidos.</li>
+  <li><b>O que você não vê.</b> O conteúdo das conversas, as anotações dos mentores, o que os participantes enviam aos mentores e as respostas individuais às avaliações (elas são anônimas).</li>
+  <li><b>Confidencialidade.</b> Os nomes e números dos participantes são informação interna da sua empresa: use só para acompanhar o desenvolvimento das pessoas e não compartilhe fora das áreas responsáveis.</li>
+  <li><b>Seus dados.</b> Guardamos o seu nome, e-mail, cargo e os seus acessos. Você pode pedir a correção ou o fim do uso dos seus dados pelo e-mail ${CONTATO_DADOS}.</li>
+</ul>
+<p>Leia também a <a href="/privacidade.html" target="_blank" rel="noopener">Política de Privacidade</a> completa.</p>`;
+
+export const AUTORIZACOES_RH = [
+  { chave: 'termo', obrigatoria: true, texto: '<b>Li e aceito</b> o compromisso de confidencialidade e a Política de Privacidade.' },
+  { chave: 'email', texto: 'Autorizo receber avisos dos programas da minha empresa por <b>e-mail</b>.' },
+];
 
 export const AUTORIZACOES_ALUNO = [
   { chave: 'termo', obrigatoria: true, texto: '<b>Li e aceito</b> a Política de Privacidade e autorizo a Mentorei a tratar meus dados para conduzir a trilha.' },

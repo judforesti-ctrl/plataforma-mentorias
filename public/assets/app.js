@@ -48,6 +48,9 @@ if (aluno || mentorado) {
   try { const { data } = await sb.rpc('minhas_trilhas'); trilhas = Array.isArray(data) ? data : []; } catch (_) { /* sem o script 44 */ }
 }
 const temTrilha = aluno || trilhas.length > 0;
+// RH da empresa cliente (script 49): só o painel da empresa (números) e os dados dele; as cores do cliente vêm na própria tela
+const rh = perfil.papel === 'rh';
+if (rh) { document.documentElement.classList.add('area-aluno'); document.documentElement.dataset.menu = 'lateral'; }
 // Aluno e mentorado (opção A, 28/10/2026): menu sempre na lateral, sem a escolha do formato, e com as cores do cliente
 // (empresas.marca: a do programa do mentorado ou a da trilha; sem marca = cores da Mentorei) no menu e nas telas.
 if (aluno || mentorado) {
@@ -66,7 +69,7 @@ if (aluno || mentorado) {
 // As permissões são as mesmas do menu antigo; grupo sem nenhum item visível some. O mentorado continua com os 3 itens dele
 // (Minha mentoria, Ferramentas, Meus dados), todos em Mentoria.
 const GRUPOS = [
-  { id: 'mentoria', nome: aluno || mentorado ? 'Minha área' : 'Mentoria', icone: 'compass', itens: [
+  { id: 'mentoria', nome: aluno || mentorado || rh ? 'Minha área' : 'Mentoria', icone: 'compass', itens: [
     { nome: 'Mentorados', icone: 'users', rota: '#/mentorados', pode: ehAdmin },
     { nome: 'Meus mentorados', icone: 'user-check', rota: '#/meus', pode: individual },
     { nome: ehAdmin ? 'Turmas' : 'Minhas turmas', icone: 'layers', rota: '#/turmas', pode: ehAdmin || grupo },
@@ -75,7 +78,8 @@ const GRUPOS = [
     { nome: 'Minha mentoria', icone: 'compass', rota: '#/minha-area', pode: mentorado },
     { nome: 'Minha trilha', icone: 'layers', rota: '#/trilha', pode: temTrilha },
     { nome: 'Ferramentas', icone: 'wrench', rota: '#/biblioteca', pode: mentorado },
-    { nome: 'Meus dados', icone: 'circle-user', rota: '#/perfil', pode: mentorado || aluno },
+    { nome: 'Painel da empresa', icone: 'layout-dashboard', rota: '#/rh', pode: rh },
+    { nome: 'Meus dados', icone: 'circle-user', rota: '#/perfil', pode: mentorado || aluno || rh },
   ] },
   { id: 'gestao', nome: 'Gestão', icone: 'sliders-horizontal', itens: [
     { nome: 'Painel', icone: 'layout-dashboard', rota: '#/painel', pode: ehAdmin },
@@ -85,7 +89,7 @@ const GRUPOS = [
     { nome: 'Avaliações', icone: 'star', rota: '#/avaliacoes', pode: ehAdmin },
     { nome: 'Emitir certificados', icone: 'award', rota: '#/certificados', pode: ehAdmin },
     { nome: 'Importar planilha', icone: 'file-up', rota: '#/importar', pode: ehAdmin },
-    { nome: 'Meu perfil', icone: 'circle-user', rota: '#/perfil', pode: !mentorado && !aluno },
+    { nome: 'Meu perfil', icone: 'circle-user', rota: '#/perfil', pode: !mentorado && !aluno && !rh },
   ] },
   { id: 'negocio', nome: 'Negócio', icone: 'briefcase', itens: [
     { nome: 'Relatórios', icone: 'bar-chart-3', rota: '#/relatorios', pode: ehAdmin },
@@ -94,10 +98,10 @@ const GRUPOS = [
   ] },
 ];
 // papel de quem está usando, em letra pequena embaixo do nome (ex.: "Admin · Mentor(a)")
-const papelTexto = [ehAdmin && 'Admin', atende && 'Mentor(a)', mentorado && 'Mentorado(a)', aluno && 'Aluno(a)'].filter(Boolean).join(' · ');
+const papelTexto = [ehAdmin && 'Admin', atende && 'Mentor(a)', mentorado && 'Mentorado(a)', aluno && 'Aluno(a)', rh && 'RH da empresa'].filter(Boolean).join(' · ');
 const menu = montarMenu(document.getElementById('navegacao'), { grupos: GRUPOS, usuario: { nome: perfil.nome, papel: papelTexto, foto: perfil.foto_url }, aoSair: sair });
 
-const inicio = ehAdmin ? '#/painel' : individual ? '#/meus' : grupo ? '#/turmas' : atende ? '#/perfil' : aluno ? '#/trilha' : '#/minha-area';
+const inicio = ehAdmin ? '#/painel' : individual ? '#/meus' : grupo ? '#/turmas' : atende ? '#/perfil' : aluno ? '#/trilha' : rh ? '#/rh' : '#/minha-area';
 
 // telas: cada uma é um módulo com render(ctx, elemento, parametros)
 const ROTAS = {
@@ -130,6 +134,7 @@ const ROTAS = {
   convites: () => import('./telas/convites.js'),
   certificados: () => import('./telas/certificados.js'),
   trilha: () => import('./telas/minha-trilha.js'),
+  rh: () => import('./telas/painel-rh.js'),
 };
 
 // Marca no menu a página atual e devolve o caminho "Grupo › Página" (escondido no primeiro acesso, quando o menu fica escondido).
@@ -153,7 +158,7 @@ async function abrir() {
   if (!rota || !ROTAS[rota]) { location.replace(inicio); return; }
   if (telaAtual && telaAtual.sair) telaAtual.sair();
   const caminho = montarTopo(rota === 'mentorado' || rota === 'sessao' ? (ehAdmin ? 'mentorados' : 'meus') : rota === 'carregar-arsenal' ? 'arsenal'
-    : rota === 'ferramenta' ? (perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota === 'pessoa' ? (params[1] === 'mentores' ? 'mentores' : 'equipe') : rota === 'turma' || rota === 'modulo' || rota === 'importar-proposta' || (rota === 'trilha' && (ehAdmin || atende)) ? 'turmas' : rota === 'relatorio-turmas' ? 'relatorios' : rota,
+    : rota === 'ferramenta' ? (perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota === 'pessoa' ? (params[1] === 'mentores' ? 'mentores' : 'equipe') : rota === 'turma' || rota === 'modulo' || rota === 'importar-proposta' || (rota === 'trilha' && (ehAdmin || atende)) ? 'turmas' : rota === 'relatorio-turmas' ? 'relatorios' : rota === 'rh' && ehAdmin ? 'painel' : rota,
   precisaPrimeiroAcesso);
   // cada tela nasce num elemento novo, para os cliques de uma tela não se acumularem na outra
   const alvo = document.createElement('div');

@@ -12,8 +12,8 @@ const primeiro = (n) => String(n || '').split(' ')[0];
 const SEM_LEMBRETE = ['primeiro-acesso', 'perfil', 'pessoa'];   // nessas telas o campo da foto já está à vista
 
 export function lembreteFoto(ctx, rota) {
-  // aluno de turma: a foto é opcional e não aparece para ninguém além da equipe, então não insistimos
-  if (ctx.perfil.foto_url || ctx.perfil.papel === 'aluno' || SEM_LEMBRETE.includes(rota) || adiado()) return null;
+  // aluno de turma (e RH da empresa): a foto é opcional e não aparece para ninguém além da equipe, então não insistimos
+  if (ctx.perfil.foto_url || ctx.perfil.papel === 'aluno' || ctx.perfil.papel === 'rh' || SEM_LEMBRETE.includes(rota) || adiado()) return null;
   const caixa = document.createElement('div');
   caixa.className = 'foto-lembrete';
   caixa.setAttribute('role', 'region');
