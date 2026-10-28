@@ -479,6 +479,14 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (scratchpad 76384cb3 ass/: mesmo recorte, diferença máxima 0,0017; foto com sombra forte num canto deixa a mesma mancha nas duas).
   HEIC pelo heic2any (CDN). Guarda original + clara + escura em `certificados/assinaturas/<id>/`; links temporários de 1 h, nunca
   públicos; "Usar" só com nome e aceite. "Não salvar na lista" = grava já com excluido_em (vale só naquela pasta).
+  LOGO DO CLIENTE (28/10, reclamação dela: logo com fundo branco "bem feio"): `public/assets/logo-certificado.js` (`tratarPixels` pura):
+  a cor que domina a borda vira transparente no logo todo (some também o miolo das letras; borda suave e cor descontada do fundo, sem halo),
+  recorte; para cada padrão (fundo #F2EADF / #0E3B44) mede o contraste: < 55% dos pixels com contraste 2,2 OU ≥ 12% com contraste < 1,8
+  (o nome que some) → sugere "Uma cor só" (silhueta na tinta do certificado, #0E3B44 no claro e #F2EADF no escuro, com o quase branco de
+  dentro vazado). Guarda 3 PNG em fotos/logos/<empresa>/<ts>-cores|claro-uma-cor|escuro-uma-cor.png; `cliente_logo` = {caminho, versoes,
+  clara, escura ('cores'|'uma_cor'), fundo_removido}; a pasta escolhe por padrão (botões "Cores do logo"/"Uma cor só" com amostra nos dois
+  fundos). `caminhoLogo(l, variacao)` em certificados-regras.js (retrato e prévias). Logo antigo sem `versoes` é tratado sozinho ao abrir o
+  editor (vale ao salvar). Certificados já emitidos mantêm o retrato antigo: "Gerar de novo todos".
   EMISSÃO (etapa 3, `telas/certificados-emitir.js`): lista de nomes por .xlsx/.xls/.ods (SheetJS; cabeçalho "Nome"/"Nome completo" nas 5
   primeiras linhas), .csv (";" ou ","; cabeçalho só na 1ª linha), .txt ou colado; avisos Repetido / Já tem certificado nesta pasta / Nome
   muito longo (> 70) sem bloquear; "Ajustar maiúsculas"; "Ver o primeiro antes"; pasta sem assinatura pede confirmação. Gerar = rpc

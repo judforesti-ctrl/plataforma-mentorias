@@ -706,3 +706,8 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ct-acoes { display: flex; flex-wrap: wrap; gap: 4px; }
 .cartao .ct-rodape { background: linear-gradient(to top, var(--papel) 70%, transparent); }
 #ce-corpo code { white-space: nowrap; }
+.ct-logo-grade { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; max-width: 460px; }
+.ct-logo-amostra { height: 72px; border-radius: 10px; display: grid; place-items: center; padding: 8px 12px; border: 1px solid var(--linha); margin-top: 4px; }
+.ct-logo-amostra.clara { background: #F2EADF; } .ct-logo-amostra.escura { background: #0E3B44; }
+.ct-logo-amostra img { max-width: 100%; max-height: 54px; object-fit: contain; }
+.ct-logo-grade .ct-seg button { padding: 5px 10px; font-size: 12px; }

@@ -138,7 +138,7 @@ function heic2any() {
   return carregandoHeic;
 }
 
-async function abrirImagem(arq) {
+export async function abrirImagem(arq) {
   let blob = arq;
   if (ehHeic(arq)) { const conv = await heic2any(); const r = await conv({ blob: arq, toType: 'image/jpeg', quality: 0.95 }); blob = Array.isArray(r) ? r[0] : r; }
   try { return await createImageBitmap(blob, { imageOrientation: 'from-image' }); } catch (_) { /* tenta pela imagem comum */ }
