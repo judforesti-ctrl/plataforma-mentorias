@@ -94,10 +94,14 @@ export function casarParticipantes(participantes, alunos) {
   for (const p of restam) {
     const pp = partes(p.nome);
     if (!pp.length) { soltos.push(p); continue; }
+    // "p" vale como inicial de um sobrenome ("Carlos P." = Carlos Pereira)
+    const bate = (x, y) => x === y || (x.length === 1 && y.startsWith(x));
     const a = tentar(p, (an) => an.join(' ') === pp.join(' '))
       || tentar(p, (an) => an.length > 1 && pp.length > 1 && an[0] === pp[0] && an[an.length - 1] === pp[pp.length - 1])
-      || tentar(p, (an) => an[0] === pp[0] && pp.length > 1 && pp.slice(1).some((x) => an.slice(1).includes(x)))
-      || (pp.length === 1 ? tentar(p, (an) => an[0] === pp[0]) : null);
+      || tentar(p, (an) => an[0] === pp[0] && pp.length > 1 && pp.slice(1).some((x) => an.slice(1).some((y) => bate(x, y))))
+      || (pp.length === 1 ? tentar(p, (an) => an[0] === pp[0]) : null)
+      // apelido curto, só com o começo do primeiro nome ("Fer" = Fernanda), se for um aluno só
+      || (pp.length === 1 && pp[0].length >= 3 ? tentar(p, (an) => an[0].startsWith(pp[0])) : null);
     if (a) { porAluno.set(a.id, p); livres.delete(a.id); } else soltos.push(p);
   }
   return { porAluno, soltos };

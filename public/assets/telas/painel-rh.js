@@ -76,12 +76,12 @@ export async function render(ctx, el, [empresaId]) {
     ${trilhas.length ? `<h2>Trilhas em grupo</h2>
     <div class="grade g4 mt">
       ${numero(trilhas.filter((t) => t.status === 'em_andamento').length, 'trilhas em andamento', `de ${trilhas.length}`)}
-      ${numero(alunosAtivos.length, 'alunos inscritos', `${alunosAtivos.filter((a) => a.entrou).length} já acessaram`)}
+      ${numero(alunosAtivos.length, `alunos inscritos (${((k) => `${k} já ${k === 1 ? 'acessou' : 'acessaram'}`)(alunosAtivos.filter((a) => a.entrou).length)} a plataforma)`)}
       ${numero(freqMedia == null ? '—' : `${freqMedia}%`, 'frequência média nos encontros')}
-      ${numero(deConcluidas.length ? `${pct(concluiram, deConcluidas.length)}%` : '—', `concluíram (presença de ${FREQUENCIA_MINIMA}% ou mais)`, deConcluidas.length ? `${concluiram} de ${deConcluidas.length}` : '')}
+      ${numero(deConcluidas.length ? `${pct(concluiram, deConcluidas.length)}%` : '—', `concluíram com ${FREQUENCIA_MINIMA}% de presença ou mais${deConcluidas.length ? ` (${concluiram} de ${deConcluidas.length})` : ''}`)}
     </div>
     <div class="grade g4 mt">
-      ${numero(notaGeral == null ? '—' : num1(notaGeral), 'nota média dos encontros (0 a 10)', nAval ? `${nAval} avaliações` : '')}
+      ${numero(notaGeral == null ? '—' : num1(notaGeral), `nota média dos encontros, de 0 a 10${nAval ? ` (${nAval} avaliações)` : ''}`)}
       ${numero(nps(npsJunto) == null ? '—' : nps(npsJunto), 'NPS: recomendariam a Mentorei (−100 a +100)')}
       ${numero(certificados, 'certificados emitidos')}
       ${numero(trilhas.reduce((n, t) => n + t.modulos.filter(realizado).length, 0), 'encontros realizados', `de ${trilhas.reduce((n, t) => n + t.modulos.length, 0)}`)}
@@ -92,8 +92,8 @@ export async function render(ctx, el, [empresaId]) {
     <div class="grade g4 mt">
       ${numero(mentorados.filter((m) => m.status === 'ativo').length, 'mentorados ativos', `de ${mentorados.length}`)}
       ${numero(feitas, 'sessões realizadas')}
-      ${numero(feitas + faltas ? `${pct(feitas, feitas + faltas)}%` : '—', 'presença nas sessões', `${faltas} falta${faltas === 1 ? '' : 's'}`)}
-      ${numero(tarefas ? `${pct(tarefasFeitas, tarefas)}%` : '—', 'tarefas cumpridas', tarefas ? `${tarefasFeitas} de ${tarefas}` : '')}
+      ${numero(feitas + faltas ? `${pct(feitas, feitas + faltas)}%` : '—', `presença nas sessões (${faltas} falta${faltas === 1 ? '' : 's'})`)}
+      ${numero(tarefas ? `${pct(tarefasFeitas, tarefas)}%` : '—', `tarefas cumpridas${tarefas ? ` (${tarefasFeitas} de ${tarefas})` : ''}`)}
     </div>
     ${programas.map((p) => programaHtml(p)).join('')}` : ''}
 

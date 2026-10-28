@@ -29,7 +29,7 @@ export async function ligarEnviosAlunos(ctx, el, { modulo = null, turma = null, 
 
 // Para as pendências da equipe: envios de alunos ainda não abertos. turmaIds = só dessas turmas (mentor); vazio = todas (administração).
 export async function enviosNovosAlunos(turmaIds = null) {
-  let q = sb.from('entregas').select('id, tipo, titulo, enviado_em, modulo_id, aluno:turma_alunos(nome, turma_id, turma:turmas(nome))')
+  const q = sb.from('entregas').select('id, tipo, titulo, enviado_em, modulo_id, aluno:turma_alunos(nome, turma_id, turma:turmas(nome))')
     .not('turma_aluno_id', 'is', null).is('visto_em', null).order('enviado_em', { ascending: false }).limit(50);
   const { data, error } = await q;
   if (error) return [];

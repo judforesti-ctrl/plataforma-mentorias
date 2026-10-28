@@ -177,12 +177,12 @@ async function numerosTrilhas(box, empresaId) {
   const nps = n.nps_n ? Math.round(((n.promotores - n.detratores) / n.nps_n) * 100) : null;
   const card = (valor, texto, extra = '') => `<div class="cartao numero"><b>${valor}${extra ? `<small style="font-size:14px;color:var(--apagado)"> ${extra}</small>` : ''}</b><span>${texto}</span></div>`;
   box.innerHTML = `<div class="grade g4">
-      ${card(n.alunos, 'alunos nas trilhas', `${n.alunos_entraram} já entraram`)}
-      ${card(n.freq_media == null ? '—' : `${n.freq_media}%`, 'frequência média dos alunos', n.presencas + n.faltas ? `${n.faltas} falta${n.faltas === 1 ? '' : 's'}` : '')}
-      ${card(n.concluintes_base ? pct(n.concluintes, n.concluintes_base) : '—', 'concluíram as trilhas (75% de presença)', n.concluintes_base ? `${n.concluintes} de ${n.concluintes_base}` : '')}
-      ${card(n.modulos_realizados, 'encontros realizados', `de ${n.modulos}${n.modulos_realizados ? ` · ${n.modulos_chamada} com chamada` : ''}`)}</div>
+      ${card(n.alunos, `alunos nas trilhas (${n.alunos_entraram} já ${n.alunos_entraram === 1 ? 'entrou' : 'entraram'})`)}
+      ${card(n.freq_media == null ? '—' : `${n.freq_media}%`, `frequência média dos alunos${n.presencas + n.faltas ? ` (${n.faltas} falta${n.faltas === 1 ? '' : 's'})` : ''}`)}
+      ${card(n.concluintes_base ? pct(n.concluintes, n.concluintes_base) : '—', `concluíram as trilhas com 75% de presença${n.concluintes_base ? ` (${n.concluintes} de ${n.concluintes_base})` : ''}`)}
+      ${card(n.modulos_realizados, `encontros realizados${n.modulos_realizados ? ` (${n.modulos_chamada} com chamada)` : ''}`, `de ${n.modulos}`)}</div>
     <div class="grade g4 mt">
-      ${card(n.nota == null ? '—' : String(n.nota).replace('.', ','), 'nota média dos encontros (0 a 10)', `${n.avaliacoes} avaliações`)}
+      ${card(n.nota == null ? '—' : String(n.nota).replace('.', ','), `nota média dos encontros, de 0 a 10 (${n.avaliacoes} avaliações)`)}
       ${card(nps == null ? '—' : nps, 'NPS (−100 a +100)')}
       ${card(n.aprendeu_n ? pct(n.aprendeu_bastante, n.aprendeu_n) : '—', 'disseram que aprenderam bastante ou muito')}
       ${card(n.certificados, 'certificados emitidos')}</div>

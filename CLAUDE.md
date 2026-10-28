@@ -384,6 +384,45 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   lê (nem a administração; RLS de verdade). Teste local: launch.json "area-aluno-teste" (porta 8830) do worktree, servidor em
   `%TEMP%\aa-teste` (cópia do kit da sessão 81051e2a; caminho curto porque o Python não abre o scratchpad, longo demais);
   `?quem=u-aluno`, `?quem=u-mtd`, `&marca=verde`. Prints de página inteira: Edge headless (`--screenshot`, largura mínima ~500 px).
+  A fase 3 ("Sua participação") pode usar `presente` de cada módulo, que minhas_trilhas() devolve desde o script 49.
+- ESCOPO DA CLÁUDIA (LMS), 2026-10-28, script 49 (`supabase/49-presenca-rh-envios-lembretes.sql`). A Cláudia mandou um escopo de LMS;
+  a Juliana escolheu fazer: presença puxada do Zoom, aulas na agenda do aluno, envios do aluno (como o do mentorado), login e painel
+  do RH, números que faltavam no Painel e lembretes aos mentores. Nada disso muda o que já existia; sem o script 49 as telas avisam.
+  PRESENÇA: tabela `presencas` (módulo + `turma_aluno_id`, presente, minutos, origem manual|zoom|arquivo). Cartão "Presença dos alunos"
+  no módulo (`telas/presenca-modulo.js`; admin e mentor do módulo marcam, os outros mentores da turma leem): "Puxar do Zoom"
+  (`/api/presenca-zoom` → `participantesDaReuniao` em lib/zoom.mjs: número da reunião do link do módulo, `/past_meetings/{n}/instances`
+  → a vez mais perto da data do módulo (±12 h) → `/report/meetings/{uuid}/participants`; precisa dos escopos
+  `meeting:read:list_past_instances:admin` e `report:read:list_meeting_participants:admin` no app do Zoom, além do script 46 e das
+  contas ligadas), "Importar lista de presença (arquivo)" (relatório do Zoom, Teams ou Meet, .csv/.xlsx) e Presente/Faltou à mão.
+  Regras puras em `public/assets/presenca-regras.js` (juntar entradas da mesma pessoa, ler planilha, ligar participante a aluno por
+  e-mail → nome igual → primeiro+último → inicial do sobrenome → apelido curto, sempre só se for um aluno só; presente = metade da
+  duração; `FREQUENCIA_MINIMA` = 75%; testadas no Node). Janela "Conferir a presença" antes de gravar (não reconhecidos = escolher quem
+  é). Gravar atualiza `modulos.participantes_presentes`. "Alunos da trilha" ganhou a coluna Presença e a frequência média.
+  ENVIOS DOS ALUNOS: a mesma tabela `entregas` (mentorado_id virou opcional; `turma_aluno_id`, `modulo_id`, `arquivo_id`) e a mesma
+  pasta privada (`<turma_aluno_id>/<envio>/…`); `entregas.js` (`abrirEnvio` com `alunoId`). Aluno: "Enviar a tarefa feita" em cada
+  tarefa do módulo e "Seus envios" (+ documento). Equipe: cartão "Envios dos alunos" no módulo e na turma (`telas/envios-alunos.js`),
+  bloco "Envios novos dos alunos" no Painel e em Minhas turmas. RESPOSTA DO MENTOR (vale também para o mentorado): `retorno`,
+  `retorno_em`, `retorno_por`; botão "Responder" na lista da equipe; quem enviou lê na área dele e recebe e-mail na 1ª resposta
+  se autorizou e-mails (`/api/entrega` acao 'retorno'). E-mail aos mentores do aluno: os do módulo (sem módulo, os da turma).
+  AGENDA DO ALUNO: "Pôr no Google Agenda" em cada aula (link pronto do Google) e "As aulas na sua agenda": link secreto por pessoa
+  (`/api/trilha-calendario`, POST devolve; GET `<perfil>.<hmac>.ics`) que o Google (`render?cid=webcal…`), o iPhone e o Outlook
+  assinam e atualizam sozinhos. minhas_trilhas() passou a devolver `aluno_id` e `presente` por módulo ("Você esteve"/"Falta registrada").
+  RH DA EMPRESA: papel `rh`; tabela `empresa_rh` (empresa, nome, e-mail, cargo, WhatsApp, `perfil_id` pelo e-mail, ativo, convidado_em).
+  Administração: Painel → Empresas e programas → "Acesso do RH" (`telas/rh-acesso.js`: cadastrar, convite por e-mail ou WhatsApp,
+  tirar/devolver acesso, "Ver como o RH vê" = `#/rh/<empresa>`); `/api/convidar` aceita `papel: 'rh'` + `empresa_rh_id` (RH que já
+  entra só ganha a empresa). RH: menu "Painel da empresa" + "Meus dados", termo `TERMO_RH`, cores do cliente no menu e na tela.
+  `telas/painel-rh.js` lê SÓ a rpc `painel_rh(empresa)` (security definer): trilhas (alunos com presença e situação, encontros com
+  presentes e avaliações, nota/NPS só com 3+ respostas, certificados) e mentorias individuais (sessões feitas, faltas, tarefas);
+  nunca percepções, anotações, envios ou respostas. "Baixar em Excel". O TERMO_ALUNO agora diz que o RH vê presença e conclusão.
+  PAINEL: bloco de números das trilhas em "Mentoria em grupo" (rpc `numeros_trilhas(empresa)`, só admin, segue o filtro de empresa):
+  alunos e quantos entraram, frequência, conclusão (75%), encontros com chamada, nota, NPS, "aprenderam bastante", certificados,
+  envios e gravações.
+  LEMBRETES AOS MENTORES (`netlify/functions/mentor-lembretes.mjs`, todo dia 8h): por módulo e mentor, só se falta algo: 3 dias
+  antes = slides do mentor; 2 dias antes = ferramentas (arquivos "tarefa" + "Materiais necessários" de ferramenta) e slides com o QR
+  (quem envia os slides confirma o QR); 1 dia depois = percepções ("avaliar a turma"), presença dos alunos e fotos. Uma vez por tipo
+  (`avisos_mentor`); lembretes do mesmo dia vão juntos. Desligar: `configuracoes.lembretes_mentor = {"ligado": false}`.
+  Teste local: launch.json "lms-teste" (porta 8840), servidor em `%TEMP%\lmst` (cópia do kit da área do aluno + presença, envios,
+  RH: `?quem=u-claudia`, `?quem=u-aluno`, `?quem=u-rh&marca=verde`); testes de Node (regras, lembretes, agenda, Zoom) em `%TEMP%\lmsed\t`.
 - AVALIAÇÃO DAS TURMAS (2026-10-11, script 31; substitui o Google Forms e o QR colado à mão do script 30, cuja tabela `qr_avaliacao`
   ficou sem uso). Proposta aprovada: https://claude.ai/artifact/7bBE6Xw7sfgMtnF5tt6JH4. Decisões dela: TUDO ANÔNIMO (não se grava
   nome, login, IP nem aparelho; nem a Mentorei sabe quem respondeu); o aluno vê no fim a MÉDIA de recomendação 0–10 e o total de
@@ -614,6 +653,8 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- ESCOPO DA CLÁUDIA (2026-10-28): ela rodar o script 49; para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
+  de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
 - FERRAMENTAS DA TRILHA (2026-10-28): ela rodar o script 48 no Supabase (até lá o cartão da turma avisa e o aluno não vê a seção).
 - CERTIFICADOS (2026-10-28): script 47 RODADO; etapa 3 publicada (conferir na Netlify se o Chromium rodou no 1º lote real); etapas 4 e 5 por fazer.
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
