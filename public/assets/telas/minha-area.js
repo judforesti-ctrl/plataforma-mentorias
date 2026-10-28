@@ -5,7 +5,7 @@ import { sb, esc, avatar, diaMes, avisar, explicarErro } from '../base.js';
 import { ONLINE, linkOnline, htmlResultado } from '../ferramentas-online.js';
 import { juntarTarefas, prazoBR, atrasada } from '../tarefas.js';
 import { carregarEntregas, htmlEntregas, ligarEntregas, abrirEnvio } from '../entregas.js';
-import { saudacao, faltam, anel, numero, blocoData, jornada, icone } from './area-aluno.js';
+import { saudacao, faltam, anel, numero, blocoData, jornada, icone, grade, legendaGrade } from './area-aluno.js';
 
 export async function render(ctx, el) {
   const { data: m, error } = await sb.from('mentorados').select(`id, nome, sala_meet,
@@ -53,6 +53,24 @@ export async function render(ctx, el) {
   const diaLongo = (iso) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', weekday: 'long', day: '2-digit', month: 'long' });
   const sala = m.sala_meet ? (/^https?:\/\//i.test(m.sala_meet) ? m.sala_meet : `https://${m.sala_meet}`) : '';
   const FORA = { cancelada: 'cancelada', falta_avisada: 'falta avisada', falta_sem_aviso: 'falta' };
+  // grade "Sua participação" (fase 3): presença em cada sessão e as tarefas que ela deixou
+  const agoraMs = Date.now();
+  const presDe = (s) => (/^falta/.test(s.situacao || '') ? 'nao' : s.situacao === 'cancelada' ? 'nada' : s.concluida_em || s.situacao === 'realizada' ? 'sim'
+    : !s.data_hora || Date.parse(s.data_hora) > agoraMs ? 'futuro' : 'sem');
+  const tarDe = (s) => { const ts = s.concluida_em ? (s.tarefas || []) : []; if (!ts.length) return 'nada'; const n = ts.filter((x) => x.feita_em).length; return n === ts.length ? 'sim' : n ? 'parcial' : 'pendente'; };
+  const htmlParticipacao = () => {
+    if (!sess.length) return '';
+    const linhas = [{ rotulo: 'Presença', celulas: sess.map(presDe), sim: 'Presente' }];
+    if (sess.some((s) => tarDe(s) !== 'nada')) linhas.push({ rotulo: 'Tarefas', celulas: sess.map(tarDe), sim: 'Feitas' });
+    const comPresenca = sess.filter((s) => ['sim', 'nao'].includes(presDe(s)));
+    const total = comPresenca.length + tarefas.length;
+    const feitos = comPresenca.filter((s) => presDe(s) === 'sim').length + tarefas.filter((x) => x.feita_em).length;
+    const usados = [...new Set(linhas.flatMap((l) => l.celulas))].filter((e) => e !== 'nada');
+    return `<section class="aa-cartao" aria-labelledby="aa-part"><div><h3 id="aa-part">Sua participação</h3>
+        <p class="peq apagado" style="margin-top:4px">${total ? `Você fez <b style="color:var(--texto)">${feitos} de ${total}</b> combinados até agora.${feitos === total ? ' Muito bem!' : ''}` : 'Os combinados do seu programa aparecem aqui depois das primeiras sessões.'}</p></div>
+      ${grade(sess.map((s) => ({ rotulo: `S${s.numero}`, titulo: `Sessão ${s.numero}${s.data_hora ? ` · ${ddmm(s.data_hora)}` : ''}` })), linhas, 'Sua participação em cada sessão')}
+      ${legendaGrade(['sim', 'parcial', 'pendente', 'nao', 'sem', 'futuro'].filter((e) => usados.includes(e)))}</section>`;
+  };
   const estadoDe = (s) => (FORA[s.situacao] ? 'cancelado' : s.concluida_em || s.situacao === 'realizada' ? 'feito' : proxima && s.id === proxima.id ? 'atual' : 'futuro');
 
   el.classList.add('aa');
@@ -97,6 +115,8 @@ export async function render(ctx, el) {
         })), 'Sessões do seu programa') : '<p class="apagado">As sessões do seu programa ainda vão ser marcadas.</p>'}
       </section>
     </div>
+
+    ${htmlParticipacao()}
 
     <div class="aa-linha">
       <section class="aa-cartao" id="aa-tarefas" style="flex:1 1 380px" aria-labelledby="aa-tar"><h3 id="aa-tar">Suas tarefas</h3>

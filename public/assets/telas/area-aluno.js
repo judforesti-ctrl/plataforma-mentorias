@@ -77,3 +77,15 @@ export function jornada(itens, rotulo) {
     <b>${esc(x.titulo)}</b>${x.sub ? `<span class="aa-jsub">${esc(x.sub)}</span>` : ''}
     <span class="sr-only">${x.estado === 'feito' ? '(feito)' : x.estado === 'atual' ? '(próximo)' : x.estado === 'cancelado' ? '(cancelado)' : ''}</span></li>`).join('')}</ol>`;
 }
+
+// Grade de participação (fase 3): uma linha por tipo (presença, tarefas, ferramentas), uma coluna por encontro.
+// Estados: sim (feito/presente), parcial (em parte), pendente (ainda dá tempo), nao (faltou), sem (sem registro), futuro, nada (não tem).
+export const ESTADOS_GRADE = { sim: 'Feito', parcial: 'Em parte', pendente: 'Ainda dá tempo', nao: 'Faltou', sem: 'Sem registro', futuro: 'Ainda vai acontecer' };
+export function grade(colunas, linhas, rotulo) {
+  const celula = (e, l, c) => (e === 'nada' ? '<td><span class="aa-pt nada" aria-hidden="true"></span><span class="sr-only">não tem</span></td>'
+    : `<td><span class="aa-pt ${e}" title="${esc(`${c.titulo || c.rotulo}: ${e === 'sim' && l.sim ? l.sim : ESTADOS_GRADE[e]}`)}" aria-hidden="true"></span><span class="sr-only">${esc(e === 'sim' && l.sim ? l.sim : ESTADOS_GRADE[e])}</span></td>`);
+  return `<div class="aa-grade-caixa"><table class="aa-grade" aria-label="${esc(rotulo)}">
+    <thead><tr><th scope="col"><span class="sr-only">O quê</span></th>${colunas.map((c) => `<th scope="col" title="${esc(c.titulo || '')}">${esc(c.rotulo)}</th>`).join('')}</tr></thead>
+    <tbody>${linhas.map((l) => `<tr><th scope="row">${esc(l.rotulo)}</th>${l.celulas.map((e, i) => celula(e, l, colunas[i])).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+export const legendaGrade = (estados) => `<div class="aa-legenda">${estados.map((e) => `<span><span class="aa-pt ${e}" aria-hidden="true"></span>${esc(e === 'sim' ? 'Feito ou presente' : ESTADOS_GRADE[e])}</span>`).join('')}</div>`;

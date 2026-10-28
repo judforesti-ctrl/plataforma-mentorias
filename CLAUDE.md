@@ -380,11 +380,18 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   e o número do meio do cartão vira "ferramentas feitas". A ferramenta abre em `#/ferramenta/<id>/<turma>`: ferramenta-online.js
   guarda em `testes_alunos` (aluno ou mentorado que faz a trilha), manda nome/e-mail/WhatsApp/cargo de `turma_alunos` e a empresa da
   trilha; sem turma continua o caminho do mentorado (`testes`). Sem o script 48 a seção do aluno some e o cartão avisa.
-  Próximas fases (decididas, ainda não feitas): 3) gráfico "Sua participação"; 4) "Pausa só para você": autoavaliação que SÓ o aluno
-  lê (nem a administração; RLS de verdade). Teste local: launch.json "area-aluno-teste" (porta 8830) do worktree, servidor em
+  FASE 3, "SUA PARTICIPAÇÃO" (2026-10-28, SEM script novo): a presença, o envio de tarefas e o painel do RH já tinham sido feitos no
+  mesmo dia pela conversa do escopo da Cláudia (script 49, abaixo); a fase 3 só desenha a grade em cima disso. Aluno (minha-trilha.js,
+  fora da prévia): linhas Presença (`presente` de cada módulo em minhas_trilhas: Presente/Faltou/Sem registro/futuro), Tarefas enviadas
+  (arquivo 'tarefa' com `entregas.arquivo_id` do aluno) e Ferramentas (script 48; as "desde o começo" contam no 1º módulo), "Você fez X
+  de Y combinados" e aviso de que pode ir para a empresa. Mentorado (minha-area.js): a mesma grade por sessão (presença pela situação
+  da sessão: falta = Faltou, cancelada = sem bolinha; tarefas das concluídas). `grade`/`legendaGrade` em area-aluno.js, `.aa-pt
+  sim|parcial|pendente|nao|sem|futuro|nada`. Uma 1ª versão desta fase (outro script 49, leitura do Zoom própria, "Marcar como feita",
+  tabela da turma) foi DESCARTADA por repetir o escopo da Cláudia: ficou só na branch `claude/fase3-presenca-guardada`, nunca publicada.
+  Decisão dela (28/10): a participação de cada aluno com o nome pode ir para a empresa; as respostas das ferramentas e a pausa, nunca.
+  Próxima fase (decidida, ainda não feita): 4) "Pausa só para você": autoavaliação que SÓ o aluno lê (nem a administração; RLS de verdade). Teste local: launch.json "area-aluno-teste" (porta 8830) do worktree, servidor em
   `%TEMP%\aa-teste` (cópia do kit da sessão 81051e2a; caminho curto porque o Python não abre o scratchpad, longo demais);
   `?quem=u-aluno`, `?quem=u-mtd`, `&marca=verde`. Prints de página inteira: Edge headless (`--screenshot`, largura mínima ~500 px).
-  A fase 3 ("Sua participação") pode usar `presente` de cada módulo, que minhas_trilhas() devolve desde o script 49.
 - ESCOPO DA CLÁUDIA (LMS), 2026-10-28, script 49 (`supabase/49-presenca-rh-envios-lembretes.sql`). A Cláudia mandou um escopo de LMS;
   a Juliana escolheu fazer: presença puxada do Zoom, aulas na agenda do aluno, envios do aluno (como o do mentorado), login e painel
   do RH, números que faltavam no Painel e lembretes aos mentores. Nada disso muda o que já existia; sem o script 49 as telas avisam.

@@ -804,3 +804,22 @@ html.area-aluno .mn-formato, html.area-aluno .mn-caminho { display: none !import
   .aa-heroi { padding: 22px; } .aa-heroi h2 { font-size: 24px; }
   .aa-cartao { padding: 18px; border-radius: 20px; }
 }
+/* participação (fase 3 da área do aluno): bolinhas da grade "Sua participação" do aluno e do mentorado */
+.aa-pt { display: inline-block; width: 20px; height: 20px; border-radius: 50%; box-sizing: border-box; vertical-align: middle; flex: none; }
+.aa-pt.sim { background: var(--petroleo); }
+.aa-pt.parcial { border: 2.5px solid var(--petroleo); background: linear-gradient(90deg, var(--petroleo) 50%, transparent 50%); }
+.aa-pt.pendente { border: 2.5px solid var(--bege-escuro); }
+.aa-pt.nao { border: 2.5px solid var(--erro); background: var(--erro-claro); }
+.aa-pt.sem { background: var(--linha); }
+.aa-pt.futuro { border: 2px dashed #C9CDCF; }
+.aa-pt.nada { width: 10px; height: 2px; border-radius: 1px; background: #DADDDE; }
+.aa-grade-caixa { overflow-x: auto; }
+.aa-grade { border-collapse: collapse; min-width: 100%; }
+.aa-grade th, .aa-grade td { padding: 8px 6px; text-align: center; font-size: 12px; }
+.aa-grade thead th { color: var(--apagado); font-weight: 700; }
+.aa-grade th, .aa-grade td { background: transparent !important; vertical-align: middle; text-transform: none; letter-spacing: 0; border-bottom: 1px solid var(--linha); }
+.aa-grade tbody tr:last-child th, .aa-grade tbody tr:last-child td { border-bottom: 0; }
+.aa-grade tbody th { text-align: left; font-size: 13px; font-weight: 600; white-space: nowrap; padding-right: 14px; }
+.aa-legenda { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; color: var(--apagado); border-top: 1px solid var(--linha); padding-top: 12px; }
+.aa-legenda > span { display: inline-flex; align-items: center; gap: 6px; }
+.aa-legenda .aa-pt { width: 12px; height: 12px; }

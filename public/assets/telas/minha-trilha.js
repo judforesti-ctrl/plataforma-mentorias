@@ -10,11 +10,13 @@
 // Script 49: presença em cada encontro (da chamada do módulo), "Enviar a tarefa feita" e "Seus envios" (com a resposta do mentor)
 // e as aulas na agenda do aluno: cada aula no Google Agenda (link pronto) ou todas de uma vez, que se atualizam sozinhas
 // (/api/trilha-calendario: Google Agenda, celular e Outlook).
+// Fase 3 (28/10/2026): "Sua participação", grade por encontro com a presença (a chamada do módulo, script 49), as tarefas enviadas
+// e as ferramentas da trilha; sem script novo. Decisão dela: isso pode ir para a empresa (nunca as respostas das ferramentas).
 import { sb, esc, avatar, dataBR, horaBR, avisar, explicarErro } from '../base.js';
 import { carregarEntregas, htmlEntregas, ligarEntregas, abrirEnvio } from '../entregas.js';
 import { janelaAvaliacao, linkAvaliacao } from '../avaliacao-regras.js';
 import { tema, temMarca } from '../marca.js';
-import { saudacao, faltam, anel, numero, blocoData, jornada, icone } from './area-aluno.js';
+import { saudacao, faltam, anel, numero, blocoData, jornada, icone, grade, legendaGrade } from './area-aluno.js';
 import { ONLINE as FERRAMENTAS_ONLINE, htmlResultado } from '../ferramentas-online.js';
 import { janela } from './agenda-dados.js';
 
@@ -150,6 +152,36 @@ export async function render(ctx, el, [turmaId]) {
     </article>`;
   };
 
+  // grade "Sua participação": presença (da chamada), tarefas enviadas e ferramentas, por encontro (as que abrem desde o começo
+  // contam no 1º). Na prévia da equipe a parte não aparece (os dados são de cada aluno).
+  const htmlParticipacao = () => {
+    if (previa || !mods.length) return '';
+    const passou = (m) => !!m.data_hora && fimDa(m) <= agora;
+    const pres = mods.map((m) => (!passou(m) ? 'futuro' : m.presente === true ? 'sim' : m.presente === false ? 'nao' : 'sem'));
+    const enviada = (a) => envios.lista.some((e) => e.arquivo_id === a.id);
+    const tarefasDo = (m) => (m.arquivos || []).filter((a) => a.tipo === 'tarefa');
+    const tar = mods.map((m) => { const ts = tarefasDo(m); if (!envios.existe || !ts.length) return 'nada'; const n = ts.filter(enviada).length; return n === ts.length ? 'sim' : n ? 'parcial' : 'pendente'; });
+    const ferDo = (m, i) => ferramentas.filter((f) => (f.modulo_id ? f.modulo_id === m.id : i === 0));
+    const fer = mods.map((m, i) => { const fs = ferDo(m, i); if (!fs.length) return 'nada'; if (!fs.some(aberta)) return 'futuro'; const n = fs.filter((f) => f.feito_em).length; return n === fs.length ? 'sim' : n ? 'parcial' : 'pendente'; });
+    const linhas = [{ rotulo: 'Presença', celulas: pres, sim: 'Presente' }];
+    if (tar.some((e) => e !== 'nada')) linhas.push({ rotulo: 'Tarefas enviadas', celulas: tar, sim: 'Enviadas' });
+    if (fer.some((e) => e !== 'nada')) linhas.push({ rotulo: 'Ferramentas', celulas: fer, sim: 'Feitas' });
+    // combinados até agora: encontros com chamada, tarefas que já existem e ferramentas abertas
+    const comChamada = pres.filter((e) => e === 'sim' || e === 'nao');
+    const todasTarefas = envios.existe ? mods.flatMap(tarefasDo) : [];
+    const abertas = ferramentas.filter(aberta);
+    const total = comChamada.length + todasTarefas.length + abertas.length;
+    const feitos = pres.filter((e) => e === 'sim').length + todasTarefas.filter(enviada).length + abertas.filter((f) => f.feito_em).length;
+    const usados = [...new Set(linhas.flatMap((l) => l.celulas))].filter((e) => e !== 'nada');
+    return `<section class="aa-cartao" id="tr-participacao" aria-labelledby="tr-part">
+      <div><h3 id="tr-part">Sua participação</h3>
+        <p class="peq apagado" style="margin-top:4px">${total ? `Você fez <b style="color:var(--texto)">${feitos} de ${total}</b> combinados até agora.${feitos === total ? ' Muito bem!' : ''}` : 'Os combinados da trilha aparecem aqui ao longo dos encontros.'}</p></div>
+      ${grade(mods.map((m) => ({ rotulo: `M${m.numero}`, titulo: `Módulo ${m.numero} · ${m.titulo}` })), linhas, 'Sua participação em cada encontro')}
+      ${legendaGrade(['sim', 'parcial', 'pendente', 'nao', 'sem', 'futuro'].filter((e) => usados.includes(e)))}
+      <p class="peq apagado">A presença vem da chamada de cada encontro (pela lista do Zoom ou marcada pela equipe). A sua presença e o que você fez, sem as respostas das ferramentas, fazem parte do acompanhamento da trilha e podem ser compartilhados com a sua empresa.</p>
+    </section>`;
+  };
+
   // números do cartão escuro e da jornada
   const pct = mods.length ? Math.round((feitas / mods.length) * 100) : 0;
   const nArquivos = mods.reduce((n, m) => n + (m.arquivos || []).length, 0);
@@ -228,6 +260,8 @@ export async function render(ctx, el, [turmaId]) {
         <p class="peq apagado" style="margin-top:4px">Escolhidas pela Mentorei para a sua turma. Novas aparecem ao longo dos encontros. O resultado fica com você e com os mentores; a sua empresa não vê.</p></div>
       <div class="aa-ferramentas">${ferramentas.map(cartaoFerramenta).join('')}</div>
     </section>` : ''}
+
+    ${htmlParticipacao()}
 
     <section class="aa-secao" id="tr-modulos" aria-labelledby="tr-mods">
       <h2 id="tr-mods">Os módulos da trilha</h2>
