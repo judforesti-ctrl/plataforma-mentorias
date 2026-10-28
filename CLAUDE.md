@@ -653,7 +653,8 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
-- ESCOPO DA CLÁUDIA (2026-10-28): ela rodar o script 49; para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
+- ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
+  DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
 - FERRAMENTAS DA TRILHA (2026-10-28): ela rodar o script 48 no Supabase (até lá o cartão da turma avisa e o aluno não vê a seção).
 - CERTIFICADOS (2026-10-28): script 47 RODADO; etapa 3 publicada (conferir na Netlify se o Chromium rodou no 1º lote real); etapas 4 e 5 por fazer.
