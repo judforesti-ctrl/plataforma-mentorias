@@ -578,7 +578,15 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   e a assinatura, mesmos códigos). Tudo no `historico` do certificado. `certificados-limpeza` (todo dia 4h) apaga PDFs com mais de 45 dias.
   Conferido: PDFs locais (Chrome + modelo sem os local() da Manrope, porque o Windows dela tem Manrope) iguais aos de docs/certificados/exemplos
   (mesmas fontes Inter/Poppins, 842×595, 2 páginas; muda só a máscara do QR); scratchpad 76384cb3 proj/gerar-teste.mjs e comparar.py.
-  Etapas: (1) banco, pastas e prévia [feita: turma cadastrada ou do zero]; (2) assinaturas [feita]; (3) nomes, PDFs e ZIP [feita]; (4) verificação pública (domínio alias + rewrite); (5) IA lendo a
+  VERIFICAÇÃO PÚBLICA (etapa 4): `public/verificar.html` (visual do protótipo docs/certificados/telas/verificacao.html, montado por
+  scratchpad 76384cb3 verificar.py: só troca a busca, os caminhos das imagens para /certificados/modelo/assets/ e tira a barra de
+  demonstração e o traço do rodapé) + `netlify/functions/certificados-verificar.mjs` (GET `/api/certificados/verificar/:codigo`, sem login,
+  `rateLimit` 30 por minuto por IP na própria função (429), formato conferido antes de ir ao banco, só código exato, devolve só status,
+  nome, tipo, curso, carga, período, emissão, cliente, nº de módulos e cancelado_em; `X-Robots-Tag: noindex`). netlify.toml:
+  certificados.mentorei.com.br/ (forçado) e /* (só o que não existe) → verificar.html; /verificar/* idem na plataforma. O domínio
+  certificados.mentorei.com.br precisa ser ALIAS do site na Netlify (Domain management → Add domain alias) + CNAME "certificados" →
+  mentormentorei.netlify.app na Hostinger; HTTPS sai sozinho.
+  Etapas: (1) banco, pastas e prévia [feita: turma cadastrada ou do zero]; (2) assinaturas [feita]; (3) nomes, PDFs e ZIP [feita]; (4) verificação pública [feita]; (5) IA lendo a
   proposta (`docs/certificados/extracao`). O QR da plataforma (qrcode-generator) escolhe outra máscara que o `referencia/qr.py`: desenho
   diferente, mesmo conteúdo (conferido com jsQR). Teste local: launch.json "certificados-teste" (porta 8811), scratchpad da sessão
   76384cb3 (teste/ com cert_pastas no base-falso.js; `?sem47`).
@@ -664,7 +672,7 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
 - FERRAMENTAS DA TRILHA (2026-10-28): ela rodar o script 48 no Supabase (até lá o cartão da turma avisa e o aluno não vê a seção).
-- CERTIFICADOS (2026-10-28): script 47 RODADO; etapa 3 publicada (conferir na Netlify se o Chromium rodou no 1º lote real); etapas 4 e 5 por fazer.
+- CERTIFICADOS (2026-10-28): etapas 1 a 4 publicadas (Chromium já gerou lotes reais); falta ela ligar certificados.mentorei.com.br (alias na Netlify + CNAME na Hostinger) e a etapa 5 (IA lendo a proposta).
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
   gravações em Turmas; conferir se o Workspace deixa "qualquer pessoa com o link"; revisão jurídica do TERMO_ALUNO. Nada testado com
   login real nem com a pasta real (sem acesso daqui).

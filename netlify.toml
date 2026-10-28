@@ -17,6 +17,30 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), geolocation=(), microphone=(self)"
 
+# Verificação pública dos certificados (endereço impresso no QR code): certificados.mentorei.com.br/CODIGO mostra a página
+# verificar.html; a raiz também. Arquivos que existem (imagens do modelo, /api/...) continuam funcionando nesse endereço.
+# Na plataforma, a mesma página fica em /verificar/CODIGO.
+[[redirects]]
+  from = "https://certificados.mentorei.com.br/"
+  to = "/verificar.html"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "https://certificados.mentorei.com.br/*"
+  to = "/verificar.html"
+  status = 200
+
+[[redirects]]
+  from = "/verificar/*"
+  to = "/verificar.html"
+  status = 200
+
+[[headers]]
+  for = "/verificar.html"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow"
+
 # Endereço oficial: plataforma.mentorei.com.br. Os endereços antigos levam para ele.
 [[redirects]]
   from = "https://mentorias.mentorei.com.br/*"

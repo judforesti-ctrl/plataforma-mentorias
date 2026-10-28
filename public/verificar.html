@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Verificar certificado · Mentorei</title>
+<!--
+  PÁGINA PÚBLICA DE VERIFICAÇÃO DOS CERTIFICADOS (sem login).
+  Endereços: https://certificados.mentorei.com.br/CODIGO (o do QR code) e /verificar/CODIGO na plataforma (netlify.toml).
+  Visual do pacote da Juliana (docs/certificados/telas/verificacao.html); os dados vêm de GET /api/certificados/verificar/:codigo
+  (netlify/functions/certificados-verificar.mjs), que só responde por código exato e tem limite de consultas por minuto.
+-->
+<style>
+@font-face{font-family:'Titulo';font-weight:700;src:local('Manrope ExtraBold'),url('/certificados/modelo/assets/fonts/Poppins-Bold.woff') format('woff');}
+@font-face{font-family:'Titulo';font-weight:500;src:local('Manrope Bold'),url('/certificados/modelo/assets/fonts/Poppins-Medium.woff') format('woff');}
+@font-face{font-family:'Texto';font-weight:400;src:url('/certificados/modelo/assets/fonts/Inter-Regular.woff') format('woff');}
+@font-face{font-family:'Texto';font-weight:500;src:url('/certificados/modelo/assets/fonts/Inter-Medium.woff') format('woff');}
+@font-face{font-family:'Texto';font-weight:600;src:url('/certificados/modelo/assets/fonts/Inter-SemiBold.woff') format('woff');}
+:root{
+  --petroleo:#0E3B44; --bege:#F2EADF; --branco:#FFFFFF;
+  --t72:#4B6E73; --t55:#738E90; --t25:#C1C4BE; --t12:#DBD7CD; --cartao:#FBF8F3;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bege);color:var(--petroleo);font-family:'Texto',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;display:flex;flex-direction:column}
+a{color:inherit}
+
+header{padding:28px 20px 0;display:flex;justify-content:center}
+header .marca{width:100%;max-width:880px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+header img{width:150px;height:auto;display:block}
+header .rot{font:600 10.5px/1 'Texto';letter-spacing:.3em;text-transform:uppercase;color:var(--t72)}
+
+main{flex:1;display:flex;justify-content:center;align-items:flex-start;padding:28px 16px 40px}
+.cartao{width:100%;max-width:880px;background:var(--cartao);border:1px solid var(--t12);border-radius:20px;overflow:hidden;position:relative}
+.topo{display:grid;grid-template-columns:1fr auto;gap:24px;align-items:center;padding:36px 40px 28px;border-bottom:1px solid var(--t12);position:relative}
+.selo{width:168px;height:168px;display:block;filter:drop-shadow(0 6px 10px rgba(46,32,14,.18))}
+.status{display:inline-flex;align-items:center;gap:8px;font:600 12px/1 'Texto';letter-spacing:.08em;text-transform:uppercase;padding:9px 14px 9px 10px;border-radius:99px}
+.status svg{width:18px;height:18px;flex:none}
+.status.ok{background:var(--petroleo);color:var(--bege)}
+.status.cancelado{border:1.5px solid var(--petroleo);color:var(--petroleo)}
+.status.nao{border:1.5px dashed var(--t55);color:var(--t72)}
+.intro{margin-top:22px;font:400 15px/1.4 'Texto';color:var(--t72)}
+.nome{margin-top:6px;font:700 clamp(26px,5vw,40px)/1.08 'Titulo';letter-spacing:-.02em;color:var(--petroleo);text-wrap:balance}
+.con{margin-top:16px;font:400 15px/1.4 'Texto';color:var(--t72)}
+.curso{margin-top:4px;font:500 clamp(18px,3.2vw,23px)/1.25 'Titulo';letter-spacing:-.01em;text-wrap:balance}
+.dados{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+.dado{padding:20px 40px;border-right:1px solid var(--t12);border-bottom:1px solid var(--t12)}
+.dado:nth-child(3n){border-right:0}
+.dado .l{font:600 10px/1 'Texto';letter-spacing:.24em;text-transform:uppercase;color:var(--t55)}
+.dado .v{margin-top:8px;font:500 15px/1.35 'Texto';color:var(--petroleo);font-feature-settings:"tnum"}
+.dado .v.cod{white-space:nowrap}
+.rodape{padding:22px 40px 28px;font:400 13px/1.55 'Texto';color:var(--t72)}
+.rodape b{font-weight:600;color:var(--petroleo)}
+.msg{padding:40px;max-width:640px}
+.msg h1{margin-top:20px;font:700 clamp(24px,4.5vw,34px)/1.12 'Titulo';letter-spacing:-.02em}
+.msg p{margin-top:12px;font:400 15px/1.6 'Texto';color:var(--t72)}
+.msg code{font:600 14px 'Texto';color:var(--petroleo);background:var(--bege);padding:2px 6px;border-radius:6px;letter-spacing:.04em}
+form.busca{margin-top:24px;display:flex;gap:10px;flex-wrap:wrap}
+form.busca input{flex:1 1 240px;font:600 17px/1 'Texto';letter-spacing:.08em;text-transform:uppercase;color:var(--petroleo);background:#fff;border:1.5px solid var(--t25);border-radius:12px;padding:15px 16px;outline:none}
+form.busca input:focus{border-color:var(--petroleo)}
+form.busca input::placeholder{color:var(--t25);letter-spacing:.08em}
+form.busca button{font:600 15px/1 'Texto';color:var(--bege);background:var(--petroleo);border:0;border-radius:12px;padding:15px 26px;cursor:pointer}
+form.busca button:hover{background:#0a2e35}
+footer{padding:0 20px 32px;text-align:center;font:400 12px/1.6 'Texto';color:var(--t55)}
+footer .slogan{font:600 10px/1 'Texto';letter-spacing:.34em;text-transform:uppercase;color:var(--t72);margin-bottom:10px}
+@media (max-width:640px){
+  header{padding-top:22px} header img{width:124px} header .rot{display:none}
+  .topo{grid-template-columns:1fr;padding:28px 22px 22px}
+  .selo{width:120px;height:120px;grid-row:1}
+  .dados{grid-template-columns:1fr 1fr}
+  .dado{padding:16px 22px}
+  .dado:nth-child(3n){border-right:1px solid var(--t12)}
+  .dado:nth-child(2n){border-right:0}
+  .rodape,.msg{padding-left:22px;padding-right:22px}
+}
+</style>
+</head>
+<body>
+<header><div class="marca">
+  <img src="/certificados/modelo/assets/logo-azul-petroleo.png" alt="MENTOREI">
+  <span class="rot">Verificação de certificado</span>
+</div></header>
+
+<main><div class="cartao" id="cartao" aria-live="polite"></div></main>
+
+<footer>
+  <p class="slogan">Liderar pode ser inspirador</p>
+  <p>Mentorei · contato@mentorei.com.br</p>
+</footer>
+
+<script>
+// GET /api/certificados/verificar/:codigo → dados do certificado; 404 = não encontrado; 429 = muitas consultas seguidas
+function buscar(codigo){
+  return fetch('/api/certificados/verificar/' + encodeURIComponent(codigo), { headers: { Accept: 'application/json' } })
+    .then(function(r){
+      if (r.status === 404) return null;
+      if (r.status === 429) return { status: 'erro', mensagem: 'Foram muitas consultas seguidas. Espere um minuto e tente de novo.' };
+      if (!r.ok) return { status: 'erro', mensagem: 'Não conseguimos verificar agora. Tente de novo em alguns minutos.' };
+      return r.json();
+    })
+    .catch(function(){ return { status: 'erro', mensagem: 'Sem conexão com a internet. Confira a conexão e tente de novo.' }; });
+}
+
+var FEMININOS = ['mentoria','trilha','formação','jornada','palestra','imersão','oficina'];
+var ICONE_OK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M7.5 12.5l3 3 6-6.5"/></svg>';
+var ICONE_X = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7"/></svg>';
+var ICONE_BUSCA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>';
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+// maiúsculas, sem espaços; traço digitado diferente ou sem traço também vale (MTR26XXXXXXXX)
+function normalizar(c){
+  var s = String(c || '').toUpperCase().replace(/[\s\u00a0]+/g, '').replace(/[\u2010-\u2015\u2212_.]/g, '-').replace(/[^A-Z0-9-]/g, '');
+  var m = s.replace(/-/g, '').match(/^MTR(\d{2})([A-Z0-9]{4})([A-Z0-9]{4})$/);
+  return m ? 'MTR-' + m[1] + '-' + m[2] + '-' + m[3] : s;
+}
+
+function formBusca(valor){
+  return '<form class="busca" onsubmit="event.preventDefault(); ir(this.c.value)">' +
+    '<input name="c" value="' + esc(valor) + '" placeholder="MTR-26-XXXX-XXXX" autocomplete="off" autocapitalize="characters" aria-label="Código do certificado">' +
+    '<button type="submit">Verificar</button></form>';
+}
+
+function telaValido(cod, r){
+  var art = FEMININOS.indexOf((r.tipo || '').toLowerCase()) >= 0 ? 'a' : 'o';
+  var dados = [
+    ['Carga horária', r.carga], ['Período', r.periodo], ['Emitido em', r.data_emissao],
+    ['Realizado para', r.cliente || 'Turma aberta'], ['Módulos', r.modulos ? r.modulos + (r.modulos === 1 ? ' módulo' : ' módulos') : ''], ['Código', cod, 'cod']
+  ].filter(function(d){ return d[1]; });
+  return '<div class="topo"><div>' +
+      '<span class="status ok">' + ICONE_OK + 'Certificado válido</span>' +
+      '<p class="intro">A Mentorei certifica que</p>' +
+      '<h1 class="nome">' + esc(r.participante) + '</h1>' +
+      '<p class="con">concluiu ' + art + ' ' + esc(r.tipo || 'curso') + '</p>' +
+      '<h2 class="curso">' + esc(r.curso) + '</h2>' +
+    '</div><img class="selo" src="/certificados/modelo/assets/selo-dourado.png" alt="Selo Mentorei"></div>' +
+    '<div class="dados">' + dados.map(function(d){ return '<div class="dado"><p class="l">' + d[0] + '</p><p class="v' + (d[2] ? ' ' + d[2] : '') + '">' + esc(d[1]) + '</p></div>'; }).join('') + '</div>' +
+    '<p class="rodape">Esta página confirma os dados registrados pela <b>Mentorei</b> no momento da emissão. ' +
+    'Compare com o certificado apresentado: os dados devem ser iguais. Dúvidas: <b>contato@mentorei.com.br</b>.</p>';
+}
+function telaCancelado(cod, r){
+  return '<div class="msg"><span class="status cancelado">' + ICONE_X + 'Certificado cancelado</span>' +
+    '<h1>Este certificado não é mais válido</h1>' +
+    '<p>O código <code>' + esc(cod) + '</code> foi cancelado pela Mentorei' + (r.cancelado_em ? ' em ' + esc(r.cancelado_em) : '') + '. ' +
+    'Isso acontece, por exemplo, quando um certificado é reemitido com dados corrigidos.</p>' +
+    '<p>Se você acha que é um engano, escreva para <b>contato@mentorei.com.br</b> informando o código.</p></div>';
+}
+function telaNaoEncontrado(cod){
+  return '<div class="msg"><span class="status nao">' + ICONE_BUSCA + 'Código não encontrado</span>' +
+    '<h1>Não encontramos este código</h1>' +
+    '<p>Confira se ele foi digitado igual ao certificado: letras maiúsculas e números, no formato <code>MTR-26-XXXX-XXXX</code>. ' +
+    'Os códigos não usam as letras I e O nem os números 0 e 1.</p>' + formBusca(cod) +
+    '<p>Se o código estiver certo e mesmo assim não aparecer, o certificado pode não ter sido emitido pela Mentorei. ' +
+    'Fale com <b>contato@mentorei.com.br</b>.</p></div>';
+}
+function telaErro(cod, r){
+  return '<div class="msg"><span class="status nao">' + ICONE_BUSCA + 'Verificação</span>' +
+    '<h1>Não foi possível verificar agora</h1><p>' + esc(r.mensagem) + '</p>' + formBusca(cod) + '</div>';
+}
+function telaBusca(){
+  return '<div class="msg"><span class="status nao">' + ICONE_BUSCA + 'Verificação</span>' +
+    '<h1>Verificar um certificado</h1>' +
+    '<p>Digite o código que aparece no certificado, embaixo de "Código do certificado", ou escaneie o QR code com a câmera do celular.</p>' +
+    formBusca('') + '</div>';
+}
+
+// certificados.mentorei.com.br/MTR-26-XXXX-XXXX, plataforma.mentorei.com.br/verificar/MTR-26-XXXX-XXXX ou ?codigo=
+var NA_PLATAFORMA = /^\/verificar(\/|\.html|$)/.test(location.pathname);
+function codigoDaUrl(){
+  var q = new URLSearchParams(location.search).get('codigo');
+  if (q) return normalizar(q);
+  var ult = '';
+  try { ult = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); } catch (e) {}
+  return /^MTR/i.test(ult) ? normalizar(ult) : '';
+}
+function ir(c){
+  c = normalizar(c);
+  history.replaceState(null, '', (NA_PLATAFORMA ? '/verificar/' : '/') + encodeURIComponent(c));
+  mostrar(c);
+}
+function mostrar(cod){
+  var el = document.getElementById('cartao');
+  document.title = (cod ? cod + ' · ' : '') + 'Verificar certificado · Mentorei';
+  if (!cod) { el.innerHTML = telaBusca(); return; }
+  el.innerHTML = '<div class="msg"><p>Verificando o código ' + esc(cod) + '…</p></div>';
+  buscar(cod).then(function(r){
+    if (!r) el.innerHTML = telaNaoEncontrado(cod);
+    else if (r.status === 'erro') el.innerHTML = telaErro(cod, r);
+    else if (r.status === 'cancelado') el.innerHTML = telaCancelado(cod, r);
+    else el.innerHTML = telaValido(cod, r);
+  });
+}
+mostrar(codigoDaUrl());
+</script>
+</body>
+</html>
