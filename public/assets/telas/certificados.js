@@ -4,7 +4,7 @@
 // A prévia é o próprio modelo (/certificados/modelo/certificado.html, sem mudança) num iframe, recebendo os dados por postMessage.
 // Rotas: #/certificados · #/certificados/nova · #/certificados/<pasta>[/emitir|/emitidos|/editar]
 import { sb, esc, dataBR, hojeISO, avisar, explicarErro } from '../base.js';
-import { faltaScript } from './agenda-dados.js';
+import { faltaScript, api } from './agenda-dados.js';
 import { paraPng, linkLogo, logoAnterior } from './proposta.js';
 import { bibliotecaQr } from './avaliacao-modulo.js';
 import * as R from '../certificados-regras.js';
@@ -104,7 +104,9 @@ async function nova(ctx, el) {
       const { data: turmas } = await sb.from('turmas').select('id, nome, inicio, status, empresa:empresas(nome), modulos(id)').order('inicio', { ascending: false, nullsFirst: false });
       el.innerHTML = `${topo}<div class="ct-opcoes">
         <div class="cartao ct-opcao"><h3>Enviar a proposta ou a trilha</h3><p class="peq apagado">Envie o arquivo do programa. A plataforma lê e preenche o nome, o cliente, os módulos e as horas. Você revisa tudo antes de criar a pasta.</p>
-          <div class="aviso mt">A leitura da proposta pela IA ainda vai ser ligada (etapa 5). Por enquanto, use uma turma cadastrada ou preencha do zero.</div></div>
+          <label class="ct-solta mt" id="ct-arq-solta"><input type="file" id="ct-arq" accept=".pptx,.pdf,.docx" hidden>
+            <b>Clique para escolher</b> ou arraste o arquivo aqui<small>PowerPoint (.pptx), PDF ou Word (.docx)</small></label>
+          <div id="ct-lendo" class="mt"></div></div>
         <div class="cartao ct-opcao"><h3>Usar uma turma cadastrada</h3><p class="peq apagado">Puxa o nome, o cliente, os módulos, as datas e as horas de uma turma que já existe na plataforma.</p>
           <select id="ct-turma" class="mt" aria-label="Turma"><option value="">Escolha a turma</option>${(turmas || []).map((t) => `<option value="${t.id}">${esc(t.empresa ? `${t.empresa.nome} · ` : '')}${esc(t.nome)} · ${plural((t.modulos || []).length, 'módulo', 'módulos')}</option>`).join('')}</select>
           <button class="btn mt" type="button" id="ct-usar-turma" disabled>Usar esta turma</button></div>
@@ -113,6 +115,26 @@ async function nova(ctx, el) {
         <div class="ct-rodape"><span></span><button class="btn" type="button" id="ct-volta">Voltar</button></div>`;
       el.querySelector('#ct-volta').addEventListener('click', () => { N.passo = 1; desenhar(); });
       el.querySelector('#ct-zero').addEventListener('click', () => { N.d.origem = { tipo: 'manual' }; N.aviso = ''; N.passo = 3; desenhar(); });
+      // proposta ou trilha em arquivo: a IA lê e preenche; a pessoa revisa tudo no passo 3
+      const solta = el.querySelector('#ct-arq-solta'), lendo = el.querySelector('#ct-lendo');
+      let ocupado = false;
+      const ler = async (arq) => {
+        if (!arq || ocupado) return;
+        ocupado = true;
+        try {
+          const r = await lerProposta(arq, (t) => { lendo.innerHTML = `<p class="peq apagado">${esc(t)}</p>`; });
+          await daProposta(N.d, r, arq.name);
+          const obs = r.observacoes || [];
+          N.aviso = `Preenchemos estes campos a partir de <b>${esc(arq.name)}</b>. Confira tudo antes de criar a pasta: o que não estava no arquivo ficou em branco.`
+            + (obs.length ? `<ul class="mt" style="margin-left:18px">${obs.map((o) => `<li>${esc(o)}</li>`).join('')}</ul>` : '');
+          N.passo = 3; desenhar();
+        } catch (e) { lendo.innerHTML = `<div class="aviso erro">${esc(e.message || explicarErro(e))}</div>`; }
+        ocupado = false;
+      };
+      el.querySelector('#ct-arq').addEventListener('change', (ev) => { const a = ev.target.files && ev.target.files[0]; ev.target.value = ''; ler(a); });
+      ['dragenter', 'dragover'].forEach((t) => solta.addEventListener(t, (ev) => { ev.preventDefault(); solta.classList.add('arrastando'); }));
+      ['dragleave', 'drop'].forEach((t) => solta.addEventListener(t, (ev) => { ev.preventDefault(); solta.classList.remove('arrastando'); }));
+      solta.addEventListener('drop', (ev) => ler(ev.dataTransfer.files && ev.dataTransfer.files[0]));
       const sel = el.querySelector('#ct-turma'), usar = el.querySelector('#ct-usar-turma');
       sel.addEventListener('change', () => { usar.disabled = !sel.value; });
       usar.addEventListener('click', async () => {
@@ -139,6 +161,70 @@ async function nova(ctx, el) {
     });
   };
   desenhar();
+}
+
+// ---------- proposta ou trilha em arquivo (etapa 5) ----------
+const JSZIP = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
+const TIPO_ARQUIVO = { pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', pdf: 'application/pdf',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
+
+// Word (.docx): os parágrafos do documento, na ordem (tabelas entram linha a linha)
+async function lerTextoDocx(arq) {
+  const JSZip = (await import(JSZIP)).default;
+  const zip = await JSZip.loadAsync(await arq.arrayBuffer());
+  const xml = await (zip.file('word/document.xml') || { async: async () => '' }).async('string');
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  const W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  return [...doc.getElementsByTagNameNS(W, 'p')].map((p) => [...p.getElementsByTagNameNS(W, 't')].map((t) => t.textContent).join(''))
+    .map((t) => t.trim()).filter(Boolean).join('\n');
+}
+
+// arquivo → texto (no navegador) → original guardado na pasta privada → IA em segundo plano → campos
+async function lerProposta(arq, aoAvancar) {
+  const ext = (String(arq.name).match(/\.([a-z0-9]+)$/i) || [, ''])[1].toLowerCase();
+  if (!TIPO_ARQUIVO[ext]) throw new Error(ext === 'ppt' || ext === 'doc' ? 'Este é o formato antigo do Office. Abra o arquivo e salve como .pptx ou .docx (ou exporte em PDF) e envie de novo.' : 'Envie o arquivo em PowerPoint (.pptx), PDF ou Word (.docx).');
+  if (arq.size > 25 * 1024 * 1024) throw new Error('O arquivo é grande demais (máximo 25 MB). Exporte em PDF e envie de novo.');
+  aoAvancar('Lendo o arquivo…');
+  const { lerTextoPdf, lerTextoPptx } = await import('./importar-proposta.js');
+  const texto = ext === 'pptx' ? await lerTextoPptx(arq, aoAvancar) : ext === 'pdf' ? await lerTextoPdf(arq, aoAvancar) : await lerTextoDocx(arq);
+  if (texto.replace(/--- (página|slide) \d+ ---/g, '').trim().length < 80) throw new Error('Não consegui ler texto neste arquivo. Se ele for uma imagem escaneada, exporte de novo como PDF a partir do Canva, do PowerPoint ou do Word.');
+  aoAvancar('Guardando o arquivo…');
+  const id = crypto.randomUUID();
+  const nome = String(arq.name).replace(/[\\/:*?"<>|#%]+/g, '').replace(/\s+/g, ' ').trim().slice(-120) || `proposta.${ext}`;
+  const caminho = `propostas/${id}/${nome}`;
+  const up = await sb.storage.from('certificados').upload(caminho, arq, { contentType: TIPO_ARQUIVO[ext], upsert: false });
+  if (up.error) throw up.error;
+  const { data: imp, error } = await sb.from('importacoes_proposta').insert({ arquivo: `Certificados · ${nome}`.slice(0, 250) }).select('id').single();
+  if (error) throw error;
+  aoAvancar('A IA está lendo a proposta e procurando o programa, o cliente, os módulos e as horas. Leva uns 30 segundos…');
+  const r = await api('/api/certificados-extrair', { importacao_id: imp.id, texto, arquivo: nome });
+  if (!r.ok && r.mensagem) throw new Error(r.mensagem);
+  for (let i = 0; i < 60; i++) {
+    await new Promise((ok) => setTimeout(ok, 3000));
+    const { data } = await sb.from('importacoes_proposta').select('status, resultado, erro').eq('id', imp.id).single();
+    if (data && data.status === 'erro') throw new Error(data.erro || 'A IA não conseguiu ler a proposta. Tente de novo.');
+    if (data && data.status === 'pronto' && data.resultado) return { ...data.resultado.campos, arquivo_caminho: caminho };
+  }
+  throw new Error('A leitura está demorando mais que o normal. Tente de novo em alguns minutos.');
+}
+
+// campos da IA → pasta (o que não veio fica como está: vazio)
+async function daProposta(d, r, nomeArquivo) {
+  const norm = (t) => String(t || '').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  let empresa = null;
+  if (r.cliente) {
+    const { data: emps } = await sb.from('empresas').select('id, nome');
+    const c = norm(r.cliente);
+    empresa = (emps || []).find((e) => norm(e.nome) === c) || (emps || []).find((e) => norm(e.nome).length > 4 && (c.includes(norm(e.nome)) || norm(e.nome).includes(c))) || null;
+  }
+  Object.assign(d, {
+    tipo: r.tipo || d.tipo, curso: r.curso || '', cliente_nome: r.cliente || '', empresa_id: empresa ? empresa.id : null,
+    inicio: r.inicio || null, fim: r.fim || null, cidade: r.cidade || '', carga_horas: r.carga_horas || '',
+    modulos: (r.modulos || []).map((m) => ({ titulo: m.titulo, descricao: m.descricao || '', horas: m.horas || '' })),
+    origem: { tipo: 'arquivo', nome_arquivo: nomeArquivo, arquivo_caminho: r.arquivo_caminho },
+  });
+  if (d.inicio || d.fim) { d.periodo_texto = R.periodoTexto(d.inicio, d.fim); d.periodo_manual = false; }
+  else { d.periodo_texto = r.periodo_texto || ''; d.periodo_manual = !!r.periodo_texto; }
 }
 
 // Turma cadastrada → campos da pasta (sem IA): nome, cliente, logo do cliente, módulos com as horas, datas e cidade.

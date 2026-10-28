@@ -586,8 +586,16 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   certificados.mentorei.com.br/ (forçado) e /* (só o que não existe) → verificar.html; /verificar/* idem na plataforma. O domínio
   certificados.mentorei.com.br precisa ser ALIAS do site na Netlify (Domain management → Add domain alias) + CNAME "certificados" →
   mentormentorei.netlify.app na Hostinger; HTTPS sai sozinho.
+  IA LENDO A PROPOSTA (etapa 5): no passo 2 da nova pasta, "Enviar a proposta ou a trilha" (.pptx/.pdf/.docx; .ppt/.doc antigos pedem
+  para salvar de novo): o navegador lê o texto (`lerTextoPptx`/`lerTextoPdf` de importar-proposta.js; `lerTextoDocx` em certificados.js),
+  guarda o original em `certificados/propostas/<uuid>/<arquivo>` (vai em `cert_pastas.origem.arquivo_caminho`), cria `importacoes_proposta`
+  ("Certificados · <arquivo>") e chama `/api/certificados-extrair` (background, claude-opus-5-5 com json_schema; prompt e esquema do pacote
+  copiados em `netlify/lib/certificados-extracao.mjs`, com o "enum com null" do tipo trocado por descrição; o servidor confere tipo, datas,
+  números) → `resultado.tipo = 'certificado'` (fora das listas de propostas) → a tela espera (3 s, até 3 min) e preenche o passo 3; as
+  `observacoes` da IA aparecem em lista no aviso do alto. Cliente: liga à empresa cadastrada de nome igual ou contido (aí oferece o logo).
+  Sem script novo. A leitura pela IA de verdade só roda na Netlify (a chave fica lá).
   Etapas: (1) banco, pastas e prévia [feita: turma cadastrada ou do zero]; (2) assinaturas [feita]; (3) nomes, PDFs e ZIP [feita]; (4) verificação pública [feita]; (5) IA lendo a
-  proposta (`docs/certificados/extracao`). O QR da plataforma (qrcode-generator) escolhe outra máscara que o `referencia/qr.py`: desenho
+  proposta [feita]. O QR da plataforma (qrcode-generator) escolhe outra máscara que o `referencia/qr.py`: desenho
   diferente, mesmo conteúdo (conferido com jsQR). Teste local: launch.json "certificados-teste" (porta 8811), scratchpad da sessão
   76384cb3 (teste/ com cert_pastas no base-falso.js; `?sem47`).
 
@@ -672,7 +680,7 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
 - FERRAMENTAS DA TRILHA (2026-10-28): ela rodar o script 48 no Supabase (até lá o cartão da turma avisa e o aluno não vê a seção).
-- CERTIFICADOS (2026-10-28): etapas 1 a 4 publicadas (Chromium já gerou lotes reais); falta ela ligar certificados.mentorei.com.br (alias na Netlify + CNAME na Hostinger) e a etapa 5 (IA lendo a proposta).
+- CERTIFICADOS (2026-10-28): as 5 etapas publicadas (Chromium já gerou lotes reais); falta ela ligar certificados.mentorei.com.br (alias na Netlify + CNAME na Hostinger), testar a IA com uma proposta real e ler o QR impresso com o celular.
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
   gravações em Turmas; conferir se o Workspace deixa "qualquer pessoa com o link"; revisão jurídica do TERMO_ALUNO. Nada testado com
   login real nem com a pasta real (sem acesso daqui).
