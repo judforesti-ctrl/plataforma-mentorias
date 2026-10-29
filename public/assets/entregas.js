@@ -39,7 +39,7 @@ export function htmlEntregas(lista, { mentor = false, responder = mentor } = {})
         : `${e.visto_em ? `<span class="selo">Visto pelo mentor em ${diaMes(e.visto_em)}</span>` : '<span class="selo neutro">Ainda não visto</span>'}
            <button type="button" class="btn peq" data-entrega-apagar="${e.id}" title="Apagar este envio" aria-label="Apagar este envio">✕</button>`}</div>
     ${e.mensagem ? `<p class="peq mt" style="white-space:pre-wrap">${mentor ? '<b>Recado:</b> ' : ''}${esc(e.mensagem)}</p>` : ''}
-    ${(e.arquivos || []).length ? `<div class="chips mt">${e.arquivos.map((a, i) => `<button type="button" class="btn peq" data-entrega-baixar="${e.id}" data-i="${i}" title="Baixar">📎 ${esc(a.nome)} <span class="apagado">· ${tamanhoTexto(a.tamanho || 0)}</span></button>`).join('')}</div>` : ''}
+    ${(e.arquivos || []).length ? `<div class="chips mt">${e.arquivos.map((a, i) => `<button type="button" class="btn peq" data-entrega-baixar="${e.id}" data-arquivo="${i}" title="Baixar">📎 ${esc(a.nome)} <span class="apagado">· ${tamanhoTexto(a.tamanho || 0)}</span></button>`).join('')}</div>` : ''}
     <div data-retorno="${e.id}">${e.retorno ? `<div class="aviso ok mt peq" style="white-space:pre-wrap"><b>Resposta do mentor${e.retorno_em ? ` (${diaMes(e.retorno_em)})` : ''}:</b> ${esc(e.retorno)}</div>` : ''}
       ${responder ? `<button type="button" class="btn peq mt" data-entrega-responder="${e.id}">${e.retorno ? 'Mudar a resposta' : 'Responder'}</button>` : ''}</div>
   </div>`).join('')}</div>`;
@@ -85,7 +85,7 @@ export function ligarEntregas(raiz, lista, { marcarVisto = false, perfilId = nul
     }
     const dl = ev.target.closest('[data-entrega-baixar]');
     if (dl) {
-      const e = lista.find((x) => x.id === dl.dataset.entregaBaixar); const a = e && e.arquivos[Number(dl.dataset.i)];
+      const e = lista.find((x) => x.id === dl.dataset.entregaBaixar); const a = e && e.arquivos[Number(dl.dataset.arquivo)];
       if (!a) return;
       const aba = window.open('', '_blank');
       const { data, error } = await sb.storage.from('entregas').createSignedUrl(a.caminho, 300, { download: a.nome });

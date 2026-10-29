@@ -273,8 +273,10 @@ export async function render(ctx, el, [id]) {
     </div>`;
 
   // Os campos ficam guardados aqui porque alguns blocos podem ir para a janela flutuante (fora desta página).
-  const camposS = [...el.querySelectorAll('[data-s]')];
-  const camposI = [...el.querySelectorAll('[data-i]')];
+  // Só campos de verdade (caixa de texto, campo e lista): outro bloco da página com data-i (ex.: o botão de baixar
+  // um documento do mentorado, data-i="0") virava a coluna "0" e o banco recusava salvar as anotações (29/10).
+  const camposS = [...el.querySelectorAll('input[data-s], textarea[data-s], select[data-s]')];
+  const camposI = [...el.querySelectorAll('input[data-i], textarea[data-i], select[data-i]')];
   const campoS = (k) => camposS.find((c) => c.dataset.s === k);
   const campoI = (k) => camposI.find((c) => c.dataset.i === k);
   const avisosVoz = Object.fromEntries([...el.querySelectorAll('[data-ouvindo]')].map((x) => [x.dataset.ouvindo, x]));
