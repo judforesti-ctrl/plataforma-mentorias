@@ -15,8 +15,8 @@ const links = new Map();   // caminho → endereço temporário (1 hora)
 export async function linksDas(assinaturas) {
   const faltam = [...new Set(assinaturas.flatMap((a) => [a.clara_caminho, a.escura_caminho]).filter((c) => c && !links.has(c)))];
   if (faltam.length) {
-    const { data, error } = await sb.storage.from(BALDE).createSignedUrls(faltam, 3600);
-    if (error) throw error;
+    // se o link de uma imagem não sair, a assinatura continua na lista (só sem a figura): nunca some a lista inteira
+    const { data } = await sb.storage.from(BALDE).createSignedUrls(faltam, 3600).catch(() => ({ data: [] }));
     (data || []).forEach((d) => { if (d.signedUrl) links.set(d.path, d.signedUrl); });
   }
   assinaturas.forEach((a) => { a.url = { clara: links.get(a.clara_caminho) || '', escura: links.get(a.escura_caminho) || '' }; });
@@ -41,11 +41,26 @@ const amostras = (a) => `<div class="ct-ass">
   <div class="ct-ass-amostra escura" title="No padrão escuro">${a && a.url && a.url.escura ? `<img src="${esc(a.url.escura)}" alt="Assinatura no padrão escuro">` : '<span>sem assinatura</span>'}</div></div>`;
 export { amostras as amostrasAssinatura };
 
+// cartões das assinaturas já salvas, cada um com "Usar esta" (data-usar-ass); as do lado pedido vêm primeiro
+export function cartoesSalvas(salvas, { variacao = 'clara', emUso = null, lado = 'mentorei' } = {}) {
+  const v = variacao === 'escura' ? 'escura' : 'clara';
+  const ordem = [...salvas].sort((a, b) => (a.lado === lado ? 0 : 1) - (b.lado === lado ? 0 : 1) || String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+  return `<div class="ct-salvas">${ordem.map((a) => `<div class="ct-salva${a.id === emUso ? ' on' : ''}">
+      <div class="ct-ass-amostra ${v}">${a.url && a.url[v] ? `<img src="${esc(a.url[v])}" alt="Assinatura de ${esc(a.nome)}">` : '<span>imagem guardada</span>'}</div>
+      <div><b>${esc(a.nome)}</b>${a.cargo ? `<div class="peq">${esc(a.cargo)}</div>` : ''}<div class="peq apagado">${LADOS[a.lado] || ''}</div></div>
+      ${a.id === emUso ? '<span class="ct-em-uso">✓ Nesta pasta</span>' : `<button class="btn peq pri" type="button" data-usar-ass="${a.id}">Usar esta</button>`}</div>`).join('')}</div>`;
+}
+
 // ---------- enviar uma assinatura ----------
-// inicial: { nome, cargo, lado, empresa_id }; aoUsar(assinatura gravada, com .url)
+// inicial: { nome, cargo, lado, empresa_id, salvas, variacao }; aoUsar(assinatura gravada ou escolhida da lista, com .url)
+// Com "salvas", a janela mostra primeiro as que já estão guardadas: escolher uma não pede a imagem de novo.
 export function janelaEnviar(ctx, inicial, aoUsar) {
   let pronta = null, arquivo = null;
-  const j = janela('Enviar assinatura', `<div class="grade" style="gap:14px">
+  const salvas = (inicial.salvas || []).filter((a) => !a.excluido_em);
+  const j = janela(salvas.length ? 'Assinatura' : 'Enviar assinatura', `<div class="grade" style="gap:14px">
+    ${salvas.length ? `<div><p><b>Já está salva na plataforma?</b> Escolha aqui, sem enviar a imagem de novo:</p>
+      <div class="mt">${cartoesSalvas(salvas, { variacao: inicial.variacao, lado: inicial.lado })}</div></div>
+      <p class="ct-ou"><span>ou envie uma assinatura nova</span></p>` : ''}
     <label class="ct-solta"><input type="file" accept="image/png,image/jpeg,image/webp,image/heic,image/heif,.heic,.heif" hidden>
       <b>Escolha a foto ou o escaneamento da assinatura</b><small>Caneta escura em papel branco, sem pauta. Foto de celular serve (JPG, PNG, WEBP ou HEIC do iPhone).</small></label>
     <div id="as-res"></div>
@@ -57,6 +72,11 @@ export function janelaEnviar(ctx, inicial, aoUsar) {
     <p class="peq apagado">É uma imagem da assinatura, para o acabamento do certificado (não é assinatura digital). Quem garante que o certificado é verdadeiro é a verificação pelo código.</p>
     <div class="linha" style="justify-content:flex-end"><button class="btn" type="button" data-fechar>Cancelar</button><button class="btn pri" type="button" id="as-usar" disabled>Usar esta assinatura</button></div></div>`, { largura: 640 });
   const $ = (s) => j.corpo.querySelector(s);
+  j.corpo.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-usar-ass]'); if (!b) return;
+    const a = salvas.find((x) => x.id === b.dataset.usarAss); if (!a) return;
+    j.fechar(); aoUsar(a);
+  });
   let lado = inicial.lado === 'cliente' ? 'cliente' : 'mentorei';
   $('#as-nome').value = inicial.nome || ''; $('#as-cargo').value = inicial.cargo || '';
   const marcarLado = () => j.corpo.querySelectorAll('#as-lado button').forEach((b) => b.classList.toggle('on', b.dataset.v === lado));

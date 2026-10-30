@@ -8,7 +8,7 @@ import { faltaScript, api } from './agenda-dados.js';
 import { paraPng, linkLogo, logoAnterior } from './proposta.js';
 import { bibliotecaQr } from './avaliacao-modulo.js';
 import * as R from '../certificados-regras.js';
-import { carregarAssinaturas, janelaEnviar, janelaLista, amostrasAssinatura } from './certificados-assinaturas.js';
+import { carregarAssinaturas, janelaEnviar, janelaLista, amostrasAssinatura, cartoesSalvas } from './certificados-assinaturas.js';
 import { abaEmitir, abaEmitidos } from './certificados-emitir.js';
 import { prepararLogo, TRATAMENTO_LOGO } from '../logo-certificado.js';
 
@@ -339,7 +339,7 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
   });
 
   const variacao = () => el.querySelectorAll('#ct-var button').forEach((b) => b.classList.toggle('on', b.dataset.v === d.variacao));
-  el.querySelectorAll('#ct-var button').forEach((b) => b.addEventListener('click', () => { d.variacao = b.dataset.v; variacao(); atualizar(); }));
+  el.querySelectorAll('#ct-var button').forEach((b) => b.addEventListener('click', () => { d.variacao = b.dataset.v; variacao(); desenharAss(); atualizar(); }));
   variacao();
 
   // Logo do cliente: o fundo sai e cada padrão usa a versão que aparece bem (cores do logo ou uma cor só, que dá para trocar).
@@ -448,19 +448,17 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
   });
   desenharMods();
 
-  // assinaturas: usar uma salva (preenche nome e cargo), enviar uma nova ou tirar
+  // assinaturas: as salvas aparecem como cartões com "Usar esta" (preenche nome e cargo); enviar uma nova ou tirar
   const imgAss = (id) => { const a = assinaturas.find((x) => x.id === id); return a && a.url ? a.url[d.variacao === 'escura' ? 'escura' : 'clara'] : ''; };
-  const opcoes = (n) => {
-    const salvas = assinaturas.filter((a) => !a.excluido_em);
-    const grupo = (l, t) => { const xs = salvas.filter((a) => a.lado === l); return xs.length ? `<optgroup label="${t}">${xs.map((a) => `<option value="${a.id}">${esc(a.nome)}${a.cargo ? ` · ${esc(a.cargo)}` : ''}</option>`).join('')}</optgroup>` : ''; };
-    const ordem = n === 1 ? [['mentorei', 'Pela Mentorei'], ['cliente', 'Pelo cliente']] : [['cliente', 'Pelo cliente'], ['mentorei', 'Pela Mentorei']];
-    return `<option value="">${salvas.length ? 'Usar uma assinatura salva' : 'Nenhuma assinatura salva ainda'}</option>${ordem.map(([l, t]) => grupo(l, t)).join('')}`;
-  };
   const desenharAss = () => [1, 2].forEach((n) => {
     const box = el.querySelector(`[data-ass="${n}"]`), a = assinaturas.find((x) => x.id === d[`resp${n}_assinatura_id`]);
-    box.innerHTML = `${amostrasAssinatura(a)}<div class="linha mt" style="gap:8px"><select data-ass-sel="${n}" aria-label="Usar uma assinatura salva" style="width:auto;max-width:100%"${assinaturas.some((x) => !x.excluido_em) ? '' : ' disabled'}>${opcoes(n)}</select>
-      <button class="btn peq" type="button" data-ass-nova="${n}">Enviar assinatura</button>${a ? `<button class="btn peq perigo" type="button" data-ass-tirar="${n}">Tirar assinatura</button>` : ''}</div>
-      ${a && a.excluido_em ? '<p class="peq apagado mt">Esta assinatura não está na lista de assinaturas salvas, mas esta pasta continua com ela.</p>' : ''}`;
+    const salvas = assinaturas.filter((x) => !x.excluido_em);
+    box.innerHTML = `<p class="peq"><b>${a ? 'Assinatura nesta pasta' : 'Esta pasta ainda está sem a imagem da assinatura'}</b></p><div class="mt">${amostrasAssinatura(a)}</div>
+      ${a && a.excluido_em ? '<p class="peq apagado mt">Esta assinatura não está na lista de assinaturas salvas, mas esta pasta continua com ela.</p>' : ''}
+      ${salvas.length ? `<p class="peq mt"><b>Assinaturas salvas:</b> clique em "Usar esta" para colocar nesta pasta.</p>
+        <div class="mt">${cartoesSalvas(salvas, { variacao: d.variacao, emUso: a && a.id, lado: n === 1 ? 'mentorei' : 'cliente' })}</div>`
+        : '<p class="peq apagado mt">Nenhuma assinatura salva ainda. Envie uma e ela fica guardada para as próximas pastas.</p>'}
+      <div class="linha mt" style="gap:8px"><button class="btn peq" type="button" data-ass-nova="${n}">Enviar uma assinatura nova</button>${a ? `<button class="btn peq perigo" type="button" data-ass-tirar="${n}">Tirar assinatura</button>` : ''}</div>`;
   });
   const aplicarAss = (n, a) => {
     d[`resp${n}_assinatura_id`] = a.id;
@@ -468,17 +466,20 @@ async function editor(ctx, el, d, { existente = null, aviso = '', voltar = null,
     d[`resp${n}_cargo`] = a.cargo || ''; $(`#ct-r${n}c`).value = a.cargo || '';
     desenharAss(); atualizar();
   };
-  f.addEventListener('change', (ev) => {
-    const sel = ev.target.closest('[data-ass-sel]'); if (!sel || !sel.value) return;
-    const a = assinaturas.find((x) => x.id === sel.value); if (a) aplicarAss(+sel.dataset.assSel, a);
-  });
   f.addEventListener('click', (ev) => {
+    const usar = ev.target.closest('[data-usar-ass]');
+    if (usar) {
+      const a = assinaturas.find((x) => x.id === usar.dataset.usarAss);
+      if (a) aplicarAss(+usar.closest('[data-ass]').dataset.ass, a);
+      return;
+    }
     const nova = ev.target.closest('[data-ass-nova]'), tirar = ev.target.closest('[data-ass-tirar]');
     if (tirar) { d[`resp${tirar.dataset.assTirar}_assinatura_id`] = null; desenharAss(); atualizar(); }
     if (nova) {
       const n = +nova.dataset.assNova;
-      janelaEnviar(ctx, { nome: d[`resp${n}_nome`], cargo: d[`resp${n}_cargo`], lado: n === 1 ? 'mentorei' : 'cliente', empresa_id: d.empresa_id },
-        (a) => { assinaturas.push(a); aplicarAss(n, a); });
+      janelaEnviar(ctx, { nome: d[`resp${n}_nome`], cargo: d[`resp${n}_cargo`], lado: n === 1 ? 'mentorei' : 'cliente', empresa_id: d.empresa_id,
+        salvas: assinaturas, variacao: d.variacao },
+        (a) => { if (!assinaturas.some((x) => x.id === a.id)) assinaturas.push(a); aplicarAss(n, a); });
     }
   });
   desenharAss();

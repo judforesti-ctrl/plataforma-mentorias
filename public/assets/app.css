@@ -699,6 +699,12 @@ body.janela-flutuante > .cartao { margin-top: 10px; }
 .ct-ass-lista { display: grid; gap: 10px; }
 .ct-ass-item { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 10px; border: 1px solid var(--linha); border-radius: 12px; }
 @media (max-width: 640px) { .ct-ass-item { grid-template-columns: 1fr; } }
+.ct-salvas { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.ct-salva { display: grid; gap: 8px; align-content: start; padding: 10px; border: 1px solid var(--linha); border-radius: 12px; background: #fff; }
+.ct-salva.on { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok) inset; } .ct-salva .btn { justify-self: start; }
+.ct-em-uso { color: var(--ok); font-weight: 700; font-size: 13px; }
+.ct-ou { display: flex; align-items: center; gap: 10px; color: var(--apagado); font-size: 13px; }
+.ct-ou::before, .ct-ou::after { content: ''; flex: 1; height: 1px; background: var(--linha); }
 .ct-andamento { margin-top: 0; } .ct-andamento .linha { justify-content: space-between; }
 .ct-barra { height: 10px; border-radius: 999px; background: var(--faixa); border: 1px solid var(--linha); overflow: hidden; }
 .ct-barra span { display: block; height: 100%; background: var(--bege-escuro); transition: width .4s; }

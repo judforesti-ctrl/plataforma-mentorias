@@ -652,6 +652,10 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   e a tela apaga ao corrigir nome ou "Gerar de novo todos"); assinatura ou logo pedido no retrato que não abre PARA o lote com o
   motivo (resolvedorDeImagens estrito). Assinatura só entra se ESCOLHIDA na pasta (a lista "Assinaturas salvas" não aplica sozinha):
   aviso "Esta pasta está sem a imagem da assinatura" + "Escolher as assinaturas" no alto da aba Emitir e etiqueta clicável no topo.
+  ESCOLHER A SALVA (30/10, ela clicava em "Enviar assinatura" e a janela pedia a imagem de novo; a lista salva era um select
+  que parecia campo): no formulário da pasta as salvas aparecem como cartões com a imagem e "Usar esta" (`cartoesSalvas` em
+  certificados-assinaturas.js; a em uso fica "✓ Nesta pasta"); `janelaEnviar` recebe `salvas` e mostra-as no alto ("Já está salva
+  na plataforma? Escolha aqui") antes de "ou envie uma assinatura nova". Link de imagem que falha não esvazia mais a lista.
   Etapas: (1) banco, pastas e prévia [feita: turma cadastrada ou do zero]; (2) assinaturas [feita]; (3) nomes, PDFs e ZIP [feita]; (4) verificação pública [feita]; (5) IA lendo a
   proposta [feita]. O QR da plataforma (qrcode-generator) escolhe outra máscara que o `referencia/qr.py`: desenho
   diferente, mesmo conteúdo (conferido com jsQR). Teste local: launch.json "certificados-teste" (porta 8811), scratchpad da sessão
