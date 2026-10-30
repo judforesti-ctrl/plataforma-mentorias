@@ -579,6 +579,15 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   cadastrada em 30/10 (nota para ELS Informação, CNPJ 03.068.339/0001-18; mentoria individual de 3 profissionais, 7 × R$ 5.400) com plano
   avulso. Isidorus Flores fica em Holambra (nota para Johannes T. J. Kortstee, CNPJ 07.947.721/0001-52). "Holambra - HUB de inovação"
   (maio a agosto na planilha, sem valor e sem nota) é outro contrato: ela decidiu deixar de fora por enquanto (30/10).
+  REEMBOLSOS DAS SÓCIAS (30/10): os "Relatório de despesas de viagem" da Cintia (PDF, um por sócia e mês; o PERÍODO às vezes está
+  errado: vale a DATA DE ENVIO; gasto sem data = data de envio) substituem o reembolso agrupado da aba Contas pelo detalhe (soma igual,
+  conferida): 11 relatórios → 66 gastos (pessoa_id = sócia, pago_em = dia do reembolso, observacoes com envio/reembolso), ligados ao
+  cliente pelo texto (Crefaz = Maringá/Cascavel/Hortolândia, Isidorus = Holambra, Groove, Adidas, Maceió = Sicredi Expansão, Fernando =
+  programa dele, Curitiba 18-19/08 = Central Sicredi); sem cliente = categoria socia com recado. Gerador: %TEMP%\fin53\scripts\reembolsos.py.
+  Sem relatório ainda: Cláudia 05/02 (6.570,49) e 19/03 (1.489 e 1.560), Ju março (623,56), Pix Juliana (240), Vivi-Ju 30/09 (1.910,64).
+  EXTRATOS: Sicoob 01-14/10/2026 lançado (fixas de outubro pagas, 11 saídas com recado, origem "extrato"; 3 × 8.900 do Sescoop em 06/10 =
+  módulos de setembro da Sicredi Expansão recebidos; CCS 8.070 em 07/10 sem plano). Conta Sicoob 74.479-4 e Unicred 87378 são da
+  FSK Capital Intelectual Ltda (CNPJ 30.589.703/0001-68), que também emite NFS-e pela prefeitura de Campinas. O da Unicred veio de 2025.
   Próximas etapas: 2) despesa por foto do recibo (IA) + cadastro financeiro do mentor e pagamento calculado; 3) extrato OFX;
   4) margem (com horas e viagem estimada), fechamento do mês, distribuição, caixa 90 dias, avisos. Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
