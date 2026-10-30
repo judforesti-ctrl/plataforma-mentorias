@@ -18,7 +18,7 @@ async function carregar(d) {
   const [cad, vals, pags, mm, sess, ments, vinc] = await Promise.all([
     sb.from('fin_mentores').select('*'), sb.from('fin_mentor_valores').select('*'), sb.from('fin_pagamentos').select('*'),
     sb.from('modulo_mentores').select('mentor_id, modulo_id'),
-    sb.from('sessoes').select('id, mentor_id, mentorado_id, data_hora, duracao_min, situacao').eq('situacao', 'realizada'),
+    sb.from('sessoes').select('id, mentor_id, mentorado_id, data_hora, duracao_min, situacao').in('situacao', ['realizada', 'agendada', 'remarcada']),
     sb.from('mentorados').select('id, nome, programa_id'), sb.from('mentor_mentorado').select('mentor_id, mentorado_id'),
   ]);
   const falta = [cad, vals, pags].some((r) => r.error && faltaScript(r.error));
@@ -51,18 +51,19 @@ function alocacoes(d, m, perfilId) {
 }
 const valorDe = (m, perfilId, chave) => m.valores.find((v) => v.perfil_id === perfilId && (chave.startsWith('t:') ? v.turma_id === chave.slice(2) : v.programa_id === chave.slice(2))) || null;
 
-// Aulas e sessões que o mentor deu no mês (só o que já aconteceu)
-function itensDoMes(d, m, perfilId, mes) {
+// Aulas e sessões que o mentor deu no mês (só o que já aconteceu). previsto = também as aulas e sessões marcadas (previsão do
+// painel da Visão geral).
+function itensDoMes(d, m, perfilId, mes, previsto = false) {
   const hoje = hojeISO();
   const itens = [];
   for (const x of m.modMentores.filter((y) => y.mentor_id === perfilId)) {
     const mod = d.modulo(x.modulo_id); const dia = mod && F.diaDe(mod.data_hora);
-    if (!dia || F.mesDe(dia) !== mes || dia > hoje) continue;
+    if (!dia || F.mesDe(dia) !== mes || (dia > hoje && !previsto)) continue;
     itens.push({ chave: `t:${mod.turma_id}`, rotulo: rotuloTurma(d, mod.turma_id), tipo: 'modulo', data: dia, minutos: mod.duracao_min || 0 });
   }
   for (const s of m.sessoes.filter((y) => y.mentor_id === perfilId)) {
     const dia = F.diaDe(s.data_hora); const mt = m.mentorado(s.mentorado_id);
-    if (!dia || F.mesDe(dia) !== mes || !mt) continue;
+    if (!dia || F.mesDe(dia) !== mes || !mt || (s.situacao !== 'realizada' && !(previsto && dia >= hoje))) continue;
     const prog = d.programas.find((p) => p.id === mt.programa_id);
     itens.push({ chave: `p:${mt.programa_id}`, rotulo: rotuloPrograma(d, mt.programa_id), tipo: 'sessao', data: dia, minutos: s.duracao_min || (prog && prog.duracao_min) || 60 });
   }
@@ -150,20 +151,26 @@ function janelaCadastro(d, m, p, recarregar) {
   });
 }
 
+// Cálculo do mês de um mentor pelo cadastro e pelos valores combinados de cada turma/programa
+function calcularMes(d, m, perfilId, mes, previsto = false) {
+  const c = m.cad(perfilId);
+  const faturadoTurma = (chave) => (chave.startsWith('t:') ? F.soma(d.receber.filter((l) => l.situacao !== 'cancelado' && F.mesDe(l.data) === mes && (d.plano(l.plano_id) || {}).turma_id === chave.slice(2)), (l) => l.valor) : 0);
+  return F.calcularPagamento(itensDoMes(d, m, perfilId, mes, previsto), {
+    padrao: c ? { forma: c.forma, valor: c.valor } : null,
+    regra: (chave) => { const v = valorDe(m, perfilId, chave); return v && (v.forma || v.valor != null) ? { forma: v.forma || (c && c.forma) || 'hora', valor: v.valor != null ? v.valor : c && c.valor } : null; },
+    faturado: faturadoTurma,
+  });
+}
+
 // ---------- pagamento do mês ----------
 function pagamentos(d, m, el, recarregar, mesParam) {
   const hoje = hojeISO();
   // padrão: o mês passado até o dia 10; depois, o mês atual
   const mes = /^\d{4}-\d{2}$/.test(mesParam || '') ? mesParam : Number(hoje.slice(8, 10)) <= 10 ? F.somarMeses(hoje.slice(0, 7), -1) : hoje.slice(0, 7);
-  const faturadoTurma = (chave) => (chave.startsWith('t:') ? F.soma(d.receber.filter((l) => l.situacao !== 'cancelado' && F.mesDe(l.data) === mes && (d.plano(l.plano_id) || {}).turma_id === chave.slice(2)), (l) => l.valor) : 0);
   const cartoes = m.parceiros.map((p) => {
     const salvo = m.pagamentos.find((x) => x.perfil_id === p.id && x.mes === mes) || null;
     const c = m.cad(p.id);
-    const calc = F.calcularPagamento(itensDoMes(d, m, p.id, mes), {
-      padrao: c ? { forma: c.forma, valor: c.valor } : null,
-      regra: (chave) => { const v = valorDe(m, p.id, chave); return v && (v.forma || v.valor != null) ? { forma: v.forma || (c && c.forma) || 'hora', valor: v.valor != null ? v.valor : c && c.valor } : null; },
-      faturado: faturadoTurma,
-    });
+    const calc = calcularMes(d, m, p.id, mes);
     return { p, c, salvo, calc, linhas: salvo ? salvo.linhas : calc.linhas, total: salvo ? Number(salvo.total) : calc.total };
   }).filter((x) => x.salvo || x.calc.linhas.length);
   const selo = (x) => (!x.salvo ? '<span class="selo neutro">calculado</span>' : x.salvo.situacao === 'pago' ? `<span class="selo ok">pago em ${dataBR(x.salvo.pago_em)}</span>` : x.salvo.situacao === 'aprovado' ? '<span class="selo alerta">aprovado, falta pagar</span>' : '<span class="selo neutro">ajustado</span>');
@@ -275,10 +282,18 @@ function janelaPagar(d, x, mes, recarregar) {
   });
 }
 
-// Para o "Para fazer" da Visão geral: mentores parceiros ativos ainda sem cadastro financeiro (null = falta o script 54)
-export async function pendenciasMentores(d) {
-  const r = await sb.from('fin_mentores').select('perfil_id');
-  if (r.error) return null;
-  const com = new Set((r.data || []).map((x) => x.perfil_id));
-  return d.perfis.filter((p) => p.papel === 'mentor' && p.ativo !== false && !com.has(p.id)).length;
+// Para o painel da Visão geral (30/10): quanto cada parceiro vai receber num mês (o pagamento salvo, senão o calculado com as
+// aulas e sessões marcadas) e quanto já foi pago. null = falta o script 54.
+export async function previsaoMentores(d) {
+  const m = await carregar(d);
+  if (m.falta) return null;
+  const doMes = (perfilId, mes) => {
+    const salvo = m.pagamentos.find((x) => x.perfil_id === perfilId && x.mes === mes) || null;
+    const total = salvo ? Number(salvo.total) : calcularMes(d, m, perfilId, mes, true).total;
+    return { total, pago: !!(salvo && salvo.situacao === 'pago'), situacao: salvo ? salvo.situacao : 'calculado' };
+  };
+  return {
+    parceiros: m.parceiros, semCadastro: m.parceiros.filter((p) => !m.cad(p.id)).length, doMes,
+    totalDoMes: (mes) => F.soma(m.parceiros, (p) => doMes(p.id, mes).total),
+  };
 }

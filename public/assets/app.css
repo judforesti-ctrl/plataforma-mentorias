@@ -843,3 +843,5 @@ a.fn-barra:hover, a.fn-barra:focus-visible { background: var(--faixa); }
 .fn-barra.atual .fn-trilho i { background: var(--bege-escuro); }
 .fn-trilho em { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--erro); border-radius: 1px; }
 .fn-v { font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--apagado); white-space: nowrap; text-align: right; min-width: 64px; }
+.fn-forte td { font-weight: 700; }
+.fn-ind .cartao.numero b { font-size: 22px; overflow-wrap: anywhere; }

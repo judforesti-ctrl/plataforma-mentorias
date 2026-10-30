@@ -607,6 +607,19 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   valor) cria a linha em fin_receber (no plano da turma/programa, senão avulsa) e liga `fin_despesas.reembolso_receber_id` (script
   55); "Para fazer" mostra os reembolsos sem cobrança. NA ETAPA 4, A DISTRIBUIÇÃO DAS SÓCIAS TEM DE DESCONTAR OS IMPOSTOS (Simples
   e INSS pagos de verdade), como fazia a aba Precificação/distribuição da planilha.
+  VISÃO DA DIREÇÃO (30/10, pedido dela "como CEO"; `telas/financeiro-painel.js`, embaixo da Visão geral, sem script novo): próximos
+  3 meses (faturamento = linhas dos planos com data; custos = fixas + mentores parceiros pelas aulas e sessões MARCADAS
+  (`previsaoMentores` em financeiro-mentores.js, `itensDoMes(..., previsto)`) + outros variáveis pela média dos 3 últimos meses +
+  imposto pela alíquota real; sobra prevista; aviso de turmas sem plano e parcelas sem data), melhores clientes por faturamento e
+  por margem (`rankingClientes`: faturado − custos ligados ao cliente − imposto; período este ano/12 meses/ano com o previsto; sem
+  horas das sócias até a etapa 4), mentores parceiros (quem mais recebeu no ano = despesas "parceiros", sem cadastro pelo nome da
+  descrição, `nomeDoParceiro`; a receber no mês seguinte = aulas e sessões do mês atual, e "falta pagar" do anterior), indicadores
+  (margem do ano, custo fixo, ponto de equilíbrio, meses cobertos pela reserva, prazo médio de recebimento, notas esperando/atrasado,
+  concentração nos 3 maiores, faturado por cliente), FUNDO DE RESERVA (capital de giro) em `configuracoes.financeiro.reserva`
+  {lancamentos: [{id, data, tipo saldo|aporte|resgate|rendimento, valor, obs, em}], onde, taxa_ano}; "saldo" do extrato recomeça a
+  conta; até o 1º saldo vale o valor aproximado de R$ 62.000 que ela informou em 30/10 (`RESERVA_INICIAL`, provisório) e a
+  CALCULADORA de investimentos (`simularInvestimento`/`mesesParaMeta`: juros compostos, aporte ou retirada por mês, IR regressivo
+  simplificado ou isento, meta). Regras testadas no Node (%TEMP%\fint\t\painel.mjs).
   Próximas etapas: 3) extrato OFX;
   4) margem (com horas e viagem estimada), fechamento do mês, distribuição, caixa 90 dias, avisos. Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
@@ -773,6 +786,9 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   LEMBRAR A JULIANA NA ETAPA FINAL (4) DO FINANCEIRO (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia
   05/02 R$ 6.570,49 e 19/03 R$ 1.489 e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e os
   extratos do Sicoob e da Unicred de janeiro de 2026 até hoje (só veio Sicoob 01-14/10).
+  FUNDO DE RESERVA (pedido dela, 30/10): ela mandar o EXTRATO da aplicação do fundo de reserva (capital de giro; hoje "acho que uns
+  62 mil", valor provisório na tela) para lançar o saldo de verdade em Financeiro → Visão geral → Fundo de reserva → Atualizar
+  (e onde está aplicado e quanto rende ao ano, que a calculadora usa). Lembrar junto com os outros extratos.
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
@@ -785,7 +801,8 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   (ela vai refinar). Texto em `public/assets/contrato-mentor.js` (VERSAO; contratante FSK Capital Intelectual Ltda., CNPJ
   30.589.703/0001-68, Campinas/SP, A CONFIRMAR com ela; pagamento até dia 10, aviso de 30 dias, 12 meses sem atender clientes da
   Mentorei direto, 48 h de aviso: valores provisórios). Mudar o texto = mudar VERSAO (quem assinou assina de novo).
-  DESLIGADO até ela revisar: `LIBERADO = false` em contrato-mentor.js (virar true e publicar quando ela aprovar o texto).
+  LIBERADO em 30/10 ("pode liberar o contrato"): `LIBERADO = true` em contrato-mentor.js. A empresa contratante e os prazos
+  provisórios continuam sem revisão jurídica.
   `telas/contrato.js`: mentor (papel mentor; sócias não) vê o contrato ao entrar (app.js, `contratoPendente`), assina com nome +
   CPF/CNPJ + "li e concordo" (tabela `contratos_mentor`, hora do banco, SHA-256 do texto preenchido; assinado não muda); "Ler depois"
   por 7 dias (sessionStorage na sessão + faixa no alto de toda tela); depois de 7 dias o contrato volta a cada entrada (não bloqueia).

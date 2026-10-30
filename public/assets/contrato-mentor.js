@@ -5,7 +5,7 @@
 
 export const VERSAO = '2026-10-30';
 // Desligado até a Juliana revisar o texto: os mentores só passam a ver o contrato quando isto virar true.
-export const LIBERADO = false;
+export const LIBERADO = true;
 export const PRAZO_LER_DEPOIS = 7;   // dias em que o mentor pode deixar para depois sem o lembrete a cada entrada
 
 export const CONTRATANTE = {

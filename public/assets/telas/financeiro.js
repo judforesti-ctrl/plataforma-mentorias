@@ -100,8 +100,11 @@ export async function render(ctx, el, params) {
   if (aba === 'planos') return abaPlanos(ctx, d, alvo, recarregar);
   if (aba === 'despesas') return abaDespesas(d, alvo, recarregar, params[1]);
   if (aba === 'mentores') return (await import('./financeiro-mentores.js')).abaMentores(ctx, d, alvo, recarregar, params.slice(1));
-  d.mentoresSemCadastro = await (await import('./financeiro-mentores.js')).pendenciasMentores(d).catch(() => null);
-  return abaGeral(d, alvo, recarregar, params[1]);
+  const mentores = await (await import('./financeiro-mentores.js')).previsaoMentores(d).catch(() => null);
+  d.mentoresSemCadastro = mentores ? mentores.semCadastro : null;
+  abaGeral(d, alvo, recarregar, params[1]);
+  // visão da direção (previsões, clientes, mentores, indicadores, reserva e calculadora)
+  return (await import('./financeiro-painel.js')).painelDirecao(d, alvo.querySelector('#fn-direcao'), recarregar, mentores);
 }
 function contador(d) {
   if (d.falta) return '';
@@ -184,7 +187,8 @@ function abaGeral(d, el, recarregar, mesParam) {
           ${anos.map((a) => `<tr><td>${a}</td><td style="text-align:right" class="fn-num">${dinheiro(totalAno(a))}</td></tr>`).join('')}</tbody></table></div>
       </div>
     </div>
-    ${despMes.length ? `<div class="cartao mt"><h3>Despesas de ${F.nomeMes(mes)} por tipo</h3>${barrasCategorias(despMes)}</div>` : ''}`;
+    ${despMes.length ? `<div class="cartao mt"><h3>Despesas de ${F.nomeMes(mes)} por tipo</h3>${barrasCategorias(despMes)}</div>` : ''}
+    <div id="fn-direcao"></div>`;
   el.querySelectorAll('[data-mes]').forEach((b) => b.addEventListener('click', () => { location.hash = `#/financeiro/geral/${b.dataset.mes}`; }));
   el.querySelector('#meses').addEventListener('click', () => janelaMeses(d, ano, recarregar));
 }

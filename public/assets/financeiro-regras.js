@@ -177,3 +177,121 @@ export function aliquotaReal({ despesas, faturado, hoje }) {
 export const impostoSobre = (valor, pct) => arred(Number(valor || 0) * Number(pct || 0) / 100);
 // Valor da nota para, depois do imposto, sobrar o que foi gasto
 export const comImpostoIncluido = (valor, pct) => (Number(pct) >= 100 ? null : arred(Number(valor || 0) / (1 - Number(pct || 0) / 100)));
+
+// ---------- visão da direção (30/10: pedido dela, "como CEO, o que devo ter à vista") ----------
+// Faturado, custos diretos, imposto e margem de cada cliente no período [de, ate]. Faturado = linhas a receber (não canceladas)
+// pela data; custos = despesas ligadas ao cliente (direto ou pela turma/programa; empresaDaDespesa resolve), menos impostos
+// (entram pela alíquota) e despesas pessoais das sócias. pct = alíquota real do imposto.
+export function rankingClientes({ linhas, despesas, de, ate, empresaDaDespesa, pct = 0 }) {
+  const por = new Map();
+  const pega = (id) => { if (!por.has(id)) por.set(id, { empresa_id: id, faturado: 0, custos: 0 }); return por.get(id); };
+  const dentro = (dia) => dia && dia >= de && dia <= ate;
+  for (const l of linhas) if (l.situacao !== 'cancelado' && l.empresa_id && dentro(l.data)) pega(l.empresa_id).faturado += Number(l.valor || 0);
+  for (const x of despesas) {
+    if (x.categoria === 'impostos' || x.categoria === 'socia' || !dentro(x.data)) continue;
+    const id = empresaDaDespesa(x);
+    if (id) pega(id).custos += Number(x.valor || 0);
+  }
+  return [...por.values()].map((c) => {
+    const faturado = arred(c.faturado), custos = arred(c.custos), imposto = impostoSobre(faturado, pct);
+    const margem = arred(faturado - custos - imposto);
+    return { empresa_id: c.empresa_id, faturado, custos, imposto, margem, margem_pct: faturado ? Math.round(margem / faturado * 1000) / 10 : null };
+  });
+}
+
+// Previsão dos próximos meses: faturado = linhas do mês (não canceladas); custos = fixas ativas + mentores parceiros
+// (mentores(mes), pelas aulas e sessões marcadas) + outros variáveis (média) + imposto sobre o previsto.
+export function previsaoMeses({ meses, linhas, fixas, mentores = () => 0, outrosVariaveis = 0, pct = 0 }) {
+  const fixo = soma(fixas.filter((f) => f.ativo !== false), (f) => f.valor);
+  return meses.map((mes) => {
+    const doMes = linhas.filter((l) => l.situacao !== 'cancelado' && mesDe(l.data) === mes);
+    const faturado = soma(doMes, (l) => l.valor);
+    const parceiros = arred(mentores(mes));
+    const imposto = impostoSobre(faturado, pct);
+    const custos = arred(fixo + parceiros + Number(outrosVariaveis || 0) + imposto);
+    return { mes, faturado, fixas: fixo, parceiros, outros: arred(outrosVariaveis), imposto, custos, resultado: arred(faturado - custos),
+      clientes: new Set(doMes.map((l) => l.empresa_id)).size };
+  });
+}
+
+// Nome do parceiro tirado da descrição da despesa, quando ela não está ligada a um cadastro ("Pagamento Carla 03/26",
+// "Pagamento Pix (Lidia Naomi Minasse Uda)", "Adiantamento Lauane - professora evento"). Sem nome = null.
+export function nomeDoParceiro(descricao) {
+  const t = String(descricao || '').trim();
+  const par = t.match(/\(([^)]+)\)/);
+  let n = par ? par[1] : t.replace(/^(pagamento|adiantamento|antecipa\S*)\s+(final\s+|pix\s+)?/i, '');
+  n = n.split(/\s+-\s+|\s+·\s+|\s+ref\b|\s+\d|\*|\s+aula\b/i)[0].trim();
+  const palavras = n.split(/\s+/).filter((p) => /^\p{L}{2,}$/u.test(p));
+  if (!palavras.length || /^(boleto|pix|pagamento|nf|nota)$/i.test(palavras[0])) return null;
+  // o sobrenome só entra se veio com maiúscula ("Lauane professora evento" = Lauane)
+  const usar = palavras.length > 1 && /^\p{Lu}/u.test(palavras[1]) ? 2 : 1;
+  return palavras.slice(0, usar).map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()).join(' ');
+}
+// Quanto cada parceiro recebeu (despesas "Mentores e parceiros" no período), do maior para o menor.
+// nome(id) = nome do cadastro. Devolve [{ chave, nome, total, vezes, cadastro }].
+export function rankingRecebido(despesas, { de, ate, nome = () => null }) {
+  const por = new Map();
+  for (const x of despesas) {
+    if (x.categoria !== 'parceiros' || !x.data || x.data < de || x.data > ate) continue;
+    const doCadastro = x.pessoa_id && nome(x.pessoa_id);
+    const n = doCadastro || nomeDoParceiro(x.descricao) || 'Outros parceiros';
+    const chave = doCadastro ? x.pessoa_id : `n:${n.toLowerCase()}`;
+    if (!por.has(chave)) por.set(chave, { chave, nome: n, total: 0, vezes: 0, cadastro: !!doCadastro });
+    const r = por.get(chave); r.total += Number(x.valor || 0); r.vezes += 1;
+  }
+  return [...por.values()].map((r) => ({ ...r, total: arred(r.total) })).sort((a, b) => b.total - a.total);
+}
+
+// Ponto de equilíbrio: faturamento do mês que paga o custo fixo, depois do imposto e dos custos variáveis (% do faturado).
+export function pontoDeEquilibrio({ fixo, pctImposto = 0, pctVariavel = 0 }) {
+  const sobra = 1 - Number(pctImposto || 0) / 100 - Number(pctVariavel || 0) / 100;
+  return sobra > 0 ? arred(Number(fixo || 0) / sobra) : null;
+}
+
+// ---------- fundo de reserva (capital de giro) ----------
+// Lançamentos [{ data, tipo: saldo|aporte|resgate|rendimento, valor }]: "saldo" é o valor do extrato naquele dia (recomeça a
+// conta); os outros somam ou tiram dali em diante. No mesmo dia vale a ordem em que foram lançados (em).
+export const TIPOS_RESERVA = { saldo: 'Saldo do extrato', aporte: 'Aporte (entrou)', resgate: 'Resgate (saiu)', rendimento: 'Rendimento' };
+export function saldoReserva(lancamentos) {
+  const lista = [...(lancamentos || [])].sort((a, b) => String(a.data).localeCompare(String(b.data)) || String(a.em || '').localeCompare(String(b.em || '')));
+  let saldo = null, data = null, ultimoExtrato = null;
+  for (const l of lista) {
+    const v = Number(l.valor || 0);
+    if (l.tipo === 'saldo') { saldo = v; ultimoExtrato = l; } else saldo = (saldo || 0) + (l.tipo === 'resgate' ? -v : v);
+    data = l.data;
+  }
+  return { saldo: saldo == null ? null : arred(saldo), data, ultimoExtrato };
+}
+
+// ---------- calculadora de investimentos ----------
+// Juros compostos mês a mês: a taxa ao ano vira a taxa equivalente ao mês; o aporte (ou a retirada, se negativo) entra no fim de
+// cada mês. Imposto de renda da renda fixa pela tabela regressiva sobre o rendimento (simplificado: o prazo todo vale para tudo).
+export const IR_REGRESSIVO = [[180, 22.5], [360, 20], [720, 17.5], [Infinity, 15]];
+export const aliquotaIR = (dias) => IR_REGRESSIVO.find(([d]) => dias <= d)[1];
+export function simularInvestimento({ inicial = 0, aporte = 0, taxaAno = 0, meses = 12, isento = false }) {
+  const i = Math.pow(1 + Number(taxaAno || 0) / 100, 1 / 12) - 1;
+  const n = Math.max(1, Math.min(600, Math.round(Number(meses) || 1)));
+  const a = Number(aporte || 0);
+  let saldo = Number(inicial) || 0, investido = saldo, acabou = null;
+  const serie = [];
+  for (let k = 1; k <= n; k++) {
+    saldo = saldo * (1 + i) + a;
+    investido += a;
+    if (saldo <= 0) { acabou = k; saldo = 0; }
+    serie.push({ k, saldo: arred(saldo), investido: arred(investido) });
+    if (acabou) break;
+  }
+  const bruto = arred(saldo);
+  const rendimento = arred(bruto - investido);
+  const ir = isento ? 0 : aliquotaIR(n * 30);
+  const imposto = arred(Math.max(0, rendimento) * ir / 100);
+  return { serie, bruto, investido: arred(investido), rendimento, ir, imposto, liquido: arred(bruto - imposto), taxaMes: Math.round(i * 1000000) / 10000, acabou };
+}
+// Em quantos meses o saldo bruto chega à meta (null = não chega em 50 anos)
+export function mesesParaMeta({ inicial = 0, aporte = 0, taxaAno = 0, meta }) {
+  const i = Math.pow(1 + Number(taxaAno || 0) / 100, 1 / 12) - 1;
+  let saldo = Number(inicial) || 0;
+  if (saldo >= meta) return 0;
+  for (let k = 1; k <= 600; k++) { saldo = saldo * (1 + i) + Number(aporte || 0); if (saldo >= meta) return k; if (saldo <= 0) return null; }
+  return null;
+}
