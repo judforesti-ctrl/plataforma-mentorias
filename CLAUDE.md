@@ -578,7 +578,7 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Faturamento 2026 (antes de outubro = recebido; outubro = nota emitida; depois = em aberto; exceções no próprio recado). Groove
   cadastrada em 30/10 (nota para ELS Informação, CNPJ 03.068.339/0001-18; mentoria individual de 3 profissionais, 7 × R$ 5.400) com plano
   avulso. Isidorus Flores fica em Holambra (nota para Johannes T. J. Kortstee, CNPJ 07.947.721/0001-52). "Holambra - HUB de inovação"
-  (maio a agosto na planilha, sem valor e sem nota) é outro contrato: perguntar a ela de quem é e o valor.
+  (maio a agosto na planilha, sem valor e sem nota) é outro contrato: ela decidiu deixar de fora por enquanto (30/10).
   Próximas etapas: 2) despesa por foto do recibo (IA) + cadastro financeiro do mentor e pagamento calculado; 3) extrato OFX;
   4) margem (com horas e viagem estimada), fechamento do mês, distribuição, caixa 90 dias, avisos. Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
@@ -741,7 +741,7 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
 
 ## Pendências conhecidas
 - FINANCEIRO (2026-10-30): script 52 rodado; falta o 53 e conferir na aba Conferir os planos e despesas que vieram da planilha;
-  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; descobrir o "HUB de inovação" de Holambra. Etapas 2 a 4 não feitas.
+  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapas 2 a 4 não feitas (HUB de inovação de Holambra fica de fora por enquanto).
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
