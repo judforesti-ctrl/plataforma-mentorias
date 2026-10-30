@@ -6,6 +6,7 @@ import { sb, esc, dataBR, hojeISO, avisar, explicarErro } from '../base.js';
 import { janela, faltaScript } from './agenda-dados.js';
 import { dinheiro, linkWhats } from './vendas.js';
 import * as F from '../financeiro-regras.js';
+import { VERSAO as CONTRATO_VERSAO } from '../contrato-mentor.js';
 
 const AVISO_54 = '<div class="aviso">Falta rodar o script <b>54-financeiro-recibos-mentores.sql</b> no Supabase (SQL Editor → New query → colar → Run).</div>';
 const v2 = (v) => (v == null || v === '' ? '' : Number(v).toFixed(2));
@@ -27,6 +28,9 @@ async function carregar(d) {
     sessoes: sess.data || [], mentorados: ments.data || [], vinculos: vinc.data || [],
   };
   // quem recebe: mentores da equipe que não são da administração (as sócias são administração e recebem pela distribuição)
+  // contrato de prestação de serviço (script 55): quem já assinou a versão atual
+  const ct = await sb.from('contratos_mentor').select('perfil_id, aceito_em').eq('versao', CONTRATO_VERSAO);
+  m.contrato = (id) => (ct.error ? undefined : ((ct.data || []).find((x) => x.perfil_id === id) || null));
   m.parceiros = d.perfis.filter((p) => p.papel === 'mentor' && p.ativo !== false).sort((a, b) => a.nome.localeCompare(b.nome));
   m.cad = (id) => m.cadastro.find((c) => c.perfil_id === id) || null;
   m.mentorado = (id) => m.mentorados.find((x) => x.id === id) || null;
@@ -87,10 +91,11 @@ function cadastro(d, m, el, recarregar) {
       <td>${c && c.valor != null ? `${esc(F.nomeForma(c.forma))} · ${c.forma === 'percentual' ? `${c.valor}%` : dinheiro(c.valor)}` : '<span class="selo alerta">Completar o cadastro</span>'}</td>
       <td>${c && c.cidade_saida ? esc(c.cidade_saida) : '<span class="apagado">—</span>'}</td>
       <td>${al.length ? `${conferidos} de ${al.length} conferidas` : '<span class="apagado">nenhuma</span>'}</td>
+      <td>${(() => { const ct = m.contrato(p.id); return ct === undefined ? '<span class="apagado">—</span>' : ct && ct.aceito_em ? `<span class="selo ok">assinado ${esc(dataBR(ct.aceito_em))}</span>` : '<a class="selo alerta" href="#/contrato">não assinou</a>'; })()}</td>
       <td><button class="btn peq${c ? '' : ' pri'}" type="button" data-editar="${p.id}">${c ? 'Abrir' : 'Completar'}</button></td></tr>`;
   };
   el.innerHTML = `<p class="apagado" style="margin-bottom:10px">Mentores parceiros (as sócias recebem pela distribuição e não entram aqui). O mentor não vê esta tela.</p>
-    ${m.parceiros.length ? `<div class="tabela cartao" style="padding:0"><table><thead><tr><th>Mentor</th><th>Como recebe</th><th>Sai de</th><th>Turmas e mentorias</th><th></th></tr></thead>
+    ${m.parceiros.length ? `<div class="tabela cartao" style="padding:0"><table><thead><tr><th>Mentor</th><th>Como recebe</th><th>Sai de</th><th>Turmas e mentorias</th><th>Contrato</th><th></th></tr></thead>
       <tbody>${m.parceiros.map(linha).join('')}</tbody></table></div>` : '<div class="vazio">Nenhum mentor parceiro cadastrado.</div>'}`;
   el.addEventListener('click', (ev) => { const b = ev.target.closest('[data-editar]'); if (b) janelaCadastro(d, m, m.parceiros.find((p) => p.id === b.dataset.editar), recarregar); });
 }

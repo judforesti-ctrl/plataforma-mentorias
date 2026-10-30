@@ -163,3 +163,17 @@ export function textoExtrato({ nome, mes, linhas, total }) {
   return [`Olá, ${String(nome || '').split(' ')[0]}! Segue o resumo de ${nomeMes(mes)} na Mentorei:`, '',
     ...linhas.filter((l) => l.total > 0).map((l) => `• ${l.rotulo}: ${unid(l)} = ${br(l.total)}`), '', `Total: ${br(total)}`].join('\n');
 }
+
+// ---------- imposto (30/10: pedido dela; vale para o reembolso cobrado do cliente e, na etapa 4, para a distribuição) ----------
+// Alíquota real: impostos pagos (categoria 'impostos', pela data de pagamento) nos 3 últimos meses fechados ÷ faturado do mês
+// anterior a cada pagamento (o Simples de um mês é sobre o faturamento do mês anterior). Sem pagamento ou sem faturado = null.
+export function aliquotaReal({ despesas, faturado, hoje }) {
+  const meses = [1, 2, 3].map((k) => somarMeses(hoje.slice(0, 7), -k));
+  const pago = soma(despesas.filter((x) => x.categoria === 'impostos' && meses.includes(mesDe(x.pago_em || x.data))), (x) => x.valor);
+  const base = meses.reduce((a, m) => a + Number(faturado(somarMeses(m, -1)) || 0), 0);
+  if (!pago || !base) return null;
+  return { pct: Math.round(pago / base * 10000) / 100, pago, base, meses };
+}
+export const impostoSobre = (valor, pct) => arred(Number(valor || 0) * Number(pct || 0) / 100);
+// Valor da nota para, depois do imposto, sobrar o que foi gasto
+export const comImpostoIncluido = (valor, pct) => (Number(pct) >= 100 ? null : arred(Number(valor || 0) / (1 - Number(pct || 0) / 100)));

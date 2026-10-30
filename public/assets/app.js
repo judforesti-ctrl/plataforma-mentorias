@@ -3,6 +3,7 @@ import { sb, sessaoAtual, meuPerfil, registrarAcesso, sair, esc, explicarErro } 
 import { montarMenu } from './menu.js';
 import { temMarca } from './marca.js';
 import { aplicarMarca } from './telas/area-aluno.js';
+import { VERSAO as CONTRATO_VERSAO, LIBERADO as CONTRATO_LIBERADO } from './contrato-mentor.js';
 
 const tela = document.getElementById('tela');
 
@@ -33,6 +34,17 @@ if (!perfil.ativo) {
 }
 
 registrarAcesso(perfil.id);
+
+// Contrato de prestação de serviço (script 55): só o mentor parceiro (papel 'mentor') assina. Pendente = ainda não assinou a versão
+// atual. Sem o script 55, nada muda.
+let contratoPendente = null;
+if (perfil.papel === 'mentor' && CONTRATO_LIBERADO) {
+  try {
+    const { data, error } = await sb.from('contratos_mentor').select('aceito_em, visto_em').eq('perfil_id', perfil.id).eq('versao', CONTRATO_VERSAO).maybeSingle();
+    if (!error && !(data && data.aceito_em)) contratoPendente = { visto_em: data ? data.visto_em : null };
+  } catch (_) { /* sem o script 55 */ }
+}
+const contratoAdiado = () => { try { return sessionStorage.getItem('mentorei.contratoDepois') === CONTRATO_VERSAO; } catch (_) { return false; } };
 
 const ehAdmin = perfil.papel === 'admin';
 const atende = perfil.papel === 'mentor' || perfil.tambem_mentor;
@@ -80,11 +92,13 @@ const GRUPOS = [
     { nome: 'Ferramentas', icone: 'wrench', rota: '#/biblioteca', pode: mentorado },
     { nome: 'Painel da empresa', icone: 'layout-dashboard', rota: '#/rh', pode: rh },
     { nome: 'Meus dados', icone: 'circle-user', rota: '#/perfil', pode: mentorado || aluno || rh },
+    { nome: 'Meu contrato', icone: 'file-signature', rota: '#/contrato', pode: perfil.papel === 'mentor' && CONTRATO_LIBERADO },
   ] },
   { id: 'gestao', nome: 'Gestão', icone: 'sliders-horizontal', itens: [
     { nome: 'Painel', icone: 'layout-dashboard', rota: '#/painel', pode: ehAdmin },
     { nome: 'Mentores', icone: 'graduation-cap', rota: '#/mentores', pode: ehAdmin },
     { nome: 'Convites', icone: 'mail', rota: '#/convites', pode: ehAdmin },
+    { nome: 'Contrato dos mentores', icone: 'file-signature', rota: '#/contrato', pode: ehAdmin },
     { nome: 'Checklist', icone: 'list-checks', rota: '#/checklist', pode: ehAdmin || atende },
     { nome: 'Avaliações', icone: 'star', rota: '#/avaliacoes', pode: ehAdmin },
     { nome: 'Emitir certificados', icone: 'award', rota: '#/certificados', pode: ehAdmin },
@@ -137,6 +151,7 @@ const ROTAS = {
   certificados: () => import('./telas/certificados.js'),
   trilha: () => import('./telas/minha-trilha.js'),
   rh: () => import('./telas/painel-rh.js'),
+  contrato: () => import('./telas/contrato.js'),
 };
 
 // Marca no menu a página atual e devolve o caminho "Grupo › Página" (escondido no primeiro acesso, quando o menu fica escondido).
@@ -150,13 +165,14 @@ function montarTopo(atual, restrito) {
   return caminho;
 }
 
-const ctx = { perfil, ehAdmin, atende, recarregarPerfil: async () => { perfil = await meuPerfil(); ctx.perfil = perfil; return perfil; } };
+const ctx = { perfil, ehAdmin, atende, contratoPendente, recarregarPerfil: async () => { perfil = await meuPerfil(); ctx.perfil = perfil; return perfil; } };
 
 let telaAtual = null;
 async function abrir() {
   const precisaPrimeiroAcesso = !ctx.perfil.termo_aceito_em || !ctx.perfil.dados_completos;
   let [rota, ...params] = location.hash.replace(/^#\/?/, '').split('/');
   if (precisaPrimeiroAcesso) rota = 'primeiro-acesso';
+  else if (ctx.contratoPendente && !contratoAdiado() && rota !== 'contrato') rota = 'contrato';
   if (!rota || !ROTAS[rota]) { location.replace(inicio); return; }
   if (telaAtual && telaAtual.sair) telaAtual.sair();
   const caminho = montarTopo(rota === 'mentorado' || rota === 'sessao' ? (ehAdmin ? 'mentorados' : 'meus') : rota === 'carregar-arsenal' ? 'arsenal'
@@ -170,6 +186,15 @@ async function abrir() {
     const mod = await ROTAS[rota]();
     telaAtual = (await mod.render({ ...ctx, rota }, alvo, params)) || null;
     // quem ainda está sem foto vê o convite para colocar, logo abaixo do título da tela
+    // contrato deixado para depois: faixa no alto de toda tela até assinar
+    if (ctx.contratoPendente && rota !== 'contrato' && !precisaPrimeiroAcesso) {
+      const faixa = document.createElement('div');
+      faixa.className = 'aviso';
+      faixa.style.margin = '0 0 14px';
+      faixa.innerHTML = 'Falta assinar o seu <b>contrato de prestação de serviço</b> com a Mentorei. <a href="#/contrato">Ler e assinar</a>';
+      const cab = alvo.querySelector('.cab');
+      if (cab) cab.after(faixa); else alvo.prepend(faixa);
+    }
     if (!ctx.perfil.foto_url && !precisaPrimeiroAcesso) {
       const { lembreteFoto } = await import('./telas/foto-lembrete.js');
       const faixa = lembreteFoto(ctx, rota);
@@ -187,4 +212,6 @@ window.addEventListener('hashchange', abrir);
 window.addEventListener('mentorei:foto', (ev) => { ctx.perfil.foto_url = ev.detail; menu.foto(ev.detail); });
 ctx.irPara = (h) => { if (location.hash === h) abrir(); else location.hash = h; };
 ctx.inicio = inicio;
+// a tela recebe uma cópia do ctx: assinar o contrato precisa limpar o pendente do original
+ctx.contratoAssinado = () => { ctx.contratoPendente = null; };
 abrir();

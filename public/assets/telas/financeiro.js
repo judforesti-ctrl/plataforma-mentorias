@@ -18,6 +18,9 @@ const selo = (estado) => { const [t, c] = F.ROTULO_ESTADO[estado] || [estado, 'n
 const v2 = (v) => (v == null || v === '' ? '' : Number(v).toFixed(2));
 const maiuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 const num = (el) => (el.value === '' ? null : Number(el.value));
+const pctBR = (v) => `${Number(v || 0).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`;
+const textoAliquota = (d) => (d.aliquota.estimada ? `${pctBR(d.aliquota.pct)} (estimada em Ajustes: ainda não há impostos pagos nos últimos meses)`
+  : `${pctBR(d.aliquota.pct)} (o que foi pago de imposto nos últimos 3 meses ÷ o faturado)`);
 
 // ---------- dados ----------
 async function carregar() {
@@ -45,6 +48,12 @@ async function carregar() {
   d.socias = Array.isArray(d.config.socias) && d.config.socias.length ? d.perfis.filter((p) => d.config.socias.includes(p.id))
     : d.perfis.filter((p) => p.ativo !== false && SOCIAS_NOMES.test(p.nome || ''));
   d.aConferir = { planos: d.planos.filter((p) => p.conferir), despesas: d.despesas.filter((x) => x.conferir) };
+  // imposto: a alíquota real dos 3 últimos meses (Simples pago ÷ faturado); sem histórico, a de Ajustes
+  const real = F.aliquotaReal({ despesas: d.despesas, hoje: hojeISO(), faturado: (m) => F.faturadoNoMes(m, { inicio: d.config.inicio, linhas: d.receber, meses: d.meses }) });
+  d.aliquota = real ? { ...real, estimada: false } : { pct: Number(d.config.imposto_pct) || 0, estimada: true };
+  // reembolsos que o cliente paga e ainda não foram cobrados (coluna do script 55)
+  d.temReembolso = d.despesas.some((x) => 'reembolso_receber_id' in x);
+  d.reembolsosACobrar = d.despesas.filter((x) => x.reembolsavel && !x.reembolso_receber_id);
   return d;
 }
 
@@ -156,12 +165,13 @@ function abaGeral(d, el, recarregar, mesParam) {
     <div class="grade g2 mt">
       <div class="cartao"><h3>Para fazer</h3><div class="grade" style="gap:8px">
         ${d.aConferir.planos.length + d.aConferir.despesas.length ? `<a class="pend" href="#/financeiro/conferir"><b>${d.aConferir.planos.length + d.aConferir.despesas.length}</b><span>para conferir: ${[d.aConferir.planos.length && `${d.aConferir.planos.length} plano${d.aConferir.planos.length > 1 ? 's' : ''} de faturamento`, d.aConferir.despesas.length && `${d.aConferir.despesas.length} despesa${d.aConferir.despesas.length > 1 ? 's' : ''}`].filter(Boolean).join(' e ')}</span></a>` : ''}
+        ${d.reembolsosACobrar.length ? `<a class="pend" href="#/financeiro/emitir"><b>${d.reembolsosACobrar.length}</b><span>${d.reembolsosACobrar.length === 1 ? 'despesa que o cliente reembolsa' : 'despesas que o cliente reembolsa'} ainda sem cobrança · ${dinheiro(F.soma(d.reembolsosACobrar, (x) => x.valor))} + imposto</span></a>` : ''}
         ${aEmitir.length ? `<a class="pend" href="#/financeiro/emitir"><b>${aEmitir.length}</b><span>${aEmitir.length === 1 ? 'nota para emitir' : 'notas para emitir'} · ${dinheiro(F.soma(aEmitir, (l) => l.valor))}</span></a>` : ''}
         ${atrasado.length ? `<a class="pend" href="#/financeiro/receber"><b style="color:var(--erro)">${atrasado.length}</b><span>${atrasado.length === 1 ? 'pagamento atrasado' : 'pagamentos atrasados'} · ${dinheiro(F.soma(atrasado, (l) => l.valor))}</span></a>` : ''}
         ${faltaPlano.length ? `<a class="pend" href="#/financeiro/planos"><b>${faltaPlano.length}</b><span>${faltaPlano.length === 1 ? 'turma ou mentoria sem plano de faturamento' : 'turmas e mentorias sem plano de faturamento'}</span></a>` : ''}
         ${d.mentoresSemCadastro ? `<a class="pend" href="#/financeiro/mentores"><b>${d.mentoresSemCadastro}</b><span>${d.mentoresSemCadastro === 1 ? 'mentor parceiro sem cadastro financeiro' : 'mentores parceiros sem cadastro financeiro'}</span></a>` : ''}
         ${novos.map((x) => `<a class="pend" href="#/financeiro/planos"><b>${x.ms.length}</b><span>${x.ms.length === 1 ? 'módulo novo' : 'módulos novos'} em ${esc(x.p.titulo)} sem linha no faturamento</span></a>`).join('')}
-        ${!aEmitir.length && !atrasado.length && !faltaPlano.length && !novos.length && !d.aConferir.planos.length && !d.aConferir.despesas.length ? '<p class="apagado">Nada pendente. 🎉</p>' : ''}
+        ${!aEmitir.length && !atrasado.length && !faltaPlano.length && !novos.length && !d.aConferir.planos.length && !d.aConferir.despesas.length && !d.reembolsosACobrar.length ? '<p class="apagado">Nada pendente. 🎉</p>' : ''}
       </div></div>
       <div class="cartao"><div class="linha"><h3 style="flex:1">Faturado em ${ano}</h3><button class="btn peq" type="button" id="meses">Metas e meses antigos</button></div>
         <div class="fn-barras" aria-label="Faturado por mês em ${ano}">${doAno.map((x) => `
@@ -266,6 +276,48 @@ function abaConferir(ctx, d, el, recarregar) {
 }
 
 // ---------- emitir nota ----------
+function blocoReembolsos(d) {
+  const lista = d.reembolsosACobrar;
+  if (!lista.length) return '';
+  const onde = (x) => ondeTexto(d, x) || '<span class="selo alerta">sem cliente</span>';
+  return `<div class="cartao" style="margin-bottom:14px"><h3>Despesas que o cliente reembolsa (${lista.length})</h3>
+    <p class="apagado">A nota do reembolso também paga imposto: com a alíquota de ${esc(textoAliquota(d))}, cobrar só o valor gasto deixa a Mentorei no prejuízo do imposto. "Cobrar na nota" põe a linha aqui em "Emitir nota".</p>
+    ${d.temReembolso ? '' : '<div class="aviso mt">Para marcar o que já foi cobrado, falta rodar o script <b>55</b> no Supabase.</div>'}
+    <div class="tabela mt"><table><thead><tr><th>Dia</th><th>O que</th><th>Cliente</th><th style="text-align:right">Gasto</th><th style="text-align:right">Imposto na nota</th><th style="text-align:right">Cobrar para empatar</th><th></th></tr></thead><tbody>
+    ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}</td><td>${onde(x)}</td><td class="fn-num" style="text-align:right">${dinheiro(x.valor)}</td>
+      <td class="fn-num" style="text-align:right">${dinheiro(F.impostoSobre(F.comImpostoIncluido(x.valor, d.aliquota.pct), d.aliquota.pct))}</td>
+      <td class="fn-num" style="text-align:right"><b>${dinheiro(F.comImpostoIncluido(x.valor, d.aliquota.pct))}</b></td>
+      <td><button class="btn peq escuro" type="button" data-cobrar="${x.id}"${d.temReembolso && x.empresa_id ? '' : ' disabled title="Ligue a despesa a um cliente (Editar) e rode o script 55"'}>Cobrar na nota</button></td></tr>`).join('')}
+    </tbody></table></div></div>`;
+}
+
+function janelaCobrar(d, x, recarregar) {
+  const pct = d.aliquota.pct;
+  const cheio = F.comImpostoIncluido(x.valor, pct);
+  const plano = d.planos.find((p) => (x.turma_id && p.turma_id === x.turma_id) || (x.programa_id && p.programa_id === x.programa_id)) || null;
+  const j = janela('Cobrar o reembolso do cliente', `<form class="grade" style="gap:12px" novalidate>
+    <p><b>${esc(x.descricao)}</b> · ${esc(d.empresa(x.empresa_id).nome)} · gasto de ${dinheiro(x.valor)}</p>
+    <label class="check"><input type="radio" name="cb-valor" value="cheio" checked><span>Cobrar <b>${dinheiro(cheio)}</b>: com o imposto da nota incluído (${pctBR(pct)}), sobra exatamente o que foi gasto.</span></label>
+    <label class="check"><input type="radio" name="cb-valor" value="gasto"><span>Cobrar só <b>${dinheiro(x.valor)}</b>: a Mentorei paga o imposto de ${dinheiro(F.impostoSobre(x.valor, pct))}.</span></label>
+    <label class="check"><input type="radio" name="cb-valor" value="outro"><span>Outro valor: <input type="number" id="cb-outro" min="0" step="0.01" style="max-width:140px" aria-label="Outro valor"></span></label>
+    <p class="peq apagado">Alíquota: ${esc(textoAliquota(d))}. ${plano ? `A linha entra no faturamento de "${esc(plano.titulo)}".` : 'A linha entra avulsa, só com o cliente.'}</p>
+    <div class="linha"><button class="btn pri" type="submit">Pôr em "Emitir nota"</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`, { largura: 600 });
+  const f = j.corpo.querySelector('form');
+  f.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const op = f.querySelector('[name="cb-valor"]:checked').value;
+    const valor = op === 'cheio' ? cheio : op === 'gasto' ? Number(x.valor) : num(f.querySelector('#cb-outro'));
+    if (!valor) { avisar('Escreva o valor.', true); return; }
+    try {
+      const { data, error } = await sb.from('fin_receber').insert({ plano_id: plano ? plano.id : null, empresa_id: x.empresa_id, descricao: `Reembolso · ${x.descricao}`.slice(0, 200), data: hojeISO(), valor, situacao: 'aberto',
+        observacoes: `Despesa de ${dataBR(x.data)} (${dinheiro(x.valor)}) reembolsada pelo cliente; alíquota usada ${pctBR(pct)}.` }).select('id').single();
+      if (error) throw error;
+      const r = await sb.from('fin_despesas').update({ reembolso_receber_id: data.id }).eq('id', x.id); if (r.error) throw r.error;
+      j.fechar(); avisar('Reembolso pronto para emitir a nota.'); recarregar();
+    } catch (e) { avisar(explicarErro(e), true); }
+  });
+}
+
 function abaEmitir(d, el, recarregar) {
   const hoje = hojeISO();
   const linhas = d.receber.filter((l) => ['a_emitir', 'proximo'].includes(F.estado(l, hoje))).sort((a, b) => (a.data || '').localeCompare(b.data || ''));
@@ -279,21 +331,22 @@ function abaEmitir(d, el, recarregar) {
       <td>${esc(d.config.emissores[p ? p.emissor : 'principal'] || '')}</td>
       <td class="fn-num" style="text-align:right">${dinheiro(l.valor)}</td>
       <td><div class="linha" style="gap:6px;flex-wrap:nowrap"><button class="btn peq" type="button" data-texto="${l.id}">Copiar texto</button><button class="btn peq escuro" type="button" data-nota="${l.id}">Nota emitida</button></div></td></tr>`; };
-  el.innerHTML = linhas.length ? `
+  el.innerHTML = blocoReembolsos(d) + (linhas.length ? `
     <p class="apagado" style="margin-bottom:10px">Módulos e parcelas que já aconteceram (ou acontecem nesta semana) e ainda estão sem nota. Para pôr várias linhas na mesma nota, marque as caixinhas.</p>
     <div class="linha" style="margin-bottom:10px"><button class="btn escuro" type="button" id="nota-varias" disabled>Nota emitida para as marcadas</button><span class="peq apagado" id="soma-sel"></span></div>
     <div class="tabela cartao" style="padding:0"><table><thead><tr><th></th><th>Data</th><th>Cliente</th><th>O que</th><th>Quem paga</th><th>Nota por</th><th style="text-align:right">Valor</th><th></th></tr></thead>
       <tbody>${linhas.map(linha).join('')}</tbody></table></div>`
-    : '<div class="vazio">Nenhuma nota para emitir agora. Quando um módulo ou uma parcela chegar, ela aparece aqui.</div>';
+    : '<div class="vazio">Nenhuma nota para emitir agora. Quando um módulo ou uma parcela chegar, ela aparece aqui.</div>');
   const marcadas = () => [...el.querySelectorAll('[data-sel]:checked')].map((c) => d.receber.find((l) => l.id === c.dataset.sel));
   el.addEventListener('change', (ev) => {
     if (!ev.target.matches('[data-sel]')) return;
     const m = marcadas();
-    el.querySelector('#nota-varias').disabled = m.length < 1;
+    if (el.querySelector('#nota-varias')) el.querySelector('#nota-varias').disabled = m.length < 1;
     el.querySelector('#soma-sel').textContent = m.length ? `${m.length} marcada${m.length > 1 ? 's' : ''} · ${dinheiro(F.soma(m, (l) => l.valor))}` : '';
   });
   el.addEventListener('click', async (ev) => {
-    const t = ev.target.closest('[data-texto]'), n = ev.target.closest('[data-nota]');
+    const t = ev.target.closest('[data-texto]'), n = ev.target.closest('[data-nota]'), cb = ev.target.closest('[data-cobrar]');
+    if (cb) return janelaCobrar(d, d.despesas.find((x) => x.id === cb.dataset.cobrar), recarregar);
     if (t) { const l = d.receber.find((x) => x.id === t.dataset.texto); copiar(F.textoDaNota({ plano: d.plano(l.plano_id), linhas: [l], empresa: d.empresa(l.empresa_id).nome })); }
     if (n) janelaNota(d, [d.receber.find((x) => x.id === n.dataset.nota)], recarregar);
     if (ev.target.id === 'nota-varias') {
@@ -627,7 +680,7 @@ function abaDespesas(d, el, recarregar, mesParam) {
       <span style="flex:1"></span><b>${dinheiro(F.soma(lista, (x) => x.valor))}</b>
     </div>
     ${lista.length ? `<div class="tabela cartao" style="padding:0"><table><thead><tr><th>Dia</th><th>O que</th><th>Tipo</th><th>Cliente · turma</th><th style="text-align:right">Valor</th><th>Pago</th><th></th></tr></thead><tbody>
-      ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}${x.fixa_id ? ' <span class="selo neutro">fixa</span>' : ''}${x.reembolsavel ? ' <span class="selo alerta">cliente reembolsa</span>' : ''}${x.conferir ? ' <a class="selo alerta" href="#/financeiro/conferir">conferir</a>' : ''}${x.comprovante ? ` <button class="btn peq" type="button" data-comprovante="${esc(x.comprovante)}" title="Ver o comprovante">📎</button>` : ''}</td>
+      ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}${x.fixa_id ? ' <span class="selo neutro">fixa</span>' : ''}${x.reembolsavel ? ` <span class="selo alerta" title="A nota do reembolso paga imposto">cliente reembolsa · imposto ${dinheiro(F.impostoSobre(F.comImpostoIncluido(x.valor, d.aliquota.pct), d.aliquota.pct))}${x.reembolso_receber_id ? ' · cobrado' : ''}</span>` : ''}${x.conferir ? ' <a class="selo alerta" href="#/financeiro/conferir">conferir</a>' : ''}${x.comprovante ? ` <button class="btn peq" type="button" data-comprovante="${esc(x.comprovante)}" title="Ver o comprovante">📎</button>` : ''}</td>
         <td>${esc(F.nomeCategoria(x.categoria))}</td><td>${onde(x) || '<span class="apagado">—</span>'}</td><td class="fn-num" style="text-align:right">${dinheiro(x.valor)}</td>
         <td>${x.pago_em ? `<span class="selo ok">${dataBR(x.pago_em)}</span>` : `<button class="btn peq" type="button" data-pagar="${x.id}">Marcar pago</button>`}</td>
         <td><button class="btn peq" type="button" data-editar="${x.id}">Editar</button></td></tr>`).join('')}</tbody></table></div>
@@ -679,6 +732,7 @@ function formDespesa(d, desp, recarregar) {
       <div class="campo" id="c-socia"><label for="d-socia">Despesa pessoal de</label><select id="d-socia"><option value="">—</option>${d.socias.map((p) => `<option value="${p.id}"${p.id === x.pessoa_id ? ' selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></div>
     </div>
     <label class="check"><input type="checkbox" id="d-reemb"${x.reembolsavel ? ' checked' : ''}><span>O cliente vai reembolsar esta despesa</span></label>
+    <div class="aviso" id="d-imposto" hidden></div>
     <div class="grade g2" style="gap:10px">
       <div class="campo"><label for="d-pago">Pago em</label><input type="date" id="d-pago" value="${x.pago_em || ''}"><small>Vazio = ainda não foi pago.</small></div>
       <div class="campo"><label for="d-conta">Conta</label><select id="d-conta"><option value="">—</option>${['Sicoob', 'Unicred', 'Cartão PJ'].map((c) => `<option${c === x.conta ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
@@ -707,6 +761,17 @@ function formDespesa(d, desp, recarregar) {
   };
   const verSocia = () => { $('#c-socia').hidden = $('#d-cat').value !== 'socia'; };
   turmasDe(); programasDe(); verSocia();
+  const verImposto = () => {
+    const caixa = $('#d-imposto'); const v = num($('#d-valor'));
+    caixa.hidden = !$('#d-reemb').checked;
+    if (caixa.hidden) return;
+    const pct = d.aliquota.pct;
+    caixa.innerHTML = v ? `<b>Atenção: a nota do reembolso paga imposto.</b> Com a alíquota de ${esc(textoAliquota(d))}, para sobrar ${dinheiro(v)} a nota precisa ser de <b>${dinheiro(F.comImpostoIncluido(v, pct))}</b> (imposto de ${dinheiro(F.impostoSobre(F.comImpostoIncluido(v, pct), pct))}). Se cobrar só ${dinheiro(v)}, a Mentorei paga ${dinheiro(F.impostoSobre(v, pct))} de imposto. A cobrança fica em "Emitir nota".`
+      : '<b>Atenção: a nota do reembolso paga imposto.</b> Coloque o valor para ver quanto cobrar.';
+  };
+  verImposto();
+  $('#d-reemb').addEventListener('change', verImposto);
+  $('#d-valor').addEventListener('input', verImposto);
   let comprovante = x.comprovante || null;
   const leitura = $('#d-leitura');
   if ($('#d-ver')) $('#d-ver').addEventListener('click', async () => { try { (await import('./financeiro-recibo.js')).abrirComprovante(comprovante); } catch (e) { avisar(explicarErro(e), true); } });
@@ -719,7 +784,7 @@ function formDespesa(d, desp, recarregar) {
       const { caminho, resultado: r } = await R.lerRecibo(arq, (t) => { leitura.textContent = t; });
       comprovante = caminho;
       if (r.data) $('#d-data').value = r.data;
-      if (r.valor != null) $('#d-valor').value = Number(r.valor).toFixed(2);
+      if (r.valor != null) { $('#d-valor').value = Number(r.valor).toFixed(2); verImposto(); }
       if (r.categoria) $('#d-cat').value = r.categoria;
       $('#d-desc').value = [r.descricao, r.estabelecimento && !String(r.descricao || '').includes(r.estabelecimento) ? r.estabelecimento : ''].filter(Boolean).join(' · ').slice(0, 200);
       const sug = R.sugerirModulo(d, { data: r.data, cidade: r.cidade });
@@ -803,7 +868,7 @@ function janelaAjustes(d, recarregar) {
       <div class="campo"><label for="a-e1">Nome do CNPJ principal</label><input type="text" id="a-e1" value="${esc(c.emissores.principal)}"></div>
       <div class="campo"><label for="a-e2">Nome do outro CNPJ</label><input type="text" id="a-e2" value="${esc(c.emissores.outro)}"></div>
     </div>
-    <div class="campo"><label for="a-imp">Imposto estimado sobre o faturamento (%)</label><input type="number" id="a-imp" min="0" max="40" step="0.1" value="${c.imposto_pct}"><small>Usado na margem (próxima etapa). A média do Simples na planilha é 11,5%.</small></div>
+    <div class="campo"><label for="a-imp">Imposto estimado sobre o faturamento (%)</label><input type="number" id="a-imp" min="0" max="40" step="0.1" value="${c.imposto_pct}"><small>Vale só quando não há impostos pagos nos últimos 3 meses. Hoje a plataforma usa ${esc(textoAliquota(d))}.</small></div>
     <div class="linha"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`, { largura: 560 });
   const f = j.corpo.querySelector('form');
   f.addEventListener('submit', async (ev) => {

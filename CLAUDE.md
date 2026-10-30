@@ -600,6 +600,13 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   passados, duracao_min, e sessões realizadas, duracao_min ou do programa ou 60; ajuste por linha com motivo; aberto → aprovado →
   pago: cria uma despesa "parceiros" por turma/programa e guarda os ids em `despesas`; "Desfazer o pagamento" apaga). Extrato do
   mês para o mentor (copiar/WhatsApp). Visão geral: "N mentores parceiros sem cadastro financeiro". O mentor não vê nada.
+  IMPOSTO (30/10, pedido dela): alíquota REAL = impostos pagos (categoria impostos) nos 3 últimos meses fechados ÷ faturado do mês
+  anterior a cada pagamento (`aliquotaReal` em financeiro-regras.js; deu 13,96% em 30/10); sem histórico vale Ajustes (imposto_pct).
+  Despesa que o CLIENTE REEMBOLSA: aviso no formulário com o imposto da nota e o valor para empatar (`comImpostoIncluido`), selo na
+  lista e bloco "Despesas que o cliente reembolsa" em Emitir nota → "Cobrar na nota" (com imposto incluído, só o gasto ou outro
+  valor) cria a linha em fin_receber (no plano da turma/programa, senão avulsa) e liga `fin_despesas.reembolso_receber_id` (script
+  55); "Para fazer" mostra os reembolsos sem cobrança. NA ETAPA 4, A DISTRIBUIÇÃO DAS SÓCIAS TEM DE DESCONTAR OS IMPOSTOS (Simples
+  e INSS pagos de verdade), como fazia a aba Precificação/distribuição da planilha.
   Próximas etapas: 3) extrato OFX;
   4) margem (com horas e viagem estimada), fechamento do mês, distribuição, caixa 90 dias, avisos. Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
@@ -774,9 +781,16 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
   gravações em Turmas; conferir se o Workspace deixa "qualquer pessoa com o link"; revisão jurídica do TERMO_ALUNO. Nada testado com
   login real nem com a pasta real (sem acesso daqui).
-- CONTRATO DE PRESTAÇÃO DE SERVIÇO DO MENTOR (pedido da Juliana em 2026-10-07, ela ainda vai mandar o texto): o mentor precisa
-  concordar no primeiro acesso (cadastro); se escolher "ler depois", depois de 7 dias aparece uma mensagem pedindo para assinar.
-  Perguntar a ela pelo contrato antes de mandar os convites aos mentores. Ainda NÃO implementado.
+- CONTRATO DE PRESTAÇÃO DE SERVIÇO DO MENTOR (feito em 30/10, script 55): MODELO PADRÃO escrito pelo Claude, sem revisão jurídica
+  (ela vai refinar). Texto em `public/assets/contrato-mentor.js` (VERSAO; contratante FSK Capital Intelectual Ltda., CNPJ
+  30.589.703/0001-68, Campinas/SP, A CONFIRMAR com ela; pagamento até dia 10, aviso de 30 dias, 12 meses sem atender clientes da
+  Mentorei direto, 48 h de aviso: valores provisórios). Mudar o texto = mudar VERSAO (quem assinou assina de novo).
+  DESLIGADO até ela revisar: `LIBERADO = false` em contrato-mentor.js (virar true e publicar quando ela aprovar o texto).
+  `telas/contrato.js`: mentor (papel mentor; sócias não) vê o contrato ao entrar (app.js, `contratoPendente`), assina com nome +
+  CPF/CNPJ + "li e concordo" (tabela `contratos_mentor`, hora do banco, SHA-256 do texto preenchido; assinado não muda); "Ler depois"
+  por 7 dias (sessionStorage na sessão + faixa no alto de toda tela); depois de 7 dias o contrato volta a cada entrada (não bloqueia).
+  "Meu contrato" (mentor) e Gestão → "Contrato dos mentores" (situação de cada um, "Ver o assinado", o modelo). Financeiro →
+  Mentores mostra a coluna Contrato.
 - Cadastro simples (convidados das trilhas): mentor com e-mail provisório `…@pendente.mentorei.com.br`, que nunca recebe nada
   (`emailReal()` no servidor, `emailPendente()` nas telas). A administração coloca o e-mail real em Mentores → Editar dados
   (`/api/convidar` acao trocar_email) e só então manda o convite.
