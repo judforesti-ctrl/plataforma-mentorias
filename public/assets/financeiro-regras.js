@@ -10,7 +10,7 @@ export const CATEGORIAS = [
   ['parceiros', 'Mentores e parceiros'], ['passagem', 'Passagem'], ['hospedagem', 'Hospedagem'], ['refeicao', 'Refeição'],
   ['transporte', 'Transporte (táxi, Uber, carro)'], ['impressao', 'Impressão'], ['material', 'Material'],
   ['impostos', 'Impostos'], ['contabilidade', 'Contabilidade'], ['equipe', 'Equipe fixa'], ['marketing', 'Marketing e site'],
-  ['ferramentas', 'Ferramentas e assinaturas'], ['bancarias', 'Tarifas do banco'], ['outros', 'Outros'],
+  ['ferramentas', 'Ferramentas e assinaturas'], ['bancarias', 'Tarifas do banco'], ['socia', 'Despesa pessoal de sócia'], ['outros', 'Outros'],
 ];
 export const nomeCategoria = (k) => (CATEGORIAS.find(([c]) => c === k) || [k, k || 'Outros'])[1];
 // despesas de viagem (vão para a margem da turma ou do módulo)

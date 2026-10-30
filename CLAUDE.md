@@ -566,6 +566,17 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   muda). Abas: Visão geral (mês: faturado × meta × mesmo mês do ano anterior, recebido, a receber/atrasado, despesas, "Para fazer",
   barras do ano e total por ano desde 2021), Emitir nota (várias linhas na mesma nota; "Copiar texto" para o emissor), A receber (por
   nota; Recebido divide o que entrou na proporção; Voltar = nota cancelada), Turmas e mentorias (sem plano + planos), Despesas.
+  CONFERIR (script 53, 30/10, pedido dela: "não quero depender da Cintia"): `fin_planos.conferir` e `fin_despesas.conferir` (texto =
+  recado; vazio = conferido) e origem 'planilha'. Aba Financeiro → Conferir: planos a validar ("Abrir e conferir"; salvar limpa) e
+  despesas com "É de…" (turma, mentoria individual, só o cliente, "Despesa pessoal de" sócia = categoria 'socia' + pessoa_id, ou
+  Mentorei geral) + Confirmar. Regra dela: despesa que não é fixa vai para um programa; senão é despesa pessoal de uma sócia (com o
+  nome). Sócias = Juliana, Viviane, Cláudia (pelo nome; `configuracoes.financeiro.socias` com ids, se um dia precisar).
+  CARGA DA PLANILHA (30/10): gerada fora do git (dados financeiros) por scratchpad %TEMP%\fin53\scripts (ler.py → classificar.py →
+  gerar.py → dados/carga.json, ids md5 'fin53:…', rodar de novo não duplica) e gravada pelo login dela no navegador: 10 despesas
+  fixas (agência desligada: último pagamento em março) + 86 lançamentos delas de jan–set/2026, 101 despesas com recado (retiradas
+  das sócias ficam de fora: distribuição), 27 planos (turmas e mentorias ativas + Adidas) com 133 linhas, valores da aba
+  Faturamento 2026 (antes de outubro = recebido; outubro = nota emitida; depois = em aberto; exceções no próprio recado). Groove e
+  Holambra não estão cadastrados na plataforma (sem plano).
   Próximas etapas: 2) despesa por foto do recibo (IA) + cadastro financeiro do mentor e pagamento calculado; 3) extrato OFX;
   4) margem (com horas e viagem estimada), fechamento do mês, distribuição, caixa 90 dias, avisos. Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
@@ -723,8 +734,8 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
-- FINANCEIRO (2026-10-30): ela rodar o script 52; a Cintia montar os planos das turmas e mentorias em andamento e cadastrar as
-  despesas fixas; conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ. Etapas 2 a 4 não feitas.
+- FINANCEIRO (2026-10-30): script 52 rodado; falta o 53 e conferir na aba Conferir os planos e despesas que vieram da planilha;
+  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; cadastrar Groove e Holambra. Etapas 2 a 4 não feitas.
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.

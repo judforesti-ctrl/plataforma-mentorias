@@ -9,7 +9,9 @@ import { janela, faltaScript } from './agenda-dados.js';
 import { dinheiro, norm } from './vendas.js';
 import * as F from '../financeiro-regras.js';
 
-const ABAS = [['geral', 'Visão geral'], ['emitir', 'Emitir nota'], ['receber', 'A receber'], ['planos', 'Turmas e mentorias'], ['despesas', 'Despesas']];
+const ABAS = [['geral', 'Visão geral'], ['conferir', 'Conferir'], ['emitir', 'Emitir nota'], ['receber', 'A receber'], ['planos', 'Turmas e mentorias'], ['despesas', 'Despesas']];
+// as sócias (despesa pessoal de cada uma): pelos ids em Ajustes, senão pelo primeiro nome
+const SOCIAS_NOMES = /^(juliana|viviane|cl[aá]udia)\b/i;
 const AVISO_52 = '<div class="aviso">Falta rodar o script <b>52-financeiro.sql</b> no Supabase (SQL Editor → New query → colar → Run). Até lá esta tela fica vazia.</div>';
 const PADRAO_CONFIG = { inicio: '2026-11', emissores: { principal: 'Contabilizei', outro: 'Prefeitura' }, imposto_pct: 11.5 };
 const selo = (estado) => { const [t, c] = F.ROTULO_ESTADO[estado] || [estado, 'neutro']; return `<span class="selo ${c === 'ruim' ? 'erro' : c}">${t}</span>`; };
@@ -20,24 +22,29 @@ const num = (el) => (el.value === '' ? null : Number(el.value));
 // ---------- dados ----------
 async function carregar() {
   const pedir = (t, sel = '*', f = (q) => q) => f(sb.from(t).select(sel));
-  const [planos, receber, despesas, fixas, meses, config, empresas, turmas, programas, modulos, oportunidades] = await Promise.all([
+  const [planos, receber, despesas, fixas, meses, config, empresas, turmas, programas, modulos, oportunidades, perfis] = await Promise.all([
     pedir('fin_planos'), pedir('fin_receber'), pedir('fin_despesas', '*', (q) => q.gte('data', `${F.somarMeses(hojeISO().slice(0, 7), -24)}-01`)),
     pedir('fin_despesas_fixas'), pedir('fin_meses'), pedir('configuracoes', 'valor', (q) => q.eq('chave', 'financeiro').maybeSingle()),
     pedir('empresas', 'id, nome, cnpj'), pedir('turmas', 'id, nome, empresa_id, status, inicio, fim_previsto, formato'),
     pedir('programas', 'id, nome, empresa_id, status, inicio, fim_previsto, sessoes_por_mentorado'),
     pedir('modulos', 'id, turma_id, numero, titulo, data_hora, formato'), pedir('oportunidades', 'id, empresa_id, turma_id, programa_id, valor, etapa, titulo'),
+    pedir('perfis', 'id, nome, papel, tambem_mentor, ativo', (q) => q.in('papel', ['admin', 'mentor'])),
   ]);
   const falta = [planos, receber, despesas, fixas, meses].some((r) => r.error && faltaScript(r.error));
   for (const r of [planos, receber, despesas, fixas, meses, config, empresas, turmas, programas, modulos, oportunidades]) if (r.error && !faltaScript(r.error)) throw r.error;
   const d = {
     falta, planos: planos.data || [], receber: receber.data || [], despesas: despesas.data || [], fixas: fixas.data || [], meses: meses.data || [],
     config: { ...PADRAO_CONFIG, ...((config.data && config.data.valor) || {}) }, empresas: empresas.data || [], turmas: turmas.data || [],
-    programas: programas.data || [], modulos: modulos.data || [], oportunidades: oportunidades.data || [],
+    programas: programas.data || [], modulos: modulos.data || [], oportunidades: oportunidades.data || [], perfis: perfis.data || [],
   };
   d.config.emissores = { ...PADRAO_CONFIG.emissores, ...(d.config.emissores || {}) };
   d.empresa = (id) => d.empresas.find((e) => e.id === id) || { nome: '—' };
   d.plano = (id) => d.planos.find((p) => p.id === id) || null;
   d.modulo = (id) => d.modulos.find((m) => m.id === id) || null;
+  d.pessoa = (id) => d.perfis.find((p) => p.id === id) || null;
+  d.socias = Array.isArray(d.config.socias) && d.config.socias.length ? d.perfis.filter((p) => d.config.socias.includes(p.id))
+    : d.perfis.filter((p) => p.ativo !== false && SOCIAS_NOMES.test(p.nome || ''));
+  d.aConferir = { planos: d.planos.filter((p) => p.conferir), despesas: d.despesas.filter((x) => x.conferir) };
   return d;
 }
 
@@ -69,7 +76,7 @@ export async function render(ctx, el, params) {
     <div class="cab"><div><h1>Financeiro</h1><p class="sub">O faturamento nasce das turmas e mentorias: no dia do módulo ou da parcela, a nota aparece para emitir.</p></div>
       ${d.falta ? '' : '<div class="acoes"><button class="btn" type="button" id="ajustes">Ajustes</button><button class="btn pri" type="button" id="nova-desp">+ Despesa</button></div>'}</div>
     ${d.falta ? AVISO_52 : ''}
-    <nav class="abas" aria-label="Partes do Financeiro">${ABAS.map(([k, t]) => `<button type="button" data-aba="${k}" class="${k === aba ? 'atual' : ''}">${t}${k === 'emitir' ? contador(d) : ''}</button>`).join('')}</nav>
+    <nav class="abas" aria-label="Partes do Financeiro">${ABAS.map(([k, t]) => `<button type="button" data-aba="${k}" class="${k === aba ? 'atual' : ''}">${t}${k === 'emitir' ? contador(d) : k === 'conferir' && !d.falta && d.aConferir.planos.length + d.aConferir.despesas.length ? ` <span class="selo alerta">${d.aConferir.planos.length + d.aConferir.despesas.length}</span>` : ''}</button>`).join('')}</nav>
     <div id="conteudo"></div>`;
   el.querySelector('.abas').addEventListener('click', (ev) => { const b = ev.target.closest('[data-aba]'); if (b) location.hash = `#/financeiro/${b.dataset.aba}`; });
   if (d.falta) return;
@@ -77,6 +84,7 @@ export async function render(ctx, el, params) {
   el.querySelector('#ajustes').addEventListener('click', () => janelaAjustes(d, recarregar));
   el.querySelector('#nova-desp').addEventListener('click', () => formDespesa(d, null, recarregar));
   const alvo = el.querySelector('#conteudo');
+  if (aba === 'conferir') return abaConferir(ctx, d, alvo, recarregar);
   if (aba === 'emitir') return abaEmitir(d, alvo, recarregar);
   if (aba === 'receber') return abaReceber(d, alvo, recarregar);
   if (aba === 'planos') return abaPlanos(ctx, d, alvo, recarregar);
@@ -144,11 +152,12 @@ function abaGeral(d, el, recarregar, mesParam) {
     </div>
     <div class="grade g2 mt">
       <div class="cartao"><h3>Para fazer</h3><div class="grade" style="gap:8px">
+        ${d.aConferir.planos.length + d.aConferir.despesas.length ? `<a class="pend" href="#/financeiro/conferir"><b>${d.aConferir.planos.length + d.aConferir.despesas.length}</b><span>para conferir: ${[d.aConferir.planos.length && `${d.aConferir.planos.length} plano${d.aConferir.planos.length > 1 ? 's' : ''} de faturamento`, d.aConferir.despesas.length && `${d.aConferir.despesas.length} despesa${d.aConferir.despesas.length > 1 ? 's' : ''}`].filter(Boolean).join(' e ')}</span></a>` : ''}
         ${aEmitir.length ? `<a class="pend" href="#/financeiro/emitir"><b>${aEmitir.length}</b><span>${aEmitir.length === 1 ? 'nota para emitir' : 'notas para emitir'} · ${dinheiro(F.soma(aEmitir, (l) => l.valor))}</span></a>` : ''}
         ${atrasado.length ? `<a class="pend" href="#/financeiro/receber"><b style="color:var(--erro)">${atrasado.length}</b><span>${atrasado.length === 1 ? 'pagamento atrasado' : 'pagamentos atrasados'} · ${dinheiro(F.soma(atrasado, (l) => l.valor))}</span></a>` : ''}
         ${faltaPlano.length ? `<a class="pend" href="#/financeiro/planos"><b>${faltaPlano.length}</b><span>${faltaPlano.length === 1 ? 'turma ou mentoria sem plano de faturamento' : 'turmas e mentorias sem plano de faturamento'}</span></a>` : ''}
         ${novos.map((x) => `<a class="pend" href="#/financeiro/planos"><b>${x.ms.length}</b><span>${x.ms.length === 1 ? 'módulo novo' : 'módulos novos'} em ${esc(x.p.titulo)} sem linha no faturamento</span></a>`).join('')}
-        ${!aEmitir.length && !atrasado.length && !faltaPlano.length && !novos.length ? '<p class="apagado">Nada pendente. 🎉</p>' : ''}
+        ${!aEmitir.length && !atrasado.length && !faltaPlano.length && !novos.length && !d.aConferir.planos.length && !d.aConferir.despesas.length ? '<p class="apagado">Nada pendente. 🎉</p>' : ''}
       </div></div>
       <div class="cartao"><div class="linha"><h3 style="flex:1">Faturado em ${ano}</h3><button class="btn peq" type="button" id="meses">Metas e meses antigos</button></div>
         <div class="fn-barras" aria-label="Faturado por mês em ${ano}">${doAno.map((x) => `
@@ -172,6 +181,84 @@ function barrasCategorias(lista) {
   const linhas = Object.entries(por).sort((a, b) => b[1] - a[1]);
   const maior = Math.max(1, ...linhas.map(([, v]) => v));
   return `<div class="fn-barras">${linhas.map(([k, v]) => `<div class="fn-barra"><span>${esc(F.nomeCategoria(k))}</span><span class="fn-trilho"><i style="width:${Math.round(v / maior * 100)}%"></i></span><span class="fn-v">${dinheiro(v)}</span></div>`).join('')}</div>`;
+}
+
+// ---------- conferir ----------
+// O que entrou sozinho (da planilha ou montado pela plataforma) e precisa de um olhar: planos com valor a validar e despesas
+// sem programa certo. Cada despesa ganha "É de…": uma turma, uma mentoria individual, só o cliente, a despesa pessoal de uma
+// sócia ou a Mentorei em geral; "Confirmar" grava e tira da lista.
+const nomeTurma = (d, id) => (d.turmas.find((t) => t.id === id) || {}).nome || '';
+const nomePrograma = (d, id) => (d.programas.find((p) => p.id === id) || {}).nome || '';
+function ondeTexto(d, x) {
+  if (x.categoria === 'socia') return `Despesa pessoal de ${esc((d.pessoa(x.pessoa_id) || {}).nome || 'sócia ?')}`;
+  return [x.empresa_id && d.empresa(x.empresa_id).nome, x.turma_id && nomeTurma(d, x.turma_id), x.programa_id && nomePrograma(d, x.programa_id),
+    x.modulo_id && d.modulo(x.modulo_id) && `Módulo ${d.modulo(x.modulo_id).numero}`].filter(Boolean).map(esc).join(' · ');
+}
+function valorOnde(x) {
+  if (x.categoria === 'socia') return x.pessoa_id ? `s:${x.pessoa_id}` : '';
+  if (x.turma_id) return `t:${x.turma_id}`;
+  if (x.programa_id) return `p:${x.programa_id}`;
+  if (x.empresa_id) return `e:${x.empresa_id}`;
+  return x.conferir ? '' : 'g:';
+}
+function opcoesOnde(d, atual) {
+  const emp = (id) => d.empresa(id).nome;
+  const ordem = (a, b) => a.rotulo.localeCompare(b.rotulo);
+  const ativa = (x) => !/conclu/.test(x.status || '');
+  const grupo = (titulo, itens) => (itens.length ? `<optgroup label="${esc(titulo)}">${itens.sort(ordem).map((i) => `<option value="${i.v}"${i.v === atual ? ' selected' : ''}>${esc(i.rotulo)}</option>`).join('')}</optgroup>` : '');
+  return `<option value="">É de…</option>
+    ${grupo('Turmas', d.turmas.filter((t) => ativa(t) || `t:${t.id}` === atual).map((t) => ({ v: `t:${t.id}`, rotulo: `${emp(t.empresa_id)} · ${t.nome}` })))}
+    ${grupo('Mentorias individuais', d.programas.filter((p) => ativa(p) || `p:${p.id}` === atual).map((p) => ({ v: `p:${p.id}`, rotulo: `${emp(p.empresa_id)} · ${p.nome}` })))}
+    ${grupo('Só o cliente', d.empresas.filter((e) => d.turmas.some((t) => t.empresa_id === e.id) || d.programas.some((p) => p.empresa_id === e.id) || `e:${e.id}` === atual).map((e) => ({ v: `e:${e.id}`, rotulo: e.nome })))}
+    ${grupo('Despesa pessoal de', d.socias.map((p) => ({ v: `s:${p.id}`, rotulo: p.nome })))}
+    <optgroup label="Outro"><option value="g:"${atual === 'g:' ? ' selected' : ''}>Mentorei (geral, sem programa)</option></optgroup>`;
+}
+function camposOnde(d, v, x) {
+  const [t, id] = String(v).split(':');
+  const base = { empresa_id: null, turma_id: null, programa_id: null, modulo_id: null, pessoa_id: null };
+  const cat = x.categoria === 'socia' ? 'outros' : x.categoria;
+  if (t === 't') { const tu = d.turmas.find((y) => y.id === id); return { ...base, turma_id: id, empresa_id: tu ? tu.empresa_id : null, modulo_id: x.turma_id === id ? x.modulo_id : null, categoria: cat }; }
+  if (t === 'p') { const pr = d.programas.find((y) => y.id === id); return { ...base, programa_id: id, empresa_id: pr ? pr.empresa_id : null, categoria: cat }; }
+  if (t === 'e') return { ...base, empresa_id: id, categoria: cat };
+  if (t === 's') return { ...base, pessoa_id: id, categoria: 'socia' };
+  return { ...base, categoria: cat };
+}
+
+function abaConferir(ctx, d, el, recarregar) {
+  const { planos, despesas } = d.aConferir;
+  const lista = [...despesas].sort((a, b) => a.data.localeCompare(b.data));
+  el.innerHTML = `
+    ${!planos.length && !lista.length ? '<div class="vazio">Nada para conferir. 🎉</div>' : ''}
+    ${planos.length ? `<div class="cartao" style="margin-bottom:14px"><h3>Planos de faturamento para validar (${planos.length})</h3>
+      <p class="apagado">Montados com os valores da planilha de faturamento ou sem valor. Abra, confira valores e datas das parcelas e salve: sai desta lista.</p>
+      <div class="tabela mt"><table><tbody>${planos.map((p) => `<tr><td><b>${esc(d.empresa(p.empresa_id).nome)}</b><br>${esc(p.titulo)}</td><td>${esc(p.conferir)}</td>
+        <td style="white-space:nowrap"><button class="btn peq escuro" type="button" data-plano="${p.id}">Abrir e conferir</button></td></tr>`).join('')}</tbody></table></div></div>` : ''}
+    ${lista.length ? `<div class="cartao"><h3>Despesas para confirmar (${lista.length})</h3>
+      <p class="apagado">Escolha de que programa é cada despesa. Se não for de nenhum, escolha "Despesa pessoal de" e a sócia, ou "Mentorei (geral)". Depois clique em Confirmar.</p>
+      <div class="tabela mt"><table><thead><tr><th>Dia</th><th>O que</th><th style="text-align:right">Valor</th><th>Por que conferir</th><th>É de…</th><th></th></tr></thead><tbody>
+      ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}<br><small class="apagado">${esc(F.nomeCategoria(x.categoria))}</small></td>
+        <td class="fn-num" style="text-align:right">${dinheiro(x.valor)}</td><td><small>${esc(x.conferir)}</small></td>
+        <td><select data-onde="${x.id}" aria-label="De que programa é" style="max-width:260px">${opcoesOnde(d, valorOnde(x))}</select></td>
+        <td style="white-space:nowrap"><button class="btn peq pri" type="button" data-ok="${x.id}">Confirmar</button> <button class="btn peq" type="button" data-editar="${x.id}">Editar</button></td></tr>`).join('')}
+      </tbody></table></div></div>` : ''}`;
+  el.addEventListener('click', async (ev) => {
+    const pl = ev.target.closest('[data-plano]'), ok = ev.target.closest('[data-ok]'), ed = ev.target.closest('[data-editar]');
+    if (pl) editorPlano(ctx, d, { plano: d.plano(pl.dataset.plano) }, recarregar);
+    if (ed) formDespesa(d, d.despesas.find((x) => x.id === ed.dataset.editar), recarregar);
+    if (ok) {
+      const x = d.despesas.find((y) => y.id === ok.dataset.ok);
+      const v = el.querySelector(`[data-onde="${x.id}"]`).value;
+      if (!v) { avisar('Escolha de que é a despesa (ou "Mentorei (geral)").', true); return; }
+      const campos = { ...camposOnde(d, v, x), conferir: null };
+      const { error } = await sb.from('fin_despesas').update(campos).eq('id', x.id);
+      if (error) { avisar(explicarErro(error), true); return; }
+      Object.assign(x, campos);
+      d.aConferir.despesas = d.aConferir.despesas.filter((y) => y.id !== x.id);
+      ok.closest('tr').remove();
+      avisar('Despesa confirmada.');
+      if (!d.aConferir.despesas.length && !d.aConferir.planos.length) recarregar();
+    }
+  });
 }
 
 // ---------- emitir nota ----------
@@ -385,6 +472,7 @@ async function editorPlano(ctx, d, { plano = null, tipo = null, id = null }, rec
   const programaParcelas = programa ? Math.max(1, Math.round((F.diasEntre(programa.inicio || hoje, programa.fim_previsto || F.somarDias(programa.inicio || hoje, 180)) || 180) / 30)) : 1;
   const emissores = d.config.emissores;
   const j = janela(plano ? `Faturamento · ${plano.titulo}` : 'Montar plano de faturamento', `<form class="grade" style="gap:14px" novalidate>
+    ${plano && plano.conferir ? `<div class="aviso"><b>Para conferir:</b> ${esc(plano.conferir)} Ao salvar, o plano sai da lista "Conferir".</div>` : ''}
     ${sug.fonte ? `<div class="aviso">De onde veio o valor: <b>${esc(sug.fonte)}</b>${sug.valor_modulo != null ? ` · ${dinheiro(sug.valor_modulo)} por módulo` : sug.valor_total != null ? ` · ${dinheiro(sug.valor_total)}` : ''}. Se a negociação mudou o valor, é só trocar abaixo.</div>`
       : `<div class="aviso">Não achei valor na proposta${op ? '' : ' (esta turma ou mentoria não está ligada a uma oportunidade de vendas)'}. Coloque o valor combinado abaixo.</div>`}
     <div class="grade g2" style="gap:10px">
@@ -504,6 +592,7 @@ async function editorPlano(ctx, d, { plano = null, tipo = null, id = null }, rec
       prazo_dias: Math.max(0, Math.min(180, Number($('#p-prazo').value) || 0)), pagador_nome: $('#p-pnome').value.trim() || null, pagador_cnpj: $('#p-pcnpj').value.trim() || null,
       descricao_nota: $('#p-desc').value.trim() || null, observacoes: $('#p-obs').value.trim() || null, atualizado_em: new Date().toISOString(),
     };
+    if (plano && 'conferir' in plano) corpo.conferir = null;
     try {
       let planoId = plano && plano.id;
       if (planoId) { const { error } = await sb.from('fin_planos').update(corpo).eq('id', planoId); if (error) throw error; }
@@ -525,8 +614,7 @@ function abaDespesas(d, el, recarregar, mesParam) {
   const hoje = hojeISO();
   const mes = /^\d{4}-\d{2}$/.test(mesParam || '') ? mesParam : hoje.slice(0, 7);
   const lista = d.despesas.filter((x) => F.mesDe(x.data) === mes).sort((a, b) => a.data.localeCompare(b.data));
-  const onde = (x) => [x.empresa_id && d.empresa(x.empresa_id).nome, x.turma_id && (d.turmas.find((t) => t.id === x.turma_id) || {}).nome,
-    x.modulo_id && d.modulo(x.modulo_id) && `Módulo ${d.modulo(x.modulo_id).numero}`].filter(Boolean).map(esc).join(' · ');
+  const onde = (x) => ondeTexto(d, x);
   el.innerHTML = `
     <div class="linha" style="margin-bottom:14px">
       <button class="btn peq" type="button" data-mes="${F.somarMeses(mes, -1)}" aria-label="Mês anterior">‹</button>
@@ -535,7 +623,7 @@ function abaDespesas(d, el, recarregar, mesParam) {
       <span style="flex:1"></span><b>${dinheiro(F.soma(lista, (x) => x.valor))}</b>
     </div>
     ${lista.length ? `<div class="tabela cartao" style="padding:0"><table><thead><tr><th>Dia</th><th>O que</th><th>Tipo</th><th>Cliente · turma</th><th style="text-align:right">Valor</th><th>Pago</th><th></th></tr></thead><tbody>
-      ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}${x.fixa_id ? ' <span class="selo neutro">fixa</span>' : ''}${x.reembolsavel ? ' <span class="selo alerta">cliente reembolsa</span>' : ''}</td>
+      ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}${x.fixa_id ? ' <span class="selo neutro">fixa</span>' : ''}${x.reembolsavel ? ' <span class="selo alerta">cliente reembolsa</span>' : ''}${x.conferir ? ' <a class="selo alerta" href="#/financeiro/conferir">conferir</a>' : ''}</td>
         <td>${esc(F.nomeCategoria(x.categoria))}</td><td>${onde(x) || '<span class="apagado">—</span>'}</td><td class="fn-num" style="text-align:right">${dinheiro(x.valor)}</td>
         <td>${x.pago_em ? `<span class="selo ok">${dataBR(x.pago_em)}</span>` : `<button class="btn peq" type="button" data-pagar="${x.id}">Marcar pago</button>`}</td>
         <td><button class="btn peq" type="button" data-editar="${x.id}">Editar</button></td></tr>`).join('')}</tbody></table></div>
@@ -563,6 +651,7 @@ function formDespesa(d, desp, recarregar) {
   const x = desp || { data: hojeISO(), categoria: 'outros', reembolsavel: false };
   const empresas = [...d.empresas].sort((a, b) => a.nome.localeCompare(b.nome));
   const j = janela(desp ? 'Editar despesa' : 'Nova despesa', `<form class="grade" style="gap:12px" novalidate>
+    ${x.conferir ? `<div class="aviso">Para conferir: ${esc(x.conferir)} Ao salvar, sai da lista "Conferir".</div>` : ''}
     <div class="grade g3" style="gap:10px">
       <div class="campo"><label for="d-data">Dia *</label><input type="date" id="d-data" value="${x.data || ''}"></div>
       <div class="campo"><label for="d-valor">Valor (R$) *</label><input type="number" id="d-valor" min="0" step="0.01" value="${v2(x.valor)}"></div>
@@ -573,6 +662,10 @@ function formDespesa(d, desp, recarregar) {
       <div class="campo"><label for="d-emp">Cliente</label><select id="d-emp"><option value="">— nenhum (despesa da Mentorei)</option>${empresas.map((e) => `<option value="${e.id}"${e.id === x.empresa_id ? ' selected' : ''}>${esc(e.nome)}</option>`).join('')}</select></div>
       <div class="campo"><label for="d-turma">Turma</label><select id="d-turma"></select></div>
       <div class="campo"><label for="d-mod">Módulo</label><select id="d-mod"></select></div>
+    </div>
+    <div class="grade g2" style="gap:10px">
+      <div class="campo"><label for="d-prog">Ou mentoria individual</label><select id="d-prog"></select></div>
+      <div class="campo" id="c-socia"><label for="d-socia">Despesa pessoal de</label><select id="d-socia"><option value="">—</option>${d.socias.map((p) => `<option value="${p.id}"${p.id === x.pessoa_id ? ' selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></div>
     </div>
     <label class="check"><input type="checkbox" id="d-reemb"${x.reembolsavel ? ' checked' : ''}><span>O cliente vai reembolsar esta despesa</span></label>
     <div class="grade g2" style="gap:10px">
@@ -596,8 +689,16 @@ function formDespesa(d, desp, recarregar) {
     $('#d-mod').innerHTML = `<option value="">—</option>${ms.map((m) => `<option value="${m.id}"${m.id === x.modulo_id ? ' selected' : ''}>Módulo ${m.numero} · ${dataBR(m.data_hora)}</option>`).join('')}`;
     $('#d-mod').disabled = !t;
   };
-  turmasDe();
-  $('#d-emp').addEventListener('change', turmasDe);
+  const programasDe = () => {
+    const e = $('#d-emp').value;
+    const ps = d.programas.filter((p) => !e || p.empresa_id === e).sort((a, b) => a.nome.localeCompare(b.nome));
+    $('#d-prog').innerHTML = `<option value="">—</option>${ps.map((p) => `<option value="${p.id}"${p.id === x.programa_id ? ' selected' : ''}>${esc(e ? p.nome : `${d.empresa(p.empresa_id).nome} · ${p.nome}`)}</option>`).join('')}`;
+  };
+  const verSocia = () => { $('#c-socia').hidden = $('#d-cat').value !== 'socia'; };
+  turmasDe(); programasDe(); verSocia();
+  $('#d-cat').addEventListener('change', verSocia);
+  $('#d-emp').addEventListener('change', () => { turmasDe(); programasDe(); });
+  $('#d-prog').addEventListener('change', () => { const p = d.programas.find((y) => y.id === $('#d-prog').value); if (p && !$('#d-emp').value) { $('#d-emp').value = p.empresa_id; x.programa_id = p.id; turmasDe(); programasDe(); } });
   $('#d-turma').addEventListener('change', () => {
     const t = d.turmas.find((y) => y.id === $('#d-turma').value);
     if (t && !$('#d-emp').value) { $('#d-emp').value = t.empresa_id; x.turma_id = t.id; turmasDe(); }
@@ -614,10 +715,13 @@ function formDespesa(d, desp, recarregar) {
     ev.preventDefault();
     const corpo = {
       data: $('#d-data').value, valor: num($('#d-valor')), categoria: $('#d-cat').value, descricao: $('#d-desc').value.trim(),
-      empresa_id: $('#d-emp').value || null, turma_id: $('#d-turma').value || null, modulo_id: $('#d-mod').value || null,
+      empresa_id: $('#d-emp').value || null, turma_id: $('#d-turma').value || null, modulo_id: $('#d-mod').value || null, programa_id: $('#d-prog').value || null,
+      pessoa_id: $('#d-cat').value === 'socia' ? $('#d-socia').value || null : null, conferir: null,
       reembolsavel: $('#d-reemb').checked, pago_em: $('#d-pago').value || null, conta: $('#d-conta').value || null, observacoes: $('#d-obs').value.trim() || null,
     };
     if (!corpo.data || corpo.valor == null || !corpo.descricao) { avisar('Preencha o dia, o valor e o que foi.', true); return; }
+    if (corpo.categoria === 'socia' && !corpo.pessoa_id) { avisar('Escolha de qual sócia é a despesa.', true); return; }
+    if (!desp || !('conferir' in desp)) delete corpo.conferir;   // antes do script 53 a coluna não existe
     const r = desp ? await sb.from('fin_despesas').update(corpo).eq('id', desp.id) : await sb.from('fin_despesas').insert(corpo);
     if (r.error) { avisar(explicarErro(r.error), true); return; }
     j.fechar(); avisar('Despesa salva.'); recarregar();
