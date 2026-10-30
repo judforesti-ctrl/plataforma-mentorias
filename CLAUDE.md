@@ -546,6 +546,29 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Teste local: launch.json "cintia-teste" (porta 8808) do site do Radar, scratchpad da sessão 368789c4 (Cintia com bloqueio e
   agenda pessoal no base-falso.js; `?quem=u-ju` para ver como a Juliana).
 
+- FINANCEIRO (2026-10-30, pedido da Juliana; proposta https://claude.ai/artifact/SboYmvuWZKXA5d62B1ntXM, 4 etapas). Fonte de hoje:
+  planilha da Cintia "Controle de NF e recebimentos.xlsx" (Drive, id 1Mgz63GMTw4FAmaIsn-EYXrBxjdLQ7Wxb: Faturamento 2021–2026, Contas =
+  extrato Sicoob/Unicred, Despesas/Partners, uma aba por parceiro, Precificação/distribuição). Decisões dela (30/10): só sócias e Cintia
+  veem (distribuição das sócias só as sócias); mentores NÃO veem quanto vão receber (a Cintia completa o cadastro financeiro de cada
+  mentor, confere valor e horas por turma/mentoria e a plataforma calcula); fatura por módulo dado OU por parcela com data (cada turma
+  ou programa diz qual); extrato do banco em arquivo; nota sai pela Contabilizei (CNPJ principal) ou pela prefeitura (outro CNPJ, quase
+  sem uso); margem simulada com horas dos mentores e das sócias (hora da sócia = 3 × hora de referência dos mentores) e custo
+  estimado de viagem (avião: véspera e dia seguinte, 2 noites, 3 dias de refeição e transporte; carro: km; quem paga vem da turma).
+  ETAPA 1 (script 52, `telas/financeiro.js`, regras puras em `public/assets/financeiro-regras.js`, Negócio › Financeiro, só admin):
+  `fin_planos` (um por turma ou programa, índice único; ou avulso; modo modulo|parcelas, valor_total, valor_modulo, emissor
+  principal|outro, pagador_nome/cnpj quando paga o Sescoop etc., prazo_dias, descricao_nota), `fin_receber` (linha por módulo ou
+  parcela: aberto → faturado (nota_numero, emitida, vencimento) → recebido (recebido_em, valor_recebido) | cancelado; linha em aberto
+  ligada a módulo acompanha a data do módulo ao abrir a tela), `fin_despesas` (manual nesta etapa; cliente/turma/módulo, reembolsável,
+  pago_em, conta, origem) e `fin_despesas_fixas` (entram sozinhas no mês, uma vez: índice único fixa_id+competencia), `fin_meses`
+  (faturado da planilha 2021–09/2026 e metas 2026; antes de `configuracoes.financeiro.inicio` vale a planilha, dali em diante as
+  linhas da plataforma pela data). "Montar plano" lê a proposta da oportunidade ligada à turma/programa (`sugestaoDoValor`: preço
+  "por módulo" da proposta da IA, senão o total da proposta ou da oportunidade); linhas de meses anteriores nascem "Recebido" (ela
+  muda). Abas: Visão geral (mês: faturado × meta × mesmo mês do ano anterior, recebido, a receber/atrasado, despesas, "Para fazer",
+  barras do ano e total por ano desde 2021), Emitir nota (várias linhas na mesma nota; "Copiar texto" para o emissor), A receber (por
+  nota; Recebido divide o que entrou na proporção; Voltar = nota cancelada), Turmas e mentorias (sem plano + planos), Despesas.
+  Próximas etapas: 2) despesa por foto do recibo (IA) + cadastro financeiro do mentor e pagamento calculado; 3) extrato OFX;
+  4) margem (com horas e viagem estimada), fechamento do mês, distribuição, caixa 90 dias, avisos. Teste local: launch.json
+  "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
 - CERTIFICADOS (2026-10-27, script 47, `telas/certificados.js`, Gestão → "Emitir certificados", só administração = Cintia e sócias;
   `#/certificados[/nova|/<pasta>[/emitir|/emitidos|/editar]]`). Pacote dela em `docs/certificados/` (ESPECIFICACAO.md, protótipos,
   referência Python, exemplos; FORA do site: a Netlify só publica `public/`). REGRA: o desenho não muda; `public/certificados/modelo/`
@@ -700,6 +723,8 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- FINANCEIRO (2026-10-30): ela rodar o script 52; a Cintia montar os planos das turmas e mentorias em andamento e cadastrar as
+  despesas fixas; conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ. Etapas 2 a 4 não feitas.
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.

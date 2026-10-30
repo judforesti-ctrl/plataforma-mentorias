@@ -824,3 +824,16 @@ html.area-aluno .mn-formato, html.area-aluno .mn-caminho { display: none !import
 .aa-legenda > span { display: inline-flex; align-items: center; gap: 6px; }
 .aa-legenda .aa-pt { width: 12px; height: 12px; }
 .ct-solta.arrastando { border-color: var(--bege-escuro); background: var(--bege-claro); }
+
+/* ---------- Financeiro (script 52): barras do faturado por mês e das despesas por tipo ---------- */
+.fn-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fn-barras { display: grid; gap: 6px; }
+.fn-barra { display: grid; grid-template-columns: minmax(44px, 30%) minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; color: inherit; text-decoration: none; border-radius: 6px; padding: 2px 4px; }
+a.fn-barra:hover, a.fn-barra:focus-visible { background: var(--faixa); }
+.fn-barra > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+.fn-barra.atual > span:first-child { font-weight: 700; }
+.fn-trilho { position: relative; height: 14px; background: var(--faixa); border-radius: 4px; display: block; }
+.fn-trilho i { display: block; height: 100%; background: var(--petroleo-3); border-radius: 4px; }
+.fn-barra.atual .fn-trilho i { background: var(--bege-escuro); }
+.fn-trilho em { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--erro); border-radius: 1px; }
+.fn-v { font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--apagado); white-space: nowrap; text-align: right; min-width: 64px; }

@@ -94,6 +94,7 @@ const GRUPOS = [
   { id: 'negocio', nome: 'Negócio', icone: 'briefcase', itens: [
     { nome: 'Relatórios', icone: 'bar-chart-3', rota: '#/relatorios', pode: ehAdmin },
     { nome: 'Vendas', icone: 'trending-up', rota: '#/vendas', pode: ehAdmin },
+    { nome: 'Financeiro', icone: 'wallet', rota: '#/financeiro', pode: ehAdmin },
     { nome: 'Equipe', icone: 'users-round', rota: '#/equipe', pode: ehAdmin },
   ] },
 ];
@@ -128,6 +129,7 @@ const ROTAS = {
   'importar-proposta': () => import('./telas/importar-proposta.js'),
   agenda: () => import('./telas/agenda.js'),
   vendas: () => import('./telas/vendas.js'),
+  financeiro: () => import('./telas/financeiro.js'),
   checklist: () => import('./telas/checklist.js'),
   'relatorio-turmas': () => import('./telas/relatorio-turmas.js'),
   avaliacoes: () => import('./telas/avaliacoes.js'),
