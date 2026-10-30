@@ -251,6 +251,8 @@ export function pontoDeEquilibrio({ fixo, pctImposto = 0, pctVariavel = 0 }) {
 // ---------- fundo de reserva (capital de giro) ----------
 // Lançamentos [{ data, tipo: saldo|aporte|resgate|rendimento, valor }]: "saldo" é o valor do extrato naquele dia (recomeça a
 // conta); os outros somam ou tiram dali em diante. No mesmo dia vale a ordem em que foram lançados (em).
+// Valor que a Juliana informou em 30/10/2026 (falta o extrato): vale até o primeiro lançamento de verdade
+export const RESERVA_INICIAL = [{ id: 'informado-2026-10-30', data: '2026-10-30', tipo: 'saldo', valor: 62000, obs: 'Valor aproximado informado pela Juliana. Falta o extrato.', provisorio: true }];
 export const TIPOS_RESERVA = { saldo: 'Saldo do extrato', aporte: 'Aporte (entrou)', resgate: 'Resgate (saiu)', rendimento: 'Rendimento' };
 export function saldoReserva(lancamentos) {
   const lista = [...(lancamentos || [])].sort((a, b) => String(a.data).localeCompare(String(b.data)) || String(a.em || '').localeCompare(String(b.em || '')));
@@ -261,37 +263,4 @@ export function saldoReserva(lancamentos) {
     data = l.data;
   }
   return { saldo: saldo == null ? null : arred(saldo), data, ultimoExtrato };
-}
-
-// ---------- calculadora de investimentos ----------
-// Juros compostos mês a mês: a taxa ao ano vira a taxa equivalente ao mês; o aporte (ou a retirada, se negativo) entra no fim de
-// cada mês. Imposto de renda da renda fixa pela tabela regressiva sobre o rendimento (simplificado: o prazo todo vale para tudo).
-export const IR_REGRESSIVO = [[180, 22.5], [360, 20], [720, 17.5], [Infinity, 15]];
-export const aliquotaIR = (dias) => IR_REGRESSIVO.find(([d]) => dias <= d)[1];
-export function simularInvestimento({ inicial = 0, aporte = 0, taxaAno = 0, meses = 12, isento = false }) {
-  const i = Math.pow(1 + Number(taxaAno || 0) / 100, 1 / 12) - 1;
-  const n = Math.max(1, Math.min(600, Math.round(Number(meses) || 1)));
-  const a = Number(aporte || 0);
-  let saldo = Number(inicial) || 0, investido = saldo, acabou = null;
-  const serie = [];
-  for (let k = 1; k <= n; k++) {
-    saldo = saldo * (1 + i) + a;
-    investido += a;
-    if (saldo <= 0) { acabou = k; saldo = 0; }
-    serie.push({ k, saldo: arred(saldo), investido: arred(investido) });
-    if (acabou) break;
-  }
-  const bruto = arred(saldo);
-  const rendimento = arred(bruto - investido);
-  const ir = isento ? 0 : aliquotaIR(n * 30);
-  const imposto = arred(Math.max(0, rendimento) * ir / 100);
-  return { serie, bruto, investido: arred(investido), rendimento, ir, imposto, liquido: arred(bruto - imposto), taxaMes: Math.round(i * 1000000) / 10000, acabou };
-}
-// Em quantos meses o saldo bruto chega à meta (null = não chega em 50 anos)
-export function mesesParaMeta({ inicial = 0, aporte = 0, taxaAno = 0, meta }) {
-  const i = Math.pow(1 + Number(taxaAno || 0) / 100, 1 / 12) - 1;
-  let saldo = Number(inicial) || 0;
-  if (saldo >= meta) return 0;
-  for (let k = 1; k <= 600; k++) { saldo = saldo * (1 + i) + Number(aporte || 0); if (saldo >= meta) return k; if (saldo <= 0) return null; }
-  return null;
 }

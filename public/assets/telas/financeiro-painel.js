@@ -1,7 +1,8 @@
 // Financeiro → Visão geral, parte de baixo: "Visão da direção" (pedido da Juliana em 30/10/2026: o que ela, como CEO, precisa ter
 // à vista). Previsão dos próximos 3 meses (faturamento das turmas e mentorias em andamento e os custos), melhores clientes por
 // faturamento e por margem, ranking dos mentores parceiros (quem mais recebeu e quem recebe no mês que vem), indicadores, o fundo
-// de reserva (capital de giro; fica em configuracoes.financeiro.reserva) e uma calculadora de investimentos simples.
+// de reserva (capital de giro; fica em configuracoes.financeiro.reserva) e o dinheiro nas contas (último extrato de cada conta,
+// etapa 3). A calculadora de investimentos saiu no mesmo dia: "desnecessária agora".
 // Contas puras em ../financeiro-regras.js. Horas das sócias e viagem estimada entram na margem na etapa 4.
 import { sb, esc, dataBR, hojeISO, avisar, explicarErro } from '../base.js';
 import { janela } from './agenda-dados.js';
@@ -13,8 +14,6 @@ const pct = (v) => (v == null ? '—' : `${Number(v).toLocaleString('pt-BR', { m
 // valor redondo, sem centavos (para os números grandes dos indicadores)
 const reais = (v) => (v == null ? '—' : dinheiro(Math.round(Number(v))).replace(/,00$/, ''));
 const mil = (v) => `${(Number(v || 0) / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`;
-// Valor que a Juliana informou em 30/10/2026 (falta o extrato): vale até o primeiro lançamento de verdade
-const RESERVA_INICIAL = [{ id: 'informado-2026-10-30', data: '2026-10-30', tipo: 'saldo', valor: 62000, obs: 'Valor aproximado informado pela Juliana. Falta o extrato.', provisorio: true }];
 
 export async function painelDirecao(d, el, recarregar, mentores) {
   const hoje = hojeISO();
@@ -60,7 +59,7 @@ export async function painelDirecao(d, el, recarregar, mentores) {
 
   // ---- reserva ----
   const reserva = d.config.reserva || {};
-  const lancs = Array.isArray(reserva.lancamentos) ? reserva.lancamentos : RESERVA_INICIAL;
+  const lancs = Array.isArray(reserva.lancamentos) ? reserva.lancamentos : F.RESERVA_INICIAL;
   const sr = F.saldoReserva(lancs);
   const cobre = sr.saldo != null && fixo ? sr.saldo / fixo : null;
 
@@ -106,7 +105,7 @@ export async function painelDirecao(d, el, recarregar, mentores) {
 
     <div class="grade g2 mt">
       <div class="cartao" id="pn-reserva"></div>
-      <div class="cartao" id="pn-calc"></div>
+      <div class="cartao" id="pn-contas"></div>
     </div>`;
 
   // ---- melhores clientes ----
@@ -173,8 +172,15 @@ export async function painelDirecao(d, el, recarregar, mentores) {
   };
   desenharReserva();
 
-  // ---- calculadora ----
-  calculadora(el.querySelector('#pn-calc'), { inicial: sr.saldo || 0, taxa: reserva.taxa_ano });
+  // ---- dinheiro nas contas (último extrato importado de cada conta) ----
+  const ultimos = new Map();
+  for (const x of d.extratos || []) if (x.saldo_final != null && (!ultimos.has(x.conta) || x.periodo_ate > ultimos.get(x.conta).periodo_ate)) ultimos.set(x.conta, x);
+  const contas = [...ultimos.values()].sort((a, b) => a.conta.localeCompare(b.conta));
+  el.querySelector('#pn-contas').innerHTML = `<div class="linha"><h3 style="flex:1">Dinheiro nas contas</h3><a class="btn peq" href="#/financeiro/extratos">Extratos</a></div>
+    ${d.extratos == null ? '<p class="apagado mt">Falta rodar o script 56 no Supabase.</p>' : contas.length ? `
+      <div class="cartao numero destaque mt"><b>${dinheiro(F.soma(contas, (x) => x.saldo_final))}</b><span>somando as contas, pelo último extrato de cada uma</span></div>
+      <div class="tabela mt"><table><tbody>${contas.map((x) => `<tr><td><b>${esc(x.conta)}</b><br><small class="apagado">extrato até ${dataBR(x.periodo_ate)}${F.diasEntre(x.periodo_ate, hoje) > 15 ? ' · <span style="color:var(--erro)">desatualizado</span>' : ''}</small></td>
+        <td class="fn-num" style="text-align:right">${dinheiro(x.saldo_final)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="apagado mt">Ainda não há extrato importado. Suba o extrato do Sicoob e da Unicred em Financeiro → Extratos.</p>'}`;
 }
 
 async function salvarReserva(d, reserva, recarregar) {
@@ -194,10 +200,7 @@ function janelaReserva(d, reserva, lancs, recarregar) {
     </div>
     <div class="campo"><label for="rs-obs">Observação</label><input type="text" id="rs-obs" maxlength="160" placeholder="Ex.: extrato do Sicoob de 31/10"></div>
     <details><summary>Onde o dinheiro está aplicado</summary>
-      <div class="grade g2 mt" style="gap:10px">
-        <div class="campo"><label for="rs-onde">Aplicação</label><input type="text" id="rs-onde" maxlength="120" placeholder="Ex.: CDB Sicoob, 100% do CDI" value="${esc(reserva.onde || '')}"></div>
-        <div class="campo"><label for="rs-taxa">Rende ao ano (%)</label><input type="number" id="rs-taxa" min="0" max="100" step="0.01" value="${reserva.taxa_ano ?? ''}"><small>A calculadora começa com esta taxa.</small></div>
-      </div></details>
+      <div class="campo mt"><label for="rs-onde">Aplicação</label><input type="text" id="rs-onde" maxlength="120" placeholder="Ex.: CDB Sicoob, 100% do CDI" value="${esc(reserva.onde || '')}"></div></details>
     <p class="peq apagado">Com o primeiro "Saldo do extrato", o valor aproximado de 62 mil deixa de valer.</p>
     <div class="linha"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`, { largura: 620 });
   const f = j.corpo.querySelector('form');
@@ -209,45 +212,6 @@ function janelaReserva(d, reserva, lancs, recarregar) {
     const novo = { id: crypto.randomUUID(), data: f.querySelector('#rs-data').value || hojeISO(), tipo, valor, obs: f.querySelector('#rs-obs').value.trim() || null, por: d.eu, em: new Date().toISOString() };
     // o valor aproximado sai quando chega o primeiro saldo de extrato; aporte/resgate/rendimento continuam somando a ele
     const base = tipo === 'saldo' ? lancs.filter((l) => !l.provisorio) : lancs;
-    const taxa = f.querySelector('#rs-taxa').value;
-    if (await salvarReserva(d, { ...reserva, lancamentos: [...base, novo], onde: f.querySelector('#rs-onde').value.trim() || null, taxa_ano: taxa === '' ? null : Number(taxa) }, recarregar)) j.fechar();
+    if (await salvarReserva(d, { ...reserva, lancamentos: [...base, novo], onde: f.querySelector('#rs-onde').value.trim() || null }, recarregar)) j.fechar();
   });
-}
-
-function calculadora(box, { inicial, taxa }) {
-  box.innerHTML = `<h3>Calculadora de investimentos</h3>
-    <p class="peq apagado">Simulação simples, com juros compostos. Não é recomendação de investimento.</p>
-    <form class="grade g2 mt" style="gap:10px" novalidate>
-      <div class="campo"><label for="cl-ini">Valor de hoje (R$)</label><input type="number" id="cl-ini" min="0" step="100" value="${Math.round(inicial)}"></div>
-      <div class="campo"><label for="cl-ap">Por mês (R$)</label><input type="number" id="cl-ap" step="100" value="0"><small>Aporte; negativo = retirada.</small></div>
-      <div class="campo"><label for="cl-tx">Rende ao ano (%)</label><input type="number" id="cl-tx" min="0" max="100" step="0.1" value="${taxa ?? 12}"><small>${taxa == null ? 'Exemplo: troque pela taxa da aplicação.' : 'A taxa guardada no fundo de reserva.'}</small></div>
-      <div class="campo"><label for="cl-m">Por quantos meses</label><input type="number" id="cl-m" min="1" max="600" step="1" value="12"></div>
-      <div class="campo"><label for="cl-meta">Quero chegar a (R$, opcional)</label><input type="number" id="cl-meta" min="0" step="1000" placeholder="Ex.: 100000"></div>
-      <label class="check" style="align-self:end;padding-bottom:10px"><input type="checkbox" id="cl-isento"><span>Isento de imposto de renda (LCI, LCA, poupança)</span></label>
-    </form>
-    <div id="cl-res" class="mt" aria-live="polite"></div>`;
-  const $ = (s) => box.querySelector(s);
-  const conta = () => {
-    const ent = { inicial: Number($('#cl-ini').value) || 0, aporte: Number($('#cl-ap').value) || 0, taxaAno: Number($('#cl-tx').value) || 0, meses: Number($('#cl-m').value) || 12, isento: $('#cl-isento').checked };
-    const r = F.simularInvestimento(ent);
-    const meta = Number($('#cl-meta').value) || 0;
-    const kMeta = meta ? F.mesesParaMeta({ ...ent, meta }) : null;
-    const quando = (k) => F.nomeMes(F.somarMeses(hojeISO().slice(0, 7), k));
-    // até 12 barras ao longo do prazo
-    const passo = Math.max(1, Math.ceil(r.serie.length / 12));
-    const pontos = r.serie.filter((x, i) => (i + 1) % passo === 0 || i === r.serie.length - 1);
-    const maior = Math.max(1, ...pontos.map((x) => x.saldo));
-    $('#cl-res').innerHTML = `<div class="grade g2" style="gap:10px">
-        <div class="cartao numero destaque"><b>${dinheiro(r.liquido)}</b><span>no fim, já sem o imposto${r.acabou ? '' : ` · ${quando(r.serie.length)}`}</span></div>
-        <div class="cartao numero"><b>${dinheiro(r.rendimento)}</b><span>de rendimento (${ent.taxaAno ? `≈ ${String(r.taxaMes).replace('.', ',')}% ao mês` : 'sem taxa'})</span></div>
-        <div class="cartao numero"><b>${dinheiro(r.investido)}</b><span>que saiu do bolso (valor de hoje + aportes)</span></div>
-        <div class="cartao numero"><b>${dinheiro(r.imposto)}</b><span>${ent.isento ? 'isento de imposto de renda' : `de imposto de renda (${String(r.ir).replace('.', ',')}% sobre o rendimento)`}</span></div>
-      </div>
-      ${r.acabou ? `<div class="aviso erro mt">Com essa retirada, o dinheiro acaba em <b>${r.acabou} meses</b> (${quando(r.acabou)}).</div>` : ''}
-      ${meta ? `<div class="aviso mt">${kMeta === 0 ? 'Você já tem esse valor.' : kMeta ? `Chega a ${dinheiro(meta)} em <b>${kMeta} meses</b> (${quando(kMeta)}).` : `Com esses números, não chega a ${dinheiro(meta)}.`}</div>` : ''}
-      <div class="fn-barras mt" aria-label="Saldo ao longo do tempo">${pontos.map((x) => `<div class="fn-barra"><span>${x.k} ${x.k === 1 ? 'mês' : 'meses'}</span><span class="fn-trilho"><i style="width:${Math.round(x.saldo / maior * 100)}%"></i></span><span class="fn-v">${dinheiro(x.saldo)}</span></div>`).join('')}</div>`;
-  };
-  box.querySelector('form').addEventListener('input', conta);
-  box.querySelector('form').addEventListener('submit', (ev) => ev.preventDefault());
-  conta();
 }

@@ -617,11 +617,32 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (margem do ano, custo fixo, ponto de equilíbrio, meses cobertos pela reserva, prazo médio de recebimento, notas esperando/atrasado,
   concentração nos 3 maiores, faturado por cliente), FUNDO DE RESERVA (capital de giro) em `configuracoes.financeiro.reserva`
   {lancamentos: [{id, data, tipo saldo|aporte|resgate|rendimento, valor, obs, em}], onde, taxa_ano}; "saldo" do extrato recomeça a
-  conta; até o 1º saldo vale o valor aproximado de R$ 62.000 que ela informou em 30/10 (`RESERVA_INICIAL`, provisório) e a
-  CALCULADORA de investimentos (`simularInvestimento`/`mesesParaMeta`: juros compostos, aporte ou retirada por mês, IR regressivo
-  simplificado ou isento, meta). Regras testadas no Node (%TEMP%\fint\t\painel.mjs).
-  Próximas etapas: 3) extrato OFX;
-  4) margem (com horas e viagem estimada), fechamento do mês, distribuição, caixa 90 dias, avisos. Teste local: launch.json
+  conta; até o 1º saldo vale o valor aproximado de R$ 62.000 que ela informou em 30/10 (`F.RESERVA_INICIAL`, provisório) e o
+  DINHEIRO NAS CONTAS (saldo do último extrato de cada conta; "desatualizado" com mais de 15 dias). A calculadora de investimentos
+  foi feita e TIRADA no mesmo dia (ela: "desnecessária agora"). Regras testadas no Node (%TEMP%\fint\t\painel.mjs).
+  ETAPA 3, EXTRATOS (script 56, 30/10; aba Financeiro → Extratos, `telas/financeiro-extratos.js`, regras puras em
+  `public/assets/financeiro-extrato.js`): importar o PDF do internet banking do Sicoob ("HISTÓRICO DE MOVIMENTAÇÃO": dd/mm + valor
+  com C/D, detalhes nas linhas de baixo: REM./FAV., CNPJ, CPF mascarado "***.853.929-**", DOC.) ou da Unicred ("EXTRATO DE CONTA
+  CORRENTE PARA SIMPLES CONFERÊNCIA": dd/mm/aaaa, ID.DOC, histórico com o nome entre parênteses, valor e saldo; linhas que quebram são
+  juntadas) ou OFX. O navegador lê o PDF com pdf.js em linhas (`linhasDoPdf`: pedaços pela altura; colunas distantes = tab) e confere
+  saldo inicial + movimentos = saldo final ("Os números batem com o saldo do banco"; testado com os dois extratos dela). Tabelas
+  `fin_extratos` (arquivo em financeiro/extratos/<conta>/), `fin_movimentos` (valor + entra / − sai; `chave` única = conta|dia|valor|
+  texto|ordem, ou o FITID do OFX: importar de novo não repete; PDF e OFX do mesmo período repetiriam) e `fin_regras_extrato`.
+  Conferir cada movimento: entrada = recebimento de nota (`sugerirEntrada`: notas emitidas agrupadas pelo número, mesmo valor; valor
+  menor até 15% só se o nome de quem paga bate, p.ex. "SERVICO NACIONAL DE APRENDIZAGEM" = Sescoop; divide o que entrou entre as
+  linhas), outra entrada, resgate da reserva, transferência; saída = despesa já lançada (mesmo valor, até 7 dias), despesa nova (tipo +
+  "É de…"), RETIRADA DE SÓCIA (fica no movimento com pessoa_id, NÃO vira despesa: é para a distribuição da etapa 4), aplicação no
+  fundo de reserva (vira lançamento em configuracoes.financeiro.reserva, id "mov:<id>"), transferência ou "não entra nas contas".
+  SOZINHO (na importação e depois de cada regra nova): regras aprendidas ("Lembrar: quando o extrato tiver <texto>", sugerido por
+  `chaveSugerida`: FAV./REM., nome entre parênteses, CNPJ ou o pedaço do CPF), despesa lançada única com o mesmo valor, tarifas
+  (pacote, tarifa de cobrança, integralização de capital = "Tarifas do banco") e recebimento já marcado no mesmo dia e valor.
+  Pagamento para sócia pelo nome (Unicred) é só sugestão. "Desfazer" volta tudo (`desfazer` jsonb: linhas a receber, pago_em da
+  despesa, despesa criada, lançamento da reserva). Visão geral: "N movimentos do extrato para conferir" e contador na aba.
+  Teste local: kit %TEMP%\fint (PDFs de teste em ext/, fora do git), testes de Node em %TEMP%\fin56\t.mjs.
+  ATENÇÃO (30/10): o extrato do Sicoob de 14/10 tem SALDO EM CONTA de R$ 62.916,52 (os "62 mil" que ela acha que são a reserva podem
+  ser o saldo da conta corrente) e "CAPITAL DE GIRO: 60.000,00" em LIMITES DE CRÉDITO (empréstimo oferecido pelo banco, não dinheiro
+  dela). Perguntado a ela.
+  Próxima etapa: 4) margem (com horas e viagem estimada), fechamento do mês, distribuição, caixa 90 dias, avisos. Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
 - CERTIFICADOS (2026-10-27, script 47, `telas/certificados.js`, Gestão → "Emitir certificados", só administração = Cintia e sócias;
   `#/certificados[/nova|/<pasta>[/emitir|/emitidos|/editar]]`). Pacote dela em `docs/certificados/` (ESPECIFICACAO.md, protótipos,
@@ -782,13 +803,13 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
 
 ## Pendências conhecidas
 - FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;
-  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapas 3 e 4 não feitas (HUB de inovação de Holambra fica de fora por enquanto).
+  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapa 3 feita (falta rodar o script 56 e importar os extratos); etapa 4 não feita (HUB de inovação de Holambra fica de fora por enquanto).
   LEMBRAR A JULIANA NA ETAPA FINAL (4) DO FINANCEIRO (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia
   05/02 R$ 6.570,49 e 19/03 R$ 1.489 e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e os
   extratos do Sicoob e da Unicred de janeiro de 2026 até hoje (só veio Sicoob 01-14/10).
   FUNDO DE RESERVA (pedido dela, 30/10): ela mandar o EXTRATO da aplicação do fundo de reserva (capital de giro; hoje "acho que uns
   62 mil", valor provisório na tela) para lançar o saldo de verdade em Financeiro → Visão geral → Fundo de reserva → Atualizar
-  (e onde está aplicado e quanto rende ao ano, que a calculadora usa). Lembrar junto com os outros extratos.
+  (e onde está aplicado). Lembrar junto com os outros extratos. Perguntado se os 62 mil são o saldo da conta corrente do Sicoob.
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.

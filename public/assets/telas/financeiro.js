@@ -9,7 +9,7 @@ import { janela, faltaScript } from './agenda-dados.js';
 import { dinheiro, norm } from './vendas.js';
 import * as F from '../financeiro-regras.js';
 
-const ABAS = [['geral', 'Visão geral'], ['conferir', 'Conferir'], ['emitir', 'Emitir nota'], ['receber', 'A receber'], ['planos', 'Turmas e mentorias'], ['despesas', 'Despesas'], ['mentores', 'Mentores']];
+const ABAS = [['geral', 'Visão geral'], ['conferir', 'Conferir'], ['emitir', 'Emitir nota'], ['receber', 'A receber'], ['planos', 'Turmas e mentorias'], ['despesas', 'Despesas'], ['extratos', 'Extratos'], ['mentores', 'Mentores']];
 // as sócias (despesa pessoal de cada uma): pelos ids em Ajustes, senão pelo primeiro nome
 const SOCIAS_NOMES = /^(juliana|viviane|cl[aá]udia)\b/i;
 const AVISO_52 = '<div class="aviso">Falta rodar o script <b>52-financeiro.sql</b> no Supabase (SQL Editor → New query → colar → Run). Até lá esta tela fica vazia.</div>';
@@ -25,13 +25,15 @@ const textoAliquota = (d) => (d.aliquota.estimada ? `${pctBR(d.aliquota.pct)} (e
 // ---------- dados ----------
 async function carregar() {
   const pedir = (t, sel = '*', f = (q) => q) => f(sb.from(t).select(sel));
-  const [planos, receber, despesas, fixas, meses, config, empresas, turmas, programas, modulos, oportunidades, perfis] = await Promise.all([
+  const [planos, receber, despesas, fixas, meses, config, empresas, turmas, programas, modulos, oportunidades, perfis, extratos, pendentes] = await Promise.all([
     pedir('fin_planos'), pedir('fin_receber'), pedir('fin_despesas', '*', (q) => q.gte('data', `${F.somarMeses(hojeISO().slice(0, 7), -24)}-01`)),
     pedir('fin_despesas_fixas'), pedir('fin_meses'), pedir('configuracoes', 'valor', (q) => q.eq('chave', 'financeiro').maybeSingle()),
     pedir('empresas', 'id, nome, cnpj'), pedir('turmas', 'id, nome, empresa_id, status, inicio, fim_previsto, formato, local'),
     pedir('programas', 'id, nome, empresa_id, status, inicio, fim_previsto, sessoes_por_mentorado'),
     pedir('modulos', 'id, turma_id, numero, titulo, data_hora, duracao_min, formato, local'), pedir('oportunidades', 'id, empresa_id, turma_id, programa_id, valor, etapa, titulo'),
     pedir('perfis', 'id, nome, papel, tambem_mentor, ativo', (q) => q.in('papel', ['admin', 'mentor'])),
+    // extratos do banco (script 56): saldo de cada conta e quantos movimentos faltam conferir
+    pedir('fin_extratos', 'conta, periodo_ate, saldo_final'), pedir('fin_movimentos', 'id', (q) => q.eq('situacao', 'pendente')),
   ]);
   const falta = [planos, receber, despesas, fixas, meses].some((r) => r.error && faltaScript(r.error));
   for (const r of [planos, receber, despesas, fixas, meses, config, empresas, turmas, programas, modulos, oportunidades]) if (r.error && !faltaScript(r.error)) throw r.error;
@@ -39,6 +41,7 @@ async function carregar() {
     falta, planos: planos.data || [], receber: receber.data || [], despesas: despesas.data || [], fixas: fixas.data || [], meses: meses.data || [],
     config: { ...PADRAO_CONFIG, ...((config.data && config.data.valor) || {}) }, empresas: empresas.data || [], turmas: turmas.data || [],
     programas: programas.data || [], modulos: modulos.data || [], oportunidades: oportunidades.data || [], perfis: perfis.data || [],
+    extratos: extratos.error ? null : extratos.data || [], movimentosAConferir: pendentes.error ? 0 : (pendentes.data || []).length,
   };
   d.config.emissores = { ...PADRAO_CONFIG.emissores, ...(d.config.emissores || {}) };
   d.empresa = (id) => d.empresas.find((e) => e.id === id) || { nome: '—' };
@@ -54,6 +57,9 @@ async function carregar() {
   // reembolsos que o cliente paga e ainda não foram cobrados (coluna do script 55)
   d.temReembolso = d.despesas.some((x) => 'reembolso_receber_id' in x);
   d.reembolsosACobrar = d.despesas.filter((x) => x.reembolsavel && !x.reembolso_receber_id);
+  // "É de…" (turma, mentoria, cliente, sócia ou geral), também usado na conferência do extrato
+  d.opcoesOnde = (atual) => opcoesOnde(d, atual);
+  d.camposOnde = (v, x) => camposOnde(d, v, x);
   return d;
 }
 
@@ -86,7 +92,7 @@ export async function render(ctx, el, params) {
     <div class="cab"><div><h1>Financeiro</h1><p class="sub">O faturamento nasce das turmas e mentorias: no dia do módulo ou da parcela, a nota aparece para emitir.</p></div>
       ${d.falta ? '' : '<div class="acoes"><button class="btn" type="button" id="ajustes">Ajustes</button><button class="btn pri" type="button" id="nova-desp">+ Despesa</button></div>'}</div>
     ${d.falta ? AVISO_52 : ''}
-    <nav class="abas" aria-label="Partes do Financeiro">${ABAS.map(([k, t]) => `<button type="button" data-aba="${k}" class="${k === aba ? 'atual' : ''}">${t}${k === 'emitir' ? contador(d) : k === 'conferir' && !d.falta && d.aConferir.planos.length + d.aConferir.despesas.length ? ` <span class="selo alerta">${d.aConferir.planos.length + d.aConferir.despesas.length}</span>` : ''}</button>`).join('')}</nav>
+    <nav class="abas" aria-label="Partes do Financeiro">${ABAS.map(([k, t]) => `<button type="button" data-aba="${k}" class="${k === aba ? 'atual' : ''}">${t}${k === 'emitir' ? contador(d) : k === 'extratos' && d.movimentosAConferir ? ` <span class="selo alerta">${d.movimentosAConferir}</span>` : k === 'conferir' && !d.falta && d.aConferir.planos.length + d.aConferir.despesas.length ? ` <span class="selo alerta">${d.aConferir.planos.length + d.aConferir.despesas.length}</span>` : ''}</button>`).join('')}</nav>
     <div id="conteudo"></div>`;
   el.querySelector('.abas').addEventListener('click', (ev) => { const b = ev.target.closest('[data-aba]'); if (b) location.hash = `#/financeiro/${b.dataset.aba}`; });
   if (d.falta) return;
@@ -99,11 +105,12 @@ export async function render(ctx, el, params) {
   if (aba === 'receber') return abaReceber(d, alvo, recarregar);
   if (aba === 'planos') return abaPlanos(ctx, d, alvo, recarregar);
   if (aba === 'despesas') return abaDespesas(d, alvo, recarregar, params[1]);
+  if (aba === 'extratos') return (await import('./financeiro-extratos.js')).abaExtratos(ctx, d, alvo, recarregar, params.slice(1));
   if (aba === 'mentores') return (await import('./financeiro-mentores.js')).abaMentores(ctx, d, alvo, recarregar, params.slice(1));
   const mentores = await (await import('./financeiro-mentores.js')).previsaoMentores(d).catch(() => null);
   d.mentoresSemCadastro = mentores ? mentores.semCadastro : null;
   abaGeral(d, alvo, recarregar, params[1]);
-  // visão da direção (previsões, clientes, mentores, indicadores, reserva e calculadora)
+  // visão da direção (previsões, clientes, mentores, indicadores, reserva e dinheiro nas contas)
   return (await import('./financeiro-painel.js')).painelDirecao(d, alvo.querySelector('#fn-direcao'), recarregar, mentores);
 }
 function contador(d) {
@@ -169,12 +176,13 @@ function abaGeral(d, el, recarregar, mesParam) {
       <div class="cartao"><h3>Para fazer</h3><div class="grade" style="gap:8px">
         ${d.aConferir.planos.length + d.aConferir.despesas.length ? `<a class="pend" href="#/financeiro/conferir"><b>${d.aConferir.planos.length + d.aConferir.despesas.length}</b><span>para conferir: ${[d.aConferir.planos.length && `${d.aConferir.planos.length} plano${d.aConferir.planos.length > 1 ? 's' : ''} de faturamento`, d.aConferir.despesas.length && `${d.aConferir.despesas.length} despesa${d.aConferir.despesas.length > 1 ? 's' : ''}`].filter(Boolean).join(' e ')}</span></a>` : ''}
         ${d.reembolsosACobrar.length ? `<a class="pend" href="#/financeiro/emitir"><b>${d.reembolsosACobrar.length}</b><span>${d.reembolsosACobrar.length === 1 ? 'despesa que o cliente reembolsa' : 'despesas que o cliente reembolsa'} ainda sem cobrança · ${dinheiro(F.soma(d.reembolsosACobrar, (x) => x.valor))} + imposto</span></a>` : ''}
+        ${d.movimentosAConferir ? `<a class="pend" href="#/financeiro/extratos"><b>${d.movimentosAConferir}</b><span>${d.movimentosAConferir === 1 ? 'movimento do extrato para conferir' : 'movimentos do extrato para conferir'}</span></a>` : ''}
         ${aEmitir.length ? `<a class="pend" href="#/financeiro/emitir"><b>${aEmitir.length}</b><span>${aEmitir.length === 1 ? 'nota para emitir' : 'notas para emitir'} · ${dinheiro(F.soma(aEmitir, (l) => l.valor))}</span></a>` : ''}
         ${atrasado.length ? `<a class="pend" href="#/financeiro/receber"><b style="color:var(--erro)">${atrasado.length}</b><span>${atrasado.length === 1 ? 'pagamento atrasado' : 'pagamentos atrasados'} · ${dinheiro(F.soma(atrasado, (l) => l.valor))}</span></a>` : ''}
         ${faltaPlano.length ? `<a class="pend" href="#/financeiro/planos"><b>${faltaPlano.length}</b><span>${faltaPlano.length === 1 ? 'turma ou mentoria sem plano de faturamento' : 'turmas e mentorias sem plano de faturamento'}</span></a>` : ''}
         ${d.mentoresSemCadastro ? `<a class="pend" href="#/financeiro/mentores"><b>${d.mentoresSemCadastro}</b><span>${d.mentoresSemCadastro === 1 ? 'mentor parceiro sem cadastro financeiro' : 'mentores parceiros sem cadastro financeiro'}</span></a>` : ''}
         ${novos.map((x) => `<a class="pend" href="#/financeiro/planos"><b>${x.ms.length}</b><span>${x.ms.length === 1 ? 'módulo novo' : 'módulos novos'} em ${esc(x.p.titulo)} sem linha no faturamento</span></a>`).join('')}
-        ${!aEmitir.length && !atrasado.length && !faltaPlano.length && !novos.length && !d.aConferir.planos.length && !d.aConferir.despesas.length && !d.reembolsosACobrar.length ? '<p class="apagado">Nada pendente. 🎉</p>' : ''}
+        ${!aEmitir.length && !atrasado.length && !faltaPlano.length && !novos.length && !d.aConferir.planos.length && !d.aConferir.despesas.length && !d.reembolsosACobrar.length && !d.movimentosAConferir ? '<p class="apagado">Nada pendente. 🎉</p>' : ''}
       </div></div>
       <div class="cartao"><div class="linha"><h3 style="flex:1">Faturado em ${ano}</h3><button class="btn peq" type="button" id="meses">Metas e meses antigos</button></div>
         <div class="fn-barras" aria-label="Faturado por mês em ${ano}">${doAno.map((x) => `
