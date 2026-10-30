@@ -110,3 +110,56 @@ export function faturadoNoMes(mes, { inicio, linhas, meses }) {
   if (inicio && mes < inicio) { const m = meses.find((x) => x.mes === mes); return m && m.faturado_planilha != null ? Number(m.faturado_planilha) : null; }
   return soma(linhas.filter((l) => l.situacao !== 'cancelado' && mesDe(l.data) === mes), (l) => l.valor);
 }
+
+// ---------- pagamento dos mentores parceiros (script 54) ----------
+// Como cada um recebe: [rótulo, unidade no singular, no plural]
+export const FORMAS = {
+  hora: ['Por hora', 'hora', 'horas'], atendimento: ['Por atendimento ou aula', 'atendimento', 'atendimentos'],
+  modulo: ['Por módulo', 'módulo', 'módulos'], mensal: ['Valor mensal fixo', 'mês', 'meses'], percentual: ['% do faturado da turma', '%', '%'],
+};
+export const nomeForma = (f) => (FORMAS[f] || FORMAS.hora)[0];
+
+// Total de uma linha pela forma: hora = horas × valor; atendimento/módulo = quantidade × valor; percentual = faturado × valor %;
+// mensal = valor (uma vez).
+export function totalDaLinha({ forma, valor_unit, quantidade, horas, faturado = 0 }) {
+  const v = Number(valor_unit || 0);
+  if (forma === 'hora') return arred(Number(horas || 0) * v);
+  if (forma === 'atendimento' || forma === 'modulo') return arred(Number(quantidade || 0) * v);
+  if (forma === 'percentual') return arred(Number(faturado || 0) * v / 100);
+  if (forma === 'mensal') return arred(v);
+  return 0;
+}
+
+// Monta as linhas do mês de um mentor. itens = aulas e sessões dadas no mês:
+// [{ chave: 't:<turma>' | 'p:<programa>', rotulo, tipo: 'modulo' | 'sessao', data, minutos }]
+// padrao = cadastro do mentor { forma, valor }; regra(chave) = valor combinado para aquela turma/programa (ou null);
+// faturado(chave) = faturado da turma no mês (só para percentual). Mensal fixo vira uma linha só, sem contar as aulas.
+export function calcularPagamento(itens, { padrao = null, regra = () => null, faturado = () => 0 } = {}) {
+  const grupos = new Map();
+  for (const i of itens) {
+    if (!grupos.has(i.chave)) grupos.set(i.chave, { chave: i.chave, rotulo: i.rotulo, itens: [] });
+    grupos.get(i.chave).itens.push(i);
+  }
+  const linhas = [];
+  for (const g of [...grupos.values()].sort((a, b) => a.rotulo.localeCompare(b.rotulo))) {
+    const r = regra(g.chave) || padrao || {};
+    const forma = r.forma || 'hora';
+    const quantidade = g.itens.length;
+    const horas = arred(g.itens.reduce((a, i) => a + Number(i.minutos || 0), 0) / 60);
+    const semDuracao = g.itens.filter((i) => !i.minutos).length;
+    const base = { chave: g.chave, rotulo: g.rotulo, forma, valor_unit: r.valor == null ? null : Number(r.valor), quantidade, horas, sem_duracao: semDuracao,
+      datas: g.itens.map((i) => i.data).filter(Boolean).sort(), combinado: !!regra(g.chave) };
+    if (forma === 'mensal' && !regra(g.chave)) linhas.push({ ...base, total: 0, coberto_pelo_mensal: true });
+    else linhas.push({ ...base, total: totalDaLinha({ ...base, faturado: faturado(g.chave) }) });
+  }
+  if (padrao && padrao.forma === 'mensal') linhas.unshift({ chave: 'mensal', rotulo: 'Valor mensal fixo', forma: 'mensal', valor_unit: Number(padrao.valor || 0), quantidade: 1, horas: 0, sem_duracao: 0, datas: [], combinado: false, total: arred(padrao.valor) });
+  return { linhas, total: soma(linhas, (l) => l.total) };
+}
+
+// Texto do extrato do mês para mandar ao mentor (WhatsApp ou e-mail)
+export function textoExtrato({ nome, mes, linhas, total }) {
+  const br = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const unid = (l) => (l.forma === 'hora' ? `${String(l.horas).replace('.', ',')} h` : l.forma === 'percentual' ? `${l.valor_unit}%` : l.forma === 'mensal' ? 'mensal' : `${l.quantidade} ${l.quantidade === 1 ? (FORMAS[l.forma] || FORMAS.atendimento)[1] : (FORMAS[l.forma] || FORMAS.atendimento)[2]}`);
+  return [`Olá, ${String(nome || '').split(' ')[0]}! Segue o resumo de ${nomeMes(mes)} na Mentorei:`, '',
+    ...linhas.filter((l) => l.total > 0).map((l) => `• ${l.rotulo}: ${unid(l)} = ${br(l.total)}`), '', `Total: ${br(total)}`].join('\n');
+}

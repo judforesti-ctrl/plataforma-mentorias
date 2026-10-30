@@ -9,7 +9,7 @@ import { janela, faltaScript } from './agenda-dados.js';
 import { dinheiro, norm } from './vendas.js';
 import * as F from '../financeiro-regras.js';
 
-const ABAS = [['geral', 'Visão geral'], ['conferir', 'Conferir'], ['emitir', 'Emitir nota'], ['receber', 'A receber'], ['planos', 'Turmas e mentorias'], ['despesas', 'Despesas']];
+const ABAS = [['geral', 'Visão geral'], ['conferir', 'Conferir'], ['emitir', 'Emitir nota'], ['receber', 'A receber'], ['planos', 'Turmas e mentorias'], ['despesas', 'Despesas'], ['mentores', 'Mentores']];
 // as sócias (despesa pessoal de cada uma): pelos ids em Ajustes, senão pelo primeiro nome
 const SOCIAS_NOMES = /^(juliana|viviane|cl[aá]udia)\b/i;
 const AVISO_52 = '<div class="aviso">Falta rodar o script <b>52-financeiro.sql</b> no Supabase (SQL Editor → New query → colar → Run). Até lá esta tela fica vazia.</div>';
@@ -25,9 +25,9 @@ async function carregar() {
   const [planos, receber, despesas, fixas, meses, config, empresas, turmas, programas, modulos, oportunidades, perfis] = await Promise.all([
     pedir('fin_planos'), pedir('fin_receber'), pedir('fin_despesas', '*', (q) => q.gte('data', `${F.somarMeses(hojeISO().slice(0, 7), -24)}-01`)),
     pedir('fin_despesas_fixas'), pedir('fin_meses'), pedir('configuracoes', 'valor', (q) => q.eq('chave', 'financeiro').maybeSingle()),
-    pedir('empresas', 'id, nome, cnpj'), pedir('turmas', 'id, nome, empresa_id, status, inicio, fim_previsto, formato'),
+    pedir('empresas', 'id, nome, cnpj'), pedir('turmas', 'id, nome, empresa_id, status, inicio, fim_previsto, formato, local'),
     pedir('programas', 'id, nome, empresa_id, status, inicio, fim_previsto, sessoes_por_mentorado'),
-    pedir('modulos', 'id, turma_id, numero, titulo, data_hora, formato'), pedir('oportunidades', 'id, empresa_id, turma_id, programa_id, valor, etapa, titulo'),
+    pedir('modulos', 'id, turma_id, numero, titulo, data_hora, duracao_min, formato, local'), pedir('oportunidades', 'id, empresa_id, turma_id, programa_id, valor, etapa, titulo'),
     pedir('perfis', 'id, nome, papel, tambem_mentor, ativo', (q) => q.in('papel', ['admin', 'mentor'])),
   ]);
   const falta = [planos, receber, despesas, fixas, meses].some((r) => r.error && faltaScript(r.error));
@@ -71,6 +71,7 @@ export async function render(ctx, el, params) {
   if (!ctx.ehAdmin) { el.innerHTML = '<div class="aviso">Só a administração vê o Financeiro.</div>'; return; }
   const aba = ABAS.some(([k]) => k === params[0]) ? params[0] : 'geral';
   const d = await carregar();
+  d.eu = ctx.perfil.id;
   if (!d.falta) await acertar(d);
   el.innerHTML = `
     <div class="cab"><div><h1>Financeiro</h1><p class="sub">O faturamento nasce das turmas e mentorias: no dia do módulo ou da parcela, a nota aparece para emitir.</p></div>
@@ -89,6 +90,8 @@ export async function render(ctx, el, params) {
   if (aba === 'receber') return abaReceber(d, alvo, recarregar);
   if (aba === 'planos') return abaPlanos(ctx, d, alvo, recarregar);
   if (aba === 'despesas') return abaDespesas(d, alvo, recarregar, params[1]);
+  if (aba === 'mentores') return (await import('./financeiro-mentores.js')).abaMentores(ctx, d, alvo, recarregar, params.slice(1));
+  d.mentoresSemCadastro = await (await import('./financeiro-mentores.js')).pendenciasMentores(d).catch(() => null);
   return abaGeral(d, alvo, recarregar, params[1]);
 }
 function contador(d) {
@@ -156,6 +159,7 @@ function abaGeral(d, el, recarregar, mesParam) {
         ${aEmitir.length ? `<a class="pend" href="#/financeiro/emitir"><b>${aEmitir.length}</b><span>${aEmitir.length === 1 ? 'nota para emitir' : 'notas para emitir'} · ${dinheiro(F.soma(aEmitir, (l) => l.valor))}</span></a>` : ''}
         ${atrasado.length ? `<a class="pend" href="#/financeiro/receber"><b style="color:var(--erro)">${atrasado.length}</b><span>${atrasado.length === 1 ? 'pagamento atrasado' : 'pagamentos atrasados'} · ${dinheiro(F.soma(atrasado, (l) => l.valor))}</span></a>` : ''}
         ${faltaPlano.length ? `<a class="pend" href="#/financeiro/planos"><b>${faltaPlano.length}</b><span>${faltaPlano.length === 1 ? 'turma ou mentoria sem plano de faturamento' : 'turmas e mentorias sem plano de faturamento'}</span></a>` : ''}
+        ${d.mentoresSemCadastro ? `<a class="pend" href="#/financeiro/mentores"><b>${d.mentoresSemCadastro}</b><span>${d.mentoresSemCadastro === 1 ? 'mentor parceiro sem cadastro financeiro' : 'mentores parceiros sem cadastro financeiro'}</span></a>` : ''}
         ${novos.map((x) => `<a class="pend" href="#/financeiro/planos"><b>${x.ms.length}</b><span>${x.ms.length === 1 ? 'módulo novo' : 'módulos novos'} em ${esc(x.p.titulo)} sem linha no faturamento</span></a>`).join('')}
         ${!aEmitir.length && !atrasado.length && !faltaPlano.length && !novos.length && !d.aConferir.planos.length && !d.aConferir.despesas.length ? '<p class="apagado">Nada pendente. 🎉</p>' : ''}
       </div></div>
@@ -215,7 +219,7 @@ function opcoesOnde(d, atual) {
 }
 function camposOnde(d, v, x) {
   const [t, id] = String(v).split(':');
-  const base = { empresa_id: null, turma_id: null, programa_id: null, modulo_id: null, pessoa_id: null };
+  const base = { empresa_id: null, turma_id: null, programa_id: null, modulo_id: null, pessoa_id: x.pessoa_id || null };   // quem gastou fica
   const cat = x.categoria === 'socia' ? 'outros' : x.categoria;
   if (t === 't') { const tu = d.turmas.find((y) => y.id === id); return { ...base, turma_id: id, empresa_id: tu ? tu.empresa_id : null, modulo_id: x.turma_id === id ? x.modulo_id : null, categoria: cat }; }
   if (t === 'p') { const pr = d.programas.find((y) => y.id === id); return { ...base, programa_id: id, empresa_id: pr ? pr.empresa_id : null, categoria: cat }; }
@@ -623,7 +627,7 @@ function abaDespesas(d, el, recarregar, mesParam) {
       <span style="flex:1"></span><b>${dinheiro(F.soma(lista, (x) => x.valor))}</b>
     </div>
     ${lista.length ? `<div class="tabela cartao" style="padding:0"><table><thead><tr><th>Dia</th><th>O que</th><th>Tipo</th><th>Cliente · turma</th><th style="text-align:right">Valor</th><th>Pago</th><th></th></tr></thead><tbody>
-      ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}${x.fixa_id ? ' <span class="selo neutro">fixa</span>' : ''}${x.reembolsavel ? ' <span class="selo alerta">cliente reembolsa</span>' : ''}${x.conferir ? ' <a class="selo alerta" href="#/financeiro/conferir">conferir</a>' : ''}</td>
+      ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}${x.fixa_id ? ' <span class="selo neutro">fixa</span>' : ''}${x.reembolsavel ? ' <span class="selo alerta">cliente reembolsa</span>' : ''}${x.conferir ? ' <a class="selo alerta" href="#/financeiro/conferir">conferir</a>' : ''}${x.comprovante ? ` <button class="btn peq" type="button" data-comprovante="${esc(x.comprovante)}" title="Ver o comprovante">📎</button>` : ''}</td>
         <td>${esc(F.nomeCategoria(x.categoria))}</td><td>${onde(x) || '<span class="apagado">—</span>'}</td><td class="fn-num" style="text-align:right">${dinheiro(x.valor)}</td>
         <td>${x.pago_em ? `<span class="selo ok">${dataBR(x.pago_em)}</span>` : `<button class="btn peq" type="button" data-pagar="${x.id}">Marcar pago</button>`}</td>
         <td><button class="btn peq" type="button" data-editar="${x.id}">Editar</button></td></tr>`).join('')}</tbody></table></div>
@@ -637,7 +641,8 @@ function abaDespesas(d, el, recarregar, mesParam) {
     </div>`;
   el.querySelectorAll('[data-mes]').forEach((b) => b.addEventListener('click', () => { location.hash = `#/financeiro/despesas/${b.dataset.mes}`; }));
   el.addEventListener('click', async (ev) => {
-    const pg = ev.target.closest('[data-pagar]'), ed = ev.target.closest('[data-editar]'), fx = ev.target.closest('[data-fixa]');
+    const pg = ev.target.closest('[data-pagar]'), ed = ev.target.closest('[data-editar]'), fx = ev.target.closest('[data-fixa]'), cp = ev.target.closest('[data-comprovante]');
+    if (cp) { try { (await import('./financeiro-recibo.js')).abrirComprovante(cp.dataset.comprovante); } catch (e) { avisar(explicarErro(e), true); } return; }
     if (pg) { const { error } = await sb.from('fin_despesas').update({ pago_em: hoje }).eq('id', pg.dataset.pagar); if (error) avisar(explicarErro(error), true); else recarregar(); }
     if (ed) formDespesa(d, d.despesas.find((x) => x.id === ed.dataset.editar), recarregar);
     if (fx) formFixa(d.fixas.find((x) => x.id === fx.dataset.fixa), recarregar);
@@ -652,6 +657,12 @@ function formDespesa(d, desp, recarregar) {
   const empresas = [...d.empresas].sort((a, b) => a.nome.localeCompare(b.nome));
   const j = janela(desp ? 'Editar despesa' : 'Nova despesa', `<form class="grade" style="gap:12px" novalidate>
     ${x.conferir ? `<div class="aviso">Para conferir: ${esc(x.conferir)} Ao salvar, sai da lista "Conferir".</div>` : ''}
+    <div class="cartao" style="margin:0;padding:12px 14px;background:var(--faixa)">
+      <div class="linha"><label class="btn escuro" for="d-foto" style="cursor:pointer">📷 ${x.comprovante ? 'Trocar o recibo' : 'Ler a foto do recibo'}</label>
+        <input type="file" id="d-foto" accept="image/*,application/pdf" hidden>
+        ${x.comprovante ? '<button class="btn peq" type="button" id="d-ver">Ver o comprovante</button>' : '<span class="peq apagado">Foto ou PDF: a IA preenche dia, valor, tipo e o que foi.</span>'}</div>
+      <div id="d-leitura" class="peq mt" hidden></div>
+    </div>
     <div class="grade g3" style="gap:10px">
       <div class="campo"><label for="d-data">Dia *</label><input type="date" id="d-data" value="${x.data || ''}"></div>
       <div class="campo"><label for="d-valor">Valor (R$) *</label><input type="number" id="d-valor" min="0" step="0.01" value="${v2(x.valor)}"></div>
@@ -696,6 +707,34 @@ function formDespesa(d, desp, recarregar) {
   };
   const verSocia = () => { $('#c-socia').hidden = $('#d-cat').value !== 'socia'; };
   turmasDe(); programasDe(); verSocia();
+  let comprovante = x.comprovante || null;
+  const leitura = $('#d-leitura');
+  if ($('#d-ver')) $('#d-ver').addEventListener('click', async () => { try { (await import('./financeiro-recibo.js')).abrirComprovante(comprovante); } catch (e) { avisar(explicarErro(e), true); } });
+  $('#d-foto').addEventListener('change', async (ev) => {
+    const arq = ev.target.files && ev.target.files[0]; ev.target.value = '';
+    if (!arq) return;
+    const R = await import('./financeiro-recibo.js');
+    leitura.hidden = false; leitura.className = 'peq mt';
+    try {
+      const { caminho, resultado: r } = await R.lerRecibo(arq, (t) => { leitura.textContent = t; });
+      comprovante = caminho;
+      if (r.data) $('#d-data').value = r.data;
+      if (r.valor != null) $('#d-valor').value = Number(r.valor).toFixed(2);
+      if (r.categoria) $('#d-cat').value = r.categoria;
+      $('#d-desc').value = [r.descricao, r.estabelecimento && !String(r.descricao || '').includes(r.estabelecimento) ? r.estabelecimento : ''].filter(Boolean).join(' · ').slice(0, 200);
+      const sug = R.sugerirModulo(d, { data: r.data, cidade: r.cidade });
+      if (sug) {
+        $('#d-emp').value = sug.empresa_id; x.turma_id = sug.turma_id; x.modulo_id = sug.modulo_id; turmasDe(); programasDe();
+      }
+      verSocia();
+      const notas = [r.cidade ? `Cidade: ${r.cidade}${r.uf ? ` (${r.uf})` : ''}` : '', r.pessoa ? `Em nome de: ${r.pessoa}` : '', r.cnpj ? `CNPJ: ${r.cnpj}` : ''].filter(Boolean);
+      if (notas.length && !$('#d-obs').value.trim()) $('#d-obs').value = notas.join(' · ');
+      leitura.innerHTML = `<span class="selo ok">Lido</span> Confira os campos antes de salvar.${sug ? ` Pela agenda: <b>${esc(sug.texto)}</b>${sug.pela_cidade ? '' : ' (pela data; confira)'}.` : ' Não achei um módulo na agenda perto desta data: escolha o programa, se houver.'}${(r.observacoes || []).length ? `<br>${r.observacoes.map(esc).join(' · ')}` : ''}`;
+    } catch (e) {
+      if (e.caminho) comprovante = e.caminho;
+      leitura.className = 'aviso erro mt'; leitura.textContent = explicarErro(e);
+    }
+  });
   $('#d-cat').addEventListener('change', verSocia);
   $('#d-emp').addEventListener('change', () => { turmasDe(); programasDe(); });
   $('#d-prog').addEventListener('change', () => { const p = d.programas.find((y) => y.id === $('#d-prog').value); if (p && !$('#d-emp').value) { $('#d-emp').value = p.empresa_id; x.programa_id = p.id; turmasDe(); programasDe(); } });
@@ -716,12 +755,13 @@ function formDespesa(d, desp, recarregar) {
     const corpo = {
       data: $('#d-data').value, valor: num($('#d-valor')), categoria: $('#d-cat').value, descricao: $('#d-desc').value.trim(),
       empresa_id: $('#d-emp').value || null, turma_id: $('#d-turma').value || null, modulo_id: $('#d-mod').value || null, programa_id: $('#d-prog').value || null,
-      pessoa_id: $('#d-cat').value === 'socia' ? $('#d-socia').value || null : null, conferir: null,
+      pessoa_id: $('#d-cat').value === 'socia' ? $('#d-socia').value || null : x.pessoa_id || null, conferir: null,
       reembolsavel: $('#d-reemb').checked, pago_em: $('#d-pago').value || null, conta: $('#d-conta').value || null, observacoes: $('#d-obs').value.trim() || null,
     };
     if (!corpo.data || corpo.valor == null || !corpo.descricao) { avisar('Preencha o dia, o valor e o que foi.', true); return; }
     if (corpo.categoria === 'socia' && !corpo.pessoa_id) { avisar('Escolha de qual sócia é a despesa.', true); return; }
     if (!desp || !('conferir' in desp)) delete corpo.conferir;   // antes do script 53 a coluna não existe
+    if (comprovante !== (x.comprovante || null)) { corpo.comprovante = comprovante; if (!desp) corpo.origem = 'foto'; }
     const r = desp ? await sb.from('fin_despesas').update(corpo).eq('id', desp.id) : await sb.from('fin_despesas').insert(corpo);
     if (r.error) { avisar(explicarErro(r.error), true); return; }
     j.fechar(); avisar('Despesa salva.'); recarregar();

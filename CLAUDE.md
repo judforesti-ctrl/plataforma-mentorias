@@ -588,7 +588,19 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   EXTRATOS: Sicoob 01-14/10/2026 lançado (fixas de outubro pagas, 11 saídas com recado, origem "extrato"; 3 × 8.900 do Sescoop em 06/10 =
   módulos de setembro da Sicredi Expansão recebidos; CCS 8.070 em 07/10 sem plano). Conta Sicoob 74.479-4 e Unicred 87378 são da
   FSK Capital Intelectual Ltda (CNPJ 30.589.703/0001-68), que também emite NFS-e pela prefeitura de Campinas. O da Unicred veio de 2025.
-  Próximas etapas: 2) despesa por foto do recibo (IA) + cadastro financeiro do mentor e pagamento calculado; 3) extrato OFX;
+  ETAPA 2 (script 54, 30/10): DESPESA POR FOTO DO RECIBO: no "+ Despesa", "📷 Ler a foto do recibo" (foto ou PDF; foto reduzida a
+  1600 px no navegador) → pasta privada `financeiro` (recibos/AAAA-MM/<uuid>) + linha em `fin_recibos` → `/api/despesa-recibo`
+  (background, claude-opus-5-5 com imagem/PDF e json_schema: data, valor, estabelecimento, cnpj, cidade/uf, categoria, descricao,
+  pessoa, observacoes) → a tela espera e preenche; `sugerirModulo` (telas/financeiro-recibo.js) acha pela agenda o módulo de ±1 dia
+  na cidade do recibo (senão o presencial mais perto; empate = não escolhe). Comprovante em `fin_despesas.comprovante` (📎 na lista,
+  link de 10 min), origem "foto". MENTORES (aba Financeiro → Mentores, `telas/financeiro-mentores.js`; parceiros = papel mentor ativo;
+  sócias são admin e ficam de fora): `fin_mentores` (forma hora|atendimento|modulo|mensal|percentual, valor, cidade_saida, nome para
+  pagamento, documento, PIX, emite_nota), `fin_mentor_valores` (valor combinado por turma/programa + conferido), `fin_pagamentos`
+  (mês: linhas calculadas por `calcularPagamento` em financeiro-regras.js com as aulas = modulo_mentores + módulos do mês já
+  passados, duracao_min, e sessões realizadas, duracao_min ou do programa ou 60; ajuste por linha com motivo; aberto → aprovado →
+  pago: cria uma despesa "parceiros" por turma/programa e guarda os ids em `despesas`; "Desfazer o pagamento" apaga). Extrato do
+  mês para o mentor (copiar/WhatsApp). Visão geral: "N mentores parceiros sem cadastro financeiro". O mentor não vê nada.
+  Próximas etapas: 3) extrato OFX;
   4) margem (com horas e viagem estimada), fechamento do mês, distribuição, caixa 90 dias, avisos. Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
 - CERTIFICADOS (2026-10-27, script 47, `telas/certificados.js`, Gestão → "Emitir certificados", só administração = Cintia e sócias;
@@ -750,7 +762,10 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
 
 ## Pendências conhecidas
 - FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;
-  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapas 2 a 4 não feitas (HUB de inovação de Holambra fica de fora por enquanto).
+  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapas 3 e 4 não feitas (HUB de inovação de Holambra fica de fora por enquanto).
+  LEMBRAR A JULIANA NA ETAPA FINAL (4) DO FINANCEIRO (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia
+  05/02 R$ 6.570,49 e 19/03 R$ 1.489 e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e os
+  extratos do Sicoob e da Unicred de janeiro de 2026 até hoje (só veio Sicoob 01-14/10).
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
