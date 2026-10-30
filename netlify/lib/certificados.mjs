@@ -66,17 +66,24 @@ export function resolvedorDeImagens({ lerAssinatura = null, baixarArquivo = baix
     const r = await fetch(`${SUPABASE_URL}/storage/v1/object/public/fotos/${caminhoSeguro(caminho)}`).catch(() => null);
     return r && r.ok ? Buffer.from(await r.arrayBuffer()) : null;
   });
-  const lembrar = (k, fn) => { if (!memoria.has(k)) memoria.set(k, fn().catch(() => '')); return memoria.get(k); };
+  // se o retrato pede a imagem e ela não abre, o certificado NÃO sai sem ela: o lote para e a tela mostra o motivo
+  const lembrar = (k, fn) => { if (!memoria.has(k)) memoria.set(k, fn()); return memoria.get(k); };
   return async (snap) => {
     const v = snap.variacao === 'escura' ? 'escura' : 'clara';
     const ass = (id) => (id ? lembrar(`a:${id}:${v}`, async () => {
-      const a = await assinatura(id); if (!a) return '';
+      const a = await assinatura(id);
+      if (!a) throw new Error('A assinatura escolhida na pasta não foi encontrada. Abra "Editar informações", escolha a assinatura de novo, salve e gere de novo.');
       const buf = await baixarArquivo(BALDE, v === 'escura' ? a.escura_caminho : a.clara_caminho);
-      return buf ? dataUri(buf, 'image/png') : '';
+      if (!buf) throw new Error('Não consegui abrir a imagem da assinatura. Tente de novo em instantes; se continuar, envie a assinatura de novo na pasta.');
+      return dataUri(buf, 'image/png');
     }) : '');
     const [resp1, resp2, lg] = await Promise.all([
       ass(snap.ref_resp1_assinatura), ass(snap.ref_resp2_assinatura),
-      snap.ref_cliente_logo ? lembrar(`l:${snap.ref_cliente_logo}`, async () => { const b = await logo(snap.ref_cliente_logo); return b ? dataUri(b, 'image/png') : ''; }) : '',
+      snap.ref_cliente_logo ? lembrar(`l:${snap.ref_cliente_logo}`, async () => {
+        const b = await logo(snap.ref_cliente_logo);
+        if (!b) throw new Error('Não consegui abrir o logo do cliente. Tente de novo em instantes; se continuar, envie o logo de novo na pasta.');
+        return dataUri(b, 'image/png');
+      }) : '',
     ]);
     return { resp1, resp2, logo: lg };
   };
@@ -128,7 +135,7 @@ export async function processarLote(loteId, { limiteMs = LIMITE_MS, modeloUrl } 
     const ids = lote.certificados || [];
     const lidos = [];
     for (let i = 0; i < ids.length; i += 100) {
-      const r = await supa(`/rest/v1/cert_certificados?id=in.(${ids.slice(i, i + 100).join(',')})&select=id,codigo,pasta_id,numero,participante,dados_snapshot,pdf_em,anonimizado_em`);
+      const r = await supa(`/rest/v1/cert_certificados?id=in.(${ids.slice(i, i + 100).join(',')})&select=id,codigo,pasta_id,numero,participante,dados_snapshot,pdf_caminho,pdf_em,anonimizado_em`);
       if (!r.ok) throw new Error('Não consegui ler os certificados do lote.');
       lidos.push(...r.dados);
     }
@@ -145,9 +152,11 @@ export async function processarLote(loteId, { limiteMs = LIMITE_MS, modeloUrl } 
       for (const c of pendentes) {
         if (Date.now() - inicio > limiteMs) break;
         const pdf = await imprimir(await dadosDoCertificado(c, imagens));
-        const caminho = `pdf/${c.pasta_id}/${c.codigo}.pdf`;
+        // nome novo a cada geração: com o mesmo nome, quem baixava podia receber a cópia antiga guardada em cache (até 1 hora)
+        const caminho = `pdf/${c.pasta_id}/${c.codigo}-${Date.now().toString(36)}.pdf`;
         await guardarPdf(caminho, pdf);
         await supa(`/rest/v1/cert_certificados?id=eq.${c.id}`, { metodo: 'PATCH', corpo: { pdf_caminho: caminho, pdf_em: new Date().toISOString() } });
+        if (c.pdf_caminho && c.pdf_caminho !== caminho) await apagarArquivos([c.pdf_caminho]);
         feitos++;
         await supa(`/rest/v1/cert_lotes?id=eq.${loteId}`, { metodo: 'PATCH', corpo: { feitos } });
       }

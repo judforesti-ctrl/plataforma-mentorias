@@ -612,6 +612,12 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   números) → `resultado.tipo = 'certificado'` (fora das listas de propostas) → a tela espera (3 s, até 3 min) e preenche o passo 3; as
   `observacoes` da IA aparecem em lista no aviso do alto. Cliente: liga à empresa cadastrada de nome igual ou contido (aí oferece o logo).
   Sem script novo. A leitura pela IA de verdade só roda na Netlify (a chave fica lá).
+  ASSINATURA QUE NÃO ENTRAVA (30/10, reclamação dela: pôs as assinaturas das sócias e os certificados seguintes saíram sem): o PDF
+  regerado ficava no MESMO nome (`pdf/<pasta>/<código>.pdf`) e o Supabase podia entregar a cópia antiga do cache por até 1 h; e
+  imagem que não abria saía em branco, calada. Agora: nome novo a cada geração (`<código>-<tempo>.pdf`; o servidor apaga o anterior,
+  e a tela apaga ao corrigir nome ou "Gerar de novo todos"); assinatura ou logo pedido no retrato que não abre PARA o lote com o
+  motivo (resolvedorDeImagens estrito). Assinatura só entra se ESCOLHIDA na pasta (a lista "Assinaturas salvas" não aplica sozinha):
+  aviso "Esta pasta está sem a imagem da assinatura" + "Escolher as assinaturas" no alto da aba Emitir e etiqueta clicável no topo.
   Etapas: (1) banco, pastas e prévia [feita: turma cadastrada ou do zero]; (2) assinaturas [feita]; (3) nomes, PDFs e ZIP [feita]; (4) verificação pública [feita]; (5) IA lendo a
   proposta [feita]. O QR da plataforma (qrcode-generator) escolhe outra máscara que o `referencia/qr.py`: desenho
   diferente, mesmo conteúdo (conferido com jsQR). Teste local: launch.json "certificados-teste" (porta 8811), scratchpad da sessão

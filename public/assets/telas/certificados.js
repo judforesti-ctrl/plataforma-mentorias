@@ -576,7 +576,7 @@ async function pasta(ctx, el, id, aba) {
   el.innerHTML = `${titulo(esc(p.nome), `${esc(p.curso)} · ${esc(p.periodo_texto)}`, `<a class="btn" href="#/certificados/${p.id}/editar">✎ Editar informações</a>`, '<a href="#/certificados">← Emitir certificados</a>')}
     <div class="chips" style="margin:-8px 0 16px"><span class="chip">${amostra(p.variacao)}</span><span class="chip">${esc(p.tipo)}</span><span class="chip">${esc(R.horasTexto(p.carga_horas))}</span>
       <span class="chip">${plural(nMods, 'módulo', 'módulos')}</span>${p.cliente_nome ? `<span class="chip">${esc(p.cliente_nome)}</span>` : ''}
-      ${R.semAssinatura(p) ? '<span class="chip ct-alerta">Sem assinatura</span>' : ''}</div>
+      ${R.semAssinatura(p) ? `<a class="chip ct-alerta" href="#/certificados/${p.id}/editar" title="Escolher as assinaturas da pasta">Sem assinatura · escolher</a>` : ''}</div>
     <div class="abas" role="tablist"><button type="button" role="tab" data-aba="emitir">Emitir certificados</button><button type="button" role="tab" data-aba="emitidos">Emitidos (${validos})</button></div>
     <div id="ct-aba"></div>`;
   el.querySelectorAll('.abas button').forEach((b) => {

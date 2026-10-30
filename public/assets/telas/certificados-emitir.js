@@ -219,6 +219,9 @@ export async function abaEmitir(ctx, el, pasta, certs, recarregar) {
   const fila = FILA.get(pasta.id) || [];
   FILA.set(pasta.id, fila);
   el.innerHTML = `<div id="ct-lotes"></div>
+    ${R.semAssinatura(pasta) ? `<div class="aviso" style="margin-bottom:12px"><b>Esta pasta está sem a imagem da assinatura${pasta.mostrar_resp2 && pasta.resp1_assinatura_id ? ' de quem assina pelo cliente' : ''}.</b>
+      Os certificados saem com a linha para assinar à mão. As assinaturas salvas na lista só entram depois de escolhidas na pasta.
+      <div class="linha mt"><a class="btn peq pri" href="#/certificados/${pasta.id}/editar">Escolher as assinaturas</a></div></div>` : ''}
     <div class="cartao"><h3>Lista de nomes</h3>
       <p class="peq apagado">Planilha do Excel (.xlsx) ou CSV com a coluna "Nome" (ou "Nome completo"; sem cabeçalho, vale a primeira coluna), arquivo de texto com um nome por linha, ou cole aqui embaixo.</p>
       <div class="linha mt"><label class="btn pri" style="cursor:pointer">📄 Importar planilha ou arquivo<input type="file" id="cn-arq" accept=".xlsx,.xlsm,.xls,.ods,.csv,.txt" hidden></label></div>
@@ -413,6 +416,7 @@ function janelaNome(ctx, pasta, c, andamento, recarregar) {
       historico: [...(c.historico || []), registro(ctx, 'nome', { antes: c.participante, depois: novo })],
     }).eq('id', c.id);
     if (error) { avisar(explicarErro(error), true); ev.currentTarget.disabled = false; return; }
+    if (c.pdf_caminho) sb.storage.from(BALDE).remove([c.pdf_caminho]);   // o PDF antigo sai; o novo ganha outro nome
     j.fechar();
     try {
       const lote = await regerar(pasta, [c.id]);
@@ -465,6 +469,8 @@ function gerarTodos(ctx, pasta, validos, andamento, recarregar) {
         const erro = res.find((r) => r.error); if (erro) throw erro.error;
         b.textContent = `Atualizando ${Math.min(i + 8, validos.length)} de ${validos.length}…`;
       }
+      const antigos = validos.map((c) => c.pdf_caminho).filter(Boolean);   // os PDFs antigos saem; os novos ganham outro nome
+      for (let i = 0; i < antigos.length; i += 100) await sb.storage.from(BALDE).remove(antigos.slice(i, i + 100));
       j.fechar();
       const lote = await regerar(pasta, validos.map((c) => c.id));
       const fim = await acompanhar(lote, andamento, { titulo: 'Gerando de novo' });
