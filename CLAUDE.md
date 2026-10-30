@@ -740,7 +740,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
-- FINANCEIRO (2026-10-30): script 52 rodado; falta o 53 e conferir na aba Conferir os planos e despesas que vieram da planilha;
+- FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;
   conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapas 2 a 4 não feitas (HUB de inovação de Holambra fica de fora por enquanto).
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
