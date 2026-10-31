@@ -75,6 +75,18 @@ async function lerTudo(consulta) {
     if ((r.data || []).length < 1000) return { data: todas, error: null };
   }
 }
+// Resumo das notas fiscais de cada cliente (quantas, total, primeira e última). Desde o script 62 fica em empresa_notas, que só a
+// administração lê (antes ficava na própria empresa, que o mentor e o mentorado também leem); sem o 62, continua vindo da empresa.
+async function juntarNotas(empresas) {
+  const r = await lerTudo(() => sb.from('empresa_notas').select('*').order('empresa_id'));
+  if (r.error) return;
+  const por = new Map((r.data || []).map((n) => [n.empresa_id, n]));
+  for (const e of empresas) {
+    if (!e) continue;
+    const n = por.get(e.id) || {};
+    Object.assign(e, { qtd_notas: n.qtd_notas || 0, total_notas: n.total_notas || 0, primeira_nota_em: n.primeira_nota_em || null, ultima_nota_em: n.ultima_nota_em || null });
+  }
+}
 export async function carregar() {
   const [emp, con, ops, eq, prog, turm, s23] = await Promise.all([
     lerTudo(() => sb.from('empresas').select('*').order('nome')),
@@ -87,6 +99,7 @@ export async function carregar() {
   ]);
   if (con.error && faltaScript(con.error)) return { falta: true };
   for (const r of [emp, con, ops, eq]) if (r.error) throw r.error;
+  await juntarNotas([...(emp.data || []), ...(ops.data || []).map((o) => o.empresa)]);
   return { falta: false, falta23: !!(s23.error && faltaScript(s23.error)), empresas: emp.data || [], contatos: con.data || [], oportunidades: ops.data || [], equipe: eq.data || [],
     programas: prog.data || [], turmas: turm.data || [] };
 }
@@ -624,6 +637,8 @@ async function paginaEmpresa(ctx, el, id) {
     sb.from('programas').select('id, nome, status, inicio, fim_previsto').eq('empresa_id', id), sb.from('turmas').select('id, nome, status, inicio, fim_previsto').eq('empresa_id', id)]);
   if (emp.error) { el.innerHTML = `<div class="aviso erro">${esc(explicarErro(emp.error))}</div>`; return; }
   const e = emp.data;
+  const daLista = d.empresas.find((x) => x.id === id);                            // o resumo das notas já veio junto (script 62)
+  if (daLista) for (const k of ['qtd_notas', 'total_notas', 'primeira_nota_em', 'ultima_nota_em']) if (k in daLista) e[k] = daLista[k];
   const contatos = d.contatos.filter((c) => c.empresa_id === id && c.ativo !== false);
   const ops = d.oportunidades.filter((o) => o.empresa_id === id);
   const recarregar = () => ctx.irPara(`#/vendas/empresa/${id}`);

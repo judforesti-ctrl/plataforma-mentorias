@@ -244,6 +244,10 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   vai para o e-mail geral. Reimportar a planilha atualizada também leva para a lista quem passou de 1 ano sem nota.
   Ficha da empresa tem o cartão "Notas fiscais". Teste local: launch.json "notas-teste" (porta 8803) do site do Radar,
   scratchpad da sessão 38fee57a (teste/ com `simularNotas` no base-falso.js).
+  SCRIPT 62 (31/10): o resumo (`qtd_notas`, `total_notas`, `primeira_nota_em`, `ultima_nota_em`) saiu de `empresas` (que o mentor
+  e o mentorado leem) para `empresa_notas` (só administração; mantida pelo mesmo gatilho `resumir_notas`). As telas leem pelo
+  `juntarNotas()` de vendas.js, que põe os 4 campos de volta em cada empresa (sem o 62, continuam vindo da própria empresa).
+  Teste: launch.json "faturamento-teste" (porta 8862) do worktree, kit em %TEMP%\fat62 (`?s62=1` = depois do script).
 
 - FUNIS DE E-MAIL (2026-10-12, script 34, `telas/funis.js`, aba Vendas → Funis de e-mail, rotas `#/vendas/funis[/<id>[/pessoas|emails|regras]]`
   e `#/vendas/funis/atualizar`): substitui o RD Station (pedido dela; RD tinha só 2 meses e os mesmos contatos da plataforma).
@@ -816,6 +820,12 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   76384cb3 (teste/ com cert_pastas no base-falso.js; `?sem47`).
 
 ## Regras do negócio
+- QUEM VÊ O QUÊ (decisão dela, 31/10/2026): Financeiro, Vendas/comercial, cópias de segurança, Painel, Relatórios e tudo o que é
+  da Mentorei só a administração (sócias + Cintia; a distribuição só as sócias). O mentor vê só o que é dele: os mentorados, as
+  turmas e os módulos que dá, a agenda dele e o extrato/notas dele. Conferido em 31/10 (RLS de todas as tabelas, menu, funções):
+  a única brecha era o faturamento na linha da empresa (script 62). Tabela nova = RLS que siga isso; coluna de dinheiro ou dado
+  comercial NUNCA em tabela que mentor/mentorado/aluno/RH lê (empresas, turmas, programas, modulos, perfis): RLS é por linha, não
+  por coluna. Não existe "mentor com acesso ao comercial": se ela pedir, criar permissão própria (nunca tornar o mentor admin).
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.
 - Informações delicadas: campo trancado da sessão, só mentores do mentorado e administração; nunca em relatório, Excel ou IA.
 - Sessão concluída: os mentores do mentorado completam e corrigem sem prazo (script 37); só a administração muda a conclusão
@@ -897,6 +907,9 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   certo" do extrato). Prints com dados de mentira (kit `%TEMP%\tut\kit`, launch.json "tutorial-teste", porta 8870; `?quem=u-isaac`
   = mentor do módulo md3, `?quem=u-lorena&extra=1` = extrato, `&conf=920` = já conferido, `?sem61`). Próximo passo: roteiro de vídeo
   com prints reais e narração. Assinatura do contrato: recomendado manter na plataforma + código por e-mail + PDF por e-mail (não feito).
+- SCRIPT 62 (31/10): ela rodar (tira o faturamento da linha da empresa) e conferir quem é administração com
+  `select nome, email, papel, tambem_mentor from perfis where papel = 'admin' and ativo order by nome;` (devem ser só Cintia,
+  Juliana, Viviane e Cláudia).
 - FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;
   conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapas 3 e 4, notas dos mentores e agenda de pagamentos publicadas em 31/10; arquivo para a contabilidade publicado em 31/10 (script 59 rodado, 78 tomadores carregados); extrato do mentor publicado em 31/10 (FALTA ELA RODAR O SCRIPT 60; até lá o mentor não vê o extrato nem o campo de recado, e a Cintia vê o aviso em Mentores → Pagamento do mês) (scripts 56, 57 e 58 RODADOS; atenção: select com head:true não acusa tabela que falta, conferir com select de verdade; falta marcar como pagas as fixas de outubro, que aparecem como atrasadas na agenda); HUB de inovação de Holambra fica de fora por enquanto.
   LEMBRAR A JULIANA NA ETAPA FINAL (4) DO FINANCEIRO (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia
