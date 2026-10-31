@@ -218,7 +218,7 @@ export async function abrirTrocarMentor(ctx, mentoradoId, { sessaoId = null, aoS
       if (novo.termo_aceito_em) { janelaWhatsApp({ titulo: `Aviso · ${novo.nome}`, whatsapp: novo.whatsapp || '', texto: txtNovo }); return; }
       const b = e.currentTarget; b.disabled = true; // ainda sem senha: gera o link de acesso junto (nenhum e-mail sai)
       await conviteWhatsApp({ email: novo.email, nome: novo.nome, papel: novo.papel, tambem_mentor: novo.tambem_mentor, whatsapp: novo.whatsapp || '',
-        remetente: ctx.perfil.nome, contexto: `${oQue}${meet}` });
+        remetente: ctx.perfil.nome, contexto: `${oQue}${meet}`, tutorial: true });
       b.disabled = false;
     });
     area.querySelector('#tm-w-mentorado')?.addEventListener('click', () => janelaWhatsApp({ titulo: `Aviso · ${m.nome}`,

@@ -5,15 +5,40 @@ import { sb, esc, avatar, dataHoraBR, avisar, explicarErro } from '../base.js';
 export const emailPendente = (e) => /@pendente\.mentorei\.com\.br$/i.test(String(e || ''));
 const SEM_EMAIL = 'Esta pessoa ainda não tem e-mail. Coloque o e-mail em Mentores → Editar dados e depois mande o convite.';
 
+// Vídeos de boas-vindas junto com o convite (script 63): a caixinha só aparece quando a série de quem recebe já tem vídeo.
+const seriesComVideo = {};
+export async function temVideosDeBoasVindas(papel, tambemMentor = false) {
+  const { serieDoPapel } = await import('../tutoriais-regras.js');
+  const serie = serieDoPapel(papel, tambemMentor);
+  if (!serie) return false;
+  if (!(serie in seriesComVideo)) {
+    const { data, error } = await sb.from('tutoriais').select('id').eq('serie', serie).eq('ativo', true).not('video', 'is', null).limit(1);
+    seriesComVideo[serie] = !error && (data || []).length > 0;
+  }
+  return seriesComVideo[serie];
+}
+export const caixaBoasVindas = (id, texto = 'Enviar junto os vídeos de boas-vindas') =>
+  `<label class="check"><input type="checkbox" id="${id}" checked><span>${texto} <span class="peq apagado">(vídeos curtos sobre a plataforma)</span></span></label>`;
+// lugar da caixinha na tela: <span data-boas-vindas="id" data-papel="mentor|aluno|mentorado|*" data-tm="1"></span>
+export async function ligarBoasVindas(raiz) {
+  for (const s of raiz.querySelectorAll('[data-boas-vindas]')) {
+    const tem = s.dataset.papel === '*'
+      ? (await temVideosDeBoasVindas('mentor')) || (await temVideosDeBoasVindas('aluno')) || (await temVideosDeBoasVindas('mentorado'))
+      : await temVideosDeBoasVindas(s.dataset.papel, s.dataset.tm === '1');
+    if (tem) s.innerHTML = caixaBoasVindas(s.dataset.boasVindas);
+  }
+}
+export const querBoasVindas = (raiz, id) => !!(raiz.querySelector(`#${id}`) || {}).checked;
+
 // Envia o convite pelo servidor (a chave secreta do Supabase fica só lá).
-export async function convidar({ email, nome, papel, tambem_mentor = false, mentorado_id = null, sem_email = false }) {
+export async function convidar({ email, nome, papel, tambem_mentor = false, mentorado_id = null, sem_email = false, tutorial = false }) {
   if (emailPendente(email)) { avisar(SEM_EMAIL, true); return false; }
   const { data } = await sb.auth.getSession();
   try {
     const r = await fetch('/api/convidar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
-      body: JSON.stringify({ email, nome, papel, tambem_mentor, mentorado_id, sem_email }),
+      body: JSON.stringify({ email, nome, papel, tambem_mentor, mentorado_id, sem_email, tutorial }),
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { if (j.detalhe) console.warn('Detalhe do convite:', j.detalhe); throw new Error(j.mensagem || 'Não foi possível enviar o convite.'); }
@@ -50,7 +75,7 @@ export function janelaWhatsApp({ titulo, nota, whatsapp = '', texto }) {
 
 // Convite pelo WhatsApp: a plataforma gera o link de criar senha (nenhum e-mail sai)
 // e abre a janela com a mensagem pronta. "contexto" entra no texto (ex.: a trilha que a pessoa vai acompanhar).
-export async function conviteWhatsApp({ email, nome, papel, tambem_mentor = false, mentorado_id = null, whatsapp = '', remetente = '', contexto = '' }) {
+export async function conviteWhatsApp({ email, nome, papel, tambem_mentor = false, mentorado_id = null, whatsapp = '', remetente = '', contexto = '', tutorial = false }) {
   if (emailPendente(email)) { avisar(SEM_EMAIL, true); return false; }
   const { data } = await sb.auth.getSession();
   let j;
@@ -58,7 +83,7 @@ export async function conviteWhatsApp({ email, nome, papel, tambem_mentor = fals
     const r = await fetch('/api/convidar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
-      body: JSON.stringify({ email, nome, papel, tambem_mentor, mentorado_id, canal: 'link' }),
+      body: JSON.stringify({ email, nome, papel, tambem_mentor, mentorado_id, canal: 'link', tutorial }),
     });
     j = await r.json().catch(() => ({}));
     if (!r.ok || !j.link) { if (j.detalhe) console.warn('Detalhe do convite:', j.detalhe); throw new Error(j.mensagem || 'Não foi possível gerar o link.'); }
@@ -66,7 +91,7 @@ export async function conviteWhatsApp({ email, nome, papel, tambem_mentor = fals
 
   const primeiro = String(nome || '').split(' ')[0];
   const quem = remetente ? `Aqui é ${remetente.split(' ')[0]}, da Mentorei.` : 'Aqui é da Mentorei.';
-  const texto = `Olá, ${primeiro}! ${quem} Seu acesso à plataforma de mentorias está pronto.${contexto ? `\n\n${contexto}` : ''}\n\nPara entrar, crie sua senha neste link:\n${j.link}\n\nSeu login é este e-mail: ${email}\n\nO link não expira: pode usar quando puder. Ele vale até você criar a sua senha; depois é só entrar com o e-mail e a senha.`;
+  const texto = `Olá, ${primeiro}! ${quem} Seu acesso à plataforma de mentorias está pronto.${contexto ? `\n\n${contexto}` : ''}\n\nPara entrar, crie sua senha neste link:\n${j.link}\n\nSeu login é este e-mail: ${email}\n\nO link não expira: pode usar quando puder. Ele vale até você criar a sua senha; depois é só entrar com o e-mail e a senha.${j.tutorial ? `\n\nAntes de entrar, veja os vídeos de boas-vindas (são curtinhos):\n${j.tutorial}` : ''}`;
   janelaWhatsApp({ titulo: `Convite por WhatsApp · ${nome}`, nota: 'O link foi gerado e nenhum e-mail foi enviado. Confira a mensagem e mande pelo seu WhatsApp.', whatsapp, texto });
   return true;
 }
@@ -93,6 +118,7 @@ export async function render(ctx, el) {
           <div class="campo"><label for="c-email">E-mail (vira o login)</label><input id="c-email" type="email" required></div>
           <div class="campo"><label for="c-papel">Tipo de acesso</label><select id="c-papel"><option value="mentor">Mentor</option><option value="admin">Administração</option></select></div>
           <label class="check"><input type="checkbox" id="c-tambem"> <span>Também atende mentorados (só para administração)</span></label>
+          <span data-boas-vindas="bv-equipe" data-papel="mentor"></span>
           <div class="linha"><button class="btn pri" type="submit" data-modo="preparar">Preparar sem enviar e-mail</button>
             <button class="btn" type="submit" data-modo="enviar">Enviar convite agora</button></div>
           <p class="peq apagado">"Preparar" cadastra a pessoa na plataforma sem avisar ninguém. Ela só consegue entrar depois que você enviar o convite.</p>
@@ -121,13 +147,14 @@ export async function render(ctx, el) {
       ${(acessos || []).slice(0, 40).map((a) => `<tr><td>${esc(nomes[a.perfil_id] || 'Mentorado')}</td><td>${dataHoraBR(a.entrou_em)}</td><td>${dataHoraBR(a.ultimo_sinal_em)}</td><td>${esc(a.aparelho || '')}</td></tr>`).join('')
         || '<tr><td colspan="4" class="apagado">Nenhum acesso ainda.</td></tr>'}</table></div></div>`;
 
+  ligarBoasVindas(el);   // vídeos de boas-vindas junto com o convite (script 63)
   el.querySelector('#f-conv').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const nome = el.querySelector('#c-nome').value.trim(), email = el.querySelector('#c-email').value.trim().toLowerCase();
     if (!nome || !email) { avisar('Preencha o nome e o e-mail.', true); return; }
     const papel = el.querySelector('#c-papel').value;
     const semEmail = !ev.submitter || ev.submitter.dataset.modo !== 'enviar';
-    const ok = await convidar({ email, nome, papel, tambem_mentor: papel === 'admin' && el.querySelector('#c-tambem').checked, sem_email: semEmail });
+    const ok = await convidar({ email, nome, papel, tambem_mentor: papel === 'admin' && el.querySelector('#c-tambem').checked, sem_email: semEmail, tutorial: querBoasVindas(el, 'bv-equipe') });
     if (ok) ctx.irPara('#/equipe');
   });
   el.addEventListener('click', async (ev) => {
@@ -135,7 +162,7 @@ export async function render(ctx, el) {
     if (prep) {
       const c = convites.find((x) => x.email === (prep.dataset.preparar || prep.dataset.enviar));
       prep.disabled = true;
-      const ok = await convidar({ email: c.email, nome: c.nome, papel: c.papel, tambem_mentor: c.tambem_mentor, mentorado_id: c.mentorado_id, sem_email: !!prep.dataset.preparar });
+      const ok = await convidar({ email: c.email, nome: c.nome, papel: c.papel, tambem_mentor: c.tambem_mentor, mentorado_id: c.mentorado_id, sem_email: !!prep.dataset.preparar, tutorial: querBoasVindas(el, 'bv-equipe') });
       if (ok) ctx.irPara('#/equipe'); else prep.disabled = false;
       return;
     }
@@ -152,7 +179,7 @@ export async function render(ctx, el) {
     if (wc) {
       const c = convites.find((x) => x.email === wc.dataset.whats);
       wc.disabled = true;
-      await conviteWhatsApp({ email: c.email, nome: c.nome, papel: c.papel, tambem_mentor: c.tambem_mentor, mentorado_id: c.mentorado_id, remetente: ctx.perfil.nome });
+      await conviteWhatsApp({ email: c.email, nome: c.nome, papel: c.papel, tambem_mentor: c.tambem_mentor, mentorado_id: c.mentorado_id, remetente: ctx.perfil.nome, tutorial: querBoasVindas(el, 'bv-equipe') });
       wc.disabled = false;
       return;
     }
@@ -160,7 +187,7 @@ export async function render(ctx, el) {
     if (wp) {
       const p = pessoas.find((x) => x.id === wp.dataset.whatsPessoa);
       wp.disabled = true;
-      await conviteWhatsApp({ email: p.email, nome: p.nome, papel: p.papel, tambem_mentor: p.tambem_mentor, remetente: ctx.perfil.nome });
+      await conviteWhatsApp({ email: p.email, nome: p.nome, papel: p.papel, tambem_mentor: p.tambem_mentor, remetente: ctx.perfil.nome, tutorial: querBoasVindas(el, 'bv-equipe') });
       wp.disabled = false;
       return;
     }
@@ -168,7 +195,7 @@ export async function render(ctx, el) {
     if (ep) {
       const p = pessoas.find((x) => x.id === ep.dataset.enviarPessoa);
       ep.disabled = true;
-      await convidar({ email: p.email, nome: p.nome, papel: p.papel, tambem_mentor: p.tambem_mentor });
+      await convidar({ email: p.email, nome: p.nome, papel: p.papel, tambem_mentor: p.tambem_mentor, tutorial: querBoasVindas(el, 'bv-equipe') });
       ep.disabled = false;
       return;
     }

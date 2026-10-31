@@ -95,6 +95,7 @@ const GRUPOS = [
     { nome: 'Meus dados', icone: 'circle-user', rota: '#/perfil', pode: mentorado || aluno || rh },
     { nome: 'Meu contrato', icone: 'file-signature', rota: '#/contrato', pode: perfil.papel === 'mentor' && CONTRATO_LIBERADO },
     { nome: 'Notas fiscais', icone: 'wallet', rota: '#/notas', pode: perfil.papel === 'mentor' },
+    { nome: 'Tutoriais', icone: 'circle-play', rota: '#/tutoriais', pode: true },
   ] },
   { id: 'gestao', nome: 'Gestão', icone: 'sliders-horizontal', itens: [
     { nome: 'Painel', icone: 'layout-dashboard', rota: '#/painel', pode: ehAdmin },
@@ -155,6 +156,7 @@ const ROTAS = {
   rh: () => import('./telas/painel-rh.js'),
   contrato: () => import('./telas/contrato.js'),
   notas: () => import('./telas/notas-mentor.js'),
+  tutoriais: () => import('./telas/tutoriais.js'),
 };
 
 // Marca no menu a página atual e devolve o caminho "Grupo › Página" (escondido no primeiro acesso, quando o menu fica escondido).
@@ -168,7 +170,7 @@ function montarTopo(atual, restrito) {
   return caminho;
 }
 
-const ctx = { perfil, ehAdmin, atende, contratoPendente, recarregarPerfil: async () => { perfil = await meuPerfil(); ctx.perfil = perfil; return perfil; } };
+const ctx = { perfil, ehAdmin, atende, temTrilha, contratoPendente, recarregarPerfil: async () => { perfil = await meuPerfil(); ctx.perfil = perfil; return perfil; } };
 
 // "Ver como o mentor vê": faixa no alto de toda tela, com o caminho de volta para a visão da administração
 function faixaVerComo() {
@@ -207,6 +209,13 @@ async function abrir() {
       faixa.innerHTML = 'Falta assinar o seu <b>contrato de prestação de serviço</b> com a Mentorei. <a href="#/contrato">Ler e assinar</a>';
       const cab = alvo.querySelector('.cab');
       if (cab) cab.after(faixa); else alvo.prepend(faixa);
+    }
+    // primeira tela de quem ainda não viu os vídeos da série dele (script 63): faixa "Comece por aqui"
+    if (`#/${rota}` === inicio && !precisaPrimeiroAcesso && !ehAdmin) {
+      const { lembreteTutoriais } = await import('./telas/tutoriais.js');
+      const faixa = await lembreteTutoriais(ctx);
+      const cab = faixa && alvo.querySelector('.cab');
+      if (faixa) { if (cab) cab.after(faixa); else alvo.prepend(faixa); }
     }
     if (!ctx.perfil.foto_url && !precisaPrimeiroAcesso) {
       const { lembreteFoto } = await import('./telas/foto-lembrete.js');

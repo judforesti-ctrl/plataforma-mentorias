@@ -739,6 +739,25 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Pagamento do mês ("conferiu… está certo" ou "o valor mudou depois"). Sem o 61, o botão some.
   Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
+- TUTORIAIS EM VÍDEO (2026-10-31, script 63, pedido da Juliana). Vídeos feitos FORA do site com prints reais da plataforma (dados de
+  mentira), narração da voz Marisol (Higgsfield, ElevenLabs) e LEGENDA gravada na imagem; ritmo do aluno 1,15×. Roteiros (Claude Docs):
+  mentor https://claude.ai/artifact/8WePvzTAPW7jhWBrHzFw9z (5 vídeos), aluno https://claude.ai/artifact/7GdqQRpnR5x6Xd6pjPhkMe (4).
+  Decisão dela: o tutorial NÃO fala que o link do convite não vence (tirado). Produção (robô de prints, montagem sem FFmpeg pelo
+  MediaRecorder do Edge + `desfragmentar.mjs`) em `%TEMP%\tut` (memória "tutorial-mentor").
+  NA PLATAFORMA: tabelas `tutoriais` (série mentor/aluno/mentorado/rh/admin + número único, título, frase, duração, `video` = caminho na
+  pasta PÚBLICA `tutoriais`, até 50 MB, só MP4; `ativo`) e `tutoriais_vistos` (assistido = 80% do vídeo). Regras em
+  `public/assets/tutoriais-regras.js` (SERIES, `seriesDe`, `serieDoPapel`, `linkPublico`, `serieDoArquivo`). Menu "Tutoriais" para todos
+  (`telas/tutoriais.js`, `#/tutoriais`): cada um vê só a série dele (sócia mentora vê a do mentor; mentorado com trilha também a do aluno),
+  só o que tem vídeo; administração vê todas, envia/troca o vídeo de cada cartão ou "Enviar vários vídeos de uma vez" (o nome do arquivo
+  "Tutorial do mentor 3 - …" diz série e número), edita título/frase, esconde, "Copiar o link para quem ainda não entrou" e "Ver como o
+  convidado vê". Faixa "Comece por aqui" na primeira tela (rota inicial) de quem não é administração e ainda tem vídeo por ver ("Agora
+  não" = 7 dias). PÁGINA PÚBLICA `public/tutorial.html?s=<série>` (sem login; lê `/api/tutoriais?s=`, função `tutoriais.mjs`).
+  CONVITE COM OS VÍDEOS (pedido dela): caixinha "Enviar junto os vídeos de boas-vindas" (já marcada; só aparece se a série de quem
+  recebe tem vídeo: `temVideosDeBoasVindas`/`ligarBoasVindas` em equipe.js) em Gestão → Convites (lote), perfil da equipe, ficha do
+  mentorado, tela Equipe e Alunos da trilha; cadastro de mentorado novo, aviso de trilha ao mentor e troca de mentor mandam sempre.
+  `/api/convidar` aceita `tutorial: true`: o e-mail ganha o botão "Assistir aos vídeos de boas-vindas" (link público, não anexo: o vídeo
+  passa de 20 MB) e a resposta traz `tutorial`, que a mensagem do WhatsApp põe no fim. Teste local: "tutorial-teste" (8870),
+  `#/tutoriais`, `?sem63`, `?semvideo`.
 - CERTIFICADOS (2026-10-27, script 47, `telas/certificados.js`, Gestão → "Emitir certificados", só administração = Cintia e sócias;
   `#/certificados[/nova|/<pasta>[/emitir|/emitidos|/editar]]`). Pacote dela em `docs/certificados/` (ESPECIFICACAO.md, protótipos,
   referência Python, exemplos; FORA do site: a Netlify só publica `public/`). REGRA: o desenho não muda; `public/certificados/modelo/`
@@ -913,11 +932,10 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
-- TUTORIAL DO MENTOR (2026-10-31): partes combinadas com ela (entrada, perfil e foto, turmas e módulo, mentoria individual,
-  notas fiscais e contrato). Antes de gravar: ela rodar o script 60 e o 61 (61 = mentor inclui ferramentas no módulo dele + "Está
-  certo" do extrato). Prints com dados de mentira (kit `%TEMP%\tut\kit`, launch.json "tutorial-teste", porta 8870; `?quem=u-isaac`
-  = mentor do módulo md3, `?quem=u-lorena&extra=1` = extrato, `&conf=920` = já conferido, `?sem61`). Próximo passo: roteiro de vídeo
-  com prints reais e narração. Assinatura do contrato: recomendado manter na plataforma + código por e-mail + PDF por e-mail (não feito).
+- TUTORIAIS (2026-10-31): FALTA ELA RODAR O SCRIPT 63 e enviar os 9 vídeos em Tutoriais → "Enviar vários vídeos de uma vez" (arquivos
+  na pasta `tutorial-videos/` do worktree mentor-platform-tutorial-46c2fc, fora do git). Até lá a página avisa e a caixinha do convite
+  não aparece. Próximas séries: mentorado, RH, administração. Assinatura do contrato: recomendado manter na plataforma + código por
+  e-mail + PDF por e-mail (não feito).
 - NOTAS FISCAIS DOS CLIENTES: o script 32 nunca foi rodado (descoberto em 31/10); "Importar notas fiscais" em Vendas só funciona
   depois dele (o 32 de agora já guarda o resumo em empresa_notas; o 62 NÃO precisa). Quem vê o quê: ela conferir quem é administração com
   `select nome, email, papel, tambem_mentor from perfis where papel = 'admin' and ativo order by nome;` (devem ser só Cintia,

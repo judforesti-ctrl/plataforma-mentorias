@@ -117,9 +117,11 @@ export async function ligarAlunos(ctx, el, turma) {
       </tr>`; }).join('')}</table></div>` : `<p class="apagado mt">${adm ? 'Nenhum aluno ainda. Clique em "+ Adicionar alunos" e cole a lista da planilha.' : 'A coordenação ainda não cadastrou os alunos.'}</p>`}
     ${adm && ativos.length ? `<div class="linha mt">${conta('novo') ? `<button class="btn pri" type="button" id="al-todos-novos">Convidar todos de uma vez (${conta('novo')} aluno${conta('novo') > 1 ? 's' : ''} ainda sem convite)</button>` : ''}
       <button class="btn" type="button" id="al-enviar"></button><span class="peq apagado" id="al-progresso" role="status"></span></div>
+      <div class="mt"><span data-boas-vindas="bv-alunos" data-papel="aluno"></span></div>
       ${freq ? `<p class="peq apagado mt">Presença: encontros com a chamada feita no módulo. Abaixo de ${FREQUENCIA_MINIMA}% aparece em destaque.</p>` : ''}
       <p class="peq apagado mt">O link do convite não expira: vale até a pessoa criar a senha. Quem já entra na plataforma (por exemplo, um mentorado individual) não recebe e-mail: a trilha só aparece na área dele.</p>` : ''}`;
   if (!adm) return;
+  import('./equipe.js').then(({ ligarBoasVindas }) => ligarBoasVindas(box));   // vídeos de boas-vindas junto (script 63)
 
   const recarregar = () => ligarAlunos(ctx, el, turma);
   const porId = (id) => alunos.find((a) => a.id === id);
@@ -166,7 +168,7 @@ export async function ligarAlunos(ctx, el, turma) {
       prog.textContent = `Enviando ${i + 1} de ${lote.length}…`;
       const celula = box.querySelector(`[data-envio="${a.id}"]`);
       try {
-        const j = await chamarConvite({ email: a.email, nome: a.nome, papel: 'aluno', turma_aluno_id: a.id, reenviar: situacao(a) === 'entrou' });
+        const j = await chamarConvite({ email: a.email, nome: a.nome, papel: 'aluno', turma_aluno_id: a.id, reenviar: situacao(a) === 'entrou', tutorial: !!box.querySelector('#bv-alunos')?.checked });
         ok += 1;
         celula.innerHTML = `<span class="selo">✓ ${j.ja_tem_login ? 'Trilha liberada' : 'Enviado'}</span>`;
       } catch (e) {
@@ -200,7 +202,7 @@ export async function ligarAlunos(ctx, el, turma) {
       const a = porId(w.dataset.whatsapp);
       w.disabled = true;
       try {
-        const j = await chamarConvite({ email: a.email, nome: a.nome, papel: 'aluno', turma_aluno_id: a.id, canal: 'link' });
+        const j = await chamarConvite({ email: a.email, nome: a.nome, papel: 'aluno', turma_aluno_id: a.id, canal: 'link', tutorial: !!box.querySelector('#bv-alunos')?.checked });
         const { janelaWhatsApp } = await import('./equipe.js');
         const primeiro = a.nome.split(' ')[0];
         const empresa = turma.empresa ? ` (${turma.empresa.nome})` : '';
@@ -209,7 +211,7 @@ export async function ligarAlunos(ctx, el, turma) {
           nota: j.ja_tem_login ? 'Esta pessoa já entra na plataforma: a mensagem só avisa que a trilha está lá.' : 'O link não expira: vale até a pessoa criar a senha. Nenhum e-mail foi enviado.',
           texto: j.ja_tem_login
             ? `Oi, ${primeiro}! Aqui é da Mentorei. A trilha ${turma.nome}${empresa} já está na sua área da plataforma, com a mesma senha: módulos, link das aulas, slides, tarefas e gravações.\n\nhttps://plataforma.mentorei.com.br`
-            : `Oi, ${primeiro}! Aqui é da Mentorei. A sua área da trilha ${turma.nome}${empresa} já está pronta: lá ficam os módulos com as datas, o link para entrar nas aulas, os slides, as tarefas e as gravações.\n\nCrie a sua senha neste link (ele não expira):\n${j.link}\n\nDepois é só entrar em plataforma.mentorei.com.br com o e-mail ${a.email}.`,
+            : `Oi, ${primeiro}! Aqui é da Mentorei. A sua área da trilha ${turma.nome}${empresa} já está pronta: lá ficam os módulos com as datas, o link para entrar nas aulas, os slides, as tarefas e as gravações.\n\nCrie a sua senha neste link (ele não expira):\n${j.link}\n\nDepois é só entrar em plataforma.mentorei.com.br com o e-mail ${a.email}.${j.tutorial ? `\n\nAntes de entrar, veja os vídeos de boas-vindas (são curtinhos):\n${j.tutorial}` : ''}`,
         });
       } catch (e) { avisar(explicarErro(e), true); }
       w.disabled = false;

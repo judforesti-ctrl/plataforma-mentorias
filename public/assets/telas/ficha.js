@@ -154,7 +154,8 @@ export async function render(ctx, el, [id]) {
           <tr><td class="apagado">Instagram</td><td>${esc(redesPerfil.instagram || '—')}</td></tr>
           <tr><td class="apagado">Termo aceito em</td><td>${dataHoraBR(p.termo_aceito_em)}</td></tr></table>`
           : `<p class="apagado mt">${p.id ? 'O convite já foi gerado, mas o mentorado ainda não criou a senha. Se ele não recebeu ou o link expirou, mande de novo.' : 'O mentorado ainda não recebeu o convite.'}</p>
-             ${ctx.ehAdmin ? `<div class="linha mt"><button class="btn pri peq" data-convite-whats>Convite por WhatsApp</button><button class="btn peq" id="convidar">Convite por e-mail</button><span class="peq apagado">O e-mail acima vira o login.</span></div>` : ''}`}
+             ${ctx.ehAdmin ? `<div class="linha mt"><button class="btn pri peq" data-convite-whats>Convite por WhatsApp</button><button class="btn peq" id="convidar">Convite por e-mail</button><span class="peq apagado">O e-mail acima vira o login.</span></div>
+               <div class="mt"><span data-boas-vindas="bv-ficha" data-papel="mentorado"></span></div>` : ''}`}
       </div>
     </section>`;
 
@@ -272,7 +273,7 @@ export async function render(ctx, el, [id]) {
     if (!email) { avisar('Preencha o e-mail do mentorado: ele vira o login.', true); return; }
     btn.disabled = true;
     const { conviteWhatsApp } = await import('./equipe.js');
-    await conviteWhatsApp({ email, nome: m.nome, papel: 'mentorado', mentorado_id: m.id, whatsapp: el.querySelector('[data-m="whatsapp"]').value.trim(), remetente: ctx.perfil.nome });
+    await conviteWhatsApp({ email, nome: m.nome, papel: 'mentorado', mentorado_id: m.id, whatsapp: el.querySelector('[data-m="whatsapp"]').value.trim(), remetente: ctx.perfil.nome, tutorial: !!el.querySelector('#bv-ficha')?.checked });
     btn.disabled = false;
   }));
 
@@ -282,8 +283,9 @@ export async function render(ctx, el, [id]) {
     const email = el.querySelector('[data-m="email"]').value.trim();
     if (!email) { avisar('Preencha o e-mail do mentorado na aba "Dados e contato".', true); return; }
     const { convidar } = await import('./equipe.js');
-    await convidar({ email, nome: m.nome, papel: 'mentorado', mentorado_id: m.id });
+    await convidar({ email, nome: m.nome, papel: 'mentorado', mentorado_id: m.id, tutorial: !!el.querySelector('#bv-ficha')?.checked });
   });
+  if (ctx.ehAdmin && el.querySelector('[data-boas-vindas]')) import('./equipe.js').then(({ ligarBoasVindas }) => ligarBoasVindas(el));
 
   return { sair: () => { salvador.agora(); salvador.parar(); } };
 }

@@ -65,9 +65,11 @@ export async function render(ctx, el, [filtro = '']) {
           <td data-envio="${x.chave}" class="peq"></td></tr>`).join('') || '<tr><td colspan="7" class="apagado">Ninguém com esse nome.</td></tr>'}
       </table></div>
       <p class="peq apagado mt">Quem está sem e-mail precisa do e-mail na ficha (mentorado) ou em Mentores → Editar dados (equipe). Quem já entrou e receber de novo ganha um link para criar outra senha.</p>
+      <div class="mt"><span data-boas-vindas="bv-lote" data-papel="*"></span></div>
       <div class="linha mt"><button type="button" class="btn pri" id="cv-enviar"></button><span class="peq apagado" id="cv-progresso"></span></div>
     </div>`;
 
+  import('./equipe.js').then(({ ligarBoasVindas }) => ligarBoasVindas(el));   // vídeos de boas-vindas junto (script 63)
   const caixas = () => [...el.querySelectorAll('[data-marca]')];
   const escolhidos = () => caixas().filter((c) => c.checked).map((c) => pessoas.find((x) => x.chave === c.dataset.marca));
   const botao = el.querySelector('#cv-enviar');
@@ -99,7 +101,7 @@ export async function render(ctx, el, [filtro = '']) {
       try {
         const r = await fetch('/api/convidar', {
           method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ email: x.email, nome: x.nome, papel: x.papel, tambem_mentor: !!x.tambem_mentor, mentorado_id: x.mentorado_id || null }),
+          body: JSON.stringify({ email: x.email, nome: x.nome, papel: x.papel, tambem_mentor: !!x.tambem_mentor, mentorado_id: x.mentorado_id || null, tutorial: !!el.querySelector('#bv-lote')?.checked }),
         });
         const j = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(j.mensagem || 'não foi possível enviar');

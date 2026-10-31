@@ -2,6 +2,7 @@
 // Só a administração pode chamar. A chave secreta do Supabase fica nas variáveis de ambiente da Netlify.
 // O link do convite NÃO expira (netlify/lib/acesso.mjs): vale até a pessoa criar a senha.
 import { linkDeAcesso, enviarLinkPorEmail } from '../lib/acesso.mjs';
+import { serieDoPapel, linkPublico } from '../../public/assets/tutoriais-regras.js';
 
 export const config = { path: '/api/convidar', method: 'POST' };
 
@@ -176,13 +177,22 @@ export default async (req) => {
   if (!conv.ok) return resposta('Não foi possível gravar o convite.', 500, { detalhe: conv.dados && conv.dados.message });
 
   const site = (env('URL') || new URL(req.url).origin).replace(/\/$/, '');
+  // vídeos de boas-vindas da série de quem recebe (script 63), quando a administração marcou "enviar junto" e a série tem vídeo
+  let tutorial = null;
+  if (b.tutorial) {
+    const serie = serieDoPapel(papel, !!b.tambem_mentor);
+    if (serie) {
+      const t = await chamar(`/rest/v1/tutoriais?serie=eq.${serie}&ativo=is.true&video=not.is.null&select=id&limit=1`, { chave: secreta });
+      if (t.ok && Array.isArray(t.dados) && t.dados.length) tutorial = linkPublico(site, serie);
+    }
+  }
 
   // 4a. Link para mandar por WhatsApp: garante o login (sem e-mail) e gera o link de criar senha (não expira).
   if (b.canal === 'link') {
     const login = await garantirLogin(secreta, email, nome);
     if (!login.id) return resposta('Não foi possível preparar o acesso.', 502, { detalhe: login.erro });
     await marcarAluno({ perfil_id: login.id, convidado_em: new Date().toISOString() });
-    return resposta('Link de acesso gerado. Nenhum e-mail foi enviado.', 200, { link: linkDeAcesso(site, login.id) });
+    return resposta('Link de acesso gerado. Nenhum e-mail foi enviado.', 200, { link: linkDeAcesso(site, login.id), tutorial });
   }
 
   // 4b. Só preparar: cria o acesso sem mandar e-mail (a pessoa ainda não consegue entrar).
@@ -201,10 +211,10 @@ export default async (req) => {
   const login = await garantirLogin(secreta, email, nome);
   if (login.id) {
     await marcarAluno({ perfil_id: login.id });
-    const envio = await enviarLinkPorEmail({ email, nome, link: linkDeAcesso(site, login.id), trilha, rh: empresaRh });
+    const envio = await enviarLinkPorEmail({ email, nome, link: linkDeAcesso(site, login.id), trilha, rh: empresaRh, tutorial });
     if (envio.enviado) {
       await marcarAluno({ convidado_em: new Date().toISOString() });
-      return resposta(`Convite enviado para ${email}. O link não expira: vale até a pessoa criar a senha.`);
+      return resposta(`Convite enviado para ${email}${tutorial ? ', com os vídeos de boas-vindas' : ''}. O link não expira: vale até a pessoa criar a senha.`, 200, { tutorial });
     }
     console.warn('Convite pelo Brevo não saiu:', envio.mensagem);
   }

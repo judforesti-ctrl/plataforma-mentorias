@@ -307,7 +307,7 @@ async function novoMentorado(ctx, el) {
       import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
       if (email && el.querySelector('#n-convite').checked) {
         const { convidar } = await import('./equipe.js');
-        await convidar({ email, nome, papel: 'mentorado', mentorado_id: novo.id });
+        await convidar({ email, nome, papel: 'mentorado', mentorado_id: novo.id, tutorial: true });
       }
       avisar('Mentorado cadastrado.'); location.hash = `#/mentorado/${novo.id}`;
     } catch (e) { avisar(explicarErro(e), true); ev.target.disabled = false; }
@@ -362,7 +362,7 @@ async function paginaPrograma(ctx, el, id) {
     const { conviteWhatsApp, janelaWhatsApp } = await import('./equipe.js');
     if (!x.termo_aceito_em) {
       b.disabled = true;
-      await conviteWhatsApp({ email: x.email, nome: x.nome, papel: x.papel, tambem_mentor: x.tambem_mentor, whatsapp: x.whatsapp || '', remetente: ctx.perfil.nome, contexto });
+      await conviteWhatsApp({ email: x.email, nome: x.nome, papel: x.papel, tambem_mentor: x.tambem_mentor, whatsapp: x.whatsapp || '', remetente: ctx.perfil.nome, contexto, tutorial: true });
       b.disabled = false;
       return;
     }

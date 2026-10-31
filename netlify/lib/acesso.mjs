@@ -35,7 +35,8 @@ export function lerCodigo(codigo) {
 // E-mail com o link (pelo Brevo, com a identidade da Mentorei). Devolve { enviado, mensagem }.
 // trilha = { nome, empresa, logo }: convite de aluno de turma (o texto fala da trilha, não de sessões individuais).
 // rh = { empresa, logo }: convite do RH da empresa cliente (script 49: painel com os números da empresa).
-export function enviarLinkPorEmail({ email, nome, link, tipo = 'c', trilha = null, rh = null }) {
+// tutorial = link público dos vídeos de boas-vindas da série (script 63), quando a administração marcou "enviar junto".
+export function enviarLinkPorEmail({ email, nome, link, tipo = 'c', trilha = null, rh = null, tutorial = null }) {
   const primeiro = String(nome || '').trim().split(' ')[0];
   const copiar = { p: `Se o botão não abrir, copie este endereço no navegador:\n${link}` };
   const m = tipo === 'c'
@@ -50,6 +51,7 @@ export function enviarLinkPorEmail({ email, nome, link, tipo = 'c', trilha = nul
           : 'Você foi convidado(a) para a plataforma de mentorias da Mentorei. Lá ficam o seu programa, as datas das sessões, os resumos, as tarefas e as ferramentas.' },
         { p: 'Para entrar, crie a sua senha:' },
         { botao: { texto: 'Criar minha senha', link } },
+        ...(tutorial ? [{ p: 'Antes de entrar, veja os vídeos de boas-vindas. São curtinhos e mostram, passo a passo, como usar a plataforma.' }, { botao: { texto: 'Assistir aos vídeos de boas-vindas', link: tutorial } }] : []),
         { nota: `Este link não expira: pode usar quando puder. Ele vale até você criar a sua senha. Depois, é só entrar em plataforma.mentorei.com.br com este e-mail (${email}) e a sua senha.` },
         copiar,
         { p: 'Qualquer dúvida, é só responder este e-mail.\nEquipe Mentorei' },

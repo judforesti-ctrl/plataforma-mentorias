@@ -52,7 +52,8 @@ export async function render(ctx, el, [id, origem] = []) {
         ${outro && !pendente ? `<div class="cartao"><h3>Acesso à plataforma</h3>
           <p class="apagado mt">${p.termo_aceito_em ? `Entrou pela primeira vez em ${dataBR(p.termo_aceito_em)}. Se esqueceu a senha, gere um link novo.` : 'Ainda não entrou na plataforma. Mande o convite pelo WhatsApp, que não cai no spam.'}</p>
           <div class="linha mt"><button type="button" class="btn pri peq" id="acesso-whats">${p.termo_aceito_em ? 'Novo link de acesso pelo WhatsApp' : 'Convite por WhatsApp'}</button>
-            ${p.termo_aceito_em ? '' : '<button type="button" class="btn peq" id="acesso-email">Convite por e-mail</button>'}</div></div>`
+            ${p.termo_aceito_em ? '' : '<button type="button" class="btn peq" id="acesso-email">Convite por e-mail</button>'}</div>
+          ${p.termo_aceito_em ? '' : `<div class="mt"><span data-boas-vindas="bv-perfil" data-papel="${esc(p.papel)}" data-tm="${p.tambem_mentor ? '1' : ''}"></span></div>`}</div>`
           : outro ? '' : '<div class="cartao"><h3>Senha</h3><p class="apagado mt">Para trocar a senha, saia e use "Esqueci minha senha" na tela de entrada.</p></div>'}
       </div>
     </div>`;
@@ -109,18 +110,19 @@ export async function render(ctx, el, [id, origem] = []) {
   });
 
   // acesso de outra pessoa da equipe (administração): convite ou link novo de senha
+  if (el.querySelector('[data-boas-vindas]')) import('./equipe.js').then(({ ligarBoasVindas }) => ligarBoasVindas(el));
   el.querySelector('#acesso-whats')?.addEventListener('click', async (ev) => {
     const btn = ev.currentTarget; btn.disabled = true;
     await salvador.agora();
     const { conviteWhatsApp } = await import('./equipe.js');
     await conviteWhatsApp({ email: p.email, nome: el.querySelector('#p-nome')?.value.trim() || p.nome, papel: p.papel, tambem_mentor: p.tambem_mentor,
-      whatsapp: el.querySelector('[data-campo="whatsapp"]')?.value.trim() || '', remetente: ctx.perfil.nome });
+      whatsapp: el.querySelector('[data-campo="whatsapp"]')?.value.trim() || '', remetente: ctx.perfil.nome, tutorial: !!el.querySelector('#bv-perfil')?.checked });
     btn.disabled = false;
   });
   el.querySelector('#acesso-email')?.addEventListener('click', async (ev) => {
     const btn = ev.currentTarget; btn.disabled = true;
     const { convidar } = await import('./equipe.js');
-    await convidar({ email: p.email, nome: p.nome, papel: p.papel, tambem_mentor: p.tambem_mentor });
+    await convidar({ email: p.email, nome: p.nome, papel: p.papel, tambem_mentor: p.tambem_mentor, tutorial: !!el.querySelector('#bv-perfil')?.checked });
     btn.disabled = false;
   });
 
