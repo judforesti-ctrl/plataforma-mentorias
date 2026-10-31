@@ -4,6 +4,8 @@
 // pagar_em), contas fixas (no último dia de pagamento até o vencimento) e outras despesas lançadas e ainda não pagas.
 // A nota do mentor mostra o valor que a plataforma calcula para o mês (aulas e sessões × cadastro) para conferir; "Pagar" leva ao
 // Pagamento do mês do mentor, que lança as despesas por turma e marca a nota como paga.
+// Script 60: no alto, os recados dos mentores sobre pagamento (e os avisos de dados para pagamento mudados), com "Visto" e "Responder"
+// (o mentor vê a resposta em Notas fiscais).
 import { sb, esc, dataBR, hojeISO, avisar, explicarErro } from '../base.js';
 import { janela, faltaScript } from './agenda-dados.js';
 import { dinheiro } from './vendas.js';
@@ -16,10 +18,13 @@ const SITUACAO = { recebida: ['Recebida: conferir', 'alerta'], conferida: ['Conf
 
 export async function abaPagamentos(ctx, d, el, recarregar, mentores) {
   const hoje = hojeISO();
-  const [notasR, dadosR] = await Promise.all([
+  const [notasR, dadosR, recadosR] = await Promise.all([
     sb.from('fin_notas_mentor').select('*').gte('mes_referencia', F.somarMeses(hoje.slice(0, 7), -6)).order('enviada_em'),
     sb.from('mentor_pagamento_dados').select('*'),
+    sb.from('fin_mentor_recados').select('*').order('criado_em', { ascending: false }).limit(60),
   ]);
+  const recados = recadosR.error ? [] : recadosR.data || [];
+  const novosRecados = recados.filter((r) => !r.lido_em);
   const semNotas = notasR.error && faltaScript(notasR.error);
   if (notasR.error && !semNotas) throw notasR.error;
   const notas = notasR.data || [];
@@ -85,6 +90,8 @@ export async function abaPagamentos(ctx, d, el, recarregar, mentores) {
     ${semNotas ? '<div class="aviso">Falta rodar o script <b>58</b> no Supabase: até lá as notas dos mentores não aparecem aqui (as contas sim).</div>' : ''}
     <p class="apagado" style="margin-bottom:12px">Pagamentos nos dias 5, 15 e 25. Nota de mentor: o primeiro desses dias pelo menos 3 dias depois do envio (fim de semana ou feriado: dia útil seguinte). Conta: o último desses dias antes do vencimento. Algo fora da curva: "Mudar a data".</p>
     <div class="grade g3" style="margin-bottom:14px">${proximos.slice(0, 3).map((p) => { const g = grupo(p); return `<div class="cartao numero"><b>${dinheiro(F.soma(g, (i) => i.valor))}</b><span>${comDia(p)} · ${g.length} pagamento${g.length === 1 ? '' : 's'}</span></div>`; }).join('')}</div>
+    ${novosRecados.length ? `<div class="cartao" style="margin-bottom:12px;border-left:5px solid var(--bege)"><h3>Recados dos mentores <span class="selo alerta">${novosRecados.length}</span></h3>
+      <div class="grade mt" style="gap:8px">${novosRecados.map((r) => recado(r, d)).join('')}</div></div>` : ''}
     ${recebidas ? `<div class="aviso" style="margin-bottom:12px">${recebidas} nota${recebidas === 1 ? '' : 's'} fiscal${recebidas === 1 ? '' : 'is'} de mentor recebida${recebidas === 1 ? '' : 's'} para conferir.</div>` : ''}
     ${atrasados.length ? `<div class="cartao" style="margin-bottom:12px;border-left:5px solid var(--erro)"><h3>Atrasados</h3>${tabela(atrasados)}</div>` : ''}
     ${dias.map((p) => { const g = grupo(p); return `<div class="cartao" style="margin-bottom:12px"><div class="linha"><h3 style="flex:1">${comDia(p)}${proximos.includes(p) ? '' : ' <small class="apagado">fora dos dias 5, 15 e 25</small>'}</h3><b>${dinheiro(F.soma(g, (i) => i.valor))}</b></div>
@@ -92,12 +99,19 @@ export async function abaPagamentos(ctx, d, el, recarregar, mentores) {
     ${notas.filter((n) => n.situacao === 'paga' || n.situacao === 'devolvida').length ? `<details class="cartao"><summary><b>Notas já pagas ou devolvidas</b></summary><div class="tabela mt"><table><tbody>
       ${notas.filter((n) => n.situacao === 'paga' || n.situacao === 'devolvida').reverse().map((n) => `<tr><td>${esc((d.pessoa(n.perfil_id) || {}).nome || '')} · ${esc(F.nomeMes(n.mes_referencia))}</td>
         <td class="fn-num" style="text-align:right">${dinheiro(n.valor)}</td><td>${n.situacao === 'paga' ? `paga em ${dataBR(n.pago_em)}` : `devolvida: ${esc(n.devolvida_motivo || '')}`}</td>
-        <td><button class="btn peq" type="button" data-arquivo="${esc(n.arquivo)}">Ver a nota</button></td></tr>`).join('')}</tbody></table></div></details>` : ''}`;
+        <td><button class="btn peq" type="button" data-arquivo="${esc(n.arquivo)}">Ver a nota</button></td></tr>`).join('')}</tbody></table></div></details>` : ''}
+    ${recados.some((r) => r.lido_em) ? `<details class="cartao mt"><summary><b>Recados já vistos</b></summary><div class="grade mt" style="gap:8px">${recados.filter((r) => r.lido_em).slice(0, 20).map((r) => recado(r, d)).join('')}</div></details>` : ''}`;
 
   el.addEventListener('click', async (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
     const nota = (id) => notas.find((n) => n.id === id);
     try {
+      if (b.dataset.recadoVisto) {
+        const { error } = await sb.from('fin_mentor_recados').update({ lido_em: new Date().toISOString(), lido_por: d.eu }).eq('id', b.dataset.recadoVisto);
+        if (error) throw error;
+        avisar('Recado marcado como visto.'); return recarregar();
+      }
+      if (b.dataset.recadoResponder) return janelaResposta(recados.find((r) => r.id === b.dataset.recadoResponder), d, recarregar);
       if (b.dataset.arquivo) {
         const { data, error } = await sb.storage.from('financeiro').createSignedUrl(b.dataset.arquivo, 600);
         if (error) throw error;
@@ -131,6 +145,30 @@ export async function abaPagamentos(ctx, d, el, recarregar, mentores) {
         avisar('Marcada como paga.'); return recarregar();
       }
     } catch (e) { avisar(explicarErro(e), true); }
+  });
+}
+
+function recado(r, d) {
+  return `<div class="aviso${r.lido_em ? '' : ' alerta'}"><div class="linha"><b style="flex:1">${esc((d.pessoa(r.perfil_id) || {}).nome || 'Mentor')}${r.tipo === 'dados' ? ' · mudou os dados para pagamento' : ''}</b>
+    <small class="apagado">${dataBR(r.criado_em)}${r.mes ? ` · ${esc(F.nomeMes(r.mes))}` : ''}</small></div>
+    <div>${esc(r.texto)}</div>${r.resposta ? `<small><b>Resposta:</b> ${esc(r.resposta)}</small>` : ''}
+    <div class="linha mt">${r.lido_em ? '' : `<button class="btn peq escuro" type="button" data-recado-visto="${r.id}">Visto</button>`}
+      <button class="btn peq" type="button" data-recado-responder="${r.id}">${r.resposta ? 'Mudar a resposta' : 'Responder'}</button>
+      ${r.mes ? `<a class="btn peq" href="#/financeiro/mentores/pagamentos/${r.mes}">Pagamento do mês</a>` : ''}</div></div>`;
+}
+
+function janelaResposta(r, d, recarregar) {
+  const j = janela(`Responder a ${(d.pessoa(r.perfil_id) || {}).nome || 'mentor'}`, `<form class="grade" style="gap:12px" novalidate>
+    <div class="aviso">${esc(r.texto)}</div>
+    <div class="campo"><label for="rr-texto">Resposta <small class="apagado">(o mentor vê em Notas fiscais)</small></label><textarea id="rr-texto" rows="4" maxlength="2000">${esc(r.resposta || '')}</textarea></div>
+    <div class="linha"><button class="btn pri" type="submit">Salvar a resposta</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`, { largura: 560 });
+  j.corpo.querySelector('form').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const resposta = j.corpo.querySelector('#rr-texto').value.trim() || null;
+    const agora = new Date().toISOString();
+    const { error } = await sb.from('fin_mentor_recados').update({ resposta, respondido_em: resposta ? agora : null, lido_em: r.lido_em || agora, lido_por: r.lido_por || d.eu }).eq('id', r.id);
+    if (error) { avisar(explicarErro(error), true); return; }
+    j.fechar(); avisar('Resposta salva.'); recarregar();
   });
 }
 

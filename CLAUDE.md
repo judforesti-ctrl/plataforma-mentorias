@@ -703,6 +703,24 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   e-mail apagado; 47 ficaram sem e-mail). Quem paga sem CNPJ na plataforma é achado PELO NOME ("Sescoop/PR" = Sescoop da UF; senão todas as
   palavras do nome na razão social; só se for um; selo "achado pelo nome: conferir"); com pagador_nome no plano, o CNPJ da empresa não
   vale e o CNPJ digitado em Completar vai para fin_planos.pagador_cnpj (sem pagador: empresas.cnpj).
+  EXTRATO DO MENTOR (script 60, 31/10, pedido dela: "como o mentor vai emitir a nota, mostrar o resumo das turmas e mentorias, o
+  valor da hora e um campo para informação sobre pagamento"). MUDA A DECISÃO DE 30/10: o mentor PASSA A VER o extrato do mês dele.
+  `#/notas` (`telas/notas-mentor.js`, papel mentor) ganhou no alto "Seu extrato de <mês>" (‹ ›, padrão = mês passado até o dia 20):
+  rpc `meu_extrato_mentor(mês)` (security definer; devolve só o dele: cadastro forma/valor, valores combinados, pagamento salvo,
+  módulos do mês, sessões realizadas, horas lançadas e o faturado da turma só para quem recebe por %) → `F.extratoDoMentor` (as mesmas
+  contas de `calcularPagamento`; só aulas até hoje; com o pagamento salvo pela coordenação valem as linhas dela, com o ajuste e o
+  motivo) com o detalhe de cada aula/sessão, valor da hora, total, situação (Prévia / Em conferência / Conferido / Pago), "Usar este
+  valor na nota" (preenche mês e valor) e "Copiar a descrição para a nota" (`F.textoParaNota`). RECADO SOBRE PAGAMENTO
+  (`fin_mentor_recados`, tipo recado; mudar os dados para pagamento cria um tipo 'dados' com os dados novos): e-mail à coordenação
+  (`/api/nota-mentor` com `{ recado }`, uma vez, `avisado_em`), bloco "Recados dos mentores" no alto da Agenda de pagamentos (Visto,
+  Responder: o mentor vê a resposta), contador na aba, "Para fazer" do Financeiro e bloco "Financeiro: mentores" nas pendências do
+  Painel (recados não vistos + notas fiscais recebidas; `pendencias.js`, só sem mentoradoIds). HORAS E TRABALHOS LANÇADOS PELA
+  COORDENAÇÃO (`fin_mentor_extras`: mês, dia, descrição que o mentor vê, horas × valor da hora (vem o do cadastro) OU valor fechado,
+  turma/programa opcional para a margem): Mentores → Pagamento do mês, "+ Lançar horas ou trabalho para um mentor" e "+ Horas ou
+  trabalho" em cada cartão; cada um vira uma linha `x:<id>` (`F.linhasExtras`) no cálculo e, se o pagamento do mês já estava salvo e
+  não pago, entra nele; ✕ tira (não depois de pago); ao pagar, a despesa vai para a turma/programa escolhido. Sessão sem duração
+  anotada = 60 min nos dois lados (a base do Isaac era por atendimento). Testes: %TEMP%\fin56\extrato60.mjs; kit `?extra=1`
+  (lançamento e recado da Lorena), `?sem60`, `?quem=u-lorena` (contrato: "Ler depois").
   Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
 - CERTIFICADOS (2026-10-27, script 47, `telas/certificados.js`, Gestão → "Emitir certificados", só administração = Cintia e sócias;
@@ -864,7 +882,7 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
 
 ## Pendências conhecidas
 - FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;
-  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapas 3 e 4, notas dos mentores e agenda de pagamentos publicadas em 31/10; arquivo para a contabilidade publicado em 31/10 (script 59 rodado, 78 tomadores carregados) (scripts 56, 57 e 58 RODADOS; atenção: select com head:true não acusa tabela que falta, conferir com select de verdade; falta marcar como pagas as fixas de outubro, que aparecem como atrasadas na agenda); HUB de inovação de Holambra fica de fora por enquanto.
+  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapas 3 e 4, notas dos mentores e agenda de pagamentos publicadas em 31/10; arquivo para a contabilidade publicado em 31/10 (script 59 rodado, 78 tomadores carregados); extrato do mentor publicado em 31/10 (FALTA ELA RODAR O SCRIPT 60; até lá o mentor não vê o extrato nem o campo de recado, e a Cintia vê o aviso em Mentores → Pagamento do mês) (scripts 56, 57 e 58 RODADOS; atenção: select com head:true não acusa tabela que falta, conferir com select de verdade; falta marcar como pagas as fixas de outubro, que aparecem como atrasadas na agenda); HUB de inovação de Holambra fica de fora por enquanto.
   LEMBRAR A JULIANA NA ETAPA FINAL (4) DO FINANCEIRO (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia
   05/02 R$ 6.570,49 e 19/03 R$ 1.489 e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e os
   extratos do Sicoob e da Unicred de janeiro de 2026 até hoje (só veio Sicoob 01-14/10).

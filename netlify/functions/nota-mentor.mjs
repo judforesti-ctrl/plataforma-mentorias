@@ -1,6 +1,7 @@
 // Nota fiscal do mentor parceiro (script 58): depois que o mentor envia a nota pela plataforma, a coordenação (contato@, a Cintia)
 // recebe um e-mail com o mês, o valor da nota e a data prevista de pagamento (uma vez por nota, coluna avisado_em). O arquivo não
 // vai no e-mail: fica na plataforma (Financeiro → Agenda de pagamentos), que confere quem pode abrir.
+// Script 60: { recado: id } = recado do mentor sobre pagamento ou aviso de que ele mudou os dados para pagamento (e-mail uma vez).
 import { json, supa, quemPede, SITE } from '../lib/google.mjs';
 import { enviarEmail, modeloEmail, COORDENACAO } from '../lib/email.mjs';
 
@@ -16,6 +17,7 @@ export default async (req) => {
   if (!eu) return json({ ok: false, mensagem: 'Entre de novo na plataforma.' }, 401);
   let b = {};
   try { b = await req.json(); } catch (_) { b = {}; }
+  if (UUID.test(String(b.recado || ''))) return avisarRecado(eu, b.recado);
   if (!UUID.test(String(b.id || ''))) return json({ ok: false, mensagem: 'Pedido desconhecido.' }, 400);
   const r = await supa(`/rest/v1/fin_notas_mentor?id=eq.${b.id}&select=*,mentor:perfis!fin_notas_mentor_perfil_id_fkey(id,nome)`);
   const n = r.ok && Array.isArray(r.dados) && r.dados[0];
@@ -38,3 +40,27 @@ export default async (req) => {
   const env = await enviarEmail({ para: [{ email: COORDENACAO, name: 'Coordenação Mentorei' }], assunto: mail.assunto, html: mail.html, texto: mail.texto });
   return json({ ok: true, enviado: !!env.enviado });
 };
+
+// Recado do mentor sobre pagamento ou aviso de que ele mudou os dados para pagamento (script 60): e-mail à coordenação, uma vez
+async function avisarRecado(eu, id) {
+  const r = await supa(`/rest/v1/fin_mentor_recados?id=eq.${id}&select=*,mentor:perfis!fin_mentor_recados_perfil_id_fkey(id,nome)`);
+  const n = r.ok && Array.isArray(r.dados) && r.dados[0];
+  if (!n) return json({ ok: false, mensagem: 'Recado não encontrado.' }, 404);
+  if (n.perfil_id !== eu.id) return json({ ok: false, mensagem: 'Sem acesso a este recado.' }, 403);
+  if (n.avisado_em) return json({ ok: true, enviado: false });
+  await supa(`/rest/v1/fin_mentor_recados?id=eq.${n.id}`, { metodo: 'PATCH', prefer: 'return=minimal', corpo: { avisado_em: new Date().toISOString() } });
+  const nome = (n.mentor && n.mentor.nome) || 'Um mentor';
+  const dados = n.tipo === 'dados';
+  const mail = modeloEmail({
+    assunto: dados ? `${nome} mudou os dados para pagamento` : `Recado de ${nome} sobre pagamento${n.mes ? ` · ${nomeMes(n.mes)}` : ''}`,
+    titulo: dados ? `${nome} mudou os dados para pagamento` : `${nome} mandou um recado sobre pagamento`,
+    blocos: [
+      ...(n.mes ? [{ p: `Mês: ${nomeMes(n.mes)}` }] : []),
+      { p: n.texto },
+      { botao: { texto: 'Abrir a agenda de pagamentos', link: `${SITE}/app.html#/financeiro/pagamentos` } },
+      { nota: dados ? 'Confira antes do próximo pagamento: os próximos PIX vão para os dados novos.' : 'O recado também aparece nas pendências do Financeiro e do Painel até alguém marcar como visto.' },
+    ],
+  });
+  const env = await enviarEmail({ para: [{ email: COORDENACAO, name: 'Coordenação Mentorei' }], assunto: mail.assunto, html: mail.html, texto: mail.texto });
+  return json({ ok: true, enviado: !!env.enviado });
+}

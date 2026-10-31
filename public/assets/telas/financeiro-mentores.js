@@ -1,7 +1,9 @@
-// Financeiro, etapa 2 (script 54): mentores parceiros. Decisões dela (30/10/2026): o mentor NÃO vê nada disto; a Cintia (ou uma
-// sócia) completa o cadastro financeiro de cada mentor, confere o valor de cada turma e programa em que ele está, e no fim do
-// mês a plataforma soma as aulas e sessões dadas e calcula quanto pagar. Ela ajusta, aprova e marca como pago; ao pagar, cada
-// turma/programa ganha a despesa "Mentores e parceiros" (entra na margem). Sócias não entram: recebem pela distribuição.
+// Financeiro, etapa 2 (script 54): mentores parceiros. A Cintia (ou uma sócia) completa o cadastro financeiro de cada mentor,
+// confere o valor de cada turma e programa em que ele está, e no fim do mês a plataforma soma as aulas e sessões dadas e calcula
+// quanto pagar. Ela ajusta, aprova e marca como pago; ao pagar, cada turma/programa ganha a despesa "Mentores e parceiros" (entra
+// na margem). Sócias não entram: recebem pela distribuição.
+// Script 60 (31/10, pedido dela): a coordenação lança horas e trabalhos para qualquer mentor (fin_mentor_extras, uma linha cada no
+// mês) e o MENTOR PASSA A VER o extrato do mês em #/notas (aulas, sessões, horas lançadas, valor da hora e total) para emitir a nota.
 import { sb, esc, dataBR, hojeISO, avisar, explicarErro } from '../base.js';
 import { janela, faltaScript } from './agenda-dados.js';
 import { dinheiro, linkWhats } from './vendas.js';
@@ -36,6 +38,12 @@ async function carregar(d) {
   m.dadosMentor = (id) => (dp.error ? null : (dp.data || []).find((x) => x.perfil_id === id) || null);
   m.notaDoMes = (id, mes) => m.notas.filter((x) => x.perfil_id === id && x.mes_referencia === mes && x.situacao !== 'devolvida');
   m.contrato = (id) => (ct.error ? undefined : ((ct.data || []).find((x) => x.perfil_id === id) || null));
+  // horas e trabalhos lançados pela coordenação e recados dos mentores (script 60)
+  const [ex, rc] = await Promise.all([sb.from('fin_mentor_extras').select('*').order('data'), sb.from('fin_mentor_recados').select('*').order('criado_em')]);
+  m.sem60 = !!(ex.error && faltaScript(ex.error));
+  m.extras = ex.error ? [] : ex.data || [];
+  m.recados = rc.error ? [] : rc.data || [];
+  m.extrasDoMes = (id, mes) => m.extras.filter((x) => x.perfil_id === id && x.mes === mes);
   m.parceiros = d.perfis.filter((p) => p.papel === 'mentor' && p.ativo !== false).sort((a, b) => a.nome.localeCompare(b.nome));
   m.cad = (id) => m.cadastro.find((c) => c.perfil_id === id) || null;
   m.mentorado = (id) => m.mentorados.find((x) => x.id === id) || null;
@@ -69,8 +77,8 @@ function itensDoMes(d, m, perfilId, mes, previsto = false) {
   for (const s of m.sessoes.filter((y) => y.mentor_id === perfilId)) {
     const dia = F.diaDe(s.data_hora); const mt = m.mentorado(s.mentorado_id);
     if (!dia || F.mesDe(dia) !== mes || !mt || (s.situacao !== 'realizada' && !(previsto && dia >= hoje))) continue;
-    const prog = d.programas.find((p) => p.id === mt.programa_id);
-    itens.push({ chave: `p:${mt.programa_id}`, rotulo: rotuloPrograma(d, mt.programa_id), tipo: 'sessao', data: dia, minutos: s.duracao_min || (prog && prog.duracao_min) || 60 });
+    // sessão sem duração anotada = 1 hora (a base do Isaac era por atendimento: uma sessão = uma hora); o mesmo no extrato do mentor
+    itens.push({ chave: `p:${mt.programa_id}`, rotulo: rotuloPrograma(d, mt.programa_id), tipo: 'sessao', data: dia, minutos: s.duracao_min || 60 });
   }
   return itens;
 }
@@ -165,12 +173,15 @@ function janelaCadastro(d, m, p, recarregar) {
 // Cálculo do mês de um mentor pelo cadastro e pelos valores combinados de cada turma/programa
 function calcularMes(d, m, perfilId, mes, previsto = false) {
   const c = m.cad(perfilId);
+  const extras = F.linhasExtras(m.extrasDoMes(perfilId, mes), c ? { forma: c.forma, valor: c.valor } : null);
   const faturadoTurma = (chave) => (chave.startsWith('t:') ? F.soma(d.receber.filter((l) => l.situacao !== 'cancelado' && F.mesDe(l.data) === mes && (d.plano(l.plano_id) || {}).turma_id === chave.slice(2)), (l) => l.valor) : 0);
-  return F.calcularPagamento(itensDoMes(d, m, perfilId, mes, previsto), {
+  const calc = F.calcularPagamento(itensDoMes(d, m, perfilId, mes, previsto), {
     padrao: c ? { forma: c.forma, valor: c.valor } : null,
     regra: (chave) => { const v = valorDe(m, perfilId, chave); return v && (v.forma || v.valor != null) ? { forma: v.forma || (c && c.forma) || 'hora', valor: v.valor != null ? v.valor : c && c.valor } : null; },
     faturado: faturadoTurma,
   });
+  const linhas = [...calc.linhas, ...extras];
+  return { linhas, total: F.soma(linhas, (l) => l.total) };
 }
 
 // ---------- pagamento do mês ----------
@@ -183,7 +194,8 @@ function pagamentos(d, m, el, recarregar, mesParam) {
     const c = m.cad(p.id);
     const calc = calcularMes(d, m, p.id, mes);
     return { p, c, salvo, calc, linhas: salvo ? salvo.linhas : calc.linhas, total: salvo ? Number(salvo.total) : calc.total };
-  }).map((x) => ({ ...x, notas: m.notaDoMes(x.p.id, mes) })).filter((x) => x.salvo || x.calc.linhas.length || x.notas.length);
+  }).map((x) => ({ ...x, notas: m.notaDoMes(x.p.id, mes), recados: m.recados.filter((r) => r.perfil_id === x.p.id && r.mes === mes) }))
+    .filter((x) => x.salvo || x.calc.linhas.length || x.notas.length || x.recados.length);
   const selo = (x) => (!x.salvo ? '<span class="selo neutro">calculado</span>' : x.salvo.situacao === 'pago' ? `<span class="selo ok">pago em ${dataBR(x.salvo.pago_em)}</span>` : x.salvo.situacao === 'aprovado' ? '<span class="selo alerta">aprovado, falta pagar</span>' : '<span class="selo neutro">ajustado</span>');
   const unidade = (l) => (l.forma === 'hora' ? `${String(l.horas).replace('.', ',')} h` : l.forma === 'percentual' ? `${l.valor_unit ?? '?'}% do faturado` : l.forma === 'mensal' ? 'mensal' : `${l.quantidade} ${(F.FORMAS[l.forma] || F.FORMAS.atendimento)[l.quantidade === 1 ? 1 : 2]}`);
   el.innerHTML = `
@@ -193,13 +205,15 @@ function pagamentos(d, m, el, recarregar, mesParam) {
       <button class="btn peq" type="button" data-mes="${F.somarMeses(mes, 1)}" aria-label="Mês seguinte">›</button>
       <span style="flex:1"></span><b>${dinheiro(F.soma(cartoes, (x) => x.total))}</b>
     </div>
-    <p class="apagado" style="margin-bottom:10px">Somado pelas aulas (módulos) e sessões realizadas no mês. Confira, ajuste se precisar, aprove e marque como pago: o pagamento vira despesa de cada turma e mentoria.</p>
+    <p class="apagado" style="margin-bottom:10px">Somado pelas aulas (módulos) e sessões realizadas no mês, mais as horas lançadas aqui. Confira, ajuste se precisar, aprove e marque como pago: o pagamento vira despesa de cada turma e mentoria. <b>O mentor vê este extrato</b> (em Notas fiscais) para emitir a nota.</p>
+    ${m.sem60 ? '<div class="aviso" style="margin-bottom:10px">Falta rodar o script <b>60-extrato-do-mentor.sql</b> no Supabase para lançar horas e o mentor ver o extrato.</div>' : '<div class="linha" style="margin-bottom:12px"><button class="btn" type="button" data-extra-novo="">+ Lançar horas ou trabalho para um mentor</button></div>'}
     ${cartoes.length ? cartoes.map((x) => `<div class="cartao" style="margin-bottom:12px">
       <div class="linha"><h3 style="flex:1">${esc(x.p.nome)}</h3>${selo(x)}<b>${dinheiro(x.total)}</b></div>
       ${x.notas.map((n) => { const dif = F.arred(Number(n.valor) - x.total); return `<div class="aviso mt${Math.abs(dif) < 0.01 ? ' ok' : ''}">Nota fiscal enviada pelo mentor: <b>${dinheiro(n.valor)}</b>${n.numero ? ` (nº ${esc(n.numero)})` : ''} · pagamento previsto ${dataBR(n.pagar_em || n.pagamento_previsto)}${Math.abs(dif) < 0.01 ? ' · confere com o calculado' : ` · <b>diferença de ${dinheiro(dif)}</b> do calculado`}${n.situacao === 'paga' ? ' · paga' : ''}</div>`; }).join('')}
+      ${x.recados.map((r) => `<div class="aviso mt">Recado do mentor (${dataBR(r.criado_em)}): ${esc(r.texto)}${r.resposta ? `<br><small>Resposta: ${esc(r.resposta)}</small>` : ''}</div>`).join('')}
       ${!x.c ? '<div class="aviso mt">Sem cadastro financeiro: o valor ficou zerado. <button class="btn peq" type="button" data-cadastro="' + x.p.id + '">Completar o cadastro</button></div>' : ''}
       <div class="tabela mt"><table><thead><tr><th>Turma ou mentoria</th><th>Quanto</th><th style="text-align:right">Valor</th><th style="text-align:right">Total</th></tr></thead><tbody>
-        ${x.linhas.map((l) => `<tr><td>${esc(l.rotulo)}${l.combinado ? ' <span class="selo neutro">valor combinado</span>' : ''}${l.sem_duracao ? ` <span class="selo alerta">${l.sem_duracao} sem duração</span>` : ''}${l.ajuste ? `<br><small class="apagado">ajuste: ${esc(l.ajuste)}</small>` : ''}</td>
+        ${x.linhas.map((l) => `<tr><td>${esc(l.rotulo)}${l.extra ? ` <span class="selo neutro">lançado pela coordenação${l.datas && l.datas[0] ? ` · ${dataBR(l.datas[0])}` : ''}</span>${!x.salvo || x.salvo.situacao !== 'pago' ? ` <button class="btn peq" type="button" data-extra-tirar="${esc(l.extra_id)}" data-quem="${x.p.id}" aria-label="Tirar este lançamento">✕</button>` : ''}` : ''}${l.sem_valor ? ' <span class="selo alerta">sem valor da hora</span>' : ''}${l.combinado ? ' <span class="selo neutro">valor combinado</span>' : ''}${l.sem_duracao ? ` <span class="selo alerta">${l.sem_duracao} sem duração</span>` : ''}${l.ajuste ? `<br><small class="apagado">ajuste: ${esc(l.ajuste)}</small>` : ''}</td>
           <td>${esc(unidade(l))}</td><td class="fn-num" style="text-align:right">${l.forma === 'percentual' ? '' : dinheiro(l.valor_unit)}</td><td class="fn-num" style="text-align:right">${l.coberto_pelo_mensal ? '<small class="apagado">no mensal</small>' : dinheiro(l.total)}</td></tr>`).join('')}
       </tbody></table></div>
       <div class="linha mt">
@@ -207,6 +221,7 @@ function pagamentos(d, m, el, recarregar, mesParam) {
         ${x.salvo && x.salvo.situacao === 'aprovado' ? `<button class="btn peq escuro" type="button" data-pagar="${x.p.id}">Marcar como pago</button><button class="btn peq" type="button" data-reabrir="${x.p.id}">Reabrir</button>` : ''}
         ${x.salvo && x.salvo.situacao === 'pago' ? `<button class="btn peq" type="button" data-desfazer="${x.p.id}">Desfazer o pagamento</button>` : ''}
         ${x.salvo && x.salvo.situacao !== 'pago' ? `<button class="btn peq" type="button" data-recalcular="${x.p.id}">Recalcular</button>` : ''}
+        ${m.sem60 || (x.salvo && x.salvo.situacao === 'pago') ? '' : `<button class="btn peq" type="button" data-extra-novo="${x.p.id}">+ Horas ou trabalho</button>`}
         <span style="flex:1"></span><button class="btn peq" type="button" data-extrato="${x.p.id}">Extrato para o mentor</button>
       </div></div>`).join('') : '<div class="vazio">Nenhuma aula ou sessão de mentor parceiro neste mês.</div>'}`;
   el.querySelectorAll('[data-mes]').forEach((b) => b.addEventListener('click', () => { location.hash = `#/financeiro/mentores/pagamentos/${b.dataset.mes}`; }));
@@ -218,6 +233,17 @@ function pagamentos(d, m, el, recarregar, mesParam) {
   };
   el.addEventListener('click', async (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
+    if (b.dataset.extraNovo != null) return janelaExtra(d, m, mes, b.dataset.extraNovo || null, cartoes, recarregar);
+    if (b.dataset.extraTirar) {
+      if (!confirm('Tirar este lançamento? O mentor deixa de ver no extrato dele.')) return;
+      try {
+        const { error } = await sb.from('fin_mentor_extras').delete().eq('id', b.dataset.extraTirar);
+        if (error) throw error;
+        const x = achar(b.dataset.quem);
+        if (x && x.salvo && x.salvo.situacao !== 'pago') { x.linhas = x.linhas.filter((l) => l.extra_id !== b.dataset.extraTirar); await salvar(x, {}); }
+        avisar('Lançamento tirado.'); return recarregar();
+      } catch (e) { return avisar(explicarErro(e), true); }
+    }
     const id = b.dataset.ajustar || b.dataset.aprovar || b.dataset.pagar || b.dataset.reabrir || b.dataset.desfazer || b.dataset.recalcular || b.dataset.extrato || b.dataset.cadastro;
     const x = id && achar(id);
     try {
@@ -242,6 +268,74 @@ function pagamentos(d, m, el, recarregar, mesParam) {
           <div class="linha mt"><button class="btn pri" type="button" id="ex-copiar">Copiar</button>${pf.whatsapp ? `<a class="btn" target="_blank" rel="noopener" href="${esc(linkWhats(pf.whatsapp, texto))}">Abrir no WhatsApp</a>` : ''}</div>`, { largura: 560 })
           .corpo.querySelector('#ex-copiar').addEventListener('click', async () => { try { await navigator.clipboard.writeText(texto); avisar('Extrato copiado.'); } catch (_) { avisar('Selecione o texto e copie.', true); } });
       }
+    } catch (e) { avisar(explicarErro(e), true); }
+  });
+}
+
+// Horas ou trabalho que a coordenação lança para um mentor (script 60): entra no mês como uma linha própria e aparece no extrato dele
+function janelaExtra(d, m, mes, perfilId, cartoes, recarregar) {
+  const opcoesTurma = [...d.turmas].sort((a, b) => rotuloTurma(d, a.id).localeCompare(rotuloTurma(d, b.id))).map((t) => `<option value="t:${t.id}">${esc(rotuloTurma(d, t.id))}</option>`).join('');
+  const opcoesProg = d.programas.map((p) => `<option value="p:${p.id}">${esc(rotuloPrograma(d, p.id))}</option>`).join('');
+  const j = janela(`Lançar horas ou trabalho · ${F.nomeMes(mes)}`, `<form class="grade" style="gap:12px" novalidate>
+    <p class="apagado">Para o que não está na agenda (preparação, reunião com o cliente, conteúdo, aula extra). Entra no pagamento de ${esc(F.nomeMes(mes))} e o mentor vê no extrato dele, com a descrição.</p>
+    <div class="grade g2" style="gap:10px">
+      <div class="campo"><label for="ex-quem">Mentor *</label><select id="ex-quem"><option value="">Escolha…</option>${m.parceiros.map((p) => `<option value="${p.id}"${p.id === perfilId ? ' selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></div>
+      <div class="campo"><label for="ex-dia">Dia</label><input type="date" id="ex-dia" value="${hojeISO().slice(0, 7) === mes ? hojeISO() : `${mes}-01`}"></div>
+    </div>
+    <div class="campo"><label for="ex-desc">Descrição do trabalho * <small class="apagado">(o mentor vê)</small></label><input type="text" id="ex-desc" maxlength="300" placeholder="Ex.: Preparação do módulo 3 da Sicredi Expansão"></div>
+    <div class="campo"><label for="ex-de">É de qual turma ou mentoria? <small class="apagado">(entra na margem dela)</small></label><select id="ex-de"><option value="">Mentorei em geral</option><optgroup label="Turmas">${opcoesTurma}</optgroup><optgroup label="Mentorias">${opcoesProg}</optgroup></select></div>
+    <div class="campo"><label>Como calcular</label><div class="linha">
+      <label><input type="radio" name="ex-modo" value="horas" checked> Horas × valor da hora</label>
+      <label><input type="radio" name="ex-modo" value="valor"> Valor fechado</label></div></div>
+    <div class="grade g2" style="gap:10px" id="ex-horas">
+      <div class="campo"><label for="ex-h">Horas *</label><input type="number" id="ex-h" min="0.25" step="0.25" inputmode="decimal"></div>
+      <div class="campo"><label for="ex-vh">Valor da hora (R$)</label><input type="number" id="ex-vh" min="0" step="0.01" inputmode="decimal"><small class="apagado" id="ex-vh-dica"></small></div>
+    </div>
+    <div class="campo" id="ex-valor" hidden><label for="ex-v">Valor (R$) *</label><input type="number" id="ex-v" min="0" step="0.01" inputmode="decimal"></div>
+    <p><b id="ex-total"></b></p>
+    <div class="linha"><button class="btn pri" type="submit">Lançar</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`, { largura: 620 });
+  const f = j.corpo.querySelector('form');
+  const $ = (s) => f.querySelector(s);
+  const modo = () => (f.querySelector('input[name="ex-modo"]:checked') || {}).value;
+  const atualizar = () => {
+    const c = m.cad($('#ex-quem').value);
+    const doCadastro = c && c.forma === 'hora' && c.valor != null ? Number(c.valor) : null;
+    if (!$('#ex-vh').dataset.mexeu) $('#ex-vh').value = doCadastro != null ? v2(doCadastro) : '';
+    $('#ex-vh-dica').textContent = doCadastro != null ? `do cadastro: ${dinheiro(doCadastro)}` : c ? `o cadastro é ${F.nomeForma(c.forma).toLowerCase()}: escreva o valor da hora` : '';
+    $('#ex-horas').hidden = modo() !== 'horas'; $('#ex-valor').hidden = modo() !== 'valor';
+    const total = modo() === 'valor' ? Number($('#ex-v').value || 0) : F.arred(Number($('#ex-h').value || 0) * Number($('#ex-vh').value || 0));
+    $('#ex-total').textContent = total ? `Total: ${dinheiro(total)}` : '';
+  };
+  f.addEventListener('input', (ev) => { if (ev.target.id === 'ex-vh') ev.target.dataset.mexeu = '1'; atualizar(); });
+  f.addEventListener('change', (ev) => { if (ev.target.id === 'ex-quem') delete $('#ex-vh').dataset.mexeu; atualizar(); });
+  atualizar();
+  f.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const quem = $('#ex-quem').value, desc = $('#ex-desc').value.trim(), de = $('#ex-de').value;
+    if (!quem) return avisar('Escolha o mentor.', true);
+    if (!desc) return avisar('Escreva a descrição do trabalho: o mentor vê no extrato.', true);
+    const reg = { perfil_id: quem, mes, data: $('#ex-dia').value || null, descricao: desc, turma_id: de.startsWith('t:') ? de.slice(2) : null, programa_id: de.startsWith('p:') ? de.slice(2) : null };
+    if (modo() === 'valor') { const v = num($('#ex-v')); if (!(v > 0)) return avisar('Escreva o valor.', true); reg.valor = v; }
+    else {
+      const h = num($('#ex-h')), vh = num($('#ex-vh'));
+      if (!(h > 0)) return avisar('Escreva as horas.', true);
+      if (vh == null) return avisar('Escreva o valor da hora.', true);
+      reg.horas = h; reg.valor_hora = vh;
+    }
+    if (reg.data && reg.data.slice(0, 7) !== mes) return avisar(`O dia precisa ser de ${F.nomeMes(mes)} (ou troque o mês na tela).`, true);
+    const x = cartoes.find((y) => y.p.id === quem);
+    if (x && x.salvo && x.salvo.situacao === 'pago') return avisar(`O pagamento de ${F.nomeMes(mes)} de ${x.p.nome} já foi feito. Lance no mês seguinte.`, true);
+    try {
+      const { data, error } = await sb.from('fin_mentor_extras').insert(reg).select('*').single();
+      if (error) throw error;
+      // pagamento do mês já salvo (ajustado ou aprovado): a linha nova entra nele
+      if (x && x.salvo) {
+        const c = m.cad(quem);
+        const linhas = [...x.salvo.linhas, ...F.linhasExtras([data], c ? { forma: c.forma, valor: c.valor } : null)];
+        const u = await sb.from('fin_pagamentos').update({ linhas, total: F.soma(linhas, (l) => l.total), atualizado_em: new Date().toISOString() }).eq('id', x.salvo.id);
+        if (u.error) throw u.error;
+      }
+      j.fechar(); avisar('Lançado. O mentor já vê no extrato dele.'); recarregar();
     } catch (e) { avisar(explicarErro(e), true); }
   });
 }
@@ -285,8 +379,9 @@ function janelaPagar(d, x, mes, recarregar) {
       const semCalculo = !x.linhas.some((l) => Number(l.total) > 0) && x.notas.length;
       const novas = semCalculo ? x.notas.map((n) => ({ data: dia, descricao: `Pagamento de ${x.p.nome} · ${F.nomeMes(mes)} · nota fiscal${n.numero ? ` ${n.numero}` : ''}`, valor: Number(n.valor), categoria: 'parceiros', pessoa_id: x.p.id, pago_em: dia, conta, origem: 'manual' }))
         : x.linhas.filter((l) => Number(l.total) > 0).map((l) => {
-        const t = l.chave.startsWith('t:') ? d.turmas.find((y) => y.id === l.chave.slice(2)) : null;
-        const pr = l.chave.startsWith('p:') ? d.programas.find((y) => y.id === l.chave.slice(2)) : null;
+        const tId = l.chave.startsWith('t:') ? l.chave.slice(2) : l.turma_id, pId = l.chave.startsWith('p:') ? l.chave.slice(2) : l.programa_id;
+        const t = tId ? d.turmas.find((y) => y.id === tId) : null;
+        const pr = pId ? d.programas.find((y) => y.id === pId) : null;
         return { data: dia, descricao: `Pagamento de ${x.p.nome} · ${F.nomeMes(mes)} · ${l.rotulo}`, valor: l.total, categoria: 'parceiros', pessoa_id: x.p.id,
           turma_id: t ? t.id : null, programa_id: pr ? pr.id : null, empresa_id: (t || pr || {}).empresa_id || null, pago_em: dia, conta, origem: 'manual' };
       });

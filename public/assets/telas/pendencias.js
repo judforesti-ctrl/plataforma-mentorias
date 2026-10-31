@@ -1,6 +1,7 @@
 // Lembretes: sessões de hoje, sessões que já passaram sem registro, tarefas atrasadas, mentorados sem próxima sessão marcada
 // e documentos novos que os mentorados enviaram (script 37).
 // Usado no Painel (administração, tudo) e em Meus mentorados (só os do mentor).
+// No Painel (sem mentoradoIds) entra também "Financeiro: mentores" (script 60): recados sobre pagamento e notas fiscais a conferir.
 import { sb, esc, diaMes, horaBR, hojeISO, mesmoDia } from '../base.js';
 import { juntarTarefas, atrasada } from '../tarefas.js';
 import { carregarEntregas } from '../entregas.js';
@@ -42,13 +43,27 @@ export async function pendencias(el, { mentoradoIds = null, mostrarMentor = true
   const novos = entregas.filter((e) => nomes.has(e.mentorado_id))
     .map((e) => `<a class="pend" href="#/mentorado/${e.mentorado_id}"><b>${diaMes(e.enviado_em)}</b><span>${esc(nomes.get(e.mentorado_id))} · ${ROT[e.tipo] || 'documento'}${e.titulo ? `: ${esc(e.titulo.length > 50 ? `${e.titulo.slice(0, 50)}…` : e.titulo)}` : ''}</span></a>`);
 
-  if (!deHoje.length && !semRegistro.length && !atrasadas.length && !semProxima.length && !novos.length) {
+  // Financeiro (só no Painel da administração): recados dos mentores sobre pagamento e notas fiscais recebidas
+  let financeiro = [];
+  if (!mentoradoIds) {
+    const [rc, nf, pf] = await Promise.all([sb.from('fin_mentor_recados').select('id, perfil_id, tipo, texto, criado_em').is('lido_em', null).order('criado_em'),
+      sb.from('fin_notas_mentor').select('id, perfil_id, mes_referencia, enviada_em').eq('situacao', 'recebida').order('enviada_em'),
+      sb.from('perfis').select('id, nome').eq('papel', 'mentor')]);
+    const nome = (id) => ((pf.data || []).find((p) => p.id === id) || {}).nome || 'Mentor';
+    financeiro = [
+      ...(rc.error ? [] : rc.data || []).map((r) => `<a class="pend" href="#/financeiro/pagamentos"><b>${diaMes(r.criado_em)}</b><span>${esc(nome(r.perfil_id))} · ${r.tipo === 'dados' ? 'mudou os dados para pagamento' : `recado: ${esc(r.texto.length > 60 ? `${r.texto.slice(0, 60)}…` : r.texto)}`}</span></a>`),
+      ...(nf.error ? [] : nf.data || []).map((n) => `<a class="pend" href="#/financeiro/pagamentos"><b>${diaMes(n.enviada_em)}</b><span>${esc(nome(n.perfil_id))} · nota fiscal para conferir</span></a>`),
+    ];
+  }
+
+  if (!deHoje.length && !semRegistro.length && !atrasadas.length && !semProxima.length && !novos.length && !financeiro.length) {
     el.innerHTML = '<div class="aviso ok">Nada pendente: nenhuma sessão hoje, nenhuma sessão sem registro e nenhuma tarefa atrasada.</div>';
     return;
   }
   const bloco = (titulo, dica, itens, cls = '') => (itens.length ? `<div class="cartao pend-bloco ${cls}"><h3>${titulo} <span class="selo ${cls === 'urgente' ? 'erro' : 'neutro'}">${itens.length}</span></h3>
     <p class="peq apagado">${dica}</p><div class="lista mt">${lista(itens)}</div></div>` : '');
   el.innerHTML = `<div class="grade g2">
+    ${bloco('Financeiro: mentores', 'Recados sobre pagamento e notas fiscais que os mentores enviaram. Clique para abrir a agenda de pagamentos.', financeiro)}
     ${bloco('Documentos novos dos mentorados', 'Enviados pela área do mentorado e ainda não abertos. Clique para ver na ficha.', novos)}
     ${bloco('Sessões de hoje', 'Clique para abrir a tela da sessão.', deHoje)}
     ${bloco('Sessões sem registro', 'Já passaram e não foram concluídas. Registre o que aconteceu ou marque a falta.', semRegistro, 'urgente')}

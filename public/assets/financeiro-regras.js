@@ -189,6 +189,54 @@ export function calcularPagamento(itens, { padrao = null, regra = () => null, fa
   return { linhas, total: soma(linhas, (l) => l.total) };
 }
 
+// Horas e trabalhos que a coordenação lança para o mentor (script 60): uma linha por lançamento. Com valor fechado = esse valor;
+// senão horas × valor da hora (vazio = o valor do cadastro, se ele recebe por hora).
+export function linhasExtras(extras, padrao = null) {
+  return (extras || []).map((e) => {
+    const fechado = e.valor != null && e.valor !== '';
+    const valorHora = e.valor_hora != null && e.valor_hora !== '' ? Number(e.valor_hora) : padrao && padrao.forma === 'hora' && padrao.valor != null ? Number(padrao.valor) : null;
+    const l = { chave: `x:${e.id}`, rotulo: e.descricao, extra: true, extra_id: e.id, turma_id: e.turma_id || null, programa_id: e.programa_id || null,
+      forma: fechado ? 'atendimento' : 'hora', quantidade: 1, horas: Number(e.horas || 0),
+      valor_unit: fechado ? Number(e.valor) : valorHora, sem_duracao: 0, datas: e.data ? [e.data] : [], combinado: false, sem_valor: !fechado && valorHora == null };
+    return { ...l, total: totalDaLinha(l) };
+  });
+}
+
+// O mês do mentor visto por ele (script 60): o que veio de meu_extrato_mentor vira os mesmos itens e linhas da tela do Financeiro.
+// Só conta o que já aconteceu (aula até hoje; sessão realizada). Se a coordenação já salvou o pagamento do mês, valem as linhas dela.
+export function extratoDoMentor(ext, hoje) {
+  const itens = [];
+  for (const m of (ext && ext.modulos) || []) {
+    const dia = diaDe(m.data_hora);
+    if (!dia || dia > hoje) continue;
+    itens.push({ chave: `t:${m.turma_id}`, rotulo: m.rotulo, tipo: 'modulo', data: dia, minutos: m.duracao_min || 0, numero: m.numero, titulo: m.titulo });
+  }
+  for (const s of (ext && ext.sessoes) || []) {
+    const dia = diaDe(s.data_hora);
+    if (!dia) continue;
+    itens.push({ chave: `p:${s.programa_id}`, rotulo: s.rotulo, tipo: 'sessao', data: dia, minutos: s.duracao_min || 60, numero: s.numero, mentorado: s.mentorado });
+  }
+  const c = ext && ext.cadastro;
+  const padrao = c ? { forma: c.forma, valor: c.valor } : null;
+  const valores = (ext && ext.valores) || [];
+  const regra = (chave) => {
+    const v = valores.find((x) => (chave.startsWith('t:') ? x.turma_id === chave.slice(2) : x.programa_id === chave.slice(2)));
+    return v && (v.forma || v.valor != null) ? { forma: v.forma || (c && c.forma) || 'hora', valor: v.valor != null ? v.valor : c && c.valor } : null;
+  };
+  const fat = (ext && ext.faturado) || {};
+  const calc = calcularPagamento(itens, { padrao, regra, faturado: (chave) => Number(fat[chave.slice(2)] || 0) });
+  const extras = linhasExtras(ext && ext.extras, padrao);
+  const pg = ext && ext.pagamento;
+  const linhas = pg ? pg.linhas || [] : [...calc.linhas, ...extras];
+  return { itens, linhas, total: pg ? Number(pg.total) : soma(linhas, (l) => l.total), situacao: pg ? pg.situacao : 'previa', pago_em: pg ? pg.pago_em : null, padrao };
+}
+
+// Texto para a descrição da nota fiscal do mentor
+export function textoParaNota({ mes, linhas }) {
+  const partes = linhas.filter((l) => Number(l.total) > 0).map((l) => `${l.rotulo}${l.forma === 'hora' && l.horas ? ` (${String(l.horas).replace('.', ',')} h)` : ''}`);
+  return `Serviços de mentoria e facilitação prestados à Mentorei em ${nomeMes(mes)}${partes.length ? `: ${partes.join('; ')}` : ''}.`;
+}
+
 // Texto do extrato do mês para mandar ao mentor (WhatsApp ou e-mail)
 export function textoExtrato({ nome, mes, linhas, total }) {
   const br = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });

@@ -1,30 +1,45 @@
 // Notas fiscais do mentor parceiro (script 58, pedido da Juliana em 30/10/2026). Só para papel 'mentor' (as sócias recebem pela
 // distribuição). O mentor completa os dados para pagamento, envia a nota fiscal de serviço do mês (PDF ou foto) e, ao enviar, já vê
 // a data prevista de pagamento: a Mentorei paga nos dias 5, 15 e 25 (financeiro-regras.js `pagamentoDaNota`). A coordenação recebe
-// e-mail (/api/nota-mentor) e a nota entra na agenda de pagamentos do Financeiro. Decisão dela: o mentor NÃO vê quanto a plataforma
-// calcula que ele tem a receber; vê só as notas dele, a data prevista e a situação.
+// e-mail (/api/nota-mentor) e a nota entra na agenda de pagamentos do Financeiro.
+// EXTRATO (script 60, 31/10, pedido dela: "o mentor vai precisar emitir a nota"): o mentor vê o mês dele (aulas, sessões, horas
+// lançadas pela coordenação, valor da hora e total; rpc meu_extrato_mentor, as mesmas contas do Financeiro) e manda recados sobre
+// pagamento (fin_mentor_recados); recado e mudança nos dados para pagamento avisam a coordenação por e-mail e entram nas pendências.
 import { sb, esc, dataBR, hojeISO, avisar, explicarErro } from '../base.js';
 import { faltaScript } from './agenda-dados.js';
 import { feriadoDe } from '../agenda-regras.js';
 import * as F from '../financeiro-regras.js';
 
 const SITUACAO = { recebida: ['Recebida', 'neutro'], conferida: ['Conferida', 'ok'], paga: ['Paga', 'ok'], devolvida: ['Devolvida', 'erro'] };
+const EXTRATO = { previa: ['Prévia: a coordenação ainda vai conferir', 'neutro'], aberto: ['Em conferência pela coordenação', 'neutro'], aprovado: ['Conferido pela coordenação', 'ok'], pago: ['Pago', 'ok'] };
 const DIA_SEMANA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 const comDia = (dia) => `${dataBR(dia)} (${DIA_SEMANA[new Date(`${dia}T12:00:00Z`).getUTCDay()]})`;
 const real = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const digitos = (s) => String(s || '').replace(/\D/g, '');
+const horasBR = (h) => `${String(F.arred(h)).replace('.', ',')} h`;
+const maiuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 const MAX = 10 * 1024 * 1024;
 
+// avisa a coordenação por e-mail (nota enviada ou recado); sem e-mail, continua nas pendências do Financeiro
+async function avisarCoordenacao(corpo) {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    fetch('/api/nota-mentor', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify(corpo) }).catch(() => {});
+  } catch (_) { /* fica nas pendências */ }
+}
+
 export async function render(ctx, el) {
-  if (ctx.perfil.papel !== 'mentor') { el.innerHTML = '<div class="aviso">Esta página é dos mentores parceiros, para enviar a nota fiscal de serviço.</div>'; return; }
+  if (ctx.perfil.papel !== 'mentor') { el.innerHTML = '<div class="aviso">Esta página é dos mentores parceiros, para ver o extrato do mês e enviar a nota fiscal de serviço.</div>'; return; }
   const eu = ctx.perfil.id;
-  const [dados, notas] = await Promise.all([
+  const [dados, notas, recados] = await Promise.all([
     sb.from('mentor_pagamento_dados').select('*').eq('perfil_id', eu).maybeSingle(),
     sb.from('fin_notas_mentor').select('*').eq('perfil_id', eu).order('enviada_em', { ascending: false }),
+    sb.from('fin_mentor_recados').select('*').eq('perfil_id', eu).order('criado_em', { ascending: false }),
   ]);
   if ((dados.error && faltaScript(dados.error)) || (notas.error && faltaScript(notas.error))) { el.innerHTML = '<div class="aviso">O envio de notas fiscais ainda não está disponível. Avise a Cintia.</div>'; return; }
   if (dados.error) throw dados.error;
   if (notas.error) throw notas.error;
+  const tem60 = !(recados.error && faltaScript(recados.error));
   const dd = dados.data || {};
   const hoje = hojeISO();
   const mesPadrao = Number(hoje.slice(8, 10)) <= 20 ? F.somarMeses(hoje.slice(0, 7), -1) : hoje.slice(0, 7);
@@ -33,7 +48,8 @@ export async function render(ctx, el) {
   const proximos = F.proximosPagamentos(hoje, 3, feriadoDe);
 
   el.innerHTML = `
-    <div class="cab"><div><h1>Notas fiscais</h1><p class="sub">Envie aqui a nota fiscal de serviço de cada mês. A Mentorei paga nos dias 5, 15 e 25.</p></div></div>
+    <div class="cab"><div><h1>Notas fiscais</h1><p class="sub">Veja o resumo do que você fez no mês, emita a nota fiscal com esse valor e envie aqui. A Mentorei paga nos dias 5, 15 e 25.</p></div></div>
+    ${tem60 ? `<section class="cartao" style="margin-bottom:16px" id="ex-area"><p class="carregando">Carregando o extrato…</p></section>` : ''}
     <div class="grade g2">
       <section class="cartao"><h3>Enviar a nota do mês</h3>
         <form id="nf-form" class="grade mt" style="gap:10px" novalidate>
@@ -70,6 +86,17 @@ export async function render(ctx, el) {
         </form>
       </section>
     </div>
+    ${tem60 ? `<section class="cartao mt"><h3>Recado sobre pagamento</h3>
+      <p class="peq apagado">Algo importante sobre o pagamento? (uma aula que faltou no extrato, horas a mais, mudança de conta, adiantamento…) A Cintia recebe por e-mail.</p>
+      <form id="rc-form" class="grade mt" style="gap:10px" novalidate>
+        <div class="campo"><label for="rc-mes">Sobre o mês</label><select id="rc-mes"><option value="">Não é de um mês só</option>${meses.map((m) => `<option value="${m}"${m === mesPadrao ? ' selected' : ''}>${F.nomeMes(m)}</option>`).join('')}</select></div>
+        <div class="campo"><label for="rc-texto">Recado *</label><textarea id="rc-texto" rows="3" maxlength="2000"></textarea></div>
+        <div class="linha"><button class="btn pri" type="submit" id="rc-enviar">Enviar o recado</button><span class="peq apagado" id="rc-msg" role="status"></span></div>
+      </form>
+      ${(recados.data || []).length ? `<div class="grade mt" style="gap:8px">${recados.data.slice(0, 12).map((r) => `<div class="aviso${r.resposta ? ' ok' : ''}">
+        <small class="apagado">${dataBR(r.criado_em)}${r.mes ? ` · ${esc(F.nomeMes(r.mes))}` : ''} · ${r.resposta ? 'respondido' : r.lido_em ? 'visto pela coordenação' : 'enviado'}</small><br>${esc(r.texto)}
+        ${r.resposta ? `<br><b>Resposta da coordenação:</b> ${esc(r.resposta)}` : ''}</div>`).join('')}</div>` : ''}
+    </section>` : ''}
     <section class="cartao mt"><h3>Notas enviadas</h3>
       ${(notas.data || []).length ? `<div class="tabela mt"><table><thead><tr><th>Mês</th><th>Nota</th><th style="text-align:right">Valor</th><th>Enviada</th><th>Pagamento</th><th>Situação</th><th></th></tr></thead><tbody>
         ${notas.data.map((n) => { const [t, c] = SITUACAO[n.situacao] || [n.situacao, 'neutro']; const dia = n.pagar_em || n.pagamento_previsto; return `<tr>
@@ -87,6 +114,46 @@ export async function render(ctx, el) {
   $('#nf-mes').addEventListener('change', previsao);
   previsao();
 
+  // ---------- extrato do mês ----------
+  let atual = null;
+  const desenharExtrato = async (mes) => {
+    const area = $('#ex-area');
+    if (!area) return;
+    area.innerHTML = '<p class="carregando">Carregando o extrato…</p>';
+    const { data: ext, error } = await sb.rpc('meu_extrato_mentor', { p_mes: mes });
+    if (error) { area.innerHTML = faltaScript(error) ? '<p class="apagado">O extrato do mês ainda não está disponível. Avise a Cintia.</p>' : `<div class="aviso">${esc(explicarErro(error))}</div>`; return; }
+    const x = F.extratoDoMentor(ext || {}, hoje);
+    atual = { mes, ...x };
+    const [st, cls] = EXTRATO[x.situacao] || EXTRATO.previa;
+    const detalhe = (l) => {
+      if (l.extra) return `<small class="apagado">lançado pela coordenação${l.datas && l.datas[0] ? ` · ${dataBR(l.datas[0])}` : ''}</small>`;
+      const its = x.itens.filter((i) => i.chave === l.chave).sort((a, b) => a.data.localeCompare(b.data));
+      return its.length ? `<small class="apagado">${its.map((i) => (i.tipo === 'modulo' ? `Módulo ${i.numero || ''}${i.titulo ? ` (${esc(i.titulo)})` : ''} · ${dataBR(i.data)}${i.minutos ? ` · ${horasBR(i.minutos / 60)}` : ''}`
+        : `Sessão ${i.numero || ''}${i.mentorado ? ` · ${esc(i.mentorado.split(' ')[0])}` : ''} · ${dataBR(i.data)} · ${horasBR(i.minutos / 60)}`)).join('<br>')}</small>` : '';
+    };
+    const quanto = (l) => (l.forma === 'hora' ? horasBR(l.horas) : l.forma === 'percentual' ? `${l.valor_unit ?? '?'}% do faturado` : l.forma === 'mensal' ? 'valor mensal' : `${l.quantidade} ${(F.FORMAS[l.forma] || F.FORMAS.atendimento)[l.quantidade === 1 ? 1 : 2]}`);
+    const cad = x.padrao;
+    const mesAtual = mes === hoje.slice(0, 7);
+    area.innerHTML = `
+      <div class="linha" style="margin-bottom:6px">
+        <button class="btn peq" type="button" data-ex-mes="${F.somarMeses(mes, -1)}" aria-label="Mês anterior">‹</button>
+        <h3 style="margin:0">Seu extrato de ${esc(F.nomeMes(mes))}</h3>
+        <button class="btn peq" type="button" data-ex-mes="${F.somarMeses(mes, 1)}" aria-label="Mês seguinte"${mesAtual ? ' disabled' : ''}>›</button>
+        <span style="flex:1"></span><span class="selo ${cls}">${x.situacao === 'pago' && x.pago_em ? `Pago em ${dataBR(x.pago_em)}` : st}</span>
+      </div>
+      <p class="peq apagado">${cad && cad.valor != null ? `Seu valor: <b>${cad.forma === 'percentual' ? `${cad.valor}%` : real(cad.valor)}</b> ${cad.forma === 'hora' ? 'por hora' : `(${esc(F.nomeForma(cad.forma).toLowerCase())})`}. ` : 'A coordenação ainda está acertando o seu valor. '}Contam as aulas que já aconteceram e as sessões realizadas no mês, mais o que a coordenação lançou.${mesAtual ? ' O mês ainda não terminou.' : ''}</p>
+      ${x.linhas.length ? `<div class="tabela mt"><table><thead><tr><th>Turma ou mentoria</th><th>Quanto</th><th style="text-align:right">Valor</th><th style="text-align:right">Total</th></tr></thead><tbody>
+        ${x.linhas.map((l) => `<tr><td><b>${esc(l.rotulo)}</b>${l.ajuste ? `<br><small>ajuste da coordenação: ${esc(l.ajuste)}</small>` : ''}<br>${detalhe(l)}</td>
+          <td>${esc(quanto(l))}</td><td class="fn-num" style="text-align:right">${l.forma === 'percentual' || l.valor_unit == null ? '' : `${real(l.valor_unit)}${l.forma === 'hora' ? '/h' : ''}`}</td>
+          <td class="fn-num" style="text-align:right">${l.coberto_pelo_mensal ? '<small class="apagado">no mensal</small>' : real(l.total)}</td></tr>`).join('')}
+        <tr class="fn-forte"><td colspan="3">Total do mês</td><td class="fn-num" style="text-align:right">${real(x.total)}</td></tr>
+      </tbody></table></div>
+      <div class="linha mt">${x.total > 0 ? '<button class="btn pri" type="button" id="ex-usar">Usar este valor na nota</button>' : ''}<button class="btn" type="button" id="ex-copiar">Copiar a descrição para a nota</button></div>
+      <p class="peq apagado mt">Achou algo errado ou faltando? Mande um recado logo abaixo.</p>`
+    : '<p class="apagado mt">Nada neste mês ainda.</p>'}`;
+  };
+  if (tem60) desenharExtrato(mesPadrao);
+
   $('#dp-form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const reg = { perfil_id: eu, tipo: $('#dp-tipo').value, documento: $('#dp-doc').value.trim(), nome_pagamento: $('#dp-nome').value.trim(), pix_tipo: $('#dp-pixtipo').value,
@@ -96,7 +163,26 @@ export async function render(ctx, el) {
     if (!reg.nome_pagamento || !reg.pix) { msg.textContent = 'Preencha o nome e a chave PIX.'; return; }
     const { error } = await sb.from('mentor_pagamento_dados').upsert(reg);
     if (error) { msg.textContent = explicarErro(error); return; }
+    // dados mudaram: a coordenação fica sabendo (e-mail + pendência), para não pagar na conta antiga
+    const mudou = ['tipo', 'documento', 'nome_pagamento', 'pix_tipo', 'pix', 'banco', 'agencia', 'conta'].filter((k) => String(dd[k] || '') !== String(reg[k] || ''));
+    if (tem60 && mudou.length) {
+      const texto = `${dd.perfil_id ? 'Mudou' : 'Preencheu'} os dados para pagamento: ${reg.nome_pagamento} · ${reg.tipo === 'pf' ? 'CPF' : 'CNPJ'} ${reg.documento} · PIX (${reg.pix_tipo}) ${reg.pix}${reg.banco ? ` · ${reg.banco} ag. ${reg.agencia || '—'} conta ${reg.conta || '—'}` : ''}`;
+      const r = await sb.from('fin_mentor_recados').insert({ perfil_id: eu, tipo: 'dados', texto: texto.slice(0, 2000) }).select('id').single();
+      if (!r.error) avisarCoordenacao({ recado: r.data.id });
+    }
     avisar('Dados salvos.'); ctx.irPara('#/notas');
+  });
+
+  const rc = $('#rc-form');
+  if (rc) rc.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const texto = $('#rc-texto').value.trim();
+    if (!texto) { $('#rc-msg').textContent = 'Escreva o recado.'; return; }
+    $('#rc-enviar').disabled = true;
+    const { data, error } = await sb.from('fin_mentor_recados').insert({ perfil_id: eu, tipo: 'recado', mes: $('#rc-mes').value || null, texto }).select('id').single();
+    if (error) { $('#rc-msg').textContent = explicarErro(error); $('#rc-enviar').disabled = false; return; }
+    avisarCoordenacao({ recado: data.id });
+    avisar('Recado enviado para a coordenação.'); ctx.irPara('#/notas');
   });
 
   $('#nf-form').addEventListener('submit', async (ev) => {
@@ -122,10 +208,7 @@ export async function render(ctx, el) {
       const { error } = await sb.from('fin_notas_mentor').insert({ id, perfil_id: eu, mes_referencia: mes, valor, numero: $('#nf-num').value.trim() || null,
         emitida_em: $('#nf-emissao').value || null, arquivo: caminho, arquivo_nome: arq.name.slice(0, 120), observacao: $('#nf-obs').value.trim() || null, enviada_em: enviadaEm, pagamento_previsto, situacao: 'recebida' });
       if (error) { await sb.storage.from('financeiro').remove([caminho]); throw error; }
-      try {
-        const { data: { session } } = await sb.auth.getSession();
-        fetch('/api/nota-mentor', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ id }) }).catch(() => {});
-      } catch (_) { /* sem e-mail: a nota já está na agenda de pagamentos */ }
+      avisarCoordenacao({ id });
       avisar(`Nota enviada. Pagamento previsto para ${comDia(pagamento_previsto)}.`);
       ctx.irPara('#/notas');
     } catch (e) { msg.textContent = explicarErro(e); $('#nf-enviar').disabled = false; }
@@ -134,6 +217,20 @@ export async function render(ctx, el) {
   el.addEventListener('click', async (ev) => {
     const b = ev.target.closest('button'); if (!b) return;
     try {
+      if (b.dataset.exMes) return desenharExtrato(b.dataset.exMes);
+      if (b.id === 'ex-usar' && atual) {
+        const sel = $('#nf-mes');
+        if (![...sel.options].some((o) => o.value === atual.mes)) sel.insertAdjacentHTML('beforeend', `<option value="${atual.mes}">${F.nomeMes(atual.mes)}</option>`);
+        sel.value = atual.mes; previsao();
+        $('#nf-valor').value = atual.total.toFixed(2);
+        $('#nf-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return avisar(`Valor de ${maiuscula(F.nomeMes(atual.mes))} colocado na nota: ${real(atual.total)}.`);
+      }
+      if (b.id === 'ex-copiar' && atual) {
+        const texto = F.textoParaNota({ mes: atual.mes, linhas: atual.linhas });
+        try { await navigator.clipboard.writeText(texto); avisar('Descrição copiada. Cole na nota fiscal.'); } catch (_) { prompt('Copie a descrição:', texto); }
+        return;
+      }
       if (b.dataset.ver) {
         const { data, error } = await sb.storage.from('financeiro').createSignedUrl(b.dataset.ver, 600);
         if (error) throw error;
