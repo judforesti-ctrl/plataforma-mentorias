@@ -244,9 +244,10 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   vai para o e-mail geral. Reimportar a planilha atualizada também leva para a lista quem passou de 1 ano sem nota.
   Ficha da empresa tem o cartão "Notas fiscais". Teste local: launch.json "notas-teste" (porta 8803) do site do Radar,
   scratchpad da sessão 38fee57a (teste/ com `simularNotas` no base-falso.js).
-  SCRIPT 62 (31/10): o resumo (`qtd_notas`, `total_notas`, `primeira_nota_em`, `ultima_nota_em`) saiu de `empresas` (que o mentor
-  e o mentorado leem) para `empresa_notas` (só administração; mantida pelo mesmo gatilho `resumir_notas`). As telas leem pelo
-  `juntarNotas()` de vendas.js, que põe os 4 campos de volta em cada empresa (sem o 62, continuam vindo da própria empresa).
+  RESUMO FORA DA EMPRESA (31/10): o resumo (`qtd_notas`, `total_notas`, `primeira_nota_em`, `ultima_nota_em`) fica em
+  `empresa_notas` (só administração; gatilho `resumir_notas`), NÃO em `empresas` (que o mentor e o mentorado leem). O SCRIPT 32
+  NUNCA FOI RODADO no banco dela (o 62 deu "notas_fiscais does not exist" em 31/10) e foi reescrito já assim; o 62 só serve para
+  banco que rodou o 32 antigo. As telas leem pelo `juntarNotas()` de vendas.js, que põe os 4 campos de volta em cada empresa.
   Teste: launch.json "faturamento-teste" (porta 8862) do worktree, kit em %TEMP%\fat62 (`?s62=1` = depois do script).
 
 - FUNIS DE E-MAIL (2026-10-12, script 34, `telas/funis.js`, aba Vendas → Funis de e-mail, rotas `#/vendas/funis[/<id>[/pessoas|emails|regras]]`
@@ -823,7 +824,7 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
 - QUEM VÊ O QUÊ (decisão dela, 31/10/2026): Financeiro, Vendas/comercial, cópias de segurança, Painel, Relatórios e tudo o que é
   da Mentorei só a administração (sócias + Cintia; a distribuição só as sócias). O mentor vê só o que é dele: os mentorados, as
   turmas e os módulos que dá, a agenda dele e o extrato/notas dele. Conferido em 31/10 (RLS de todas as tabelas, menu, funções):
-  a única brecha era o faturamento na linha da empresa (script 62). Tabela nova = RLS que siga isso; coluna de dinheiro ou dado
+  a única brecha seria o faturamento na linha da empresa, que o script 32 criaria (nunca rodado; reescrito sem isso). Tabela nova = RLS que siga isso; coluna de dinheiro ou dado
   comercial NUNCA em tabela que mentor/mentorado/aluno/RH lê (empresas, turmas, programas, modulos, perfis): RLS é por linha, não
   por coluna. Não existe "mentor com acesso ao comercial": se ela pedir, criar permissão própria (nunca tornar o mentor admin).
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.
@@ -907,7 +908,8 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   certo" do extrato). Prints com dados de mentira (kit `%TEMP%\tut\kit`, launch.json "tutorial-teste", porta 8870; `?quem=u-isaac`
   = mentor do módulo md3, `?quem=u-lorena&extra=1` = extrato, `&conf=920` = já conferido, `?sem61`). Próximo passo: roteiro de vídeo
   com prints reais e narração. Assinatura do contrato: recomendado manter na plataforma + código por e-mail + PDF por e-mail (não feito).
-- SCRIPT 62 (31/10): ela rodar (tira o faturamento da linha da empresa) e conferir quem é administração com
+- NOTAS FISCAIS DOS CLIENTES: o script 32 nunca foi rodado (descoberto em 31/10); "Importar notas fiscais" em Vendas só funciona
+  depois dele (o 32 de agora já guarda o resumo em empresa_notas; o 62 NÃO precisa). Quem vê o quê: ela conferir quem é administração com
   `select nome, email, papel, tambem_mentor from perfis where papel = 'admin' and ativo order by nome;` (devem ser só Cintia,
   Juliana, Viviane e Cláudia).
 - FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;

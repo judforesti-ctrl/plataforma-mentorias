@@ -3,7 +3,9 @@
 -- mas os números ficavam ao alcance de quem soubesse pedir direto ao banco. Pedido da Juliana (31/10/2026): os mentores não
 -- podem ter acesso a nada da Mentorei além do que é deles. Agora o resumo fica em empresa_notas, que só a administração lê,
 -- e as 4 colunas saem de empresas.
--- Rodar uma vez: SQL Editor → New query → colar tudo → Run. Pode rodar de novo sem problema. Precisa do 32.
+-- SÓ PARA QUEM JÁ RODOU O SCRIPT 32 ANTIGO (o de antes de 31/10/2026). Quem nunca rodou o 32 não precisa deste: o 32 de agora
+-- já cria tudo assim (sem o 32 este dá "relation public.notas_fiscais does not exist" e não muda nada).
+-- Rodar uma vez: SQL Editor → New query → colar tudo → Run. Pode rodar de novo sem problema.
 begin;
 
 -- 1. O resumo, numa tabela só da administração

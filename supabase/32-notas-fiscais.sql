@@ -1,5 +1,7 @@
--- Notas fiscais emitidas pela Mentorei (planilha de controle desde 2019). Cada nota fica ligada à empresa; a empresa ganha o
--- resumo (quantas notas, total, última nota), endereço e CEP. Situação automática: nota há menos de 1 ano = cliente ativo;
+-- Notas fiscais emitidas pela Mentorei (planilha de controle desde 2019). Cada nota fica ligada à empresa; a empresa ganha
+-- endereço e CEP, e o resumo (quantas notas, total, primeira e última nota) fica em empresa_notas, que só a administração lê
+-- (31/10/2026: o mentor e o mentorado leem a linha da empresa deles, então dinheiro não fica nela; antes o resumo era coluna
+-- de empresas, e o script 62 faz a troca em quem rodou a versão antiga). Situação automática: nota há menos de 1 ano = cliente ativo;
 -- nota mais antiga = cliente inativo. Os inativos entram na Prospecção, na lista "Clientes inativos" (oportunidades.lista).
 -- Importar de novo a mesma planilha não duplica nada (o número da nota é único).
 -- Rodar uma vez: SQL Editor → New query → colar tudo → Run. Pode rodar de novo sem problema. Precisa do 19 e do 23.
@@ -23,23 +25,32 @@ create table if not exists public.notas_fiscais (
 );
 create index if not exists notas_fiscais_empresa on public.notas_fiscais (empresa_id);
 
--- 2. Empresa: endereço e o resumo das notas (mantido sozinho pelo gatilho abaixo)
+-- 2. Empresa: endereço; o resumo das notas fica numa tabela só da administração (mantida sozinha pelo gatilho abaixo)
 alter table public.empresas add column if not exists endereco text;
 alter table public.empresas add column if not exists cep text;
-alter table public.empresas add column if not exists qtd_notas integer not null default 0;
-alter table public.empresas add column if not exists total_notas numeric(14, 2) not null default 0;
-alter table public.empresas add column if not exists primeira_nota_em date;
-alter table public.empresas add column if not exists ultima_nota_em date;
+create table if not exists public.empresa_notas (
+  empresa_id uuid primary key references public.empresas(id) on delete cascade,
+  qtd_notas integer not null default 0,
+  total_notas numeric(14, 2) not null default 0,
+  primeira_nota_em date,
+  ultima_nota_em date
+);
 
 -- 3. Listas da Prospecção: vazio = lista de prospecção (nunca comprou); "Clientes inativos" = já comprou e parou
 alter table public.oportunidades add column if not exists lista text;
 
 create or replace function public.resumir_notas(emp uuid) returns void
-language sql security definer set search_path = public as $$
-  update empresas e set qtd_notas = coalesce(n.qtd, 0), total_notas = coalesce(n.total, 0), primeira_nota_em = n.primeira, ultima_nota_em = n.ultima
-  from (select count(*)::int qtd, sum(valor) total, min(emissao) primeira, max(emissao) ultima from notas_fiscais where empresa_id = emp) n
-  where e.id = emp;
-$$;
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from notas_fiscais where empresa_id = emp) then
+    delete from empresa_notas where empresa_id = emp;
+    return;
+  end if;
+  insert into empresa_notas (empresa_id, qtd_notas, total_notas, primeira_nota_em, ultima_nota_em)
+  select emp, count(*)::int, coalesce(sum(valor), 0), min(emissao), max(emissao) from notas_fiscais where empresa_id = emp
+  on conflict (empresa_id) do update set qtd_notas = excluded.qtd_notas, total_notas = excluded.total_notas,
+    primeira_nota_em = excluded.primeira_nota_em, ultima_nota_em = excluded.ultima_nota_em;
+end $$;
 create or replace function public.notas_mudaram() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -145,7 +156,8 @@ begin
       end loop;
     end if;
 
-    select ultima_nota_em, total_notas, qtd_notas into v_ult, v_total, v_qtd from empresas where id = emp;
+    select n.ultima_nota_em, coalesce(n.total_notas, 0), coalesce(n.qtd_notas, 0) into v_ult, v_total, v_qtd
+      from (select 1) x left join empresa_notas n on n.empresa_id = emp;
     if coalesce((it->>'ativo')::boolean, false) then
       -- cliente ativo: tira de "A prospectar" o que só estava lá por causa de uma lista (nada registrado por ninguém)
       delete from oportunidades o where o.empresa_id = emp and o.etapa = 'prospectar' and o.proximo_contato_em is null
@@ -179,6 +191,10 @@ alter table public.notas_fiscais enable row level security;
 revoke all on public.notas_fiscais from anon;
 drop policy if exists admin_tudo on public.notas_fiscais;
 create policy admin_tudo on public.notas_fiscais for all to authenticated using (eh_admin()) with check (eh_admin());
+alter table public.empresa_notas enable row level security;
+revoke all on public.empresa_notas from anon;
+drop policy if exists admin_tudo on public.empresa_notas;
+create policy admin_tudo on public.empresa_notas for all to authenticated using (eh_admin()) with check (eh_admin());
 revoke execute on function public.importar_notas_fiscais(jsonb, text) from public, anon;
 grant execute on function public.importar_notas_fiscais(jsonb, text) to authenticated;
 revoke execute on function public.resumir_notas(uuid) from public, anon, authenticated;
