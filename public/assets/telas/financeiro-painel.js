@@ -15,7 +15,7 @@ const pct = (v) => (v == null ? '—' : `${Number(v).toLocaleString('pt-BR', { m
 const reais = (v) => (v == null ? '—' : dinheiro(Math.round(Number(v))).replace(/,00$/, ''));
 const mil = (v) => `${(Number(v || 0) / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mil`;
 
-export async function painelDirecao(d, el, recarregar, mentores) {
+export async function painelDirecao(d, el, recarregar, mentores, { socia = false } = {}) {
   const hoje = hojeISO();
   const mesAtual = hoje.slice(0, 7);
   const ano = hoje.slice(0, 4);
@@ -70,7 +70,8 @@ export async function painelDirecao(d, el, recarregar, mentores) {
 
   el.innerHTML = `
     <h2 style="margin:28px 0 4px">Visão da direção</h2>
-    <p class="apagado" style="margin-bottom:12px">Previsões, melhores clientes, mentores, indicadores e o fundo de reserva.</p>
+    <p class="apagado" style="margin-bottom:12px">Avisos, previsões, caixa, melhores clientes, mentores, indicadores e o fundo de reserva.</p>
+    <div id="pn-atencao"></div>
 
     <div class="cartao"><h3>Próximos 3 meses</h3>
       <p class="peq apagado">Faturamento = o que está nos planos das turmas e mentorias (módulos e parcelas com data). Custos = fixas + mentores parceiros pelas aulas e sessões marcadas + outros custos pela média + imposto.</p>
@@ -85,6 +86,8 @@ export async function painelDirecao(d, el, recarregar, mentores) {
       </tbody></table></div>
       ${ativosSemPlano || semData.length ? `<div class="aviso mt">${[ativosSemPlano && `<a href="#/financeiro/planos">${ativosSemPlano} turma${ativosSemPlano > 1 ? 's' : ''} ou mentoria${ativosSemPlano > 1 ? 's' : ''} em andamento sem plano de faturamento</a>: o previsto pode ser maior.`, semData.length && `${dinheiro(F.soma(semData, (l) => l.valor))} em parcelas ainda sem data (fora da conta).`].filter(Boolean).join(' ')}</div>` : ''}
     </div>
+
+    <div class="cartao mt" id="pn-caixa"></div>
 
     <div class="grade g2 mt">
       <div class="cartao" id="pn-clientes"></div>
@@ -181,6 +184,9 @@ export async function painelDirecao(d, el, recarregar, mentores) {
       <div class="cartao numero destaque mt"><b>${dinheiro(F.soma(contas, (x) => x.saldo_final))}</b><span>somando as contas, pelo último extrato de cada uma</span></div>
       <div class="tabela mt"><table><tbody>${contas.map((x) => `<tr><td><b>${esc(x.conta)}</b><br><small class="apagado">extrato até ${dataBR(x.periodo_ate)}${F.diasEntre(x.periodo_ate, hoje) > 15 ? ' · <span style="color:var(--erro)">desatualizado</span>' : ''}</small></td>
         <td class="fn-num" style="text-align:right">${dinheiro(x.saldo_final)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="apagado mt">Ainda não há extrato importado. Suba o extrato do Sicoob e da Unicred em Financeiro → Extratos.</p>'}`;
+
+  // ---- caixa dos próximos 90 dias e avisos ----
+  await caixaEAvisos(d, el, { mentores, socia, ultimos: contas, fixo, outrosMedia });
 }
 
 async function salvarReserva(d, reserva, recarregar) {
@@ -214,4 +220,95 @@ function janelaReserva(d, reserva, lancs, recarregar) {
     const base = tipo === 'saldo' ? lancs.filter((l) => !l.provisorio) : lancs;
     if (await salvarReserva(d, { ...reserva, lancamentos: [...base, novo], onde: f.querySelector('#rs-onde').value.trim() || null }, recarregar)) j.fechar();
   });
+}
+
+// Caixa semana a semana nos próximos 90 dias: começa no saldo do último extrato de cada conta; entra o que as notas e os planos dizem
+// (nota emitida no vencimento; módulo ou parcela ainda sem nota na data + prazo do plano); sai o que está lançado e não pago, as
+// fixas dos próximos meses, os mentores parceiros (dia 10 do mês seguinte), o imposto (dia 20 do mês seguinte, pela alíquota), a
+// média dos outros custos e, se quiser, a média das retiradas das sócias. Depois, os avisos do alto da Visão da direção.
+async function caixaEAvisos(d, el, { mentores, socia, ultimos, fixo, outrosMedia }) {
+  const hoje = hojeISO();
+  const mesAtual = hoje.slice(0, 7);
+  const fim = F.somarDias(hoje, 90);
+  const depois = (dia) => (dia < hoje ? hoje : dia);
+  const [ret, fech] = await Promise.all([
+    sb.from('fin_movimentos').select('data, valor').eq('acao', 'retirada').gte('data', `${F.somarMeses(mesAtual, -3)}-01`).lte('data', F.somarDias(`${mesAtual}-01`, -1)),
+    socia ? sb.from('fin_fechamentos').select('mes').eq('mes', F.somarMeses(mesAtual, -1)) : Promise.resolve({ data: null, error: null }),
+  ]);
+  const retiradaMedia = ret.error ? 0 : F.arred(F.soma(ret.data || [], (x) => -Number(x.valor)) / 3);
+  const movs = [];
+  const emp = (l) => d.empresa(l.empresa_id).nome;
+  for (const l of d.receber) {
+    if (l.situacao === 'faturado') movs.push({ dia: depois(l.vencimento || hoje), valor: Number(l.valor), rotulo: `${emp(l)} · nota ${l.nota_numero || ''}${l.vencimento && l.vencimento < hoje ? ' (atrasada)' : ''}`, tipo: 'entra' });
+    else if (l.situacao === 'aberto' && l.data) {
+      const dia = F.somarDias(l.data, Number((d.plano(l.plano_id) || {}).prazo_dias ?? 30));
+      if (dia <= fim) movs.push({ dia: depois(dia), valor: Number(l.valor), rotulo: `${emp(l)} · ${l.descricao}`, tipo: 'entra' });
+    }
+  }
+  for (const x of d.despesas) if (!x.pago_em && x.data >= F.somarDias(hoje, -45) && x.data <= fim && x.categoria !== 'socia') movs.push({ dia: depois(x.data), valor: -Number(x.valor), rotulo: x.descricao, tipo: 'lancada' });
+  const meses = [0, 1, 2, 3].map((k) => F.somarMeses(mesAtual, k));
+  for (const m of meses.slice(1)) for (const f of d.fixas.filter((y) => y.ativo !== false)) {
+    const dia = `${m}-${String(f.dia).padStart(2, '0')}`;
+    if (dia <= fim) movs.push({ dia, valor: -Number(f.valor), rotulo: f.descricao, tipo: 'fixa' });
+  }
+  for (const m of [F.somarMeses(mesAtual, -1), ...meses.slice(0, 3)]) {
+    const pagar = `${F.somarMeses(m, 1)}-10`, imp = `${F.somarMeses(m, 1)}-20`;
+    if (mentores && pagar <= fim) {
+      const v = F.soma(mentores.parceiros, (p) => { const x = mentores.doMes(p.id, m); return x.pago ? 0 : x.total; });
+      if (v && (pagar >= hoje || m === F.somarMeses(mesAtual, -1))) movs.push({ dia: depois(pagar), valor: -v, rotulo: `Mentores parceiros de ${F.nomeMes(m)}`, tipo: 'mentores' });
+    }
+    const jaPagou = d.despesas.some((x) => x.categoria === 'impostos' && F.mesDe(x.data) === F.somarMeses(m, 1));
+    const fat = F.faturadoNoMes(m, { inicio: d.config.inicio, linhas: d.receber, meses: d.meses }) || 0;
+    if (imp >= hoje && imp <= fim && !jaPagou && fat) movs.push({ dia: imp, valor: -F.impostoSobre(fat, d.aliquota.pct), rotulo: `Imposto sobre ${F.nomeMes(m)} (${String(d.aliquota.pct).replace('.', ',')}%)`, tipo: 'imposto' });
+  }
+  for (const m of meses) {
+    const dia15 = `${m}-15`, dia10 = `${m}-10`;
+    if (outrosMedia && dia15 >= hoje && dia15 <= fim) movs.push({ dia: dia15, valor: -outrosMedia, rotulo: 'Outros custos (média)', tipo: 'outros' });
+    if (retiradaMedia && dia10 >= hoje && dia10 <= fim) movs.push({ dia: dia10, valor: -retiradaMedia, rotulo: 'Retiradas das sócias (média dos 3 últimos meses)', tipo: 'retirada' });
+  }
+  const saldo = F.soma(ultimos, (x) => x.saldo_final);
+  const box = el.querySelector('#pn-caixa');
+  const estado = { retiradas: true };
+  let r = null;
+  const desenhar = () => {
+    const lista = estado.retiradas ? movs : movs.filter((m) => m.tipo !== 'retirada');
+    r = F.caixaPorSemana({ hoje, saldo, movimentos: lista });
+    const maiores = [...lista].sort((a, b) => Math.abs(b.valor) - Math.abs(a.valor)).slice(0, 12).sort((a, b) => a.dia.localeCompare(b.dia));
+    box.innerHTML = `<div class="linha"><h3 style="flex:1">Caixa dos próximos 90 dias</h3>
+        ${retiradaMedia ? `<label class="check" style="font-size:13px"><input type="checkbox" id="cx-ret"${estado.retiradas ? ' checked' : ''}><span>Contar as retiradas das sócias (${dinheiro(retiradaMedia)}/mês)</span></label>` : ''}</div>
+      <p class="peq apagado">Começa em ${ultimos.length ? `<b>${dinheiro(saldo)}</b>, o saldo do último extrato de cada conta` : '<b>R$ 0</b>: ainda não há extrato importado (Financeiro → Extratos)'}. O fundo de reserva fica de fora.</p>
+      <div class="tabela mt"><table><thead><tr><th>Semana</th><th style="text-align:right">Entra</th><th style="text-align:right">Sai</th><th style="text-align:right">Saldo no fim</th></tr></thead><tbody>
+        ${r.semanas.map((w) => `<tr${w === r.menor ? ' class="fn-forte"' : ''}><td>${dataBR(w.de).slice(0, 5)} a ${dataBR(w.ate).slice(0, 5)}</td>
+          <td class="fn-num" style="text-align:right;color:var(--ok)">${w.entra ? dinheiro(w.entra) : '—'}</td><td class="fn-num" style="text-align:right;color:var(--erro)">${w.sai ? dinheiro(w.sai) : '—'}</td>
+          <td class="fn-num" style="text-align:right;${w.saldo < 0 ? 'color:var(--erro)' : ''}">${dinheiro(w.saldo)}</td></tr>`).join('')}
+      </tbody></table></div>
+      <p class="peq mt">Menor saldo: <b style="${r.menor.saldo < 0 ? 'color:var(--erro)' : ''}">${dinheiro(r.menor.saldo)}</b> na semana de ${dataBR(r.menor.de).slice(0, 5)} · em 90 dias: <b>${dinheiro(r.final)}</b>.</p>
+      <details class="mt"><summary>Os maiores valores da conta</summary><div class="tabela mt"><table><tbody>${maiores.map((m) => `<tr><td>${dataBR(m.dia)}</td><td>${esc(m.rotulo)}</td>
+        <td class="fn-num" style="text-align:right;color:${m.valor < 0 ? 'var(--erro)' : 'var(--ok)'}">${dinheiro(m.valor)}</td></tr>`).join('')}</tbody></table></div></details>`;
+    const cb = box.querySelector('#cx-ret');
+    if (cb) cb.addEventListener('change', () => { estado.retiradas = cb.checked; desenhar(); });
+  };
+  desenhar();
+
+  // ---- avisos ----
+  const avisos = [];
+  if (r.menor.saldo < 0) avisos.push(['erro', `O caixa fica <b>negativo</b> na semana de ${dataBR(r.menor.de).slice(0, 5)} (${dinheiro(r.menor.saldo)}).`, '#pn-caixa']);
+  else if (fixo && r.menor.saldo < fixo) avisos.push(['alerta', `O caixa fica abaixo de um mês de custo fixo na semana de ${dataBR(r.menor.de).slice(0, 5)} (${dinheiro(r.menor.saldo)}).`, '#pn-caixa']);
+  const atrasadas = new Map();
+  for (const l of d.receber.filter((y) => y.situacao === 'faturado' && y.vencimento && F.diasEntre(y.vencimento, hoje) > 15)) atrasadas.set(l.empresa_id, (atrasadas.get(l.empresa_id) || 0) + Number(l.valor));
+  if (atrasadas.size) avisos.push(['erro', `Nota vencida há mais de 15 dias: ${[...atrasadas].map(([id, v]) => `${esc(d.empresa(id).nome)} (${dinheiro(v)})`).join(', ')}.`, '#/financeiro/receber']);
+  try {
+    const cfg = F.custos(d.config);
+    const ruins = (await import('./financeiro-margem.js')).calcularMargens(d, mentores).filter((x) => x.receita > 0 && x.sem_socias_pct != null && x.sem_socias_pct < Number(cfg.margem_alvo || 30))
+      .sort((a, b) => a.sem_socias_pct - b.sem_socias_pct);
+    if (ruins.length) avisos.push([ruins[0].sem_socias_pct < 0 ? 'erro' : 'alerta', `Margem abaixo de ${cfg.margem_alvo}%: ${ruins.slice(0, 4).map((x) => `${esc(x.empresa)} · ${esc(x.plano.titulo)} (${String(x.sem_socias_pct).replace('.', ',')}%)`).join('; ')}${ruins.length > 4 ? ` e mais ${ruins.length - 4}` : ''}.`, '#/financeiro/margem']);
+  } catch (e) { console.warn('margens', e); }
+  if (d.extratos != null) {
+    const velhas = ultimos.filter((x) => F.diasEntre(x.periodo_ate, hoje) > 15).map((x) => x.conta);
+    if (!ultimos.length) avisos.push(['alerta', 'Nenhum extrato importado: o caixa começa do zero.', '#/financeiro/extratos']);
+    else if (velhas.length) avisos.push(['alerta', `Extrato desatualizado: ${velhas.join(', ')} (mais de 15 dias).`, '#/financeiro/extratos']);
+  }
+  if (socia && !fech.error && !(fech.data || []).length && Number(hoje.slice(8, 10)) > 10) avisos.push(['alerta', `${maiuscula(F.nomeMes(F.somarMeses(mesAtual, -1)))} ainda não foi fechado.`, `#/financeiro/fechamento/${F.somarMeses(mesAtual, -1)}`]);
+  el.querySelector('#pn-atencao').innerHTML = avisos.length ? `<div class="cartao" style="margin-bottom:14px"><h3>Atenção</h3><div class="grade mt" style="gap:8px">
+    ${avisos.map(([tipo, t, link]) => `<div class="aviso${tipo === 'erro' ? ' erro' : ''}" style="box-shadow:none">${t} ${link.startsWith('#/') ? `<a href="${link}">Ver</a>` : ''}</div>`).join('')}</div></div>` : '';
 }

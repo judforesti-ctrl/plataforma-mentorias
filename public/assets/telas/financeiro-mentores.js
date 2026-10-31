@@ -17,7 +17,7 @@ const opcoesForma = (atual, vazio = '') => `${vazio ? `<option value="">${esc(va
 async function carregar(d) {
   const [cad, vals, pags, mm, sess, ments, vinc] = await Promise.all([
     sb.from('fin_mentores').select('*'), sb.from('fin_mentor_valores').select('*'), sb.from('fin_pagamentos').select('*'),
-    sb.from('modulo_mentores').select('mentor_id, modulo_id'),
+    sb.from('modulo_mentores').select('mentor_id, modulo_id, com_deslocamento, viagem'),
     sb.from('sessoes').select('id, mentor_id, mentorado_id, data_hora, duracao_min, situacao').in('situacao', ['realizada', 'agendada', 'remarcada']),
     sb.from('mentorados').select('id, nome, programa_id'), sb.from('mentor_mentorado').select('mentor_id, mentorado_id'),
   ]);
@@ -293,6 +293,7 @@ export async function previsaoMentores(d) {
     return { total, pago: !!(salvo && salvo.situacao === 'pago'), situacao: salvo ? salvo.situacao : 'calculado' };
   };
   return {
+    m, valorDe: (perfilId, chave) => valorDe(m, perfilId, chave),
     parceiros: m.parceiros, semCadastro: m.parceiros.filter((p) => !m.cad(p.id)).length, doMes,
     totalDoMes: (mes) => F.soma(m.parceiros, (p) => doMes(p.id, mes).total),
   };

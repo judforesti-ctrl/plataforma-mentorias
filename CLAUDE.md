@@ -639,10 +639,28 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   Pagamento para sócia pelo nome (Unicred) é só sugestão. "Desfazer" volta tudo (`desfazer` jsonb: linhas a receber, pago_em da
   despesa, despesa criada, lançamento da reserva). Visão geral: "N movimentos do extrato para conferir" e contador na aba.
   Teste local: kit %TEMP%\fint (PDFs de teste em ext/, fora do git), testes de Node em %TEMP%\fin56\t.mjs.
-  ATENÇÃO (30/10): o extrato do Sicoob de 14/10 tem SALDO EM CONTA de R$ 62.916,52 (os "62 mil" que ela acha que são a reserva podem
-  ser o saldo da conta corrente) e "CAPITAL DE GIRO: 60.000,00" em LIMITES DE CRÉDITO (empréstimo oferecido pelo banco, não dinheiro
-  dela). Perguntado a ela.
-  Próxima etapa: 4) margem (com horas e viagem estimada), fechamento do mês, distribuição, caixa 90 dias, avisos. Teste local: launch.json
+  O fundo de reserva NÃO é o saldo da conta (ela confirmou em 30/10: os 62 mil parecidos foram coincidência).
+  ETAPA 4 (script 57, 30/10): MARGEM (aba Financeiro → Margem, `telas/financeiro-margem.js`, `calcularMargens` também usado nos avisos):
+  por plano com turma/programa: receita (linhas) − lançado (despesas da turma/programa, menos impostos e pessoal) − mentores parceiros de
+  meses ainda NÃO pagos (pelo cadastro e valor combinado; pago já virou despesa) − viagens estimadas (só módulos presenciais de hoje em
+  diante, por pessoa com deslocamento, sem despesa de viagem lançada no módulo; mesma cidade = não viaja; o que a empresa paga pela
+  turma/viagem não entra; avião = passagem + 2 noites + 3 dias, carro = km × R$/km + 1 noite + 2 dias, `F.custoViagem`; modo por pessoa
+  e módulo salvo em `fin_planos.estimativa.viagens["<modulo>:<pessoa>"]`) − imposto (alíquota real) = margem; "com as horas das sócias"
+  desconta TODAS as aulas e sessões delas × hora da sócia (3 × hora de referência = Ajustes, senão média dos cadastros "por hora",
+  senão 230). "Simular um programa" (módulos, horas, preço, quem dá, presenciais, avião/carro, outros custos) + preço mínimo para a
+  margem desejada (`F.precoPara`). FECHAMENTO (aba só para SÓCIAS = admin + tambem_mentor, `telas/financeiro-fechamento.js`; RLS
+  `eh_socia()` em `fin_fechamentos`): como a aba da planilha (conferido com abril/2024 ao centavo): faturamento − despesas − Simples −
+  INSS (impostos pagos no mês; INSS pelo nome) = líquido; caixa 10%; o resto pela participação (Ju 40, Vivi 40, Cláudia 20, pelo
+  primeiro nome) menos a despesa pessoal de cada uma (`F.fechamento`); "Fechar o mês" guarda o retrato em fin_fechamentos.numeros,
+  "Reabrir" apaga; tabela do ano: devido × retirado (retiradas = movimentos do extrato conferidos como "Retirada de sócia") × falta
+  retirar. CAIXA 90 DIAS e ATENÇÃO na Visão da direção (`caixaEAvisos` em financeiro-painel.js; `F.caixaPorSemana`): começa no saldo do
+  último extrato de cada conta (sem reserva); entra nota emitida no vencimento e módulo/parcela sem nota na data + prazo do plano; sai
+  despesa lançada não paga, fixas dos meses seguintes, mentores parceiros (dia 10 do mês seguinte), imposto (dia 20 do mês seguinte,
+  pela alíquota, se ainda não lançado), média dos outros custos (dia 15) e média das retiradas das sócias dos 3 últimos meses (dia 10,
+  dá para tirar). Avisos: caixa negativo ou abaixo de um mês de fixo, nota vencida há mais de 15 dias, margem abaixo da desejada,
+  extrato desatualizado/nenhum, mês anterior sem fechamento (só sócias, depois do dia 10). Ajustes ganhou "Margem e viagem estimada"
+  e (só sócias) "Distribuição das sócias" em `configuracoes.financeiro.custos` (`F.PADRAO_CUSTOS`). Testes: %TEMP%\fin56\etapa4.mjs.
+  As 4 etapas do Financeiro estão feitas. Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
 - CERTIFICADOS (2026-10-27, script 47, `telas/certificados.js`, Gestão → "Emitir certificados", só administração = Cintia e sócias;
   `#/certificados[/nova|/<pasta>[/emitir|/emitidos|/editar]]`). Pacote dela em `docs/certificados/` (ESPECIFICACAO.md, protótipos,
@@ -803,13 +821,14 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
 
 ## Pendências conhecidas
 - FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;
-  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapa 3 feita (falta rodar o script 56 e importar os extratos); etapa 4 não feita (HUB de inovação de Holambra fica de fora por enquanto).
+  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapa 3 feita (falta rodar o script 56 e importar os extratos); etapa 4 feita (falta rodar o script 57); HUB de inovação de Holambra fica de fora por enquanto.
   LEMBRAR A JULIANA NA ETAPA FINAL (4) DO FINANCEIRO (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia
   05/02 R$ 6.570,49 e 19/03 R$ 1.489 e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e os
   extratos do Sicoob e da Unicred de janeiro de 2026 até hoje (só veio Sicoob 01-14/10).
   FUNDO DE RESERVA (pedido dela, 30/10): ela mandar o EXTRATO da aplicação do fundo de reserva (capital de giro; hoje "acho que uns
   62 mil", valor provisório na tela) para lançar o saldo de verdade em Financeiro → Visão geral → Fundo de reserva → Atualizar
-  (e onde está aplicado). Lembrar junto com os outros extratos. Perguntado se os 62 mil são o saldo da conta corrente do Sicoob.
+  (e onde está aplicado). Lembrar junto com os outros extratos. NÃO é o saldo da conta corrente (ela confirmou em 30/10).
+  LEMBRADA na etapa 4 (30/10) dos relatórios de reembolso e extratos que faltam; continuar lembrando até chegarem.
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.

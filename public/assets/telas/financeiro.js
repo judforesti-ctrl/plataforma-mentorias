@@ -9,7 +9,9 @@ import { janela, faltaScript } from './agenda-dados.js';
 import { dinheiro, norm } from './vendas.js';
 import * as F from '../financeiro-regras.js';
 
-const ABAS = [['geral', 'Visão geral'], ['conferir', 'Conferir'], ['emitir', 'Emitir nota'], ['receber', 'A receber'], ['planos', 'Turmas e mentorias'], ['despesas', 'Despesas'], ['extratos', 'Extratos'], ['mentores', 'Mentores']];
+const ABAS = [['geral', 'Visão geral'], ['conferir', 'Conferir'], ['emitir', 'Emitir nota'], ['receber', 'A receber'], ['planos', 'Turmas e mentorias'], ['margem', 'Margem'], ['despesas', 'Despesas'], ['extratos', 'Extratos'], ['mentores', 'Mentores'], ['fechamento', 'Fechamento']];
+// sócia = administração que também é mentora (a Cintia não é): só elas veem o fechamento e a distribuição
+const ehSocia = (p) => p && p.papel === 'admin' && !!p.tambem_mentor;
 // as sócias (despesa pessoal de cada uma): pelos ids em Ajustes, senão pelo primeiro nome
 const SOCIAS_NOMES = /^(juliana|viviane|cl[aá]udia)\b/i;
 const AVISO_52 = '<div class="aviso">Falta rodar o script <b>52-financeiro.sql</b> no Supabase (SQL Editor → New query → colar → Run). Até lá esta tela fica vazia.</div>';
@@ -28,7 +30,7 @@ async function carregar() {
   const [planos, receber, despesas, fixas, meses, config, empresas, turmas, programas, modulos, oportunidades, perfis, extratos, pendentes] = await Promise.all([
     pedir('fin_planos'), pedir('fin_receber'), pedir('fin_despesas', '*', (q) => q.gte('data', `${F.somarMeses(hojeISO().slice(0, 7), -24)}-01`)),
     pedir('fin_despesas_fixas'), pedir('fin_meses'), pedir('configuracoes', 'valor', (q) => q.eq('chave', 'financeiro').maybeSingle()),
-    pedir('empresas', 'id, nome, cnpj'), pedir('turmas', 'id, nome, empresa_id, status, inicio, fim_previsto, formato, local'),
+    pedir('empresas', 'id, nome, cnpj'), pedir('turmas', 'id, nome, empresa_id, status, inicio, fim_previsto, formato, local, viagem_padrao'),
     pedir('programas', 'id, nome, empresa_id, status, inicio, fim_previsto, sessoes_por_mentorado'),
     pedir('modulos', 'id, turma_id, numero, titulo, data_hora, duracao_min, formato, local'), pedir('oportunidades', 'id, empresa_id, turma_id, programa_id, valor, etapa, titulo'),
     pedir('perfis', 'id, nome, papel, tambem_mentor, ativo', (q) => q.in('papel', ['admin', 'mentor'])),
@@ -84,15 +86,17 @@ async function acertar(d) {
 // ---------- tela ----------
 export async function render(ctx, el, params) {
   if (!ctx.ehAdmin) { el.innerHTML = '<div class="aviso">Só a administração vê o Financeiro.</div>'; return; }
-  const aba = ABAS.some(([k]) => k === params[0]) ? params[0] : 'geral';
+  const abas = ABAS.filter(([k]) => k !== 'fechamento' || ehSocia(ctx.perfil));
+  const aba = abas.some(([k]) => k === params[0]) ? params[0] : 'geral';
   const d = await carregar();
   d.eu = ctx.perfil.id;
+  d.perfil = ctx.perfil;
   if (!d.falta) await acertar(d);
   el.innerHTML = `
     <div class="cab"><div><h1>Financeiro</h1><p class="sub">O faturamento nasce das turmas e mentorias: no dia do módulo ou da parcela, a nota aparece para emitir.</p></div>
       ${d.falta ? '' : '<div class="acoes"><button class="btn" type="button" id="ajustes">Ajustes</button><button class="btn pri" type="button" id="nova-desp">+ Despesa</button></div>'}</div>
     ${d.falta ? AVISO_52 : ''}
-    <nav class="abas" aria-label="Partes do Financeiro">${ABAS.map(([k, t]) => `<button type="button" data-aba="${k}" class="${k === aba ? 'atual' : ''}">${t}${k === 'emitir' ? contador(d) : k === 'extratos' && d.movimentosAConferir ? ` <span class="selo alerta">${d.movimentosAConferir}</span>` : k === 'conferir' && !d.falta && d.aConferir.planos.length + d.aConferir.despesas.length ? ` <span class="selo alerta">${d.aConferir.planos.length + d.aConferir.despesas.length}</span>` : ''}</button>`).join('')}</nav>
+    <nav class="abas" aria-label="Partes do Financeiro">${abas.map(([k, t]) => `<button type="button" data-aba="${k}" class="${k === aba ? 'atual' : ''}">${t}${k === 'emitir' ? contador(d) : k === 'extratos' && d.movimentosAConferir ? ` <span class="selo alerta">${d.movimentosAConferir}</span>` : k === 'conferir' && !d.falta && d.aConferir.planos.length + d.aConferir.despesas.length ? ` <span class="selo alerta">${d.aConferir.planos.length + d.aConferir.despesas.length}</span>` : ''}</button>`).join('')}</nav>
     <div id="conteudo"></div>`;
   el.querySelector('.abas').addEventListener('click', (ev) => { const b = ev.target.closest('[data-aba]'); if (b) location.hash = `#/financeiro/${b.dataset.aba}`; });
   if (d.falta) return;
@@ -107,11 +111,13 @@ export async function render(ctx, el, params) {
   if (aba === 'despesas') return abaDespesas(d, alvo, recarregar, params[1]);
   if (aba === 'extratos') return (await import('./financeiro-extratos.js')).abaExtratos(ctx, d, alvo, recarregar, params.slice(1));
   if (aba === 'mentores') return (await import('./financeiro-mentores.js')).abaMentores(ctx, d, alvo, recarregar, params.slice(1));
+  if (aba === 'fechamento') return (await import('./financeiro-fechamento.js')).abaFechamento(ctx, d, alvo, recarregar, params.slice(1));
   const mentores = await (await import('./financeiro-mentores.js')).previsaoMentores(d).catch(() => null);
+  if (aba === 'margem') return (await import('./financeiro-margem.js')).abaMargem(ctx, d, alvo, recarregar, mentores);
   d.mentoresSemCadastro = mentores ? mentores.semCadastro : null;
   abaGeral(d, alvo, recarregar, params[1]);
   // visão da direção (previsões, clientes, mentores, indicadores, reserva e dinheiro nas contas)
-  return (await import('./financeiro-painel.js')).painelDirecao(d, alvo.querySelector('#fn-direcao'), recarregar, mentores);
+  return (await import('./financeiro-painel.js')).painelDirecao(d, alvo.querySelector('#fn-direcao'), recarregar, mentores, { socia: ehSocia(ctx.perfil) });
 }
 function contador(d) {
   if (d.falta) return '';
@@ -873,6 +879,7 @@ function formFixa(fixa, recarregar) {
 // ---------- ajustes e meses antigos ----------
 function janelaAjustes(d, recarregar) {
   const c = d.config;
+  const cu = F.custos(c);
   const j = janela('Ajustes do Financeiro', `<form class="grade" style="gap:12px" novalidate>
     <div class="campo"><label for="a-inicio">A plataforma conta o faturamento a partir de</label><input type="month" id="a-inicio" value="${esc(c.inicio)}">
       <small>Antes deste mês, os números vêm da planilha (fica em "Metas e meses antigos").</small></div>
@@ -881,12 +888,32 @@ function janelaAjustes(d, recarregar) {
       <div class="campo"><label for="a-e2">Nome do outro CNPJ</label><input type="text" id="a-e2" value="${esc(c.emissores.outro)}"></div>
     </div>
     <div class="campo"><label for="a-imp">Imposto estimado sobre o faturamento (%)</label><input type="number" id="a-imp" min="0" max="40" step="0.1" value="${c.imposto_pct}"><small>Vale só quando não há impostos pagos nos últimos 3 meses. Hoje a plataforma usa ${esc(textoAliquota(d))}.</small></div>
-    <div class="linha"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`, { largura: 560 });
+    <details><summary><b>Margem e viagem estimada</b></summary><div class="grade g3 mt" style="gap:10px">
+      <div class="campo"><label for="a-hora">Hora de referência dos mentores (R$)</label><input type="number" id="a-hora" min="0" step="1" value="${cu.hora_referencia ?? ''}" placeholder="média dos cadastros"><small>Vazio = média dos mentores que recebem por hora.</small></div>
+      <div class="campo"><label for="a-vezes">Hora da sócia = quantas vezes</label><input type="number" id="a-vezes" min="1" step="0.5" value="${cu.socia_vezes}"></div>
+      <div class="campo"><label for="a-alvo">Margem desejada (%)</label><input type="number" id="a-alvo" min="0" max="90" step="1" value="${cu.margem_alvo}"></div>
+      <div class="campo"><label for="a-pass">Passagem de avião, ida e volta (R$)</label><input type="number" id="a-pass" min="0" step="50" value="${cu.viagem.passagem}"></div>
+      <div class="campo"><label for="a-hotel">Hotel, por noite (R$)</label><input type="number" id="a-hotel" min="0" step="10" value="${cu.viagem.hotel}"></div>
+      <div class="campo"><label for="a-dia">Refeição e transporte, por dia (R$)</label><input type="number" id="a-dia" min="0" step="10" value="${cu.viagem.dia}"></div>
+      <div class="campo"><label for="a-km">Carro, por km (R$)</label><input type="number" id="a-km" min="0" step="0.1" value="${cu.viagem.km}"></div>
+      <div class="campo"><label for="a-cidade">Cidade de onde as sócias saem</label><input type="text" id="a-cidade" maxlength="60" value="${esc(cu.cidade_socias)}"></div>
+    </div></details>
+    ${ehSocia(d.perfil) ? `<details><summary><b>Distribuição das sócias</b></summary><div class="grade g4 mt" style="gap:10px">
+      <div class="campo"><label for="a-caixa">Caixa da empresa (%)</label><input type="number" id="a-caixa" min="0" max="100" step="1" value="${cu.caixa_pct}"></div>
+      ${d.socias.map((s) => `<div class="campo"><label for="a-p-${s.id}">${esc(s.nome.split(' ')[0])} (%)</label><input type="number" id="a-p-${s.id}" data-socia="${esc(F.primeiroNome(s.nome))}" min="0" max="100" step="1" value="${cu.participacao[F.primeiroNome(s.nome)] ?? 0}"></div>`).join('')}
+    </div></details>` : ''}
+    <div class="linha"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`, { largura: 760 });
   const f = j.corpo.querySelector('form');
   f.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const valor = { ...c, inicio: f.querySelector('#a-inicio').value || c.inicio, emissores: { principal: f.querySelector('#a-e1').value.trim() || 'Contabilizei', outro: f.querySelector('#a-e2').value.trim() || 'Prefeitura' },
       imposto_pct: Number(f.querySelector('#a-imp').value) || 0 };
+    const n = (id, padrao) => { const i = f.querySelector(id); return !i || i.value === '' ? padrao : Number(i.value); };
+    const participacao = { ...cu.participacao };
+    f.querySelectorAll('[data-socia]').forEach((i) => { participacao[i.dataset.socia] = Number(i.value) || 0; });
+    valor.custos = { ...(c.custos || {}), hora_referencia: n('#a-hora', null), socia_vezes: n('#a-vezes', cu.socia_vezes), margem_alvo: n('#a-alvo', cu.margem_alvo),
+      cidade_socias: f.querySelector('#a-cidade').value.trim() || cu.cidade_socias, caixa_pct: n('#a-caixa', cu.caixa_pct), participacao,
+      viagem: { ...cu.viagem, passagem: n('#a-pass', cu.viagem.passagem), hotel: n('#a-hotel', cu.viagem.hotel), dia: n('#a-dia', cu.viagem.dia), km: n('#a-km', cu.viagem.km) } };
     const { error } = await sb.from('configuracoes').upsert({ chave: 'financeiro', valor });
     if (error) { avisar(explicarErro(error), true); return; }
     j.fechar(); avisar('Ajustes salvos.'); recarregar();
