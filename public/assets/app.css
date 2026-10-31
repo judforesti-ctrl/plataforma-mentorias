@@ -845,3 +845,9 @@ a.fn-barra:hover, a.fn-barra:focus-visible { background: var(--faixa); }
 .fn-v { font-variant-numeric: tabular-nums; font-size: 12.5px; color: var(--apagado); white-space: nowrap; text-align: right; min-width: 64px; }
 .fn-forte td { font-weight: 700; }
 .fn-ind .cartao.numero b { font-size: 22px; overflow-wrap: anywhere; }
+
+/* "Ver como o mentor vê" (administração): faixa no alto de toda tela */
+.ver-como { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 14px; padding: 10px 14px;
+  border-radius: 10px; background: var(--petroleo); color: #fff; font-size: 14px; }
+.ver-como b { color: var(--bege, #fff); }
+.ver-como .btn { background: #fff; color: var(--petroleo); border-color: #fff; }

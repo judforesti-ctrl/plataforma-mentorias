@@ -1,6 +1,6 @@
 // Mentores (administração): lista de todos os mentores com nome completo, contatos, tipo de atendimento,
 // trilhas individuais (mentorados por empresa e programa) e turmas de mentoria em grupo. Baixa a lista em Excel.
-import { sb, esc, avatar, diaMes, horaBR, hojeISO, avisar, explicarErro } from '../base.js';
+import { sb, esc, avatar, diaMes, horaBR, hojeISO, avisar, explicarErro, comecarVerComo } from '../base.js';
 import { redes, linkRede } from './perfil-comum.js';
 
 const emailPendente = (e) => /@pendente\.mentorei\.com\.br$/i.test(String(e || ''));
@@ -119,7 +119,9 @@ export async function render(ctx, el) {
             ${!p.ativo ? '<span class="selo erro">Desativado</span>' : emailPendente(p.email) ? '<span class="selo alerta">Cadastro simples: falta o e-mail</span>' : !p.termo_aceito_em ? '<span class="selo neutro">Ainda não entrou na plataforma</span>' : ''}
             ${avisos}</div>
         </div>
-        <a class="btn peq" href="#/pessoa/${p.id}/mentores">Editar dados</a>
+        <div class="linha" style="gap:6px">${p.papel === 'mentor' && p.ativo && p.termo_aceito_em ? `<button class="btn peq" type="button" data-ver-como="${p.id}"
+          title="Abre a plataforma do jeito que ${esc(p.nome.split(' ')[0])} vê, só para olhar (nada é gravado)">👁 Ver como ${esc(p.nome.split(' ')[0])} vê</button>` : ''}
+          <a class="btn peq" href="#/pessoa/${p.id}/mentores">Editar dados</a></div>
       </div>
       <div class="grade g3 mt">
         <div><h4>Contato</h4>
@@ -149,6 +151,19 @@ export async function render(ctx, el) {
   };
   el.querySelectorAll('#busca, select').forEach((x) => x.addEventListener('input', desenhar));
   desenhar();
+
+  // "Ver como o mentor vê": o servidor abre uma sessão do mentor só para esta aba; nada é gravado enquanto estiver nela
+  el.querySelector('#lista').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('[data-ver-como]');
+    if (!btn) return;
+    btn.disabled = true; btn.textContent = 'Abrindo…';
+    const { data: { session } } = await sb.auth.getSession();
+    const r = await fetch('/api/ver-como', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ perfil_id: btn.dataset.verComo }) }).catch(() => null);
+    const j = r ? await r.json().catch(() => ({})) : {};
+    if (!r || !r.ok || !j.access_token) { avisar(j.mensagem || 'Não consegui abrir agora. Tente de novo em instantes.', true); desenhar(); return; }
+    comecarVerComo({ perfil_id: btn.dataset.verComo, nome: j.nome, admin: ctx.perfil.nome, access_token: j.access_token, refresh_token: j.refresh_token });
+  });
 
   el.querySelector('#cadastro-simples')?.addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;

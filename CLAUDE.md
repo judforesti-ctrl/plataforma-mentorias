@@ -827,6 +827,16 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   a única brecha seria o faturamento na linha da empresa, que o script 32 criaria (nunca rodado; reescrito sem isso). Tabela nova = RLS que siga isso; coluna de dinheiro ou dado
   comercial NUNCA em tabela que mentor/mentorado/aluno/RH lê (empresas, turmas, programas, modulos, perfis): RLS é por linha, não
   por coluna. Não existe "mentor com acesso ao comercial": se ela pedir, criar permissão própria (nunca tornar o mentor admin).
+- VER COMO O MENTOR VÊ (31/10/2026, pedido dela: a Cintia não é mentora e precisa enxergar a parte dos mentores). Botão
+  "👁 Ver como <nome> vê" em Gestão → Mentores (só mentor parceiro ativo que JÁ ENTROU; quem nunca entrou não, porque abrir a
+  sessão marca last_sign_in_at, que acesso.mjs usa para mandar convite × "esqueci a senha"). `/api/ver-como` (só admin): link
+  mágico gerado e conferido no servidor (nenhum e-mail sai) → sessão DO MENTOR (RLS de verdade) + linha em `historico`
+  (acao 'ver_como'). base.js: `verComo` (sessionStorage 'mentorei.verComo'; a sessão fica em sessionStorage 'mentorei-ver-como',
+  à parte do login da administração, só naquela aba) e `prepararVerComo` barra insert/update/upsert/delete, rpc fora de
+  RPC_LEITURA, upload/remove do storage (sb.storage é recriado a cada uso: fica fixo com defineProperty), updateUser e POST em
+  /api/ (menos acao 'status'), com o aviso NADA_GRAVADO. app.js: faixa "Você está vendo… Voltar para a minha visão" no alto de
+  toda tela, sem registrarAcesso, sem forçar primeiro acesso nem contrato; Sair/Voltar = `sairDoVerComo` (signOut scope LOCAL:
+  só esta sessão; o global derrubaria o mentor dos aparelhos dele). Rpc nova de leitura usada por mentor: pôr em RPC_LEITURA.
 - Não enviar convite a mentor ou mentorado sem a Juliana pedir.
 - Informações delicadas: campo trancado da sessão, só mentores do mentorado e administração; nunca em relatório, Excel ou IA.
 - Sessão concluída: os mentores do mentorado completam e corrigem sem prazo (script 37); só a administração muda a conclusão

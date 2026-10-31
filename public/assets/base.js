@@ -2,8 +2,15 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/+esm';
 import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 
+// "Ver como o mentor vê" (31/10/2026, pedido da Juliana para a Cintia): a administração abre a plataforma com o login do mentor
+// (/api/ver-como), só nesta aba (sessionStorage, guardado à parte do login dela) e só para olhar: gravações, envios de arquivo e
+// funções do servidor são barrados aqui embaixo (prepararVerComo). Voltar = sairDoVerComo (encerra só esta sessão do mentor).
+const VER_COMO = 'mentorei.verComo';
+export const verComo = (() => { try { return JSON.parse(sessionStorage.getItem(VER_COMO) || 'null'); } catch (_) { return null; } })();
+
 export const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  auth: verComo ? { storageKey: 'mentorei-ver-como', storage: sessionStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+    : { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
 
 // ---------- texto e datas ----------
@@ -69,6 +76,7 @@ export async function meuPerfil() {
 }
 
 export async function sair() {
+  if (verComo) return sairDoVerComo();
   await encerrarAcesso();
   await sb.auth.signOut();
   location.href = '/';
@@ -131,3 +139,64 @@ export function lerCampos(raiz) {
   });
   return obj;
 }
+
+// ---------- "Ver como o mentor vê" ----------
+// Começa (tela Mentores): guarda o nome e o login do mentor que /api/ver-como devolveu e abre a plataforma de novo, já como ele.
+export function comecarVerComo({ perfil_id, nome, admin, access_token, refresh_token }) {
+  sessionStorage.setItem(VER_COMO, JSON.stringify({ perfil_id, nome, admin, tokens: { access_token, refresh_token } }));
+  location.replace(location.pathname);
+}
+// Volta para a visão da administração: encerra só esta sessão do mentor (as dele, nos aparelhos dele, continuam) e recarrega.
+export async function sairDoVerComo() {
+  try { await sb.auth.signOut({ scope: 'local' }); } catch (_) { /* a sessão já tinha acabado */ }
+  try { sessionStorage.removeItem(VER_COMO); sessionStorage.removeItem('mentorei-ver-como'); } catch (_) {}
+  location.hash = '#/mentores';
+  location.reload();
+}
+
+export const NADA_GRAVADO = 'Você está vendo como o mentor vê: nada é gravado neste modo.';
+// só leitura: estas funções do banco não mudam nada
+const RPC_LEITURA = new Set(['catalogo_ferramentas', 'contato_coordenacao', 'ferramentas_da_trilha', 'meu_extrato_mentor', 'minhas_trilhas', 'numeros_trilhas', 'painel_rh', 'avaliacao_contador']);
+// resposta de "barrado": serve para qualquer encadeamento (.select().single(), .eq()...) e, aguardada, devolve o erro
+function barrado() {
+  avisar(NADA_GRAVADO, true);
+  const r = { data: null, error: { message: NADA_GRAVADO } };
+  const p = new Proxy(function () {}, { get: (_, k) => (k === 'then' ? (ok, falha) => Promise.resolve(r).then(ok, falha) : () => p), apply: () => p });
+  return p;
+}
+async function prepararVerComo() {
+  if (verComo.tokens) {
+    await sb.auth.setSession(verComo.tokens).catch(() => null);
+    delete verComo.tokens;
+    try { sessionStorage.setItem(VER_COMO, JSON.stringify(verComo)); } catch (_) {}
+  }
+  // sem a sessão do mentor (venceu ou não abriu): volta para a visão normal
+  if (!(await sb.auth.getSession()).data.session) {
+    try { sessionStorage.removeItem(VER_COMO); sessionStorage.removeItem('mentorei-ver-como'); } catch (_) {}
+    location.reload();
+    await new Promise(() => {});
+  }
+  const deTabela = sb.from.bind(sb);
+  sb.from = (t) => { const q = deTabela(t); for (const m of ['insert', 'update', 'upsert', 'delete']) q[m] = barrado; return q; };
+  const deRpc = sb.rpc.bind(sb);
+  sb.rpc = (fn, ...resto) => (RPC_LEITURA.has(fn) ? deRpc(fn, ...resto) : barrado());
+  // sb.storage cria um objeto novo a cada uso: fica um só, já com a trava
+  const pasta = sb.storage, dePasta = pasta.from.bind(pasta);
+  pasta.from = (b) => { const q = dePasta(b); for (const m of ['upload', 'update', 'remove', 'move', 'copy', 'uploadToSignedUrl']) q[m] = barrado; return q; };
+  Object.defineProperty(sb, 'storage', { get: () => pasta });
+  sb.auth.updateUser = barrado;
+  // funções do servidor da plataforma: só as consultas ("status") passam
+  const deFetch = window.fetch.bind(window);
+  window.fetch = (url, op = {}) => {
+    const u = String((url && url.url) || url);
+    if (u.startsWith('/api/') || u.startsWith(`${location.origin}/api/`)) {
+      let acao = null; try { acao = JSON.parse(op.body || '{}').acao; } catch (_) {}
+      if ((op.method || 'GET').toUpperCase() !== 'GET' && acao !== 'status') {
+        avisar(NADA_GRAVADO, true);
+        return Promise.resolve(new Response(JSON.stringify({ ok: false, mensagem: NADA_GRAVADO }), { status: 403, headers: { 'Content-Type': 'application/json' } }));
+      }
+    }
+    return deFetch(url, op);
+  };
+}
+if (verComo) await prepararVerComo();

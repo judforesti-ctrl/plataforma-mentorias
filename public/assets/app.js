@@ -1,5 +1,5 @@
 // Navegação da plataforma: confere o login, monta o menu de cada papel e abre a tela pedida no endereço (#/...).
-import { sb, sessaoAtual, meuPerfil, registrarAcesso, sair, esc, explicarErro } from './base.js';
+import { sb, sessaoAtual, meuPerfil, registrarAcesso, sair, esc, explicarErro, verComo, sairDoVerComo } from './base.js';
 import { montarMenu } from './menu.js';
 import { temMarca } from './marca.js';
 import { aplicarMarca } from './telas/area-aluno.js';
@@ -33,7 +33,8 @@ if (!perfil.ativo) {
   throw new Error('inativo');
 }
 
-registrarAcesso(perfil.id);
+// vendo como o mentor vê (administração): não conta como entrada dele
+if (!verComo) registrarAcesso(perfil.id);
 
 // Contrato de prestação de serviço (script 55): só o mentor parceiro (papel 'mentor') assina. Pendente = ainda não assinou a versão
 // atual. Sem o script 55, nada muda.
@@ -169,12 +170,22 @@ function montarTopo(atual, restrito) {
 
 const ctx = { perfil, ehAdmin, atende, contratoPendente, recarregarPerfil: async () => { perfil = await meuPerfil(); ctx.perfil = perfil; return perfil; } };
 
+// "Ver como o mentor vê": faixa no alto de toda tela, com o caminho de volta para a visão da administração
+function faixaVerComo() {
+  const f = document.createElement('div');
+  f.className = 'ver-como';
+  f.innerHTML = `<span>👁 Você está vendo a plataforma como <b>${esc(verComo.nome || perfil.nome)}</b> vê. Nada do que fizer aqui é gravado.</span>
+    <button class="btn peq" type="button">Voltar para a minha visão</button>`;
+  f.querySelector('button').addEventListener('click', (ev) => { ev.currentTarget.disabled = true; sairDoVerComo(); });
+  return f;
+}
+
 let telaAtual = null;
 async function abrir() {
-  const precisaPrimeiroAcesso = !ctx.perfil.termo_aceito_em || !ctx.perfil.dados_completos;
+  const precisaPrimeiroAcesso = !verComo && (!ctx.perfil.termo_aceito_em || !ctx.perfil.dados_completos);
   let [rota, ...params] = location.hash.replace(/^#\/?/, '').split('/');
   if (precisaPrimeiroAcesso) rota = 'primeiro-acesso';
-  else if (ctx.contratoPendente && !contratoAdiado() && rota !== 'contrato') rota = 'contrato';
+  else if (ctx.contratoPendente && !verComo && !contratoAdiado() && rota !== 'contrato') rota = 'contrato';
   if (!rota || !ROTAS[rota]) { location.replace(inicio); return; }
   if (telaAtual && telaAtual.sair) telaAtual.sair();
   const caminho = montarTopo(rota === 'mentorado' || rota === 'sessao' ? (ehAdmin ? 'mentorados' : 'meus') : rota === 'carregar-arsenal' ? 'arsenal'
@@ -183,7 +194,7 @@ async function abrir() {
   // cada tela nasce num elemento novo, para os cliques de uma tela não se acumularem na outra
   const alvo = document.createElement('div');
   alvo.innerHTML = '<p class="carregando">Carregando…</p>';
-  tela.replaceChildren(caminho, alvo);
+  tela.replaceChildren(...(verComo ? [faixaVerComo()] : []), caminho, alvo);
   try {
     const mod = await ROTAS[rota]();
     telaAtual = (await mod.render({ ...ctx, rota }, alvo, params)) || null;
