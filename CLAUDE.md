@@ -699,7 +699,10 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   "Completar"/"Ver ou mudar" na própria janela (sem CNPJ: pede o CNPJ e grava em empresas.cnpj). Depois de baixar: `fin_receber.
   contabilidade_em` (selo "pedida à contabilidade" em Emitir nota). Carga inicial: 78 tomadores da aba "Cadastro clientes" (cidade pelo
   código do IBGE da planilha "Notas fiscais para importar…", retenções da última nota de cada CNPJ) gerada por %TEMP%\fin56\tomadores.py
-  → tomadores.json, gravada pelo login dela depois do script 59.
+  → tomadores.json, GRAVADA em 31/10 pelo login dela (78; CEP com o zero da frente, e-mail que estava no telefone, número solto no lugar do
+  e-mail apagado; 47 ficaram sem e-mail). Quem paga sem CNPJ na plataforma é achado PELO NOME ("Sescoop/PR" = Sescoop da UF; senão todas as
+  palavras do nome na razão social; só se for um; selo "achado pelo nome: conferir"); com pagador_nome no plano, o CNPJ da empresa não
+  vale e o CNPJ digitado em Completar vai para fin_planos.pagador_cnpj (sem pagador: empresas.cnpj).
   Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
 - CERTIFICADOS (2026-10-27, script 47, `telas/certificados.js`, Gestão → "Emitir certificados", só administração = Cintia e sócias;
@@ -861,7 +864,7 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
 
 ## Pendências conhecidas
 - FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;
-  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapas 3 e 4, notas dos mentores e agenda de pagamentos publicadas em 31/10; arquivo para a contabilidade feito (falta rodar o script 59 e carregar os 78 tomadores) (scripts 56, 57 e 58 RODADOS; atenção: select com head:true não acusa tabela que falta, conferir com select de verdade; falta marcar como pagas as fixas de outubro, que aparecem como atrasadas na agenda); HUB de inovação de Holambra fica de fora por enquanto.
+  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapas 3 e 4, notas dos mentores e agenda de pagamentos publicadas em 31/10; arquivo para a contabilidade publicado em 31/10 (script 59 rodado, 78 tomadores carregados) (scripts 56, 57 e 58 RODADOS; atenção: select com head:true não acusa tabela que falta, conferir com select de verdade; falta marcar como pagas as fixas de outubro, que aparecem como atrasadas na agenda); HUB de inovação de Holambra fica de fora por enquanto.
   LEMBRAR A JULIANA NA ETAPA FINAL (4) DO FINANCEIRO (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia
   05/02 R$ 6.570,49 e 19/03 R$ 1.489 e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e os
   extratos do Sicoob e da Unicred de janeiro de 2026 até hoje (só veio Sicoob 01-14/10).

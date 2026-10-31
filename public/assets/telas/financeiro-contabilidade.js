@@ -9,6 +9,24 @@ import { dinheiro } from './vendas.js';
 import * as F from '../financeiro-regras.js';
 
 const XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs';
+const normal = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9/]+/g, ' ').trim();
+const GENERICAS = new Set(['cooperativa', 'credito', 'ltda', 'programa', 'turma', 'mentoria', 'grupo', 'servico', 'servicos', 'nacional', 'comercio', 'empresa', 'sociedade', 'investimento', 'poupanca', 'livre', 'admissao']);
+// Quem paga sem CNPJ na plataforma: acha o tomador pelo nome, só se for um só ("Sescoop/PR" = o Sescoop daquela UF;
+// senão todas as palavras do nome na razão social)
+function acharPeloNome(nome, tomadores) {
+  const n = normal(nome);
+  if (!n) return null;
+  const lista = [...tomadores.values()];
+  const sescoop = n.match(/sescoop\s*\/?\s*([a-z]{2})\b/);
+  let achados;
+  if (sescoop) achados = lista.filter((t) => (t.uf || '').toLowerCase() === sescoop[1] && /aprendizagem do cooperativismo/.test(normal(t.razao_social)));
+  else {
+    const palavras = n.split(/[\s/]+/).filter((w) => w.length >= 4 && !GENERICAS.has(w));
+    if (!palavras.length) return null;
+    achados = lista.filter((t) => { const r = normal(t.razao_social); return palavras.every((w) => r.includes(w)); });
+  }
+  return achados.length === 1 ? achados[0] : null;
+}
 
 export async function janelaContabilidade(d, linhas, recarregar) {
   const r = await sb.from('fin_tomadores').select('*');
@@ -19,8 +37,11 @@ export async function janelaContabilidade(d, linhas, recarregar) {
   const estado = { juntar: true, emissao: hoje };
   const quem = (l) => {
     const p = d.plano(l.plano_id), e = d.empresa(l.empresa_id);
-    const doc = F.soNumeros((p && p.pagador_cnpj) || e.cnpj);
-    return { doc, nome: (p && p.pagador_nome) || e.razao_social || e.nome };
+    const nome = (p && p.pagador_nome) || e.razao_social || e.nome;
+    const doc = F.soNumeros((p && p.pagador_cnpj) || ((p && p.pagador_nome) ? '' : e.cnpj));
+    if (doc) return { doc, nome };
+    const t = acharPeloNome(nome, tomadores);
+    return t ? { doc: t.documento, nome, peloNome: true } : { doc: '', nome };
   };
   const montar = () => {
     const grupos = new Map();
@@ -32,7 +53,7 @@ export async function janelaContabilidade(d, linhas, recarregar) {
     }
     return [...grupos.values()].map((g) => {
       const p = d.plano(g.linhas[0].plano_id);
-      return { empresa_id: g.linhas[0].empresa_id, ...F.notaContabilidade({ linhas: g.linhas, plano: p, empresaNome: g.q.nome, documento: g.q.doc, tomador: tomadores.get(g.q.doc) || null,
+      return { empresa_id: g.linhas[0].empresa_id, plano_id: g.linhas[0].plano_id, peloNome: !!g.q.peloNome, ...F.notaContabilidade({ linhas: g.linhas, plano: p, empresaNome: g.q.nome, documento: g.q.doc, tomador: tomadores.get(g.q.doc) || null,
         emissao: estado.emissao, vencimento: F.vencimentoPadrao(estado.emissao, p ? p.prazo_dias : 30), emissor: d.config.emissores[p ? p.emissor : 'principal'] || '',
         observacao: p && p.pagador_nome ? `Serviço para ${d.empresa(g.linhas[0].empresa_id).nome}` : '' }) };
     });
@@ -53,7 +74,7 @@ export async function janelaContabilidade(d, linhas, recarregar) {
           <td><small>${esc(n.descricao).replace(/\n/g, '<br>')}</small></td>
           <td class="fn-num" style="text-align:right">${dinheiro(n.valor)}</td><td class="fn-num" style="text-align:right">${ret ? dinheiro(ret) : '—'}</td>
           <td class="fn-num" style="text-align:right">${dinheiro(n.liquido)}</td>
-          <td>${n.falta.length ? `<span class="selo alerta">falta ${esc(n.falta.join(', '))}</span><br>` : '<span class="selo ok">completos</span><br>'}
+          <td>${n.falta.length ? `<span class="selo alerta">falta ${esc(n.falta.join(', '))}</span><br>` : '<span class="selo ok">completos</span><br>'}${n.peloNome ? '<span class="selo neutro">achado pelo nome: conferir</span><br>' : ''}
             ${!semScript ? `<button class="btn peq" type="button" data-tomador="${i}">${n.tomador ? 'Ver ou mudar' : 'Completar'}</button>` : ''}</td></tr>`; }).join('')}
       </tbody></table></div>
       <p class="peq mt">${notas.length} nota${notas.length === 1 ? '' : 's'} · ${dinheiro(F.soma(notas, (n) => n.valor))}${faltam.length ? ` · <b>${faltam.length} com dados faltando</b> (a planilha sai assim mesmo, com o campo em branco)` : ''}</p>
@@ -112,11 +133,13 @@ function janelaTomador(d, n, tomadores, depois) {
     const { data, error } = await sb.from('fin_tomadores').upsert(reg).select('*').single();
     if (error) { avisar(explicarErro(error), true); return; }
     tomadores.set(doc, data || reg);
-    // cliente sem CNPJ na plataforma: o CNPJ fica no cadastro dele (as próximas notas já acham)
+    // sem CNPJ na plataforma: fica no plano (quando quem paga é outro, como o Sescoop) ou no cadastro do cliente
     if (!n.documento) {
-      const e = d.empresa(n.empresa_id);
-      const u = await sb.from('empresas').update({ cnpj: F.documentoFormatado(doc) }).eq('id', n.empresa_id);
-      if (u.error) { avisar(`Dados guardados, mas o CNPJ não entrou no cadastro de ${e.nome}: ${explicarErro(u.error)}`, true); }
+      const p = d.plano(n.plano_id), e = d.empresa(n.empresa_id);
+      const u = p && p.pagador_nome ? await sb.from('fin_planos').update({ pagador_cnpj: F.documentoFormatado(doc) }).eq('id', p.id)
+        : await sb.from('empresas').update({ cnpj: F.documentoFormatado(doc) }).eq('id', n.empresa_id);
+      if (u.error) avisar(`Dados guardados, mas o CNPJ não ficou gravado em ${p && p.pagador_nome ? p.titulo : e.nome}: ${explicarErro(u.error)}`, true);
+      else if (p && p.pagador_nome) p.pagador_cnpj = F.documentoFormatado(doc);
       else e.cnpj = F.documentoFormatado(doc);
     }
     j.fechar(); avisar('Dados guardados para as próximas notas.'); depois();
