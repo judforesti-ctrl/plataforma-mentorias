@@ -30,6 +30,11 @@ async function carregar(d) {
   // quem recebe: mentores da equipe que não são da administração (as sócias são administração e recebem pela distribuição)
   // contrato de prestação de serviço (script 55): quem já assinou a versão atual
   const ct = await sb.from('contratos_mentor').select('perfil_id, aceito_em').eq('versao', CONTRATO_VERSAO);
+  // notas fiscais e dados para pagamento que o próprio mentor envia (script 58)
+  const [nf, dp] = await Promise.all([sb.from('fin_notas_mentor').select('*'), sb.from('mentor_pagamento_dados').select('*')]);
+  m.notas = nf.error ? [] : nf.data || [];
+  m.dadosMentor = (id) => (dp.error ? null : (dp.data || []).find((x) => x.perfil_id === id) || null);
+  m.notaDoMes = (id, mes) => m.notas.filter((x) => x.perfil_id === id && x.mes_referencia === mes && x.situacao !== 'devolvida');
   m.contrato = (id) => (ct.error ? undefined : ((ct.data || []).find((x) => x.perfil_id === id) || null));
   m.parceiros = d.perfis.filter((p) => p.papel === 'mentor' && p.ativo !== false).sort((a, b) => a.nome.localeCompare(b.nome));
   m.cad = (id) => m.cadastro.find((c) => c.perfil_id === id) || null;
@@ -102,9 +107,15 @@ function cadastro(d, m, el, recarregar) {
 }
 
 function janelaCadastro(d, m, p, recarregar) {
-  const c = m.cad(p.id) || { forma: 'hora' };
+  const c = m.cad(p.id) || { ...F.BASE_ISAAC };   // cadastro novo já vem com a base do Isaac (decisão dela, 30/10)
   const al = alocacoes(d, m, p.id);
+  // o que o próprio mentor informou em "Notas fiscais" (script 58) completa o que está vazio aqui
+  const dm = (m.dadosMentor && m.dadosMentor(p.id)) || {};
+  if (!c.nome_pagamento && dm.nome_pagamento) c.nome_pagamento = dm.nome_pagamento;
+  if (!c.documento && dm.documento) c.documento = dm.documento;
+  if (!c.pix && dm.pix) c.pix = dm.pix;
   const j = janela(`Cadastro financeiro · ${p.nome}`, `<form class="grade" style="gap:12px" novalidate>
+    ${dm.perfil_id ? `<div class="aviso ok">O mentor informou: ${esc(dm.nome_pagamento || '')} · ${esc(dm.tipo === 'pf' ? 'CPF' : 'CNPJ')} ${esc(dm.documento || '')} · PIX (${esc(dm.pix_tipo || '')}) ${esc(dm.pix || '')}${dm.banco ? ` · ${esc(dm.banco)} ag. ${esc(dm.agencia || '')} conta ${esc(dm.conta || '')}` : ''} · atualizado em ${dataBR(dm.atualizado_em)}</div>` : ''}
     <div class="grade g3" style="gap:10px">
       <div class="campo"><label for="c-forma">Como recebe</label><select id="c-forma">${opcoesForma(c.forma)}</select></div>
       <div class="campo"><label for="c-valor">Valor (R$ ou %)</label><input type="number" id="c-valor" min="0" step="0.01" value="${v2(c.valor)}"></div>
@@ -172,7 +183,7 @@ function pagamentos(d, m, el, recarregar, mesParam) {
     const c = m.cad(p.id);
     const calc = calcularMes(d, m, p.id, mes);
     return { p, c, salvo, calc, linhas: salvo ? salvo.linhas : calc.linhas, total: salvo ? Number(salvo.total) : calc.total };
-  }).filter((x) => x.salvo || x.calc.linhas.length);
+  }).map((x) => ({ ...x, notas: m.notaDoMes(x.p.id, mes) })).filter((x) => x.salvo || x.calc.linhas.length || x.notas.length);
   const selo = (x) => (!x.salvo ? '<span class="selo neutro">calculado</span>' : x.salvo.situacao === 'pago' ? `<span class="selo ok">pago em ${dataBR(x.salvo.pago_em)}</span>` : x.salvo.situacao === 'aprovado' ? '<span class="selo alerta">aprovado, falta pagar</span>' : '<span class="selo neutro">ajustado</span>');
   const unidade = (l) => (l.forma === 'hora' ? `${String(l.horas).replace('.', ',')} h` : l.forma === 'percentual' ? `${l.valor_unit ?? '?'}% do faturado` : l.forma === 'mensal' ? 'mensal' : `${l.quantidade} ${(F.FORMAS[l.forma] || F.FORMAS.atendimento)[l.quantidade === 1 ? 1 : 2]}`);
   el.innerHTML = `
@@ -185,6 +196,7 @@ function pagamentos(d, m, el, recarregar, mesParam) {
     <p class="apagado" style="margin-bottom:10px">Somado pelas aulas (módulos) e sessões realizadas no mês. Confira, ajuste se precisar, aprove e marque como pago: o pagamento vira despesa de cada turma e mentoria.</p>
     ${cartoes.length ? cartoes.map((x) => `<div class="cartao" style="margin-bottom:12px">
       <div class="linha"><h3 style="flex:1">${esc(x.p.nome)}</h3>${selo(x)}<b>${dinheiro(x.total)}</b></div>
+      ${x.notas.map((n) => { const dif = F.arred(Number(n.valor) - x.total); return `<div class="aviso mt${Math.abs(dif) < 0.01 ? ' ok' : ''}">Nota fiscal enviada pelo mentor: <b>${dinheiro(n.valor)}</b>${n.numero ? ` (nº ${esc(n.numero)})` : ''} · pagamento previsto ${dataBR(n.pagar_em || n.pagamento_previsto)}${Math.abs(dif) < 0.01 ? ' · confere com o calculado' : ` · <b>diferença de ${dinheiro(dif)}</b> do calculado`}${n.situacao === 'paga' ? ' · paga' : ''}</div>`; }).join('')}
       ${!x.c ? '<div class="aviso mt">Sem cadastro financeiro: o valor ficou zerado. <button class="btn peq" type="button" data-cadastro="' + x.p.id + '">Completar o cadastro</button></div>' : ''}
       <div class="tabela mt"><table><thead><tr><th>Turma ou mentoria</th><th>Quanto</th><th style="text-align:right">Valor</th><th style="text-align:right">Total</th></tr></thead><tbody>
         ${x.linhas.map((l) => `<tr><td>${esc(l.rotulo)}${l.combinado ? ' <span class="selo neutro">valor combinado</span>' : ''}${l.sem_duracao ? ` <span class="selo alerta">${l.sem_duracao} sem duração</span>` : ''}${l.ajuste ? `<br><small class="apagado">ajuste: ${esc(l.ajuste)}</small>` : ''}</td>
@@ -218,7 +230,10 @@ function pagamentos(d, m, el, recarregar, mesParam) {
       if (b.dataset.pagar) return janelaPagar(d, x, mes, recarregar);
       if (b.dataset.desfazer) {
         if (x.salvo.despesas && x.salvo.despesas.length) { const r = await sb.from('fin_despesas').delete().in('id', x.salvo.despesas); if (r.error) throw r.error; }
-        await salvar(x, { situacao: 'aprovado', pago_em: null, despesas: [] }); avisar('Pagamento desfeito: as despesas saíram.'); return recarregar();
+        await salvar(x, { situacao: 'aprovado', pago_em: null, despesas: [] });
+        const pagas = x.notas.filter((n) => n.situacao === 'paga').map((n) => n.id);
+        if (pagas.length) await sb.from('fin_notas_mentor').update({ situacao: 'conferida', pago_em: null }).in('id', pagas);
+        avisar('Pagamento desfeito: as despesas saíram.'); return recarregar();
       }
       if (b.dataset.extrato) {
         const texto = F.textoExtrato({ nome: x.p.nome, mes, linhas: x.linhas, total: x.total });
@@ -267,7 +282,9 @@ function janelaPagar(d, x, mes, recarregar) {
     ev.preventDefault();
     const dia = f.querySelector('#pg-dia').value || hojeISO(), conta = f.querySelector('#pg-conta').value;
     try {
-      const novas = x.linhas.filter((l) => Number(l.total) > 0).map((l) => {
+      const semCalculo = !x.linhas.some((l) => Number(l.total) > 0) && x.notas.length;
+      const novas = semCalculo ? x.notas.map((n) => ({ data: dia, descricao: `Pagamento de ${x.p.nome} · ${F.nomeMes(mes)} · nota fiscal${n.numero ? ` ${n.numero}` : ''}`, valor: Number(n.valor), categoria: 'parceiros', pessoa_id: x.p.id, pago_em: dia, conta, origem: 'manual' }))
+        : x.linhas.filter((l) => Number(l.total) > 0).map((l) => {
         const t = l.chave.startsWith('t:') ? d.turmas.find((y) => y.id === l.chave.slice(2)) : null;
         const pr = l.chave.startsWith('p:') ? d.programas.find((y) => y.id === l.chave.slice(2)) : null;
         return { data: dia, descricao: `Pagamento de ${x.p.nome} · ${F.nomeMes(mes)} · ${l.rotulo}`, valor: l.total, categoria: 'parceiros', pessoa_id: x.p.id,
@@ -277,6 +294,8 @@ function janelaPagar(d, x, mes, recarregar) {
       if (r.error) throw r.error;
       const corpo = { situacao: 'pago', pago_em: dia, despesas: (r.data || []).map((y) => y.id), atualizado_em: new Date().toISOString() };
       const u = await sb.from('fin_pagamentos').update(corpo).eq('id', x.salvo.id); if (u.error) throw u.error;
+      // as notas fiscais do mês (script 58) ficam pagas: o mentor vê "paga em"
+      if (x.notas.length) await sb.from('fin_notas_mentor').update({ situacao: 'paga', pago_em: dia }).in('id', x.notas.map((n) => n.id));
       j.fechar(); avisar('Pagamento registrado.'); recarregar();
     } catch (e) { avisar(explicarErro(e), true); }
   });
@@ -287,8 +306,11 @@ function janelaPagar(d, x, mes, recarregar) {
 export async function previsaoMentores(d) {
   const m = await carregar(d);
   if (m.falta) return null;
+  // serviços de antes do mês anterior ao início do Financeiro já foram pagos pela planilha
+  const antes = F.somarMeses(d.config.inicio || '2026-11', -1);
   const doMes = (perfilId, mes) => {
     const salvo = m.pagamentos.find((x) => x.perfil_id === perfilId && x.mes === mes) || null;
+    if (!salvo && mes < antes) return { total: calcularMes(d, m, perfilId, mes, true).total, pago: true, situacao: 'planilha' };
     const total = salvo ? Number(salvo.total) : calcularMes(d, m, perfilId, mes, true).total;
     return { total, pago: !!(salvo && salvo.situacao === 'pago'), situacao: salvo ? salvo.situacao : 'calculado' };
   };

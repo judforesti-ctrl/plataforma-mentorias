@@ -8,6 +8,7 @@ import { sb, esc, dataBR, hojeISO, avisar, explicarErro } from '../base.js';
 import { janela } from './agenda-dados.js';
 import { dinheiro } from './vendas.js';
 import * as F from '../financeiro-regras.js';
+import { feriadoDe } from '../agenda-regras.js';
 
 const maiuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
 const pct = (v) => (v == null ? '—' : `${Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`);
@@ -224,7 +225,7 @@ function janelaReserva(d, reserva, lancs, recarregar) {
 
 // Caixa semana a semana nos próximos 90 dias: começa no saldo do último extrato de cada conta; entra o que as notas e os planos dizem
 // (nota emitida no vencimento; módulo ou parcela ainda sem nota na data + prazo do plano); sai o que está lançado e não pago, as
-// fixas dos próximos meses, os mentores parceiros (dia 10 do mês seguinte), o imposto (dia 20 do mês seguinte, pela alíquota), a
+// fixas dos próximos meses (nos dias 5, 15 ou 25 antes do vencimento), os mentores parceiros (dia 5 do mês seguinte, se der), o imposto (dia 20 do mês seguinte, pela alíquota), a
 // média dos outros custos e, se quiser, a média das retiradas das sócias. Depois, os avisos do alto da Visão da direção.
 async function caixaEAvisos(d, el, { mentores, socia, ultimos, fixo, outrosMedia }) {
   const hoje = hojeISO();
@@ -245,14 +246,16 @@ async function caixaEAvisos(d, el, { mentores, socia, ultimos, fixo, outrosMedia
       if (dia <= fim) movs.push({ dia: depois(dia), valor: Number(l.valor), rotulo: `${emp(l)} · ${l.descricao}`, tipo: 'entra' });
     }
   }
-  for (const x of d.despesas) if (!x.pago_em && x.data >= F.somarDias(hoje, -45) && x.data <= fim && x.categoria !== 'socia') movs.push({ dia: depois(x.data), valor: -Number(x.valor), rotulo: x.descricao, tipo: 'lancada' });
+  // contas: no último dia de pagamento (5, 15 ou 25) até o vencimento; atrasada = hoje
+  for (const x of d.despesas) if (!x.pago_em && x.data >= F.somarDias(hoje, -45) && x.data <= fim && x.categoria !== 'socia') movs.push({ dia: depois(F.pagamentoDaConta(x.data, feriadoDe)), valor: -Number(x.valor), rotulo: x.descricao, tipo: 'lancada' });
   const meses = [0, 1, 2, 3].map((k) => F.somarMeses(mesAtual, k));
   for (const m of meses.slice(1)) for (const f of d.fixas.filter((y) => y.ativo !== false)) {
-    const dia = `${m}-${String(f.dia).padStart(2, '0')}`;
+    const dia = F.pagamentoDaConta(`${m}-${String(f.dia).padStart(2, '0')}`, feriadoDe);
     if (dia <= fim) movs.push({ dia, valor: -Number(f.valor), rotulo: f.descricao, tipo: 'fixa' });
   }
   for (const m of [F.somarMeses(mesAtual, -1), ...meses.slice(0, 3)]) {
-    const pagar = `${F.somarMeses(m, 1)}-10`, imp = `${F.somarMeses(m, 1)}-20`;
+    // mentores: a nota do mês entra no 1º dia de pagamento depois do fim do mês (+3 dias); imposto: dia 20 do mês seguinte
+    const pagar = F.pagamentoDaNota({ enviadaEm: `${F.somarMeses(m, 1)}-01`, mesReferencia: m, feriado: feriadoDe }), imp = `${F.somarMeses(m, 1)}-20`;
     if (mentores && pagar <= fim) {
       const v = F.soma(mentores.parceiros, (p) => { const x = mentores.doMes(p.id, m); return x.pago ? 0 : x.total; });
       if (v && (pagar >= hoje || m === F.somarMeses(mesAtual, -1))) movs.push({ dia: depois(pagar), valor: -v, rotulo: `Mentores parceiros de ${F.nomeMes(m)}`, tipo: 'mentores' });

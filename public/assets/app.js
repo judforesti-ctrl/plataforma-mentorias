@@ -93,6 +93,7 @@ const GRUPOS = [
     { nome: 'Painel da empresa', icone: 'layout-dashboard', rota: '#/rh', pode: rh },
     { nome: 'Meus dados', icone: 'circle-user', rota: '#/perfil', pode: mentorado || aluno || rh },
     { nome: 'Meu contrato', icone: 'file-signature', rota: '#/contrato', pode: perfil.papel === 'mentor' && CONTRATO_LIBERADO },
+    { nome: 'Notas fiscais', icone: 'wallet', rota: '#/notas', pode: perfil.papel === 'mentor' },
   ] },
   { id: 'gestao', nome: 'Gestão', icone: 'sliders-horizontal', itens: [
     { nome: 'Painel', icone: 'layout-dashboard', rota: '#/painel', pode: ehAdmin },
@@ -152,6 +153,7 @@ const ROTAS = {
   trilha: () => import('./telas/minha-trilha.js'),
   rh: () => import('./telas/painel-rh.js'),
   contrato: () => import('./telas/contrato.js'),
+  notas: () => import('./telas/notas-mentor.js'),
 };
 
 // Marca no menu a página atual e devolve o caminho "Grupo › Página" (escondido no primeiro acesso, quando o menu fica escondido).

@@ -49,7 +49,8 @@ export function calcularMargens(d, mentores) {
     let parceiros = 0;
     const porParceiro = new Map();
     for (const i of itens) {
-      if (socias.has(i.pessoa) || !i.dia || pagos.has(`${i.pessoa}|${F.mesDe(i.dia)}`)) continue;
+      // pago pela plataforma ou antes do Financeiro (pela planilha: já está nas despesas)
+      if (socias.has(i.pessoa) || !i.dia || pagos.has(`${i.pessoa}|${F.mesDe(i.dia)}`) || F.mesDe(i.dia) < F.somarMeses(d.config.inicio || '2026-11', -1)) continue;
       const cad = m.cad(i.pessoa);
       const r = mentores.valorDe(i.pessoa, chave);
       const forma = (r && r.forma) || (cad && cad.forma) || 'hora';

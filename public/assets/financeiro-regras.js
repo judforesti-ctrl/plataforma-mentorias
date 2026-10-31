@@ -345,6 +345,39 @@ export function caixaPorSemana({ hoje, saldo = 0, movimentos = [], semanas = 13 
   return { semanas: out, menor, final: atual };
 }
 
+// ---------- dias de pagamento (30/10, decisão dela: pagar 3 vezes ao mês, salvo o que for fora da curva) ----------
+export const DIAS_PAGAMENTO = [5, 15, 25];
+// base dos mentores parceiros sem cadastro (30/10, decisão dela: a mesma do Isaac na planilha, R$ 187 por hora)
+export const BASE_ISAAC = { forma: 'hora', valor: 187 };
+const diaDaSemana = (dia) => new Date(`${dia}T12:00:00Z`).getUTCDay();
+export const diaUtil = (dia, feriado = () => null) => diaDaSemana(dia) % 6 !== 0 && !feriado(dia);
+const ajustar = (dia, passo, feriado) => { let d = dia; while (!diaUtil(d, feriado)) d = somarDias(d, passo); return d; };
+const slotsDoMes = (mes) => DIAS_PAGAMENTO.map((n) => `${mes}-${String(n).padStart(2, '0')}`);
+// Próximo dia de pagamento (5, 15 ou 25) a partir de "desde" (inclusive); fim de semana ou feriado = dia útil seguinte
+export function proximoPagamento(desde, feriado) {
+  for (let k = 0; k < 3; k++) for (const s of slotsDoMes(somarMeses(desde.slice(0, 7), k))) if (s >= desde) return ajustar(s, 1, feriado);
+  return null;
+}
+// Nota do mentor: entra no primeiro dia de pagamento que vier pelo menos 3 dias depois do envio e depois do fim do mês da nota
+export function pagamentoDaNota({ enviadaEm, mesReferencia, feriado }) {
+  const envio = diaDe(enviadaEm);
+  const fimDoMes = somarDias(`${somarMeses(mesReferencia, 1)}-01`, -1);
+  const pronta = [somarDias(envio, 3), somarDias(fimDoMes, 1)].sort().pop();
+  return proximoPagamento(pronta, feriado);
+}
+// Conta com vencimento: paga no último dia de pagamento até o vencimento (se cair em fim de semana ou feriado, o dia útil antes)
+export function pagamentoDaConta(vencimento, feriado) {
+  const antes = [...slotsDoMes(somarMeses(vencimento.slice(0, 7), -1)), ...slotsDoMes(vencimento.slice(0, 7))].filter((s) => s <= vencimento);
+  return ajustar(antes[antes.length - 1], -1, feriado);
+}
+// Os próximos n dias de pagamento a partir de hoje
+export function proximosPagamentos(hoje, n = 6, feriado) {
+  const out = [];
+  let d = hoje;
+  while (out.length < n) { const p = proximoPagamento(d, feriado); if (!out.includes(p)) out.push(p); d = somarDias(p, 1); }
+  return out;
+}
+
 // Valor que a Juliana informou em 30/10/2026 (falta o extrato): vale até o primeiro lançamento de verdade
 export const RESERVA_INICIAL = [{ id: 'informado-2026-10-30', data: '2026-10-30', tipo: 'saldo', valor: 62000, obs: 'Valor aproximado informado pela Juliana. Falta o extrato.', provisorio: true }];
 export const TIPOS_RESERVA = { saldo: 'Saldo do extrato', aporte: 'Aporte (entrou)', resgate: 'Resgate (saiu)', rendimento: 'Rendimento' };

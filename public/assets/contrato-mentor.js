@@ -32,7 +32,7 @@ export const TEXTO = `
 
 <h4>3. Remuneração e pagamento</h4>
 <p>3.1. O valor e a forma de remuneração (por hora, por atendimento ou aula, por módulo, valor mensal ou percentual) são combinados por escrito com a Mentorei para cada trabalho e ficam registrados pela coordenação.</p>
-<p>3.2. A Mentorei paga até o dia 10 do mês seguinte ao serviço realizado, conforme o extrato do mês enviado ao Mentor, mediante nota fiscal ou recibo quando aplicável.</p>
+<p>3.2. O Mentor envia pela plataforma a nota fiscal de serviço (ou recibo, quando aplicável) dos serviços de cada mês. A Mentorei paga nos dias 5, 15 e 25 de cada mês (em fim de semana ou feriado, no dia útil seguinte): a nota entra no primeiro desses dias que vier pelo menos 3 dias depois do envio e depois do fim do mês dos serviços, conforme o extrato do mês. Situações fora do comum podem ter outra data, combinada com o Mentor.</p>
 <p>3.3. Sessão ou aula não realizada por motivo do Mentor não é paga. Quando o cliente cancelar ou remarcar, vale o que estiver combinado no programa.</p>
 
 <h4>4. Despesas e viagens</h4>

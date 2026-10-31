@@ -660,7 +660,30 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   dá para tirar). Avisos: caixa negativo ou abaixo de um mês de fixo, nota vencida há mais de 15 dias, margem abaixo da desejada,
   extrato desatualizado/nenhum, mês anterior sem fechamento (só sócias, depois do dia 10). Ajustes ganhou "Margem e viagem estimada"
   e (só sócias) "Distribuição das sócias" em `configuracoes.financeiro.custos` (`F.PADRAO_CUSTOS`). Testes: %TEMP%\fin56\etapa4.mjs.
-  As 4 etapas do Financeiro estão feitas. Teste local: launch.json
+  As 4 etapas do Financeiro estão feitas.
+  BASE DO ISAAC (30/10, pedido dela): os 11 mentores parceiros ativos ganharam cadastro em `fin_mentores` (gravado pelo login dela no
+  navegador): forma hora, R$ 187 (o valor por atendimento do Isaac na planilha), com recado "Valor provisório… conferir"; cadastro novo na
+  tela já vem com `F.BASE_ISAAC`. A Lorena tinha R$ 230/h na planilha: ficou 187 pela decisão dela (avisado). Serviços de antes do mês
+  anterior ao início do Financeiro (`config.inicio` − 1) contam como pagos pela planilha (previsão e margem).
+  NOTAS FISCAIS DOS MENTORES E AGENDA DE PAGAMENTOS (script 58, 30/10): decisão dela: pagar 3 vezes ao mês, dias 5, 15 e 25, salvo
+  fora da curva. Regras em financeiro-regras.js: `proximoPagamento` (fim de semana/feriado = dia útil seguinte, feriados de
+  agenda-regras `feriadoDe`), `pagamentoDaNota` (1º dia de pagamento ≥ envio + 3 dias e ≥ fim do mês dos serviços), `pagamentoDaConta`
+  (último dia de pagamento até o vencimento; fim de semana = dia útil antes), `proximosPagamentos`. MENTOR (papel mentor; menu
+  "Notas fiscais", rota `#/notas`, `telas/notas-mentor.js`): dados para pagamento (`mentor_pagamento_dados`: PF/PJ, nome, CPF/CNPJ,
+  PIX, banco opcional; RLS dele) e envio da nota do mês (mês, valor, número, emissão, PDF/foto até 10 MB em financeiro/notas-mentores/
+  <id>/<mês>/, `fin_notas_mentor`); só envia com os dados completos; mostra a data prevista na hora; lista as notas com situação
+  (recebida/conferida/paga/devolvida + motivo) e apaga a recebida/devolvida. NÃO mostra o valor calculado (decisão dela: os números dos
+  mentores ainda não aparecem para eles). `/api/nota-mentor` manda e-mail à coordenação (COORDENACAO = contato@, a Cintia; uma vez,
+  `avisado_em`). ADMINISTRAÇÃO: aba Financeiro → "Agenda de pagamentos" (`telas/financeiro-pagamentos.js`): um bloco por dia (os
+  próximos 6 dias de pagamento + qualquer dia fora deles), atrasados no alto, notas dos mentores (com o calculado pela plataforma,
+  "confere"/diferença, dados de pagamento, Ver a nota, Conferida, Pagar → Mentores → Pagamento do mês, Mudar a data = `pagar_em`,
+  Devolver com motivo), contas fixas (no dia certo; "Marcar como paga" cria/atualiza a despesa do mês) e outras despesas sem pago_em;
+  contador na aba e "Para fazer". Pagamento do mês do mentor mostra a nota enviada; "Marcar como pago" marca as notas do mês como pagas
+  (sem nada calculado, a despesa sai do valor da nota); "Desfazer" volta as notas para conferida. Cadastro financeiro do mentor mostra
+  o que ele informou e completa nome/documento/PIX vazios. Caixa 90 dias: fixas e contas no dia de pagamento antes do vencimento;
+  mentores no 1º dia de pagamento depois do fim do mês. CONTRATO: cláusula 3.2 trocada para os dias 5, 15 e 25 SEM mudar a VERSAO
+  (em 30/10 ninguém tinha aberto nem assinado: contratos_mentor vazia). Testes: %TEMP%\fin56\dias.mjs; kit `?nota=1` = nota da Lorena.
+  Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
 - CERTIFICADOS (2026-10-27, script 47, `telas/certificados.js`, Gestão → "Emitir certificados", só administração = Cintia e sócias;
   `#/certificados[/nova|/<pasta>[/emitir|/emitidos|/editar]]`). Pacote dela em `docs/certificados/` (ESPECIFICACAO.md, protótipos,
@@ -821,7 +844,7 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
 
 ## Pendências conhecidas
 - FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;
-  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapa 3 feita (falta rodar o script 56 e importar os extratos); etapa 4 feita (falta rodar o script 57); HUB de inovação de Holambra fica de fora por enquanto.
+  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapa 3 feita (falta rodar o script 56 e importar os extratos); etapa 4 feita (falta rodar o script 57); notas dos mentores e agenda de pagamentos feitas (falta rodar o script 58); HUB de inovação de Holambra fica de fora por enquanto.
   LEMBRAR A JULIANA NA ETAPA FINAL (4) DO FINANCEIRO (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia
   05/02 R$ 6.570,49 e 19/03 R$ 1.489 e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e os
   extratos do Sicoob e da Unicred de janeiro de 2026 até hoje (só veio Sicoob 01-14/10).
