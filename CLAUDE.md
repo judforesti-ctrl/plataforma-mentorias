@@ -688,7 +688,7 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   do Sescoop ligados aos módulos 3, 4 e 5 da Sicredi Expansão, e os 3 Pix de 09/10 = RETIRADAS (ela: Cláudia tem o menor percentual →
   17.664,49 do CPF ***.769.509-** é dela, com regra "lembrar"; os dois de 25.328,99 = Juliana (***.853.929-**) e Viviane
   (***.578.928-**) marcados SEM regra, porque ainda não se sabe qual CPF é de quem: perguntar). Falta: entrada da CCS de R$ 8.070 em 07/10
-  (sem plano; perguntado).
+  (sem plano; ela não sabe o que é: ficou nas pendências para verificar, 31/10).
   ARQUIVO PARA A CONTABILIDADE (script 59, 31/10, pedido dela: "fácil e simples, flegar os clientes e gerar o arquivo"): Financeiro →
   Emitir nota: caixinhas (+ "marcar todas") e "📄 Gerar arquivo para a contabilidade" (`telas/financeiro-contabilidade.js`): uma nota
   por turma/mentoria do mesmo tomador (opção "juntar"), tomador = pagador do plano, senão o cliente (CNPJ só números); planilha .xlsx
@@ -872,6 +872,10 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   62 mil", valor provisório na tela) para lançar o saldo de verdade em Financeiro → Visão geral → Fundo de reserva → Atualizar
   (e onde está aplicado). Lembrar junto com os outros extratos. NÃO é o saldo da conta corrente (ela confirmou em 30/10).
   LEMBRADA na etapa 4 (30/10) dos relatórios de reembolso e extratos que faltam; continuar lembrando até chegarem.
+  VERIFICAR (31/10, ela não sabe o que é): ENTRADA DA CCS DE R$ 8.070,00 NO SICOOB EM 07/10/2026 (sem nota emitida nem plano que
+  bata; a última nota dessa empresa na planilha e a Cintia podem dizer). Até saber, o movimento fica "para conferir" em Financeiro →
+  Extratos. Quando souber: se for pagamento de nota, ligar à nota; se for outra coisa, "Outra entrada" com o recado.
+  Também perguntar qual CPF é da Juliana (***.853.929-** ou ***.578.928-**) para a plataforma aprender as retiradas dela e da Viviane.
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
