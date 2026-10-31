@@ -30,7 +30,7 @@ async function carregar() {
   const [planos, receber, despesas, fixas, meses, config, empresas, turmas, programas, modulos, oportunidades, perfis, extratos, pendentes, notasNovas] = await Promise.all([
     pedir('fin_planos'), pedir('fin_receber'), pedir('fin_despesas', '*', (q) => q.gte('data', `${F.somarMeses(hojeISO().slice(0, 7), -24)}-01`)),
     pedir('fin_despesas_fixas'), pedir('fin_meses'), pedir('configuracoes', 'valor', (q) => q.eq('chave', 'financeiro').maybeSingle()),
-    pedir('empresas', 'id, nome, cnpj'), pedir('turmas', 'id, nome, empresa_id, status, inicio, fim_previsto, formato, local, viagem_padrao'),
+    pedir('empresas', 'id, nome, cnpj, razao_social'), pedir('turmas', 'id, nome, empresa_id, status, inicio, fim_previsto, formato, local, viagem_padrao'),
     pedir('programas', 'id, nome, empresa_id, status, inicio, fim_previsto, sessoes_por_mentorado'),
     pedir('modulos', 'id, turma_id, numero, titulo, data_hora, duracao_min, formato, local'), pedir('oportunidades', 'id, empresa_id, turma_id, programa_id, valor, etapa, titulo'),
     pedir('perfis', 'id, nome, papel, tambem_mentor, ativo', (q) => q.in('papel', ['admin', 'mentor'])),
@@ -347,7 +347,7 @@ function abaEmitir(d, el, recarregar) {
   const quemPaga = (l) => { const p = d.plano(l.plano_id); const e = d.empresa(l.empresa_id); return p && p.pagador_nome ? `${esc(p.pagador_nome)}${p.pagador_cnpj ? `<br><small>${esc(p.pagador_cnpj)}</small>` : ''}` : `${esc(e.nome)}${e.cnpj ? `<br><small>${esc(e.cnpj)}</small>` : ''}`; };
   const linha = (l) => { const p = d.plano(l.plano_id); return `<tr>
       <td><input type="checkbox" data-sel="${l.id}" aria-label="Marcar ${esc(l.descricao)}"></td>
-      <td>${dataBR(l.data)}<br>${selo(F.estado(l, hoje))}</td>
+      <td>${dataBR(l.data)}<br>${selo(F.estado(l, hoje))}${l.contabilidade_em ? `<br><span class="selo ok">pedida à contabilidade ${dataBR(l.contabilidade_em)}</span>` : ''}</td>
       <td><b>${esc(d.empresa(l.empresa_id).nome)}</b><br><small>${esc(p ? p.titulo : '')}</small></td>
       <td>${esc(l.descricao)}</td>
       <td>${quemPaga(l)}</td>
@@ -355,16 +355,19 @@ function abaEmitir(d, el, recarregar) {
       <td class="fn-num" style="text-align:right">${dinheiro(l.valor)}</td>
       <td><div class="linha" style="gap:6px;flex-wrap:nowrap"><button class="btn peq" type="button" data-texto="${l.id}">Copiar texto</button><button class="btn peq escuro" type="button" data-nota="${l.id}">Nota emitida</button></div></td></tr>`; };
   el.innerHTML = blocoReembolsos(d) + (linhas.length ? `
-    <p class="apagado" style="margin-bottom:10px">Módulos e parcelas que já aconteceram (ou acontecem nesta semana) e ainda estão sem nota. Para pôr várias linhas na mesma nota, marque as caixinhas.</p>
-    <div class="linha" style="margin-bottom:10px"><button class="btn escuro" type="button" id="nota-varias" disabled>Nota emitida para as marcadas</button><span class="peq apagado" id="soma-sel"></span></div>
-    <div class="tabela cartao" style="padding:0"><table><thead><tr><th></th><th>Data</th><th>Cliente</th><th>O que</th><th>Quem paga</th><th>Nota por</th><th style="text-align:right">Valor</th><th></th></tr></thead>
+    <p class="apagado" style="margin-bottom:10px">Módulos e parcelas que já aconteceram (ou acontecem nesta semana) e ainda estão sem nota. Marque as linhas e clique em "Gerar arquivo para a contabilidade": sai a planilha com tudo o que a Contabilizei precisa. Quando a nota sair, registre o número em "Nota emitida".</p>
+    <div class="linha" style="margin-bottom:10px"><button class="btn pri" type="button" id="contabilidade" disabled>📄 Gerar arquivo para a contabilidade</button>
+      <button class="btn escuro" type="button" id="nota-varias" disabled>Nota emitida para as marcadas</button><span class="peq apagado" id="soma-sel"></span></div>
+    <div class="tabela cartao" style="padding:0"><table><thead><tr><th><input type="checkbox" id="sel-todas" aria-label="Marcar todas"></th><th>Data</th><th>Cliente</th><th>O que</th><th>Quem paga</th><th>Nota por</th><th style="text-align:right">Valor</th><th></th></tr></thead>
       <tbody>${linhas.map(linha).join('')}</tbody></table></div>`
     : '<div class="vazio">Nenhuma nota para emitir agora. Quando um módulo ou uma parcela chegar, ela aparece aqui.</div>');
   const marcadas = () => [...el.querySelectorAll('[data-sel]:checked')].map((c) => d.receber.find((l) => l.id === c.dataset.sel));
   el.addEventListener('change', (ev) => {
-    if (!ev.target.matches('[data-sel]')) return;
+    if (ev.target.id === 'sel-todas') el.querySelectorAll('[data-sel]').forEach((c) => { c.checked = ev.target.checked; });
+    else if (!ev.target.matches('[data-sel]')) return;
     const m = marcadas();
     if (el.querySelector('#nota-varias')) el.querySelector('#nota-varias').disabled = m.length < 1;
+    if (el.querySelector('#contabilidade')) el.querySelector('#contabilidade').disabled = m.length < 1;
     el.querySelector('#soma-sel').textContent = m.length ? `${m.length} marcada${m.length > 1 ? 's' : ''} · ${dinheiro(F.soma(m, (l) => l.valor))}` : '';
   });
   el.addEventListener('click', async (ev) => {
@@ -372,6 +375,7 @@ function abaEmitir(d, el, recarregar) {
     if (cb) return janelaCobrar(d, d.despesas.find((x) => x.id === cb.dataset.cobrar), recarregar);
     if (t) { const l = d.receber.find((x) => x.id === t.dataset.texto); copiar(F.textoDaNota({ plano: d.plano(l.plano_id), linhas: [l], empresa: d.empresa(l.empresa_id).nome })); }
     if (n) janelaNota(d, [d.receber.find((x) => x.id === n.dataset.nota)], recarregar);
+    if (ev.target.closest('#contabilidade')) return (await import('./financeiro-contabilidade.js')).janelaContabilidade(d, marcadas(), recarregar);
     if (ev.target.id === 'nota-varias') {
       const m = marcadas();
       if (new Set(m.map((l) => l.empresa_id)).size > 1) { avisar('Marque linhas de um cliente só: uma nota é para um cliente.', true); return; }

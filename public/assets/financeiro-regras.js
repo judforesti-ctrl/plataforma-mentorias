@@ -103,6 +103,39 @@ export function textoDaNota({ plano, linhas, empresa }) {
   return [base, itens.length > 1 ? itens.map((t) => `- ${t}`).join('\n') : itens[0]].filter(Boolean).join('\n');
 }
 
+// ---------- arquivo para a contabilidade (script 59, 31/10) ----------
+// As mesmas colunas da planilha de notas fiscais da Cintia (Notas_Fiscais_Mentorei…xlsx, aba "Notas fiscais"); "Número NF" e
+// "Código verificação" ficam vazios (a Contabilizei preenche) e entram Cidade, Vencimento, Emitir por e Observação no fim.
+export const COLUNAS_CONTABILIDADE = ['Ano', 'Data emissão', 'Número NF', 'Cliente / razão social', 'CNPJ/CPF', 'Descrição serviço', 'Valor serviços', 'Valor líquido',
+  'ISS', 'PIS', 'COFINS', 'INSS', 'IR', 'CSLL', 'Código verificação', 'Logradouro', 'Número endereço', 'Complemento', 'Bairro', 'Código município', 'Cidade', 'UF', 'CEP',
+  'Telefone', 'E-mail', 'Vencimento', 'Emitir por', 'Observação'];
+export const RETENCOES = ['iss', 'pis', 'cofins', 'inss', 'ir', 'csll'];
+export const soNumeros = (s) => String(s || '').replace(/\D/g, '');
+export function documentoFormatado(doc) {
+  const d = soNumeros(doc);
+  if (d.length === 14) return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  if (d.length === 11) return d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+  return doc || '';
+}
+// O que falta no cadastro do tomador para a contabilidade emitir
+export const faltaNoTomador = (t) => (!t ? ['os dados do tomador'] : [!t.razao_social && 'razão social', !t.logradouro && 'endereço', !t.codigo_municipio && 'código do município',
+  !t.uf && 'UF', !t.cep && 'CEP', !t.email && 'e-mail'].filter(Boolean));
+// Uma nota (uma ou várias linhas do mesmo cliente): valor, retenções de costume do tomador (% guardadas) e o líquido
+export function notaContabilidade({ linhas, plano = null, empresaNome = '', documento = '', tomador = null, emissao, vencimento = null, emissor = '', observacao = '' }) {
+  const valor = soma(linhas, (l) => l.valor);
+  const ret = Object.fromEntries(RETENCOES.map((k) => [k, impostoSobre(valor, ((tomador && tomador.retencoes) || {})[k] || 0)]));
+  const liquido = arred(valor - Object.values(ret).reduce((a, b) => a + b, 0));
+  return { emissao, documento: soNumeros(documento), razao: (tomador && tomador.razao_social) || empresaNome, descricao: textoDaNota({ plano, linhas, empresa: empresaNome }),
+    valor, liquido, ret, tomador, vencimento, emissor, observacao, falta: soNumeros(documento) ? faltaNoTomador(tomador) : ['o CNPJ ou CPF', ...faltaNoTomador(tomador)] };
+}
+export function linhaContabilidade(n) {
+  const t = n.tomador || {};
+  const br = (d) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}` : '');
+  return [Number(n.emissao.slice(0, 4)), br(n.emissao), '', n.razao, documentoFormatado(n.documento), n.descricao, n.valor, n.liquido,
+    ...RETENCOES.map((k) => n.ret[k]), '', t.logradouro || '', t.numero || '', t.complemento || '', t.bairro || '', t.codigo_municipio || '', t.cidade || '', t.uf || '',
+    t.cep || '', t.telefone || '', t.email || '', br(n.vencimento), n.emissor, n.observacao || ''];
+}
+
 // ---------- números do mês ----------
 // Faturamento do mês: antes do "inicio" do Financeiro vale a planilha; dali em diante, as linhas da plataforma pela data
 // (módulo dado ou parcela do mês), menos as canceladas.

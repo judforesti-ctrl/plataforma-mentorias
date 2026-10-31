@@ -683,6 +683,23 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   o que ele informou e completa nome/documento/PIX vazios. Caixa 90 dias: fixas e contas no dia de pagamento antes do vencimento;
   mentores no 1º dia de pagamento depois do fim do mês. CONTRATO: cláusula 3.2 trocada para os dias 5, 15 e 25 SEM mudar a VERSAO
   (em 30/10 ninguém tinha aberto nem assinado: contratos_mentor vazia). Testes: %TEMP%\fin56\dias.mjs; kit `?nota=1` = nota da Lorena.
+  EXTRATO IMPORTADO (31/10): Sicoob 01-14/10 (21 movimentos, lidos com o mesmo leitor do site no kit e gravados pelo login dela; a
+  `chave` é a mesma que o PDF daria, importar o PDF de novo não repete; sem arquivo guardado): 14 despesas lançadas conferidas, 3 × 8.900
+  do Sescoop ligados aos módulos 3, 4 e 5 da Sicredi Expansão, e os 3 Pix de 09/10 = RETIRADAS (ela: Cláudia tem o menor percentual →
+  17.664,49 do CPF ***.769.509-** é dela, com regra "lembrar"; os dois de 25.328,99 = Juliana (***.853.929-**) e Viviane
+  (***.578.928-**) marcados SEM regra, porque ainda não se sabe qual CPF é de quem: perguntar). Falta: entrada da CCS de R$ 8.070 em 07/10
+  (sem plano; perguntado).
+  ARQUIVO PARA A CONTABILIDADE (script 59, 31/10, pedido dela: "fácil e simples, flegar os clientes e gerar o arquivo"): Financeiro →
+  Emitir nota: caixinhas (+ "marcar todas") e "📄 Gerar arquivo para a contabilidade" (`telas/financeiro-contabilidade.js`): uma nota
+  por turma/mentoria do mesmo tomador (opção "juntar"), tomador = pagador do plano, senão o cliente (CNPJ só números); planilha .xlsx
+  (SheetJS) com as MESMAS colunas da planilha de notas fiscais dela (`Notas_Fiscais_Mentorei_2019_2026_Atualizada.xlsx`, aba "Notas
+  fiscais"; `F.COLUNAS_CONTABILIDADE`: Número NF e Código verificação em branco, + Cidade, Vencimento, Emitir por, Observação no fim),
+  descrição = `textoDaNota`, retenções = % de costume do tomador (`F.notaContabilidade`), data de emissão escolhida na janela.
+  Tomadores em `fin_tomadores` (documento pk, endereço, código do município IBGE, cidade, UF, CEP, telefone, e-mail, retencoes jsonb);
+  "Completar"/"Ver ou mudar" na própria janela (sem CNPJ: pede o CNPJ e grava em empresas.cnpj). Depois de baixar: `fin_receber.
+  contabilidade_em` (selo "pedida à contabilidade" em Emitir nota). Carga inicial: 78 tomadores da aba "Cadastro clientes" (cidade pelo
+  código do IBGE da planilha "Notas fiscais para importar…", retenções da última nota de cada CNPJ) gerada por %TEMP%\fin56\tomadores.py
+  → tomadores.json, gravada pelo login dela depois do script 59.
   Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
 - CERTIFICADOS (2026-10-27, script 47, `telas/certificados.js`, Gestão → "Emitir certificados", só administração = Cintia e sócias;
@@ -844,7 +861,7 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
 
 ## Pendências conhecidas
 - FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;
-  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapas 3 e 4, notas dos mentores e agenda de pagamentos publicadas em 31/10 (scripts 57 e 58 RODADOS; o 56, dos extratos, NÃO: conferido em 31/10 com select de verdade, porque select com head:true não acusa tabela que falta; depois do 56, importar o Sicoob de 01-14/10, que já está pronto, e marcar como pagas as fixas de outubro, que aparecem como atrasadas na agenda); HUB de inovação de Holambra fica de fora por enquanto.
+  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapas 3 e 4, notas dos mentores e agenda de pagamentos publicadas em 31/10; arquivo para a contabilidade feito (falta rodar o script 59 e carregar os 78 tomadores) (scripts 56, 57 e 58 RODADOS; atenção: select com head:true não acusa tabela que falta, conferir com select de verdade; falta marcar como pagas as fixas de outubro, que aparecem como atrasadas na agenda); HUB de inovação de Holambra fica de fora por enquanto.
   LEMBRAR A JULIANA NA ETAPA FINAL (4) DO FINANCEIRO (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia
   05/02 R$ 6.570,49 e 19/03 R$ 1.489 e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e os
   extratos do Sicoob e da Unicred de janeiro de 2026 até hoje (só veio Sicoob 01-14/10).
