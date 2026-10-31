@@ -522,12 +522,13 @@ async function paginaModulo(ctx, el, id) {
         ${cartaoAvaliacao(ctx, m, souMentor)}
         <div class="cartao"><h3>Slides dos mentores</h3>
           <p class="peq apagado">A versão que ${souMentor ? 'você vai usar' : 'o mentor vai usar'} na aula (PDF ou PowerPoint, até 50 MB).</p>
-          <p class="peq mt">📌 O último slide leva o <a href="#avaliacao-turma" data-ir-qr>QR code de avaliação</a>.</p>
+          <p class="peq mt">📌 O último slide leva o <a href="#avaliacao-turma" data-ir-qr>QR code de avaliação</a>. Ao enviar, dá para liberar os slides também para os alunos (em PDF).</p>
           ${listaArquivos(dosMentores, 'Nenhum slide enviado pelos mentores ainda.')}
           ${souMentor || adm ? botaoEnvio('mentor', souMentor ? 'Enviar os meus slides' : 'Enviar slides do mentor') : ''}
           <p class="peq apagado mt" id="progresso"></p>
         </div>
         ${cartaoParaAlunos(ctx, m, adm || souMentor)}
+        ${cartaoFerramentasTurma()}
         ${cartaoPresenca()}
         ${cartaoEnviosAlunos()}
         <div class="cartao" style="${podePercepcao ? 'border-color:var(--verde);background:linear-gradient(var(--verde-claro), var(--papel) 90px)' : ''}">
@@ -617,32 +618,76 @@ async function paginaModulo(ctx, el, id) {
   ligarMateriais(ctx, el, m, adm || souMentor);
   // para os alunos: PDF dos slides, tarefas e gravação (script 44)
   ligarParaAlunos(ctx, el, m, adm || souMentor);
+  // testes e ferramentas online do arsenal que abrem para os alunos neste módulo (scripts 48 e 61)
+  ligarFerramentasTurma(ctx, el, m.turma, { modulo: m, souMentor });
   // lista de chamada (Zoom, arquivo ou à mão) e envios dos alunos (script 49)
   ligarPresenca(ctx, el, m, adm || souMentor);
   ligarEnviosAlunos(ctx, el, { modulo: m, souMentor });
   el.querySelector('[data-ir-qr]')?.addEventListener('click', (ev) => { ev.preventDefault(); el.querySelector('#avaliacao-turma').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 
-  // envio de slides
-  el.querySelectorAll('[data-enviar]').forEach((inp) => inp.addEventListener('change', async () => {
-    const arq = inp.files[0]; if (!arq) return;
-    const tipo = inp.dataset.enviar;
-    // o aviso de sempre: a apresentação do mentor termina com o QR code de avaliação
-    if (tipo === 'mentor' && !window.confirm('Antes de enviar: o QR code de avaliação está no último slide?\n\nOK = está, pode enviar.\nCancelar = ainda não, vou incluir.')) { inp.value = ''; return; }
-    const prog = el.querySelector('#progresso');
-    if (arq.size > 52428800) { avisar('O arquivo passa de 50 MB. Salve como PDF ou reduza as imagens e tente de novo.', true); return; }
+  // envio de slides. Slides do mentor (31/10, pedido da Juliana para o tutorial): na mesma janela ele confirma o QR code e pode
+  // liberar os slides também para os alunos (tipo 'aluno', pasta "<módulo>/aluno/", em PDF; se mandou PowerPoint, escolhe o PDF ali).
+  const subir = async (arq, tipo) => {
     const ext = (arq.name.split('.').pop() || '').toLowerCase();
-    const contentType = TIPO_POR_EXT[ext] || arq.type;
-    if (!TIPO_POR_EXT[ext]) { avisar('Envie um PDF ou uma apresentação (PowerPoint, Keynote ou ODP).', true); return; }
     const caminho = `${id}/${tipo}/${Date.now()}-${nomeSeguro(arq.name)}`;
+    const up = await sb.storage.from('turmas').upload(caminho, arq, { contentType: TIPO_POR_EXT[ext] || arq.type });
+    if (up.error) throw up.error;
+    const r = await sb.from('modulo_arquivos').insert({ modulo_id: id, tipo, nome: arq.name, caminho, tamanho: arq.size, enviado_por: ctx.perfil.id });
+    if (r.error) { await sb.storage.from('turmas').remove([caminho]); throw r.error; }
+  };
+  const conferir = (arq) => {
+    if (arq.size > 52428800) { avisar('O arquivo passa de 50 MB. Salve como PDF ou reduza as imagens e tente de novo.', true); return false; }
+    if (!TIPO_POR_EXT[(arq.name.split('.').pop() || '').toLowerCase()]) { avisar('Envie um PDF ou uma apresentação (PowerPoint, Keynote ou ODP).', true); return false; }
+    return true;
+  };
+  const enviar = async (lista) => {
+    const prog = el.querySelector('#progresso');
     try {
-      if (prog) prog.textContent = `Enviando ${arq.name}…`;
-      const up = await sb.storage.from('turmas').upload(caminho, arq, { contentType });
-      if (up.error) throw up.error;
-      const r = await sb.from('modulo_arquivos').insert({ modulo_id: id, tipo, nome: arq.name, caminho, tamanho: arq.size, enviado_por: ctx.perfil.id });
-      if (r.error) { await sb.storage.from('turmas').remove([caminho]); throw r.error; }
-      avisar('Slides enviados.');
+      for (const [arq, tipo] of lista) { if (prog) prog.textContent = `Enviando ${arq.name}…`; await subir(arq, tipo); }
+      avisar(lista.some(([, t]) => t === 'aluno') ? 'Slides enviados. Os alunos já podem baixar o PDF na área deles.' : 'Slides enviados.');
       ctx.irPara(`#/modulo/${id}`);
-    } catch (e) { if (prog) prog.textContent = ''; avisar(explicarErro(e), true); }
+    } catch (e) {
+      if (prog) prog.textContent = '';
+      avisar(/check constraint|tipo_check/i.test(`${e && e.message}`) ? 'Os slides para os alunos ainda não foram liberados na plataforma. Avise a Cintia.' : explicarErro(e), true);
+    }
+  };
+  async function janelaSlidesMentor(arq) {
+    const { janela } = await import('./agenda-dados.js');
+    const ehPdf = /\.pdf$/i.test(arq.name);
+    const j = janela(souMentor ? 'Enviar os seus slides' : 'Enviar os slides do mentor', `<div class="grade" style="gap:12px">
+      <p><b>${esc(arq.name)}</b> <span class="peq apagado">${tamanho(arq.size)}</span></p>
+      <label class="check"><input type="checkbox" id="sm-qr"><span>O QR code de avaliação está no último slide.</span></label>
+      <p class="peq apagado" style="margin-top:-6px">Ainda não colocou? Feche esta janela, baixe o QR no cartão "Avaliação da turma", coloque no último slide e envie de novo.</p>
+      <label class="check"><input type="checkbox" id="sm-alunos"${ehPdf ? ' checked' : ''}><span>Liberar também para os alunos (eles baixam na área deles, em PDF)</span></label>
+      ${ehPdf ? '' : `<div class="campo" id="sm-pdf-campo" hidden><label for="sm-pdf">Este arquivo é uma apresentação. Escolha a versão em PDF para os alunos</label>
+        <input type="file" id="sm-pdf" accept=".pdf"><p class="peq apagado">No PowerPoint: Arquivo → Salvar como → PDF. No Keynote: Arquivo → Exportar para → PDF.</p></div>`}
+      <div class="linha"><button class="btn pri" type="button" id="sm-enviar" disabled>Enviar</button><button class="btn" type="button" data-fechar>Ainda não</button></div>
+    </div>`, { largura: 560 });
+    const $j = (s) => j.corpo.querySelector(s);
+    const pronto = () => {
+      const campo = $j('#sm-pdf-campo');
+      if (campo) campo.hidden = !$j('#sm-alunos').checked;
+      const faltaPdf = !ehPdf && $j('#sm-alunos').checked && !($j('#sm-pdf').files || [])[0];
+      $j('#sm-enviar').disabled = !$j('#sm-qr').checked || faltaPdf;
+    };
+    j.corpo.addEventListener('change', pronto);
+    $j('#sm-enviar').addEventListener('click', () => {
+      const lista = [[arq, 'mentor']];
+      if ($j('#sm-alunos').checked) {
+        const pdf = ehPdf ? arq : $j('#sm-pdf').files[0];
+        if (!/\.pdf$/i.test(pdf.name)) { avisar('Para os alunos, escolha um arquivo PDF.', true); return; }
+        if (pdf.size > 52428800) { avisar('O PDF passa de 50 MB.', true); return; }
+        lista.push([pdf, 'aluno']);
+      }
+      j.fechar();
+      enviar(lista);
+    });
+  }
+  el.querySelectorAll('[data-enviar]').forEach((inp) => inp.addEventListener('change', () => {
+    const arq = inp.files[0]; inp.value = '';
+    if (!arq || !conferir(arq)) return;
+    if (inp.dataset.enviar === 'mentor') janelaSlidesMentor(arq);
+    else enviar([[arq, inp.dataset.enviar]]);
   }));
 
   // ---------- fotos da aula (script 29): foto grande em "<módulo>/foto/" e miniatura em "<módulo>/foto-mini/" ----------

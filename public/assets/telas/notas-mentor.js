@@ -5,10 +5,14 @@
 // EXTRATO (script 60, 31/10, pedido dela: "o mentor vai precisar emitir a nota"): o mentor vê o mês dele (aulas, sessões, horas
 // lançadas pela coordenação, valor da hora e total; rpc meu_extrato_mentor, as mesmas contas do Financeiro) e manda recados sobre
 // pagamento (fin_mentor_recados); recado e mudança nos dados para pagamento avisam a coordenação por e-mail e entram nas pendências.
+// Script 61 (31/10, pedido da Juliana para o tutorial do mentor): "Está certo" = o mentor confere o extrato do mês
+// (fin_mentor_conferencias, com o total que ele viu; se o total mudar depois, pede para conferir de novo) e o quadro
+// "Para quem emitir a nota" (razão social e CNPJ da contratante, os mesmos do contrato).
 import { sb, esc, dataBR, hojeISO, avisar, explicarErro } from '../base.js';
 import { faltaScript } from './agenda-dados.js';
 import { feriadoDe } from '../agenda-regras.js';
 import * as F from '../financeiro-regras.js';
+import { CONTRATANTE } from '../contrato-mentor.js';
 
 const SITUACAO = { recebida: ['Recebida', 'neutro'], conferida: ['Conferida', 'ok'], paga: ['Paga', 'ok'], devolvida: ['Devolvida', 'erro'] };
 const EXTRATO = { previa: ['Prévia: a coordenação ainda vai conferir', 'neutro'], aberto: ['Em conferência pela coordenação', 'neutro'], aprovado: ['Conferido pela coordenação', 'ok'], pago: ['Pago', 'ok'] };
@@ -31,11 +35,14 @@ async function avisarCoordenacao(corpo) {
 export async function render(ctx, el) {
   if (ctx.perfil.papel !== 'mentor') { el.innerHTML = '<div class="aviso">Esta página é dos mentores parceiros, para ver o extrato do mês e enviar a nota fiscal de serviço.</div>'; return; }
   const eu = ctx.perfil.id;
-  const [dados, notas, recados] = await Promise.all([
+  const [dados, notas, recados, conferidos] = await Promise.all([
     sb.from('mentor_pagamento_dados').select('*').eq('perfil_id', eu).maybeSingle(),
     sb.from('fin_notas_mentor').select('*').eq('perfil_id', eu).order('enviada_em', { ascending: false }),
     sb.from('fin_mentor_recados').select('*').eq('perfil_id', eu).order('criado_em', { ascending: false }),
+    sb.from('fin_mentor_conferencias').select('*').eq('perfil_id', eu),
   ]);
+  const tem61 = !conferidos.error;
+  const conferencia = (mes) => (conferidos.data || []).find((c) => c.mes === mes) || null;
   if ((dados.error && faltaScript(dados.error)) || (notas.error && faltaScript(notas.error))) { el.innerHTML = '<div class="aviso">O envio de notas fiscais ainda não está disponível. Avise a Cintia.</div>'; return; }
   if (dados.error) throw dados.error;
   if (notas.error) throw notas.error;
@@ -134,6 +141,18 @@ export async function render(ctx, el) {
     const quanto = (l) => (l.forma === 'hora' ? horasBR(l.horas) : l.forma === 'percentual' ? `${l.valor_unit ?? '?'}% do faturado` : l.forma === 'mensal' ? 'valor mensal' : `${l.quantidade} ${(F.FORMAS[l.forma] || F.FORMAS.atendimento)[l.quantidade === 1 ? 1 : 2]}`);
     const cad = x.padrao;
     const mesAtual = mes === hoje.slice(0, 7);
+    // conferência do mentor: vale enquanto o total for o mesmo que ele viu
+    const cf = conferencia(mes);
+    const cfVale = cf && Math.abs(Number(cf.total) - x.total) < 0.01;
+    const blocoConferir = !tem61 || !(x.total > 0) || (mesAtual && Number(hoje.slice(8, 10)) < 25) ? ''   // mês corrente: só do dia 25 em diante
+      : cfVale ? `<div class="aviso ok mt">✓ Você conferiu este extrato em ${dataBR(cf.conferido_em)}. Agora é emitir a nota com este valor e enviar logo abaixo.</div>`
+      : `<div class="aviso mt">${cf ? `Você conferiu ${real(cf.total)} em ${dataBR(cf.conferido_em)}, mas o valor mudou depois (a coordenação ajustou ou entrou algo novo). Confira de novo.` : 'Confira as aulas, as sessões e o valor. Se estiver tudo certo, clique em "Está certo": a coordenação fica sabendo.'}
+          <div class="linha mt"><button class="btn pri" type="button" id="ex-certo">✓ Está certo</button><button class="btn" type="button" id="ex-errado">Achei algo errado</button></div></div>`;
+    const blocoTomador = x.total > 0 ? `<div class="mt" style="background:var(--bg);border-radius:12px;padding:12px 14px">
+        <b>Para quem emitir a nota</b>
+        <p class="peq mt">${esc(CONTRATANTE.razao)} · CNPJ ${esc(CONTRATANTE.cnpj)} · ${esc(CONTRATANTE.cidade)}</p>
+        <p class="peq apagado">Valor: <b>${real(x.total)}</b>. Na descrição do serviço, use o botão "Copiar a descrição para a nota".</p>
+        <button class="btn peq mt" type="button" id="ex-tomador">Copiar razão social e CNPJ</button></div>` : '';
     area.innerHTML = `
       <div class="linha" style="margin-bottom:6px">
         <button class="btn peq" type="button" data-ex-mes="${F.somarMeses(mes, -1)}" aria-label="Mês anterior">‹</button>
@@ -148,6 +167,8 @@ export async function render(ctx, el) {
           <td class="fn-num" style="text-align:right">${l.coberto_pelo_mensal ? '<small class="apagado">no mensal</small>' : real(l.total)}</td></tr>`).join('')}
         <tr class="fn-forte"><td colspan="3">Total do mês</td><td class="fn-num" style="text-align:right">${real(x.total)}</td></tr>
       </tbody></table></div>
+      ${blocoConferir}
+      ${blocoTomador}
       <div class="linha mt">${x.total > 0 ? '<button class="btn pri" type="button" id="ex-usar">Usar este valor na nota</button>' : ''}<button class="btn" type="button" id="ex-copiar">Copiar a descrição para a nota</button></div>
       <p class="peq apagado mt">Achou algo errado ou faltando? Mande um recado logo abaixo.</p>`
     : '<p class="apagado mt">Nada neste mês ainda.</p>'}`;
@@ -218,6 +239,25 @@ export async function render(ctx, el) {
     const b = ev.target.closest('button'); if (!b) return;
     try {
       if (b.dataset.exMes) return desenharExtrato(b.dataset.exMes);
+      if (b.id === 'ex-certo' && atual) {
+        b.disabled = true;
+        const reg = { perfil_id: eu, mes: atual.mes, total: F.arred(atual.total), conferido_em: new Date().toISOString() };
+        const { error } = await sb.from('fin_mentor_conferencias').upsert(reg);
+        if (error) { b.disabled = false; throw error; }
+        conferidos.data = [...(conferidos.data || []).filter((c) => c.mes !== atual.mes), reg];
+        avisar('Pronto: a coordenação sabe que você conferiu. Agora emita a nota e envie aqui.');
+        return desenharExtrato(atual.mes);
+      }
+      if (b.id === 'ex-errado') {
+        const f = $('#rc-form');
+        if (f) { $('#rc-mes').value = atual ? atual.mes : ''; f.scrollIntoView({ behavior: 'smooth', block: 'center' }); $('#rc-texto').focus(); }
+        return;
+      }
+      if (b.id === 'ex-tomador') {
+        const texto = `${CONTRATANTE.razao} · CNPJ ${CONTRATANTE.cnpj}`;
+        try { await navigator.clipboard.writeText(texto); avisar('Razão social e CNPJ copiados.'); } catch (_) { prompt('Copie:', texto); }
+        return;
+      }
       if (b.id === 'ex-usar' && atual) {
         const sel = $('#nf-mes');
         if (![...sel.options].some((o) => o.value === atual.mes)) sel.insertAdjacentHTML('beforeend', `<option value="${atual.mes}">${F.nomeMes(atual.mes)}</option>`);

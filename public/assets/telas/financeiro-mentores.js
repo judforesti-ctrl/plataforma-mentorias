@@ -44,6 +44,9 @@ async function carregar(d) {
   m.extras = ex.error ? [] : ex.data || [];
   m.recados = rc.error ? [] : rc.data || [];
   m.extrasDoMes = (id, mes) => m.extras.filter((x) => x.perfil_id === id && x.mes === mes);
+  // "Está certo" do mentor no extrato dele (script 61)
+  const cf = await sb.from('fin_mentor_conferencias').select('*');
+  m.conferencia = (id, mes) => (cf.error ? null : (cf.data || []).find((x) => x.perfil_id === id && x.mes === mes) || null);
   m.parceiros = d.perfis.filter((p) => p.papel === 'mentor' && p.ativo !== false).sort((a, b) => a.nome.localeCompare(b.nome));
   m.cad = (id) => m.cadastro.find((c) => c.perfil_id === id) || null;
   m.mentorado = (id) => m.mentorados.find((x) => x.id === id) || null;
@@ -210,6 +213,8 @@ function pagamentos(d, m, el, recarregar, mesParam) {
     ${cartoes.length ? cartoes.map((x) => `<div class="cartao" style="margin-bottom:12px">
       <div class="linha"><h3 style="flex:1">${esc(x.p.nome)}</h3>${selo(x)}<b>${dinheiro(x.total)}</b></div>
       ${x.notas.map((n) => { const dif = F.arred(Number(n.valor) - x.total); return `<div class="aviso mt${Math.abs(dif) < 0.01 ? ' ok' : ''}">Nota fiscal enviada pelo mentor: <b>${dinheiro(n.valor)}</b>${n.numero ? ` (nº ${esc(n.numero)})` : ''} · pagamento previsto ${dataBR(n.pagar_em || n.pagamento_previsto)}${Math.abs(dif) < 0.01 ? ' · confere com o calculado' : ` · <b>diferença de ${dinheiro(dif)}</b> do calculado`}${n.situacao === 'paga' ? ' · paga' : ''}</div>`; }).join('')}
+      ${(() => { const c = m.conferencia(x.p.id, mes); if (!c) return ''; const igual = Math.abs(Number(c.total) - x.total) < 0.01;
+        return `<div class="aviso mt${igual ? ' ok' : ''}">${igual ? `✓ ${esc(x.p.nome.split(' ')[0])} conferiu o extrato em ${dataBR(c.conferido_em)}: está certo.` : `${esc(x.p.nome.split(' ')[0])} conferiu ${dinheiro(c.total)} em ${dataBR(c.conferido_em)}; o valor mudou depois (o extrato pede para conferir de novo).`}</div>`; })()}
       ${x.recados.map((r) => `<div class="aviso mt">Recado do mentor (${dataBR(r.criado_em)}): ${esc(r.texto)}${r.resposta ? `<br><small>Resposta: ${esc(r.resposta)}</small>` : ''}</div>`).join('')}
       ${!x.c ? '<div class="aviso mt">Sem cadastro financeiro: o valor ficou zerado. <button class="btn peq" type="button" data-cadastro="' + x.p.id + '">Completar o cadastro</button></div>' : ''}
       <div class="tabela mt"><table><thead><tr><th>Turma ou mentoria</th><th>Quanto</th><th style="text-align:right">Valor</th><th style="text-align:right">Total</th></tr></thead><tbody>

@@ -25,7 +25,8 @@ export function cartaoParaAlunos(ctx, m, pode) {
   };
   return `<div class="cartao" id="para-alunos" style="border-color:var(--lima, #C8AE7C)">
     <div class="linha"><h3 style="flex:1">Para os alunos</h3><span class="selo neutro" id="pa-quantos"></span></div>
-    <p class="peq apagado">O que os alunos da turma veem na área deles, neste módulo. Os slides de trabalho e as percepções continuam só para a equipe.</p>
+    <p class="peq apagado">O que os alunos da turma veem na área deles, neste módulo. Os slides de trabalho e as percepções continuam só para a equipe.
+      Os slides do mentor entram aqui quando ele marca "Liberar também para os alunos" ao enviar.</p>
     <h4 class="mt2">Slides da aula (PDF)</h4>
     ${lista('aluno', 'Nenhum PDF para os alunos ainda.')}
     ${pode ? '<label class="btn peq pri mt" style="cursor:pointer">Enviar PDF dos slides<input type="file" data-pa-enviar="aluno" accept=".pdf" hidden></label>' : ''}

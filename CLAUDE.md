@@ -336,6 +336,10 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   MÓDULO: cartão "Para os alunos" (`telas/alunos-modulo.js`): `modulo_arquivos.tipo` 'aluno' (PDF dos slides para alunos; os slides
   oficiais/do mentor continuam só da equipe, decisão dela) e 'tarefa' (tarefa/ferramenta: PDF, Office, ZIP, imagem), pastas
   `turmas/<módulo>/aluno|tarefa/`; envia administração e mentor do módulo; o aluno baixa pelo storage (política `turmas_aluno_ler`).
+  SLIDES DO MENTOR TAMBÉM PARA OS ALUNOS (2026-10-31, pedido dela para o tutorial do mentor): ao enviar em "Slides dos mentores", uma
+  janela (`janelaSlidesMentor` em turmas.js, no lugar do confirm) pede "O QR code está no último slide" (obrigatório) e "Liberar
+  também para os alunos" (já marcado se for PDF; se for PowerPoint/Keynote, escolhe ali o PDF). Grava o do mentor (tipo 'mentor') e
+  uma cópia em `<módulo>/aluno/` (tipo 'aluno'), que entra em "Para os alunos". Sem script novo.
   GRAVAÇÕES (decisões dela: gravações do Zoom TODAS numa pasta só do Drive da contato@; link "qualquer pessoa com o link", visível só
   dentro da plataforma): tabela `gravacoes` (drive_id único; modulo_id vazio = sem aula; `ignorada`; `compartilhada`; `aviso`).
   `netlify/lib/gravacoes.mjs`: lê a pasta e subpastas (3 níveis, só vídeo), data pelo nome (GMT… do Zoom na nuvem = UTC; pasta
@@ -370,9 +374,11 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   "Minha área") e o MENU TAMBÉM GANHA AS CORES DO CLIENTE (app.js chama `aplicarMarca`: --mn-fundo/--mn-destaque e as variáveis da
   tela; marca do programa do mentorado, senão a da 1ª trilha; sem marca = petróleo e bege, não o lima da equipe). A equipe não muda.
   FASE 2, FERRAMENTAS DA TRILHA (2026-10-28, script 48): `turma_ferramentas` (turma, ferramenta do arsenal, `modulo_id` = abre no DIA
-  do módulo, vazio = desde o começo; só administração muda, mentor da turma lê) e `testes_alunos` (resultado do aluno: turma + perfil;
+  do módulo, vazio = desde o começo; administração muda tudo, mentor da turma lê; desde o script 61 o mentor inclui para os módulos
+  que ELE dá e muda/tira só as que incluiu, pelo `criado_por`) e `testes_alunos` (resultado do aluno: turma + perfil;
   aluno cria/atualiza/lê o dele, mentor da turma e administração leem; a empresa nunca). Cartão "Ferramentas da trilha" na página da
-  turma (`telas/ferramentas-turma.js`): incluir (só as ONLINE `interna` com ficha no arsenal), escolher o módulo em que abre, tirar
+  turma (`telas/ferramentas-turma.js`; o mesmo cartão vai no MÓDULO como "Ferramentas para os alunos neste módulo", `{ modulo, souMentor }`,
+  só com as daquele módulo, script 61): incluir (só as ONLINE `interna` com ficha no arsenal), escolher o módulo em que abre, tirar
   (respostas ficam), "N de M alunos já fizeram" (M = todos os ativos, até quem não entrou), "Ver respostas" (janela com quem fez,
   quem falta e o resultado por `htmlResultado`), "Ver a ferramenta" (prévia). Aluno: rpc `ferramentas_da_trilha(turma)` (security
   definer; nome, resumo, módulo, data e o `feito_em` dele) → seção "Ferramentas da sua trilha" em minha-trilha.js (feita / aberta com
@@ -721,6 +727,11 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   não pago, entra nele; ✕ tira (não depois de pago); ao pagar, a despesa vai para a turma/programa escolhido. Sessão sem duração
   anotada = 60 min nos dois lados (a base do Isaac era por atendimento). Testes: %TEMP%\fin56\extrato60.mjs; kit `?extra=1`
   (lançamento e recado da Lorena), `?sem60`, `?quem=u-lorena` (contrato: "Ler depois").
+  ESTÁ CERTO E PARA QUEM EMITIR (script 61, 31/10, pedido dela para o tutorial: "ele vai dar o ok"): no extrato, "✓ Está certo"
+  grava `fin_mentor_conferencias` (perfil + mês, total que ele viu; mês corrente só do dia 25 em diante); se o total mudar depois,
+  o extrato pede para conferir de novo; "Achei algo errado" leva ao recado. Quadro "Para quem emitir a nota" (CONTRATANTE de
+  contrato-mentor.js: razão social, CNPJ, cidade; "Copiar razão social e CNPJ"). A Cintia vê no cartão do mentor em Mentores →
+  Pagamento do mês ("conferiu… está certo" ou "o valor mudou depois"). Sem o 61, o botão some.
   Teste local: launch.json
   "financeiro-teste" (porta 8860) do worktree, kit em %TEMP%\fint (cópia do avt com fin_* no base-falso.js; `?sem52`).
 - CERTIFICADOS (2026-10-27, script 47, `telas/certificados.js`, Gestão → "Emitir certificados", só administração = Cintia e sócias;
@@ -881,6 +892,11 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- TUTORIAL DO MENTOR (2026-10-31): partes combinadas com ela (entrada, perfil e foto, turmas e módulo, mentoria individual,
+  notas fiscais e contrato). Antes de gravar: ela rodar o script 60 e o 61 (61 = mentor inclui ferramentas no módulo dele + "Está
+  certo" do extrato). Prints com dados de mentira (kit `%TEMP%\tut\kit`, launch.json "tutorial-teste", porta 8870; `?quem=u-isaac`
+  = mentor do módulo md3, `?quem=u-lorena&extra=1` = extrato, `&conf=920` = já conferido, `?sem61`). Próximo passo: roteiro de vídeo
+  com prints reais e narração. Assinatura do contrato: recomendado manter na plataforma + código por e-mail + PDF por e-mail (não feito).
 - FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;
   conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapas 3 e 4, notas dos mentores e agenda de pagamentos publicadas em 31/10; arquivo para a contabilidade publicado em 31/10 (script 59 rodado, 78 tomadores carregados); extrato do mentor publicado em 31/10 (FALTA ELA RODAR O SCRIPT 60; até lá o mentor não vê o extrato nem o campo de recado, e a Cintia vê o aviso em Mentores → Pagamento do mês) (scripts 56, 57 e 58 RODADOS; atenção: select com head:true não acusa tabela que falta, conferir com select de verdade; falta marcar como pagas as fixas de outubro, que aparecem como atrasadas na agenda); HUB de inovação de Holambra fica de fora por enquanto.
   LEMBRAR A JULIANA NA ETAPA FINAL (4) DO FINANCEIRO (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia
