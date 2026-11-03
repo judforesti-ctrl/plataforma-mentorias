@@ -30,12 +30,15 @@ export function dividir(total, n) {
 
 // ---------- datas ----------
 const TZ = 'America/Sao_Paulo';
-export const diaDe = (iso) => (iso ? (/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : new Date(iso).toLocaleDateString('sv-SE', { timeZone: TZ })) : null);
+// Data que não existe de verdade (ano antes de 2000, como o 01/01/0001 digitado para "tirar" um módulo da agenda) conta como sem
+// data: antes ela quebrava a conta do caixa e a tela inteira do Financeiro (03/11/2026).
+const diaValido = (dia) => (/^\d{4}-\d{2}-\d{2}$/.test(dia) && Number(dia.slice(0, 4)) >= 2000 ? dia : null);
+export const diaDe = (iso) => (iso ? diaValido(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : new Date(iso).toLocaleDateString('sv-SE', { timeZone: TZ })) : null);
 export const mesDe = (iso) => (iso ? String(iso).slice(0, 7) : null);
 const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 export const nomeMes = (mes, curto = false) => { const [a, m] = String(mes).split('-').map(Number); const n = MESES[m - 1] || ''; return curto ? `${n.slice(0, 3)}/${String(a).slice(2)}` : `${n} de ${a}`; };
 export function somarMeses(mes, k) { const [a, m] = mes.split('-').map(Number); const t = a * 12 + (m - 1) + k; return `${Math.floor(t / 12)}-${String((t % 12) + 1).padStart(2, '0')}`; }
-export function somarDias(dia, k) { const d = new Date(`${dia}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + k); return d.toISOString().slice(0, 10); }
+export function somarDias(dia, k) { const d = new Date(`${dia}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + k); return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10); }
 export const diasEntre = (a, b) => Math.round((new Date(`${b}T12:00:00Z`) - new Date(`${a}T12:00:00Z`)) / 86400000);
 // mesmo dia nos meses seguintes; dia 31 em mês curto vira o último dia do mês
 export function dataDaParcela(primeira, i) {

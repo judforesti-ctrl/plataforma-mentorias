@@ -18,6 +18,9 @@ const SEL_MODULO = 'id, numero, titulo, tematica, recomendacoes, data_hora, form
 const agora = () => Date.now();
 const nomesMentores = (m) => (m.mentores || []).map((x) => x.mentor && x.mentor.nome).filter(Boolean).join(' e ');
 const ministra = (m, id) => (m.mentores || []).some((x) => x.mentor && x.mentor.id === id);
+// data de verdade: ano entre 2000 e 2100 (o campo de data aceita digitar 0001, e o meio da digitação passa por 0002, 0020…)
+const dataExiste = (iso) => { const a = Number(String(iso || '').slice(0, 4)); return a >= 2000 && a <= 2100; };
+const DATA_NAO_EXISTE = 'Essa data não existe. Para deixar o módulo sem data, use o botão "Deixar a data a definir".';
 const passou = (m) => m.data_hora && new Date(m.data_hora).getTime() < agora() - 2 * 3600 * 1000;
 // Aulas que aconteceram antes de a mentoria em grupo entrar na plataforma (vieram da planilha) não pedem percepções.
 const PERCEPCOES_DESDE = Date.parse('2026-10-08T00:00:00-03:00');
@@ -306,6 +309,7 @@ async function paginaTurma(ctx, el, id) {
     const lk = el.querySelector('#m-link').value.trim();
     const numero = mods.reduce((a, m) => Math.max(a, m.numero), 0) + 1;
     const quando = localParaISO(el.querySelector('#m-data').value);
+    if (quando && !dataExiste(quando)) { avisar('Essa data não existe. Confira o ano ou deixe a data em branco (fica "a definir").', true); return; }
     const escolhidos = [...el.querySelectorAll('input[name=m-ment]:checked')].map((c) => c.value);
     const { data: novo, error: e } = await sb.from('modulos').insert({ turma_id: id, numero, titulo, formato,
       data_hora: localParaISO(el.querySelector('#m-data').value) || null,
@@ -554,6 +558,7 @@ async function paginaModulo(ctx, el, id) {
         ${adm ? `<div class="cartao"><h3>Quando e onde</h3>
           <div class="grade g2 mt" style="gap:10px">
             <div class="campo"><label>Data e hora (Brasília)</label><input type="datetime-local" data-mod="data_hora" value="${esc(isoParaLocal(m.data_hora))}">
+              <span class="peq" id="data-nao-existe" role="alert" style="color:var(--erro)"></span>
               ${m.data_hora ? '<button class="btn peq mt" type="button" id="a-definir" style="width:auto;justify-self:start;align-self:flex-start">Deixar a data a definir</button>' : '<span class="peq" style="color:var(--erro)">Data a definir: quando souber, coloque aqui.</span>'}</div>
             <div class="campo"><label>Duração (minutos)</label><input type="number" min="0" data-mod="duracao_min" value="${esc(m.duracao_min ?? '')}"></div>
             <div class="campo"><label>Onde acontece</label><select data-mod="formato">${Object.entries(FORMATO).map(([k, r]) => `<option value="${k}"${k === m.formato ? ' selected' : ''}>${r}</option>`).join('')}</select></div>
@@ -615,6 +620,9 @@ async function paginaModulo(ctx, el, id) {
       });
       if (adm) ler('[data-mod]', 'mod');
       if (podePercepcao) ler('[data-perc]', 'perc');
+      const aviso = el.querySelector('#data-nao-existe');
+      if (mud.data_hora && !dataExiste(mud.data_hora)) delete mud.data_hora;   // ainda digitando ou ano errado: não grava
+      if (aviso) aviso.textContent = adm && el.querySelector('[data-mod="data_hora"]').value && !('data_hora' in mud) ? DATA_NAO_EXISTE : '';
       if (adm && !mud.titulo) delete mud.titulo;
       if (mud.percepcoes && !m.percepcoes_em) { mud.percepcoes_em = new Date().toISOString(); mud.percepcoes_por = ctx.perfil.id; m.percepcoes_em = mud.percepcoes_em; }
       const { error: e } = await sb.from('modulos').update(mud).eq('id', id);

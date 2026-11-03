@@ -563,6 +563,9 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   data_hora = null (o módulo fica com tudo), data antiga em `historico` (acao 'data_a_definir') e convites do módulo e dos
   deslocamentos apagados da Google Agenda: futuros com aviso aos convidados; os de datas que já passaram (a sincronização normal
   não mexe no passado; a linha de google_eventos já sumiu, então vai pelo id fixo `idDe`) sem e-mail. Sem script novo.
+  DATA QUE NÃO EXISTE (03/11): antes do botão, a Cintia pôs 01/01/0001 nos módulos 1 a 3 do "QS Jovem · Turma 1" e o Financeiro
+  inteiro caiu ("Invalid time value": somarDias no caixa de 90 dias). Agora `F.diaDe` trata ano < 2000 como sem data e `F.somarDias`
+  não quebra; no módulo, data com ano fora de 2000–2100 não é gravada (aviso "Essa data não existe"; `dataExiste` em turmas.js).
   PROPOSTA SEM TURMA: Vendas → "✉ Enviar proposta (PDF)" (atalho `#/vendas/enviar-proposta`, também em Turmas): cliente da lista
   ou novo, contato, arquivo → oportunidade (reaproveita a aberta mais adiantada) + proposta `aprovada` com o arquivo em
   `propostas/<oportunidade>/<proposta>/` → `janelaEnviar` (exportada de proposta.js). Turma só depois da aprovação.
