@@ -4,7 +4,7 @@
 // "google_forms" (sem módulo; o nome da formação que o aluno escreveu fica em "formacao"); as fichas de papel tabuladas,
 // com origem "papel" e ligadas ao módulo (script 50).
 import { sb, esc, dataBR, avisar, explicarErro } from '../base.js';
-import { resumir, nps, num1, APRENDEU, TEMPO, MELHORAR } from '../avaliacao-regras.js';
+import { resumir, nps, num1, APRENDEU, TEMPO, MELHORAR, SATISFEITO } from '../avaliacao-regras.js';
 
 const ABAS = [['geral', 'Visão geral'], ['modulos', 'Por módulo'], ['mentores', 'Por mentor'], ['comentarios', 'Comentários'], ['temas', 'Temas pedidos']];
 const PERIODOS = [['30', 'Últimos 30 dias'], ['90', 'Últimos 3 meses'], ['365', 'Últimos 12 meses'], ['tudo', 'Desde o começo']];
@@ -60,10 +60,10 @@ const ESTILO = `<style id="av-estilo">
   .av-aviso-novo { font-size: 12.5px; color: var(--apagado); background: var(--faixa); border-radius: 10px; padding: 8px 10px; }
 </style>`;
 
-// cor da nota: escala 0–10, 1–5 ou NPS
+// cor da nota: escala 0–10 (todas as notas, desde 03/11/2026) ou NPS
 function pill(v, escala) {
   if (v == null) return '<span class="av-pill av-nada">—</span>';
-  const c = escala === 10 ? (v >= 9 ? 'bom' : v >= 7 ? 'meio' : 'ruim') : escala === 5 ? (v >= 4.5 ? 'bom' : v >= 3.8 ? 'meio' : 'ruim') : (v >= 50 ? 'bom' : v >= 0 ? 'meio' : 'ruim');
+  const c = escala === 10 ? (v >= 9 ? 'bom' : v >= 7 ? 'meio' : 'ruim') : (v >= 50 ? 'bom' : v >= 0 ? 'meio' : 'ruim');
   return `<span class="av-pill av-${c}">${escala === 'nps' ? v : num1(v)}</span>`;
 }
 const media = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
@@ -83,13 +83,13 @@ async function carregar() {
 }
 
 const quando = (a) => (a.modulo && a.modulo.data_hora) || a.criado_em;
-// notas de mentor da resposta; no histórico do Google Forms sem módulo, a nota de didática (1 a 10) vira 1 a 5
+// notas de mentor da resposta (0 a 10); no histórico do Google Forms sem módulo, a nota de didática (1 a 10) como veio
 const notasDe = (a) => ((a.notas || []).length ? a.notas.map((n) => n.nota)
-  : a.extras && a.extras.escala_antiga && a.extras.escala_antiga.didatica ? [Math.ceil(a.extras.escala_antiga.didatica / 2)] : []);
+  : a.extras && a.extras.escala_antiga && a.extras.escala_antiga.didatica ? [Number(a.extras.escala_antiga.didatica)] : []);
 const NOME_MES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const mentoresDe = (a) => a._mentores || [];
 // mentores da resposta: os do módulo, os que têm nota e, no histórico do Forms, os da planilha de mentores (script 51).
-// Quem não tem cadastro entra pelo nome, com a chave "h:<nome>" (didática de 1 a 10 vira 1 a 5, como em notasDe).
+// Quem não tem cadastro entra pelo nome, com a chave "h:<nome>" (a nota é a didática de 1 a 10, como em notasDe).
 const planilhaDe = (a) => (a.extras && a.extras.planilha_mentores && a.extras.planilha_mentores.mentores) || [];
 const semAcento = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 function prepararMentores(todas, nomes) {
@@ -106,7 +106,7 @@ function prepararMentores(todas, nomes) {
   });
 }
 const notasDoMentor = (a, id) => (id.startsWith('h:')
-  ? planilhaDe(a).filter((m) => `h:${m.nome}` === id && m.didatica).map((m) => Math.ceil(m.didatica / 2))
+  ? planilhaDe(a).filter((m) => `h:${m.nome}` === id && m.didatica).map((m) => Number(m.didatica))
   : (a.notas || []).filter((n) => n.mentor_id === id).map((n) => n.nota));
 const encontroDe = (a) => (a.modulo ? a.modulo.id : (a.extras && a.extras.planilha_mentores && a.extras.planilha_mentores.encontro) || a.formacao || String(quando(a)).slice(0, 10));
 
@@ -134,6 +134,9 @@ export async function render(ctx, el, [aba0]) {
     return;
   }
   prepararMentores(d.todas, d.nomes);
+  // as respostas antigas de 1 a 5 só passam para 0 a 10 depois do script 64
+  const { data: escala } = await sb.from('configuracoes').select('valor').eq('chave', 'avaliacoes_escala').maybeSingle();
+  const falta64 = !(escala && escala.valor && Number(escala.valor.escala) === 10);
   const empresas = new Map(), turmas = new Map(), mentores = new Set();
   d.todas.forEach((a) => {
     if (a.empresa) empresas.set(a.empresa.id, a.empresa.nome);
@@ -154,6 +157,7 @@ export async function render(ctx, el, [aba0]) {
       <div class="campo"><label for="av-mentor">Mentor</label><select id="av-mentor">${opcoes(nomesMentores, est.mentor, 'Todos')}</select></div>
       ${est.empresa || est.turma || est.mentor || est.periodo !== '90' ? '<button class="btn peq" type="button" id="av-limpar">Limpar filtros</button>' : ''}
     </div>
+    ${falta64 ? '<div class="aviso erro mt">Falta rodar o script <b>64-avaliacoes-de-0-a-10.sql</b> no Supabase: até lá, as notas antigas de aula, mentor, conteúdo e ferramentas (que eram de 1 a 5) aparecem baixas aqui.</div>' : ''}
     <div id="av-conteudo"></div>`;
 
   const recarregar = () => render(ctx, el, [aba]);
@@ -182,7 +186,7 @@ export async function render(ctx, el, [aba0]) {
 function abaGeral(alvo, lista) {
   const r = resumir(lista);
   const notasMentor = lista.flatMap(notasDe);
-  const satMentor = notasMentor.length ? Math.round((notasMentor.filter((x) => x >= 4).length / notasMentor.length) * 100) : null;
+  const satMentor = notasMentor.length ? Math.round((notasMentor.filter((x) => x >= SATISFEITO).length / notasMentor.length) * 100) : null;
   const quantas = (k) => lista.filter((a) => a[k] != null).length;
   const novas = lista.filter((a) => a.origem === 'plataforma').length;   // as perguntas novas só existem no formulário da plataforma (nem no Forms, nem na ficha de papel)
   // taxa de resposta: só módulos com presença anotada pelo mentor
@@ -209,10 +213,10 @@ function abaGeral(alvo, lista) {
           : '<span class="grande">—</span><span class="linha-nps">Sem notas de recomendação no período.</span>'}
       </div>
       <div class="av-notas">
-        ${nota('Mentor', notasMentor.length ? media(notasMentor) : null, 5, notasMentor.length, satMentor == null ? '' : `${satMentor}% satisfeitos`)}
-        ${nota('Conteúdo', r.conteudo, 5, quantas('conteudo'), r.satisfeitos.conteudo == null ? '' : `${r.satisfeitos.conteudo}% satisfeitos`)}
-        ${nota('Ferramentas e materiais', r.ferramentas, 5, quantas('ferramentas'), r.satisfeitos.ferramentas == null ? '' : `${r.satisfeitos.ferramentas}% satisfeitos`)}
-        ${nota('Aula (ritmo e dinâmica)', r.aula, 5, quantas('aula'))}
+        ${nota('Mentor', notasMentor.length ? media(notasMentor) : null, 10, notasMentor.length, satMentor == null ? '' : `${satMentor}% satisfeitos`)}
+        ${nota('Conteúdo', r.conteudo, 10, quantas('conteudo'), r.satisfeitos.conteudo == null ? '' : `${r.satisfeitos.conteudo}% satisfeitos`)}
+        ${nota('Ferramentas e materiais', r.ferramentas, 10, quantas('ferramentas'), r.satisfeitos.ferramentas == null ? '' : `${r.satisfeitos.ferramentas}% satisfeitos`)}
+        ${nota('Aula (ritmo e dinâmica)', r.aula, 10, quantas('aula'))}
         ${nota('Nota geral do encontro', r.geral, 10, quantas('geral'))}
         <div class="av-nota${taxa == null ? ' vazia' : ''}"><span class="rot">Taxa de resposta</span><b>${taxa == null ? 'sem dados' : `${taxa}%`}</b>
           <span class="base">${taxa == null ? 'o mentor anota os presentes no módulo' : 'respostas ÷ presentes'}</span></div>
@@ -282,7 +286,7 @@ function abaModulos(alvo, lista, nomes) {
       return `<tr${g.modulo ? ` class="clicavel" data-modulo="${g.modulo.id}"` : ''}><td>${titulo}</td><td class="num">${g.modulo ? dataBR(g.quando) : `${g.mes.slice(5)}/${g.mes.slice(0, 4)}`}</td>
         <td>${esc(ids.map((id) => String(nomes.get(id) || '').split(' ')[0]).filter(Boolean).join(', ') || '—')}</td>
         <td class="num">${r.total}${g.modulo && g.modulo.participantes_presentes ? ` de ${g.modulo.participantes_presentes}` : ''}</td>
-        <td>${pill(r.geral, 10)}</td><td>${pill(r.aula, 5)}</td><td>${pill(media(notasM), 5)}</td><td>${pill(r.conteudo, 5)}</td><td>${pill(r.ferramentas, 5)}</td><td>${pill(r.nps ? r.nps.valor : null, 'nps')}</td></tr>`;
+        <td>${pill(r.geral, 10)}</td><td>${pill(r.aula, 10)}</td><td>${pill(media(notasM), 10)}</td><td>${pill(r.conteudo, 10)}</td><td>${pill(r.ferramentas, 10)}</td><td>${pill(r.nps ? r.nps.valor : null, 'nps')}</td></tr>`;
     }).join('')}</tbody></table></div>
     <p class="peq apagado mt">Verde: muito bom. Amarelo: atenção. Vermelho: pede conversa. Clique no encontro para abrir o módulo com os comentários.</p></div>`;
   alvo.querySelector('tbody').addEventListener('click', (ev) => { const tr = ev.target.closest('[data-modulo]'); if (tr) location.hash = `#/modulo/${tr.dataset.modulo}`; });
@@ -302,8 +306,8 @@ function abaMentores(alvo, lista, nomes) {
   alvo.innerHTML = linhas.length ? `<div class="cartao"><div class="tabela"><table>
     <thead><tr><th>Mentor</th><th>Encontros</th><th>Respostas</th><th>Nota como mentor</th><th>Satisfeitos</th><th>Geral dos encontros</th><th>Conteúdo</th><th>NPS</th></tr></thead>
     <tbody>${linhas.map((l) => `<tr><td><b>${esc(l.nome)}</b>${l.id.startsWith('h:') ? ' <span class="peq apagado">(histórico, sem cadastro)</span>' : ''}</td><td class="num">${l.modulos.size}</td><td class="num">${l.respostas.length}</td>
-      <td>${pill(l.media, 5)}</td><td class="num">${l.notas.length ? `${Math.round((l.notas.filter((v) => v >= 4).length / l.notas.length) * 100)}%` : '—'}</td>
-      <td>${pill(l.r.geral, 10)}</td><td>${pill(l.r.conteudo, 5)}</td><td>${pill(l.r.nps ? l.r.nps.valor : null, 'nps')}</td></tr>`).join('')}</tbody></table></div>
+      <td>${pill(l.media, 10)}</td><td class="num">${l.notas.length ? `${Math.round((l.notas.filter((v) => v >= SATISFEITO).length / l.notas.length) * 100)}%` : '—'}</td>
+      <td>${pill(l.r.geral, 10)}</td><td>${pill(l.r.conteudo, 10)}</td><td>${pill(l.r.nps ? l.r.nps.valor : null, 'nps')}</td></tr>`).join('')}</tbody></table></div>
     <p class="peq apagado mt">Só a administração vê esta comparação. Cada mentor vê apenas a própria nota, no módulo e no e-mail.</p></div>`
     : '<div class="vazio">Nenhuma avaliação ligada a um mentor neste período.</div>';
 }
@@ -344,8 +348,8 @@ async function baixarExcel(lista, nomes) {
   if (!lista.length) { avisar('Nada para baixar com estes filtros.', true); return; }
   let XLSX;
   try { XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs'); } catch (e) { avisar(explicarErro(e), true); return; }
-  const respostas = [['Data', 'Empresa', 'Turma', 'Encontro', 'Mentor(es)', 'Nota geral (0-10)', 'Aula (1-5)', 'Nota do mentor (1-5)', 'Conteúdo (1-5)',
-    'Ferramentas e materiais (1-5)', 'Aprendeu', 'Tempo', 'Recomendação (0-10)', 'Marcou', 'Comentário', 'Temas pedidos', 'Origem']];
+  const respostas = [['Data', 'Empresa', 'Turma', 'Encontro', 'Mentor(es)', 'Nota geral (0-10)', 'Aula (0-10)', 'Nota do mentor (0-10)', 'Conteúdo (0-10)',
+    'Ferramentas e materiais (0-10)', 'Aprendeu', 'Tempo', 'Recomendação (0-10)', 'Marcou', 'Comentário', 'Temas pedidos', 'Origem']];
   lista.forEach((a) => respostas.push([dataBR(quando(a)), a.empresa ? a.empresa.nome : '', a.turma ? a.turma.nome : '',
     a.modulo ? `Módulo ${a.modulo.numero} · ${a.modulo.titulo}` : (a.formacao || ''), mentoresDe(a).map((id) => nomes.get(id) || '').join(', '),
     a.geral, a.aula, (a.notas || []).length ? a.notas.map((n) => `${String(nomes.get(n.mentor_id) || '').split(' ')[0]}: ${n.nota}`).join(', ') : notasDe(a).join(''), a.conteudo, a.ferramentas,

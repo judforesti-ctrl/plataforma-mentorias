@@ -4,7 +4,10 @@
 export const SITE_AVALIACAO = 'https://plataforma.mentorei.com.br';
 export const linkAvaliacao = (moduloId) => `${SITE_AVALIACAO}/avaliar.html?m=${moduloId}`;
 
-export const CARAS = ['😞', '🙁', '😐', '🙂', '😍'];
+// Escala única de 0 a 10 em todas as notas (pedido da Juliana, 03/11/2026): nota geral, aula, mentor, conteúdo, ferramentas e
+// recomendação. Até 02/11 aula, mentor, conteúdo e ferramentas eram carinhas de 1 a 5: o script 64 dobrou essas respostas (4 → 8)
+// e, no histórico do Google Forms, voltou a nota original de 1 a 10. "Satisfeito" = 8 ou mais (era 4 ou mais de 5).
+export const SATISFEITO = 8;
 export const POSITIVOS = ['Exemplos práticos', 'Dinâmicas', 'Mentor(a) perto da turma', 'Ferramentas prontas para usar', 'Troca com os colegas'];
 export const MELHORAR = ['Mais tempo para praticar', 'Menos teoria', 'Exemplos do meu dia a dia', 'Material antes da aula'];
 export const TEMAS = ['Gestão do tempo', 'Feedback', 'Conversas difíceis', 'Delegação', 'Comunicação', 'Inteligência emocional',
@@ -50,7 +53,7 @@ export function nps(notas) {
 // Resumo de um conjunto de respostas. notasMentor: [{mentor_id, nota}] já juntas (a tela e o e-mail filtram quem pode ver).
 export function resumir(respostas) {
   const num = (k) => respostas.map((r) => r[k]).filter((x) => x != null);
-  const satisfeitos = (k) => { const v = num(k); return v.length ? Math.round((v.filter((x) => x >= 4).length / v.length) * 100) : null; };
+  const satisfeitos = (k) => { const v = num(k); return v.length ? Math.round((v.filter((x) => x >= SATISFEITO).length / v.length) * 100) : null; };
   const porMentor = new Map();
   respostas.forEach((r) => (r.notas || []).forEach((n) => {
     if (!porMentor.has(n.mentor_id)) porMentor.set(n.mentor_id, []);
@@ -63,7 +66,7 @@ export function resumir(respostas) {
     aula: media(num('aula')), conteudo: media(num('conteudo')), ferramentas: media(num('ferramentas')),
     satisfeitos: { aula: satisfeitos('aula'), conteudo: satisfeitos('conteudo'), ferramentas: satisfeitos('ferramentas') },
     mentores: [...porMentor.entries()].map(([id, v]) => ({ id, media: media(v), total: v.length,
-      satisfeitos: Math.round((v.filter((x) => x >= 4).length / v.length) * 100) })),
+      satisfeitos: Math.round((v.filter((x) => x >= SATISFEITO).length / v.length) * 100) })),
     nps: nps(num('nps')),
     aprendeu: contagem('aprendeu', APRENDEU),
     tempo: contagem('tempo', TEMPO),

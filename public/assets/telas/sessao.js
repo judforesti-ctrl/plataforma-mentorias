@@ -113,7 +113,7 @@ export async function render(ctx, el, [id]) {
           <summary><b>Sessão ${x.numero}</b> · ${diaMes(x.data_hora)}${x.mentor ? ` · ${esc(x.mentor.nome)}` : ''}
             <span class="selo ${COR_SIT[x.situacao] ?? 'neutro'}">${ROT_SIT[x.situacao] || x.situacao}</span>
             ${it.informacoes_delicadas ? '<span class="selo erro">🔒 ponto delicado</span>' : ''}
-            ${x.avaliacao ? `<span class="selo neutro">nota do mentorado: ${x.avaliacao.nota}/5</span>` : ''}</summary>
+            ${x.avaliacao ? `<span class="selo neutro">nota do mentorado: ${x.avaliacao.nota}/10</span>` : ''}</summary>
           <div class="mt">
             ${x.tema ? `<p class="peq apagado">Tema: ${esc(x.tema)}</p>` : ''}
             ${x.motivo_falta ? `<p class="peq">Motivo: ${esc(x.motivo_falta)}</p>` : ''}

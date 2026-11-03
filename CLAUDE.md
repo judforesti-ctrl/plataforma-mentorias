@@ -447,8 +447,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   avaliações (rpc `avaliacao_contador`); o NPS oficial (−100 a +100) só nos relatórios; comentários vão DIRETO ao mentor (ela não quer
   ler antes). Ela vai mandar a planilha das respostas antigas do Forms: importar em `avaliacoes` com origem 'google_forms', `formacao`
   = nome que o aluno escreveu, escalas antigas em `extras` (o NPS antigo ia de 1 a 10, sem o 0).
-  Página pública `public/avaliar.html?m=<módulo>` (sem login; 6 telas: nota geral 0–10, carinhas 1–5 para aula, cada mentor, conteúdo e
-  ferramentas, aprendeu + tempo, NPS 0–10, comentário com pergunta que muda pela nota + atalhos, temas). Grava pela função `/api/avaliar`
+  Página pública `public/avaliar.html?m=<módulo>` (sem login; 6 telas: nota geral 0–10, régua 0–10 para aula, cada mentor, conteúdo e
+  ferramentas (eram carinhas 1–5 até 03/11/2026), aprendeu + tempo, NPS 0–10, comentário com pergunta que muda pela nota + atalhos, temas). Grava pela função `/api/avaliar`
   (`netlify/functions/avaliar.mjs`): aceita de 24 h antes do início até as 23h59 do 10º dia depois da data do treinamento (decisão dela, 12/10; `janelaAvaliacao`); QR de um módulo de dia anterior cai no
   módulo da mesma turma que acontece hoje. Textos e contas compartilhados em `public/assets/avaliacao-regras.js`.
   QR code: desenhado no navegador a partir do link do módulo (`public/assets/vendor/qrcode.js`, qrcode-generator MIT), nada guardado;
@@ -467,6 +467,12 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   resposta, pontos por palavras do título/turma/empresa + apelidos ("desenvolvimento de líderes" = Sicredi Expansão; "trilha"/"lideranças"
   = Cresol Conexão); sem certeza fica sem módulo. Histórico não dispara e-mail (marca avaliacao_aviso_em). No relatório, respostas sem
   módulo aparecem agrupadas por mês ("Histórico de <mês>") e a didática conta na nota de mentor da visão geral (`notasDe`).
+  TUDO DE 0 A 10 (2026-11-03, script 64, pedido dela: "dois jeitos, quero tudo de 0 a 10"): aula, mentor, conteúdo, ferramentas
+  (turmas) e a nota da sessão que o mentorado dá (Minha mentoria, antes estrelas 1–5) passam a 0–10. O 64 dobra as respostas antigas
+  (4 → 8); no histórico do Google Forms volta a nota original 1–10 (relevância, materiais, didática; só se ceil(original/2) bate),
+  troca as regras do banco e grava `configuracoes.avaliacoes_escala = {escala: 10}`. Antes do 64: avaliar.mjs e minha-area.js gravam
+  a metade se o banco recusar (23514), Gestão › Avaliações avisa e o e-mail ao mentor (avaliacoes-email) espera. "Satisfeito" =
+  `SATISFEITO` (8) em avaliacao-regras.js. A "evolução nos pontos a desenvolver" (1 a 5, do mentor) não é avaliação: não mudou.
   FICHAS DE PAPEL (2026-10-28, script 50): quando a turma não consegue usar o QR, a equipe tabula as fichas numa planilha e elas entram
   com origem 'papel' ligadas ao módulo (1º lote: Cresol Amazônia, Formação Ativa Idade, 26/10, Viviane, 11 fichas, `extras.lote`
   = 'papel-ativa-idade-2026-10-26'). Conversão (Muito satisfeito 5 … Insatisfeito 1, marcação dupla não conta, média arredondada):
@@ -938,6 +944,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- AVALIAÇÕES DE 0 A 10 (2026-11-03): ela rodar o script 64 no Supabase (até lá as notas antigas aparecem baixas em Avaliações, com aviso).
 - TUTORIAIS (2026-10-31): FALTA ELA RODAR O SCRIPT 63 e enviar os 9 vídeos em Tutoriais → "Enviar vários vídeos de uma vez" (arquivos
   na pasta `tutorial-videos/` do worktree mentor-platform-tutorial-46c2fc, fora do git). Até lá a página avisa e a caixinha do convite
   não aparece. Próximas séries: mentorado, RH, administração. Assinatura do contrato: recomendado manter na plataforma + código por

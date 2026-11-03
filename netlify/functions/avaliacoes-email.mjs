@@ -13,6 +13,9 @@ const pares = (lista, rotulos) => lista.filter(([, n]) => n).map(([k, n]) => `${
 
 export default async () => {
   const agora = Date.now();
+  // as notas são de 0 a 10 desde 03/11/2026: até o script 64 converter as antigas (1 a 5), o resumo espera (sai na hora seguinte)
+  const esc = await supa('/rest/v1/configuracoes?chave=eq.avaliacoes_escala&select=valor');
+  if (!(esc.ok && esc.dados && esc.dados[0] && Number(esc.dados[0].valor.escala) === 10)) return new Response('Esperando o script 64.');
   const desde = new Date(agora - 9 * 86400000).toISOString(), ate = new Date(agora - HORAS_ATE_EMAIL * 3600000).toISOString();
   const r = await supa(`/rest/v1/modulos?avaliacao_aviso_em=is.null&data_hora=gte.${desde}&data_hora=lte.${ate}`
     + '&select=id,numero,titulo,data_hora,duracao_min,participantes_presentes,turma:turmas(nome,empresa:empresas(nome)),mentores:modulo_mentores(mentor:perfis(id,nome,email,ativo,termo_aceito_em))');
@@ -36,10 +39,10 @@ export default async () => {
           { titulo: 'As notas' },
           { lista: [
             `Nota geral do encontro: ${num1(res.geral)} de 10`,
-            ...(meu ? [`Sua nota como mentor(a): ${num1(meu.media)} de 5`] : []),
-            `Conteúdo: ${num1(res.conteudo)} de 5`,
-            `Aula (ritmo e dinâmica): ${num1(res.aula)} de 5`,
-            `Ferramentas e materiais: ${num1(res.ferramentas)} de 5`,
+            ...(meu ? [`Sua nota como mentor(a): ${num1(meu.media)} de 10`] : []),
+            `Conteúdo: ${num1(res.conteudo)} de 10`,
+            `Aula (ritmo e dinâmica): ${num1(res.aula)} de 10`,
+            `Ferramentas e materiais: ${num1(res.ferramentas)} de 10`,
             ...(res.nps ? [`Recomendariam a Mentorei: NPS ${res.nps.valor} (vai de −100 a +100)`] : []),
           ] },
         ];

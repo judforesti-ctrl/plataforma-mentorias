@@ -50,9 +50,10 @@
   .linha-cara:last-child { border-bottom: 0; }
   .qual { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; }
   .qual small { font-weight: 400; color: var(--apagado); font-size: 12.5px; }
-  .caras { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
-  .cara { border: 1.5px solid var(--linha); background: var(--papel); border-radius: 12px; font-size: 25px; padding: 7px 0; cursor: pointer; line-height: 1; filter: grayscale(.7); opacity: .75; touch-action: manipulation; }
-  .cara.marcada { filter: none; opacity: 1; border-color: var(--bege-escuro); background: var(--bege-claro); transform: scale(1.06); }
+  .escala { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 4px; }
+  .esc { border: 1.5px solid var(--linha); background: var(--papel); border-radius: 9px; font-family: var(--f-titulo); font-weight: 800; font-size: 14px; padding: 10px 0; cursor: pointer; line-height: 1; font-variant-numeric: tabular-nums; touch-action: manipulation; min-width: 0; color: var(--texto); }
+  .esc.marcada { background: var(--petroleo); color: #fff; border-color: var(--petroleo); }
+  @media (max-width: 360px) { .escala { gap: 2px; } .esc { font-size: 13px; border-radius: 7px; } }
   .fichas { display: flex; flex-wrap: wrap; gap: 8px; }
   .ficha { border: 1.5px solid var(--linha); background: var(--papel); border-radius: 999px; padding: 8px 14px; font-size: 14px; cursor: pointer; font-weight: 500; touch-action: manipulation; }
   .ficha.marcada { background: var(--petroleo); border-color: var(--petroleo); color: #fff; }
@@ -86,7 +87,7 @@
   </div>
 </main>
 <script type="module">
-import { CARAS, POSITIVOS, MELHORAR, TEMAS, APRENDEU, TEMPO, num1 } from '/assets/avaliacao-regras.js';
+import { POSITIVOS, MELHORAR, TEMAS, APRENDEU, TEMPO, num1 } from '/assets/avaliacao-regras.js';
 
 const corpo = document.getElementById('corpo'), barra = document.getElementById('barra'), conta = document.getElementById('conta');
 const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -111,10 +112,12 @@ function grade(v, campo) {
 }
 const fichas = (lista, marcadas, grupo) => `<div class="fichas">${lista.map((t) => `<button type="button" class="ficha${marcadas.includes(t) ? ' marcada' : ''}" data-ficha="${grupo}" data-v="${esc(t)}" aria-pressed="${marcadas.includes(t)}">${esc(t)}</button>`).join('')}</div>`;
 const opcoes = (mapa, atual, grupo) => `<div class="fichas">${Object.entries(mapa).map(([k, t]) => `<button type="button" class="ficha${atual === k ? ' marcada' : ''}" data-opcao="${grupo}" data-v="${k}" aria-pressed="${atual === k}">${t}</button>`).join('')}</div>`;
-function linhaCaras(onde, chave, titulo, extra) {
+// cada parte: uma régua de 0 a 10 numa linha só (antes eram carinhas de 1 a 5)
+function linhaNota(onde, chave, titulo, extra) {
   const v = s[onde][chave];
-  return `<div class="linha-cara"><div class="qual">${titulo}${extra ? ` <small>${extra}</small>` : ''}</div><div class="caras">${CARAS.map((c, i) =>
-    `<button type="button" class="cara${v === i + 1 ? ' marcada' : ''}" data-onde="${onde}" data-chave="${chave}" data-v="${i + 1}" aria-label="${i + 1} de 5">${c}</button>`).join('')}</div></div>`;
+  let b = '';
+  for (let i = 0; i <= 10; i++) b += `<button type="button" class="esc${v === i ? ' marcada' : ''}" data-onde="${onde}" data-chave="${chave}" data-v="${i}" aria-label="${i} de 10" aria-pressed="${v === i}">${i}</button>`;
+  return `<div class="linha-cara"><div class="qual">${titulo}${extra ? ` <small>${extra}</small>` : ''}</div><div class="escala">${b}</div></div>`;
 }
 const botoes = (pode, texto = 'Continuar', pular = false) => `<div class="botoes">${passo > 1 ? '<button type="button" class="leve" data-acao="voltar">Voltar</button>' : ''}${pular ? '<button type="button" class="leve" data-acao="seguir">Pular</button>' : ''}<button type="button" class="btn" data-acao="seguir"${pode ? '' : ' disabled'}>${texto}</button></div>`;
 
@@ -134,10 +137,11 @@ function desenhar() {
   } else if (passo === 1) {
     h = `<h1>No geral, que nota você dá para o encontro de hoje?</h1>${grade(s.geral, 'geral')}<p class="ajuda">Toque numa nota para seguir.</p>${botoes(s.geral !== null)}`;
   } else if (passo === 2) {
-    const ok = s.partes.aula && s.partes.conteudo && s.partes.ferramentas && ms.every((m) => s.mentores[m.id]);
-    h = `<h1>Agora, rapidinho, cada parte:</h1><div>${linhaCaras('partes', 'aula', 'A aula', 'ritmo e dinâmica')}
-      ${ms.map((m) => linhaCaras('mentores', m.id, `${rosto(m, true)}${esc(m.nome)}`, 'mentor(a)')).join('')}
-      ${linhaCaras('partes', 'conteudo', 'O conteúdo', 'dá para usar no dia a dia?')}${linhaCaras('partes', 'ferramentas', 'Ferramentas e materiais')}</div>${botoes(ok)}`;
+    const tem = (x) => x !== undefined && x !== null;
+    const ok = tem(s.partes.aula) && tem(s.partes.conteudo) && tem(s.partes.ferramentas) && ms.every((m) => tem(s.mentores[m.id]));
+    h = `<h1>Agora, rapidinho, cada parte:</h1><div class="legenda"><span>0 = nada</span><span>10 = totalmente</span></div><div>${linhaNota('partes', 'aula', 'A aula', 'ritmo e dinâmica')}
+      ${ms.map((m) => linhaNota('mentores', m.id, `${rosto(m, true)}${esc(m.nome)}`, 'mentor(a)')).join('')}
+      ${linhaNota('partes', 'conteudo', 'O conteúdo', 'dá para usar no dia a dia?')}${linhaNota('partes', 'ferramentas', 'Ferramentas e materiais')}</div>${botoes(ok)}`;
   } else if (passo === 3) {
     h = `<h1>Duas perguntinhas de um toque</h1><span class="subtit">Quanto você aprendeu de novo hoje?</span>${opcoes(APRENDEU, s.aprendeu, 'aprendeu')}
       <span class="subtit">O tempo do encontro foi…</span>${opcoes(TEMPO, s.tempo, 'tempo')}${botoes(s.aprendeu && s.tempo)}`;

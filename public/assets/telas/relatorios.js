@@ -18,7 +18,7 @@ function indicadores(m) {
   const tarefas = sess.filter((s) => s.concluida_em).flatMap((s) => s.tarefas || []);
   const entregues = tarefas.filter((t) => t.feita_em).length;
   const atrasadas = tarefas.filter(atrasada).length;
-  const notas = sess.map((s) => s.avaliacao && s.avaliacao.nota).filter(Boolean);
+  const notas = sess.map((s) => (s.avaliacao ? s.avaliacao.nota : null)).filter((x) => x != null);
   const pontos = (Array.isArray(m.pontos_desenvolver) ? m.pontos_desenvolver : []).map((x) => (typeof x === 'string' ? x : x.ponto)).filter(Boolean);
   const evolucao = pontos.map((pt) => {
     const serie = sess.map((s) => s.interno && s.interno.notas_evolucao && s.interno.notas_evolucao[pt]).filter(Boolean);
@@ -80,7 +80,7 @@ export async function render(ctx, el) {
   };
   const totais = (linhas) => {
     const soma = (f) => linhas.reduce((a, { k }) => a + k[f], 0);
-    const notas = linhas.flatMap(({ k }) => k.sess.map((s) => s.avaliacao && s.avaliacao.nota).filter(Boolean));
+    const notas = linhas.flatMap(({ k }) => k.sess.map((s) => (s.avaliacao ? s.avaliacao.nota : null)).filter((x) => x != null));
     const faltas = soma('faltasAv') + soma('faltasSem');
     return { n: linhas.length, previstas: soma('previstas'), feitas: soma('feitas'), faltas, presenca: pct(soma('feitas'), soma('feitas') + faltas),
       tarefas: soma('tarefas'), entregues: soma('entregues'), entregaPct: pct(soma('entregues'), soma('tarefas')), avaliacao: media(notas) };
@@ -92,7 +92,7 @@ export async function render(ctx, el) {
       <div class="cartao numero"><b>${t.feitas}<small style="font-size:14px;color:var(--apagado)"> de ${t.previstas}</small></b><span>sessões feitas · ${t.n} mentorados</span></div>
       <div class="cartao numero"><b>${fmtPct(t.presenca)}</b><span>presença (${t.faltas} faltas)</span></div>
       <div class="cartao numero"><b>${fmtPct(t.entregaPct)}</b><span>tarefas entregues (${t.entregues} de ${t.tarefas})</span></div>
-      <div class="cartao numero"><b>${fmtNum(t.avaliacao)}${t.avaliacao ? '<small style="font-size:14px;color:var(--apagado)"> / 5</small>' : ''}</b><span>avaliação média das sessões</span></div></div>`;
+      <div class="cartao numero"><b>${fmtNum(t.avaliacao)}${t.avaliacao ? '<small style="font-size:14px;color:var(--apagado)"> / 10</small>' : ''}</b><span>avaliação média das sessões</span></div></div>`;
     el.querySelector('#tabela').innerHTML = linhas.length ? `<table>
       <tr><th>Mentorado</th><th>Mentor</th><th>Sessões</th><th>Presença</th><th>Faltas</th><th>Tarefas entregues</th><th>Avaliação</th><th>Evolução</th></tr>
       ${linhas.map(({ m, k }) => `<tr class="clicavel" data-ir="#/mentorado/${m.id}">
@@ -127,13 +127,13 @@ export async function render(ctx, el) {
       ['Empresa', empresa ? empresa.nome : ''], ['Programa', programa ? programa.nome : 'Todos os programas'], ['Gerado em', dataBR(new Date().toISOString())], [],
       ['Mentorados', t.n], ['Sessões previstas', t.previstas], ['Sessões realizadas', t.feitas], ['Faltas', t.faltas],
       ['Presença', t.presenca == null ? '' : t.presenca / 100], ['Tarefas combinadas', t.tarefas], ['Tarefas entregues', t.entregues],
-      ['Entrega de tarefas', t.entregaPct == null ? '' : t.entregaPct / 100], ['Avaliação média das sessões (1 a 5)', t.avaliacao ?? ''],
+      ['Entrega de tarefas', t.entregaPct == null ? '' : t.entregaPct / 100], ['Avaliação média das sessões (0 a 10)', t.avaliacao ?? ''],
     ], [36, 40]);
     const wsR = wb.Sheets.Resumo;
     ['B11', 'B14'].forEach((c) => { if (wsR[c] && typeof wsR[c].v === 'number') wsR[c].z = '0%'; });
 
     const cab = ['Mentorado', 'Cargo', 'Programa', 'Mentor(es)', 'Situação', 'Sessões previstas', 'Sessões realizadas', 'Faltas avisadas', 'Faltas sem aviso',
-      'Presença', 'Tarefas combinadas', 'Tarefas entregues', 'Tarefas atrasadas', 'Avaliação média (1 a 5)', 'Última sessão'];
+      'Presença', 'Tarefas combinadas', 'Tarefas entregues', 'Tarefas atrasadas', 'Avaliação média (0 a 10)', 'Última sessão'];
     if (comEvol) cab.push('Evolução nos pontos a desenvolver (1 a 5: início → atual)');
     const nomeProg = (id) => (programas.find((p) => p.id === id) || {}).nome || '';
     folha('Mentorados', [cab, ...linhas.map(({ m, k }) => {

@@ -165,6 +165,10 @@ tr.clicavel { cursor: pointer; } tr.clicavel:hover td { background: var(--bege-c
 .estrelas { display: inline-flex; gap: 2px; }
 .estrelas button { border: 0; background: none; font-size: 22px; line-height: 1; cursor: pointer; color: var(--linha); padding: 0 2px; }
 .estrelas button.on { color: var(--ocre); }
+/* nota da sessão pelo mentorado, de 0 a 10 (era estrelas de 1 a 5 até 03/11/2026) */
+.nota-sessao { display: flex; flex-wrap: wrap; gap: 3px; }
+.nota-sessao button { min-width: 30px; height: 30px; border: 1.5px solid var(--linha); background: var(--papel); border-radius: 8px; font-weight: 700; font-size: 13px; cursor: pointer; color: var(--texto); font-variant-numeric: tabular-nums; padding: 0 4px; }
+.nota-sessao button.on { background: var(--petroleo); border-color: var(--petroleo); color: #fff; }
 
 /* lembretes */
 .pend-bloco { margin-top: 0; }

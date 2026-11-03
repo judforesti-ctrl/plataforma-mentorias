@@ -39,6 +39,10 @@ async function contador() {
   return r.ok && r.dados ? { media: r.dados.media == null ? null : Number(r.dados.media), total: Number(r.dados.total) || 0 } : null;
 }
 
+// Todas as notas vão de 0 a 10 (pedido da Juliana, 03/11/2026; o script 64 converte as antigas de 1 a 5). Banco que ainda não
+// rodou o 64 só aceita 1 a 5 em aula, conteúdo, ferramentas e mentor: aí grava a metade (1 a 5) e o 64 dobra depois.
+const VIOLOU = /23514|check constraint/i;
+const metade = (x) => (x == null ? null : Math.max(1, Math.ceil(x / 2)));
 const nota = (v, min, max) => { const n = Number(v); return v === null || v === undefined || v === '' || !Number.isInteger(n) || n < min || n > max ? null : n; };
 const escolhas = (v, permitidas, max) => [...new Set((Array.isArray(v) ? v : []).map((x) => String(x).trim().slice(0, 80)).filter(Boolean))]
   .filter((x) => !permitidas || permitidas.includes(x) || x.startsWith('Outro: ')).slice(0, max);
@@ -60,7 +64,7 @@ export default async (req) => {
   if (janela.estado === 'cedo') return json({ mensagem: 'A avaliação abre 24 horas antes do encontro.' }, 409);
   const resposta = {
     modulo_id: m.id, turma_id: m.turma_id, empresa_id: (m.turma && m.turma.empresa_id) || null, origem: 'plataforma',
-    geral: nota(corpo.geral, 0, 10), aula: nota(corpo.aula, 1, 5), conteudo: nota(corpo.conteudo, 1, 5), ferramentas: nota(corpo.ferramentas, 1, 5),
+    geral: nota(corpo.geral, 0, 10), aula: nota(corpo.aula, 0, 10), conteudo: nota(corpo.conteudo, 0, 10), ferramentas: nota(corpo.ferramentas, 0, 10),
     aprendeu: APRENDEU[corpo.aprendeu] ? corpo.aprendeu : null, tempo: TEMPO[corpo.tempo] ? corpo.tempo : null,
     nps: nota(corpo.nps, 0, 10),
     marcas: escolhas(corpo.marcas, [...POSITIVOS, ...MELHORAR], 12),
@@ -68,14 +72,21 @@ export default async (req) => {
     temas: escolhas(corpo.temas, TEMAS, 12),
   };
   if (resposta.geral === null && resposta.nps === null) return json({ mensagem: 'Dê pelo menos a nota do encontro.' }, 400);
-  const g = await supa('/rest/v1/avaliacoes?select=id', { metodo: 'POST', corpo: resposta, prefer: 'return=representation' });
+  let g = await supa('/rest/v1/avaliacoes?select=id', { metodo: 'POST', corpo: resposta, prefer: 'return=representation' });
+  if (!g.ok && VIOLOU.test(JSON.stringify(g.dados || ''))) {
+    g = await supa('/rest/v1/avaliacoes?select=id', { metodo: 'POST', prefer: 'return=representation',
+      corpo: { ...resposta, aula: metade(resposta.aula), conteudo: metade(resposta.conteudo), ferramentas: metade(resposta.ferramentas) } });
+  }
   if (!g.ok || !Array.isArray(g.dados) || !g.dados[0]) {
     const falta = /avaliacoes|42P01|PGRST20|schema cache/i.test(JSON.stringify(g.dados || ''));
     return json({ mensagem: falta ? 'A avaliação ainda está sendo preparada. Tente de novo mais tarde.' : 'Não conseguimos gravar agora. Tente de novo em instantes.' }, 500);
   }
   const daTurma = new Set((m.mentores || []).map((x) => x.mentor && x.mentor.id).filter(Boolean));
-  const notas = Object.entries(corpo.mentores || {}).filter(([mid]) => daTurma.has(mid)).map(([mid, v]) => ({ avaliacao_id: g.dados[0].id, mentor_id: mid, nota: nota(v, 1, 5) }))
+  const notas = Object.entries(corpo.mentores || {}).filter(([mid]) => daTurma.has(mid)).map(([mid, v]) => ({ avaliacao_id: g.dados[0].id, mentor_id: mid, nota: nota(v, 0, 10) }))
     .filter((x) => x.nota !== null);
-  if (notas.length) await supa('/rest/v1/avaliacao_mentores', { metodo: 'POST', corpo: notas });
+  if (notas.length) {
+    const r = await supa('/rest/v1/avaliacao_mentores', { metodo: 'POST', corpo: notas });
+    if (!r.ok && VIOLOU.test(JSON.stringify(r.dados || ''))) await supa('/rest/v1/avaliacao_mentores', { metodo: 'POST', corpo: notas.map((x) => ({ ...x, nota: metade(x.nota) })) });
+  }
   return json({ ok: true, contador: await contador() });
 };

@@ -160,8 +160,8 @@ export async function render(ctx, el) {
       ${resumos.length ? `<div class="lista">${resumos.map((s) => `<div class="item" style="grid-template-columns:80px 1fr">
         <div><b>${diaMes(s.data_hora)}</b><br><span class="peq apagado">Sessão ${s.numero}</span></div>
         <div><p class="peq apagado">${esc(s.tema || '')}${s.mentor ? ` · ${esc(s.mentor.nome)}` : ''}</p><p style="white-space:pre-wrap">${esc(s.resumo_mentorado)}</p>
-          <div class="linha mt" style="gap:8px"><span class="peq apagado">Como foi esta sessão para você?</span>
-            <span class="estrelas" data-avaliar="${s.id}">${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-nota="${n}" class="${s.avaliacao && s.avaliacao.nota >= n ? 'on' : ''}" aria-label="Nota ${n} de 5">★</button>`).join('')}</span></div></div></div>`).join('')}</div>`
+          <div class="mt" style="display:grid;gap:6px"><span class="peq apagado">Como foi esta sessão para você? De 0 a 10</span>
+            <span class="nota-sessao" data-avaliar="${s.id}">${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => `<button type="button" data-nota="${n}" class="${s.avaliacao && s.avaliacao.nota === n ? 'on' : ''}" aria-label="Nota ${n} de 10" aria-pressed="${!!(s.avaliacao && s.avaliacao.nota === n)}">${n}</button>`).join('')}</span></div></div></div>`).join('')}</div>`
         : '<p class="apagado">Os resumos aparecem aqui depois de cada sessão concluída.</p>'}
     </section>`;
 
@@ -184,9 +184,13 @@ export async function render(ctx, el) {
     const est = ev.target.closest('[data-nota]');
     if (est) {
       const box = est.closest('[data-avaliar]'); const nota = Number(est.dataset.nota);
-      const { error: e } = await sb.from('avaliacoes_sessao').upsert({ sessao_id: box.dataset.avaliar, nota }, { onConflict: 'sessao_id' });
+      let { error: e } = await sb.from('avaliacoes_sessao').upsert({ sessao_id: box.dataset.avaliar, nota }, { onConflict: 'sessao_id' });
+      // banco antes do script 64 (só aceita 1 a 5): guarda a metade, que o script dobra depois
+      if (e && /23514|check constraint/i.test(`${e.code} ${e.message}`)) {
+        ({ error: e } = await sb.from('avaliacoes_sessao').upsert({ sessao_id: box.dataset.avaliar, nota: Math.max(1, Math.ceil(nota / 2)) }, { onConflict: 'sessao_id' }));
+      }
       if (e) { avisar(explicarErro(e), true); return; }
-      box.querySelectorAll('[data-nota]').forEach((b) => b.classList.toggle('on', Number(b.dataset.nota) <= nota));
+      box.querySelectorAll('[data-nota]').forEach((b) => { const on = Number(b.dataset.nota) === nota; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
       avisar('Avaliação registrada.');
       return;
     }

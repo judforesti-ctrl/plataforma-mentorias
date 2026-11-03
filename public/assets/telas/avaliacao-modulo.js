@@ -118,8 +118,8 @@ async function mostrarResultado(ctx, alvo, m, souMentor) {
     <div class="linha" style="align-items:baseline"><h4 style="flex:1">Como a turma avaliou</h4><span class="selo neutro">${r.total} ${r.total === 1 ? 'resposta' : 'respostas'}${pres ? ` de ${pres} presentes` : ''}</span></div>
     <div class="mt" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px">
       ${caixa(num1(r.geral), 'nota geral (0 a 10)')}
-      ${meus.map((x) => caixa(num1(x.media), ctx.ehAdmin ? `${esc(String(nomes.get(x.id) || 'mentor').split(' ')[0])} (1 a 5)` : 'sua nota (1 a 5)')).join('')}
-      ${caixa(num1(r.aula), 'aula (1 a 5)')}${caixa(num1(r.conteudo), 'conteúdo (1 a 5)')}${caixa(num1(r.ferramentas), 'ferramentas (1 a 5)')}
+      ${meus.map((x) => caixa(num1(x.media), ctx.ehAdmin ? `${esc(String(nomes.get(x.id) || 'mentor').split(' ')[0])} (0 a 10)` : 'sua nota (0 a 10)')).join('')}
+      ${caixa(num1(r.aula), 'aula (0 a 10)')}${caixa(num1(r.conteudo), 'conteúdo (0 a 10)')}${caixa(num1(r.ferramentas), 'ferramentas (0 a 10)')}
       ${r.nps ? caixa(r.nps.valor, 'NPS (−100 a 100)') : ''}
     </div>
     ${lista2(r.aprendeu, APRENDEU) ? `<p class="peq mt"><b>Aprenderam:</b> ${lista2(r.aprendeu, APRENDEU)}</p>` : ''}
