@@ -551,6 +551,12 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (foto + miniatura), apaga os módulos (o banco apaga mentores/arquivos; avaliações ficam sem módulo) e renumera os que ficam
   em ordem crescente (único turma_id+numero). "Link da sala para vários": um link para os módulos marcados (presenciais fora);
   Zoom/Meet/Teams no link muda o "onde acontece".
+  DATAS A DEFINIR (2026-11-03, Sicoob Jovem: o cronograma de 4 turmas caiu e não havia como tirar os convites sem inventar data
+  ou excluir o módulo): na turma, "Datas a definir" (marca os módulos; já vêm marcados os que não têm percepções) e, no módulo,
+  "Deixar a data a definir" ao lado da data. `/api/google-sync` acao `a_definir` (`deixarDatasADefinir` em lib/google-sync.mjs):
+  data_hora = null (o módulo fica com tudo), data antiga em `historico` (acao 'data_a_definir') e convites do módulo e dos
+  deslocamentos apagados da Google Agenda: futuros com aviso aos convidados; os de datas que já passaram (a sincronização normal
+  não mexe no passado; a linha de google_eventos já sumiu, então vai pelo id fixo `idDe`) sem e-mail. Sem script novo.
   PROPOSTA SEM TURMA: Vendas → "✉ Enviar proposta (PDF)" (atalho `#/vendas/enviar-proposta`, também em Turmas): cliente da lista
   ou novo, contato, arquivo → oportunidade (reaproveita a aberta mais adiantada) + proposta `aprovada` com o arquivo em
   `propostas/<oportunidade>/<proposta>/` → `janelaEnviar` (exportada de proposta.js). Turma só depois da aprovação.

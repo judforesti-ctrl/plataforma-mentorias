@@ -4,8 +4,9 @@
 //  tudo        (administração) sincroniza tudo agora, em segundo plano
 //  conferir    (administração) procura convites duplicados ou que ficaram no horário antigo
 //  apagar      (administração) apaga os convites escolhidos na conferência
+//  a_definir   (administração) deixa os módulos escolhidos com a data a definir e tira os convites deles da Google Agenda
 import { json, supa, quemPede, contaGoogle, SITE } from '../lib/google.mjs';
-import { sincronizar, salvarResultado, lerConfig, chaveFundo, conferirConvites, apagarConvites } from '../lib/google-sync.mjs';
+import { sincronizar, salvarResultado, lerConfig, chaveFundo, conferirConvites, apagarConvites, deixarDatasADefinir } from '../lib/google-sync.mjs';
 
 export const config = { path: '/api/google-sync', method: 'POST' };
 
@@ -38,6 +39,11 @@ export default async (req) => {
     if (!adm) return json({ mensagem: 'Só a administração.' }, 403);
     const ids = (Array.isArray(b.ids) ? b.ids : []).map(String).filter((x) => /^[\w-]{5,1024}$/.test(x));
     return json(await apagarConvites(ids));
+  }
+  if (b.acao === 'a_definir') {
+    if (!adm) return json({ mensagem: 'Só a administração.' }, 403);
+    const ids = (Array.isArray(b.modulos) ? b.modulos : []).map(String).filter((x) => /^[0-9a-f-]{36}$/i.test(x));
+    return json(await deixarDatasADefinir(ids, eu));
   }
 
   // depois de uma mudança na agenda: o que der em poucos segundos; se sobrar, o fundo termina

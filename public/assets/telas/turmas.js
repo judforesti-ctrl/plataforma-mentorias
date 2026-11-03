@@ -235,7 +235,7 @@ async function paginaTurma(ctx, el, id) {
               <option value="">Não definido</option>${Object.entries(QUEM_VIAGEM).map(([k, r]) => `<option value="${k}"${(t.viagem_padrao || {})[`${q}_${it.k}`] === k ? ' selected' : ''}>${r}</option>`).join('')}</select></label>`).join('')}</div>`).join('')}</div></div>` : ''}
       </div>
       <div class="cartao" style="margin-top:0">
-        <div class="linha"><h3 style="flex:1">Módulos (${mods.length})</h3>${adm ? `${mods.length ? `<button class="btn peq" id="descritivo">Descritivo da proposta</button><button class="btn peq" id="link-sala">Link da sala para vários</button>
+        <div class="linha"><h3 style="flex:1">Módulos (${mods.length})</h3>${adm ? `${mods.length ? `<button class="btn peq" id="descritivo">Descritivo da proposta</button><button class="btn peq" id="link-sala">Link da sala para vários</button><button class="btn peq" id="a-definir">Datas a definir</button>
           <button class="btn peq" id="excluir-mods">Excluir módulos</button>` : ''}<button class="btn peq escuro" id="novo-mod">+ Novo módulo</button>` : ''}</div>
         ${adm && mods.some((m) => !String(m.tematica || '').trim()) ? `<p class="peq apagado mt">${mods.filter((m) => !String(m.tematica || '').trim()).length} módulo(s) sem o descritivo do que deve ser abordado. Clique em "Descritivo da proposta" para trazer da proposta.</p>` : ''}
         ${adm ? `<form id="f-mod" class="mt" hidden style="background:var(--bg);border-radius:12px;padding:12px">
@@ -251,9 +251,9 @@ async function paginaTurma(ctx, el, id) {
           <div class="linha mt"><button class="btn pri peq" type="submit">Criar módulo</button></div>
         </form>` : ''}
         <div class="lista mt">${mods.map((m) => `<a class="item" href="#/modulo/${m.id}" style="grid-template-columns:70px 1fr auto">
-          <div><b>${m.numero}</b><br><span class="peq apagado">${m.data_hora ? diaMes(m.data_hora) : 'sem data'}</span></div>
+          <div><b>${m.numero}</b><br><span class="peq apagado">${m.data_hora ? diaMes(m.data_hora) : 'a definir'}</span></div>
           <div style="min-width:0"><div class="nome">${esc(m.titulo)}</div><div class="info">${esc(nomesMentores(m) || 'Mentor a definir')} · ${FORMATO[m.formato] || ''}${m.data_hora ? ` · ${horaBR(m.data_hora)}` : ''}${adm && !String(m.tematica || '').trim() ? ' · <span style="color:#7A4A20">sem descritivo</span>' : ''}</div></div>
-          ${m.percepcoes_em ? '<span class="selo">Percepções ✓</span>' : pedePercepcao(m) ? '<span class="selo alerta">Sem percepções</span>' : passou(m) ? '<span class="selo neutro">Realizada</span>' : '<span class="selo neutro">A acontecer</span>'}</a>`).join('')
+          ${m.percepcoes_em ? '<span class="selo">Percepções ✓</span>' : !m.data_hora ? '<span class="selo alerta">Data a definir</span>' : pedePercepcao(m) ? '<span class="selo alerta">Sem percepções</span>' : passou(m) ? '<span class="selo neutro">Realizada</span>' : '<span class="selo neutro">A acontecer</span>'}</a>`).join('')
           || '<p class="apagado">Nenhum módulo ainda.</p>'}</div>
       </div>
     </div>
@@ -294,6 +294,7 @@ async function paginaTurma(ctx, el, id) {
     abrirDescritivo(ctx, id, { aoTerminar: () => ctx.irPara(`#/turma/${id}`) });
   });
   el.querySelector('#link-sala')?.addEventListener('click', () => janelaLinkSala(ctx, t, mods));
+  el.querySelector('#a-definir')?.addEventListener('click', () => janelaDatasADefinir(ctx, t, mods));
   el.querySelector('#excluir-mods')?.addEventListener('click', () => janelaExcluirModulos(ctx, t, mods));
   el.querySelector('#novo-mod').addEventListener('click', () => { const f = el.querySelector('#f-mod'); f.hidden = !f.hidden; });
   el.querySelector('#f-mod').addEventListener('submit', async (ev) => {
@@ -327,7 +328,7 @@ async function paginaTurma(ctx, el, id) {
 // Aqui cola uma vez e marca os módulos; o "onde acontece" acompanha o link (Zoom, Meet ou Teams). Presenciais ficam de fora.
 const formatoDoLink = (url) => (/zoom\.us\//i.test(url) ? 'zoom' : /meet\.google\.com\//i.test(url) ? 'meet' : /teams\.(microsoft|live)\.com\//i.test(url) ? 'teams' : null);
 const ehPresencial = (m, t) => m.formato === 'presencial' || (m.formato === 'indefinido' && t.formato === 'presencial');
-const quandoModulo = (m) => (m.data_hora ? `${diaMes(m.data_hora)} · ${horaBR(m.data_hora)}` : 'sem data');
+const quandoModulo = (m) => (m.data_hora ? `${diaMes(m.data_hora)} · ${horaBR(m.data_hora)}` : 'data a definir');
 
 async function janelaLinkSala(ctx, t, mods) {
   const { janela } = await import('./agenda-dados.js');
@@ -371,6 +372,59 @@ async function janelaLinkSala(ctx, t, mods) {
     if (error) { avisar(explicarErro(error), true); b.disabled = false; resumo(); return; }
     import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
     avisar(ids.length === 1 ? 'Link colocado no módulo.' : `Link colocado em ${ids.length} módulos.`);
+    j.fechar(); ctx.irPara(`#/turma/${t.id}`);
+  });
+}
+
+// ---------- datas a definir ----------
+// Pedido da Cintia (2026-11-03, Sicoob Jovem): o cronograma das turmas caiu e as datas novas ainda não existem. Ela não tinha
+// como tirar os convites da Google Agenda sem inventar uma data ou excluir o módulo. Aqui o módulo fica com tudo (mentores,
+// slides, descritivo), só a data vira "a definir"; o servidor guarda a data antiga no histórico e tira os convites da agenda.
+async function tirarDatas(ids) {
+  const { api, limparCache } = await import('./agenda-dados.js');
+  const r = await api('/api/google-sync', { acao: 'a_definir', modulos: ids });
+  limparCache();
+  if (r.modulos === undefined) { avisar(r.mensagem || r.erro || 'Não consegui tirar as datas. Tente de novo.', true); return false; }
+  const n = r.modulos;
+  const tirados = (r.cancelados || 0) + (r.passados || 0);
+  const google = r.semGoogle ? '' : r.erro ? ` Mas os convites não saíram da Google Agenda: ${r.erro}`
+    : tirados ? ` ${tirados === 1 ? '1 convite saiu' : `${tirados} convites saíram`} da Google Agenda.` : ' Não havia convites deles na Google Agenda.';
+  const falhas = r.erros && r.erros.length ? ` ${r.erros.length === 1 ? '1 convite não saiu' : `${r.erros.length} convites não saíram`}: tente de novo daqui a pouco.` : '';
+  avisar(`${n === 1 ? 'Módulo ficou com a data a definir.' : `${n} módulos ficaram com a data a definir.`}${google}${falhas}`, !!(r.erro || falhas));
+  return true;
+}
+
+async function janelaDatasADefinir(ctx, t, mods) {
+  const { janela } = await import('./agenda-dados.js');
+  const comData = mods.filter((m) => m.data_hora);
+  const sem = mods.length - comData.length;
+  const situacao = (m) => (m.percepcoes_em ? '<br><span class="peq" style="color:var(--erro)">tem percepções: a aula aconteceu</span>' : passou(m) ? ' <span class="peq apagado">· já passou</span>' : '');
+  const j = janela('Datas a definir', `<div class="grade" style="gap:12px">
+    <p class="peq">Para quando o cronograma mudou e as datas novas ainda não foram combinadas. Os módulos continuam na turma com tudo
+      (mentores, slides, descritivo); só a data fica <b>a definir</b>. Quando souber as datas novas, é só abrir cada módulo e colocar.</p>
+    ${comData.length ? `<div class="linha" style="gap:6px"><button class="btn peq" type="button" data-marcar="todos">Marcar todos</button><button class="btn peq" type="button" data-marcar="nenhum">Desmarcar</button></div>
+      <div class="lista">${comData.map((m) => `<label class="check" style="align-items:flex-start"><input type="checkbox" value="${m.id}"${m.percepcoes_em ? '' : ' checked'}>
+        <span><b>${m.numero}.</b> ${esc(m.titulo)} <span class="peq apagado">· ${quandoModulo(m)} · ${esc(nomesMentores(m) || 'sem mentor')}</span>${situacao(m)}</span></label>`).join('')}</div>`
+      : '<div class="aviso">Todos os módulos desta turma já estão com a data a definir.</div>'}
+    ${sem && comData.length ? `<p class="peq apagado">${sem === 1 ? '1 módulo já está' : `${sem} módulos já estão`} com a data a definir.</p>` : ''}
+    <div class="aviso peq">Os convites desses módulos saem da Google Agenda (também os dias de deslocamento). Os das datas que ainda vão
+      chegar são cancelados e o Google avisa os mentores; os das datas que já passaram somem sem e-mail. A data antiga fica guardada no histórico.</div>
+    <div class="linha"><button class="btn pri" type="button" id="ad-ok" disabled>Deixar a data a definir</button><button class="btn" type="button" data-fechar>Desistir</button></div></div>`, { largura: 680 });
+  const caixas = () => [...j.corpo.querySelectorAll('.lista input[type=checkbox]')];
+  const b = j.corpo.querySelector('#ad-ok');
+  const resumo = () => {
+    const n = caixas().filter((c) => c.checked).length;
+    b.disabled = !n;
+    b.textContent = n ? `Deixar ${n === 1 ? '1 módulo' : `${n} módulos`} com a data a definir` : 'Deixar a data a definir';
+  };
+  j.corpo.addEventListener('change', resumo);
+  j.corpo.querySelectorAll('[data-marcar]').forEach((x) => x.addEventListener('click', () => { caixas().forEach((c) => { c.checked = x.dataset.marcar === 'todos'; }); resumo(); }));
+  resumo();
+  b.addEventListener('click', async () => {
+    const ids = caixas().filter((c) => c.checked).map((c) => c.value);
+    if (!ids.length) return;
+    b.disabled = true; b.textContent = 'Tirando as datas e os convites…';
+    if (!await tirarDatas(ids)) { resumo(); return; }
     j.fechar(); ctx.irPara(`#/turma/${t.id}`);
   });
 }
@@ -499,7 +553,8 @@ async function paginaModulo(ctx, el, id) {
         ${cartaoMateriais(ctx, m, adm || souMentor, materiais.length ? `<p class="peq mt2"><b>Arquivos de apoio</b></p>${listaArquivos(materiais, '')}` : '')}
         ${adm ? `<div class="cartao"><h3>Quando e onde</h3>
           <div class="grade g2 mt" style="gap:10px">
-            <div class="campo"><label>Data e hora (Brasília)</label><input type="datetime-local" data-mod="data_hora" value="${esc(isoParaLocal(m.data_hora))}"></div>
+            <div class="campo"><label>Data e hora (Brasília)</label><input type="datetime-local" data-mod="data_hora" value="${esc(isoParaLocal(m.data_hora))}">
+              ${m.data_hora ? '<button class="btn peq mt" type="button" id="a-definir" style="width:auto;justify-self:start;align-self:flex-start">Deixar a data a definir</button>' : '<span class="peq" style="color:var(--erro)">Data a definir: quando souber, coloque aqui.</span>'}</div>
             <div class="campo"><label>Duração (minutos)</label><input type="number" min="0" data-mod="duracao_min" value="${esc(m.duracao_min ?? '')}"></div>
             <div class="campo"><label>Onde acontece</label><select data-mod="formato">${Object.entries(FORMATO).map(([k, r]) => `<option value="${k}"${k === m.formato ? ' selected' : ''}>${r}</option>`).join('')}</select></div>
             <div class="campo"><label>Link da sala</label><input type="url" data-mod="link" placeholder="https://zoom.us/… ou https://meet.google.com/…" value="${esc(m.link || '')}"></div>
@@ -574,6 +629,12 @@ async function paginaModulo(ctx, el, id) {
     await salvador.agora();
     const { abrirDescritivo } = await import('./descritivo-proposta.js');
     abrirDescritivo(ctx, m.turma.id, { aoTerminar: () => ctx.irPara(`#/modulo/${id}`) });
+  });
+  el.querySelector('#a-definir')?.addEventListener('click', async () => {
+    if (!window.confirm('Deixar este módulo com a data a definir? O convite dele sai da Google Agenda (o Google avisa os mentores). Quando souber a data nova, é só colocar aqui.')) return;
+    await salvador.agora();
+    const b = el.querySelector('#a-definir'); b.disabled = true; b.textContent = 'Tirando a data…';
+    if (await tirarDatas([id])) ctx.irPara(`#/modulo/${id}`); else { b.disabled = false; b.textContent = 'Deixar a data a definir'; }
   });
   el.querySelector('#excluir-mod')?.addEventListener('click', async () => {
     await salvador.agora();

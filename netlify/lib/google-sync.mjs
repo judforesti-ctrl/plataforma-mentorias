@@ -380,3 +380,49 @@ export async function apagarConvites(ids) {
   }
   return { apagados, erros, protegidos };
 }
+
+// ---------- módulos com a data a definir ----------
+// Pedido da Cintia (2026-11-03): o cronograma de uma turma caiu e as datas novas ainda não existem. Os módulos ficam (mentores,
+// slides, descritivo), só a data vira "a definir", e os convites deles saem da Google Agenda: os que ainda iam acontecer são
+// cancelados com aviso aos convidados; os de datas que já passaram sem a aula acontecer somem sem e-mail (a sincronização normal
+// não mexe no passado). Convites de módulo são sempre da plataforma, com id fixo (idDe), então dá para achar mesmo sem a linha
+// em google_eventos (ela some quando o horário passa). As datas antigas ficam no histórico.
+export async function deixarDatasADefinir(ids, eu) {
+  const lista = [...new Set(ids)].slice(0, 100);
+  if (!lista.length) return { modulos: 0 };
+  const m = await supa(`/rest/v1/modulos?id=in.(${lista.join(',')})&select=id,numero,titulo,data_hora,turma_id,mentores:modulo_mentores(mentor_id)`);
+  if (!m.ok) return { erro: 'Não consegui ler os módulos.' };
+  const mods = m.dados || [];
+  const comData = mods.filter((x) => x.data_hora);
+  if (comData.length) {
+    const r = await supa(`/rest/v1/modulos?id=in.(${comData.map((x) => x.id).join(',')})`, { metodo: 'PATCH', prefer: 'return=minimal', corpo: { data_hora: null } });
+    if (!r.ok) return { erro: 'Não consegui tirar as datas dos módulos.' };
+    await supa('/rest/v1/historico', { metodo: 'POST', prefer: 'return=minimal', corpo: comData.map((x) => ({ perfil_id: eu.id, acao: 'data_a_definir', tabela: 'modulos',
+      registro_id: x.id, antes: { data_hora: x.data_hora, numero: x.numero, titulo: x.titulo }, depois: { data_hora: null } })) });
+  }
+  const res = { modulos: comData.length, cancelados: 0, passados: 0, erros: [] };
+  const acesso = await acessoGoogle();
+  if (!acesso) return { ...res, semGoogle: true };
+  if (acesso.erro) return { ...res, erro: acesso.erro };
+  const g = await supa('/rest/v1/google_eventos?select=chave,evento_id,inicio');
+  const guardados = new Map(((g.ok && g.dados) || []).map((x) => [x.chave, x]));
+  const alvos = [];
+  for (const md of mods) {
+    const chaves = new Set([`modulo:${md.id}`]);
+    for (const v of md.mentores || []) for (const k of [-1, 1]) chaves.add(`desloc:${md.id}:${v.mentor_id}:${k}`);
+    for (const c of guardados.keys()) if (c === `modulo:${md.id}` || c.startsWith(`desloc:${md.id}:`)) chaves.add(c);
+    for (const c of chaves) alvos.push(c);
+  }
+  // sem a linha guardada = o horário já passou (ou o convite nunca existiu): apaga em silêncio
+  const umConvite = async (chave) => {
+    const row = guardados.get(chave);
+    const futuro = !!(row && row.inicio && Date.parse(row.inicio) > Date.now());
+    const id = (row && row.evento_id) || idDe(chave);
+    const r = await agenda(acesso.token, `/calendars/primary/events/${encodeURIComponent(id)}?sendUpdates=${futuro ? 'all' : 'none'}`, { metodo: 'DELETE' });
+    if (r.ok) { if (futuro) res.cancelados += 1; else res.passados += 1; }
+    else if (r.status !== 404 && r.status !== 410) { res.erros.push(`${chave}: a Google Agenda respondeu ${r.status}`); return; }
+    if (row) await supa(`/rest/v1/google_eventos?chave=eq.${encodeURIComponent(chave)}`, { metodo: 'DELETE' });
+  };
+  for (let i = 0; i < alvos.length; i += 8) await Promise.all(alvos.slice(i, i + 8).map(umConvite));
+  return { ...res, conta: acesso.email };
+}
