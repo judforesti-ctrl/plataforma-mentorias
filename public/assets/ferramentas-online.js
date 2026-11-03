@@ -15,6 +15,7 @@ export const ONLINE = {
   'MNT-COM-12': { interna: true, url: '/ferramentas/qual-e-o-seu-canal/', publica: 'Qual é o seu canal?' },
   'MNT-AUT-10': { interna: true, url: '/ferramentas/roda-da-vida/', publica: 'Roda da Vida' },
   'MNT-AUT-11': { interna: true, url: '/ferramentas/roda-profissional-futuro/', publica: 'Roda do Profissional do Futuro' },
+  'MNT-LID-10': { interna: true, url: '/ferramentas/meu-proximo-passo/', publica: 'Plano de Ação: Meu Próximo Passo' },
   'MNT-JOR-06': { interna: false, url: 'https://radardalideranca.netlify.app', publica: 'Radar da Liderança',
     linkPublico: 'https://radardalideranca.netlify.app/radar/' },
 };
@@ -42,7 +43,9 @@ const ROTULOS = { media: 'Média', faixa: 'Faixa', plano: 'Plano de ação', not
   primeiro_passo: 'Primeiro passo (compromisso)', prazo: 'Até quando', acoes_feitas: 'Ações do plano já feitas',
   canal_predominante: 'Canal preferencial', percentuais: 'Cada canal', leitura: 'Leitura do resultado', como_aprende: 'Como aprende melhor',
   como_falar_comigo: 'Como falar com a pessoa', atitudes: 'Atitudes para a semana',
-  respostas_por_frase: 'Nota de cada frase (de 1 a 10)' };
+  respostas_por_frase: 'Nota de cada frase (de 1 a 10)',
+  comportamento: 'Comportamento que quero fortalecer', situacao: 'Situação em que vou praticar', acao: 'Ação que vou realizar',
+  com_quem: 'Com quem vou colaborar', quando: 'Quando vou dar o primeiro passo', sinal: 'Como vou perceber que gerou valor' };
 const rotulo = (k) => ROTULOS[k] || (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, ' ');
 
 // Mostra o resultado guardado de uma ferramenta online, qualquer que seja ela.

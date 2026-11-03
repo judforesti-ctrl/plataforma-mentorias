@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Plano de Ação: Meu Próximo Passo · Mentorei</title>
+<meta name="description" content="Monte em 5 minutos o seu plano de ação: o comportamento que quer fortalecer, onde vai praticar, a ação, com quem, quando e como vai perceber que gerou valor.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #091216; --surface: #0F1D23; --surface-2: #142731; --line: rgba(230,236,234,.12);
+  --text: #E9EFEC; --muted: #93A3A8; --lime: #C8F04A; --lime-soft: rgba(200,240,74,.14); --on-lime: #091216;
+  --danger: #FF8A7A;
+  --display: 'Manrope', 'Poppins', 'Segoe UI', system-ui, sans-serif;
+  --body: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #091216; --text: #E9EFEC; } }
+:root[data-theme="dark"] { --bg: #091216; --text: #E9EFEC; }
+html { background: var(--bg); }
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--body); font-size: 16px; line-height: 1.55;
+       -webkit-font-smoothing: antialiased; min-height: 100vh; padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0); }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--lime); outline-offset: 3px; border-radius: 6px; }
+h1, h2, h3 { font-family: var(--display); letter-spacing: -0.02em; margin: 0; }
+p { margin: 0; }
+
+.shell { max-width: 700px; margin: 0 auto; padding: 22px 20px 48px; }
+.shell.wide { max-width: 1040px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 40px; }
+.top .logo { height: 22px; width: auto; display: block; }
+.top .logo-print { display: none; }
+.top .meta { color: var(--muted); font-size: 14px; }
+
+.btn { appearance: none; border: 0; cursor: pointer; border-radius: 999px; padding: 15px 26px; font-weight: 600; font-size: 16px; text-decoration: none;
+       display: inline-flex; align-items: center; justify-content: center; gap: 10px; transition: transform .12s ease, opacity .2s ease; }
+.btn:active { transform: scale(.98); }
+.btn-primary { background: var(--lime); color: var(--on-lime); }
+.btn-primary:disabled { opacity: .35; cursor: not-allowed; }
+.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+.btn-link { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 8px 0; font-size: 15px; }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+
+/* abertura */
+.intro { padding-top: 6vh; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 40px; align-items: center; }
+.intro h1 { font-size: clamp(40px, 6.6vw, 66px); line-height: 1.02; font-weight: 800; }
+.intro .lead { font-size: 19px; color: var(--muted); margin-top: 18px; max-width: 34em; }
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border-radius: 16px; overflow: hidden; margin: 32px 0 34px; }
+.facts div { background: var(--surface); padding: 16px 18px; }
+.facts b { display: block; font-family: var(--display); font-size: 22px; font-weight: 800; color: var(--lime); }
+.facts span { font-size: 14px; color: var(--muted); }
+.degraus { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; width: 100%; max-width: 420px; justify-self: end; }
+.degraus li { display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line);
+              border-radius: 16px; padding: 10px 16px 10px 10px; font-family: var(--display); font-weight: 700; font-size: 16px;
+              animation: sobe .6s cubic-bezier(.2,.8,.2,1) both; }
+.degraus li b { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--lime); font-weight: 800; }
+.degraus li:last-child { background: var(--lime); color: var(--on-lime); border-color: var(--lime); }
+.degraus li:last-child b { background: var(--on-lime); color: var(--lime); }
+.degraus li:nth-child(1) { margin-right: 25%; } .degraus li:nth-child(2) { margin: 0 20% 0 5%; animation-delay: .08s; }
+.degraus li:nth-child(3) { margin: 0 15% 0 10%; animation-delay: .16s; } .degraus li:nth-child(4) { margin: 0 10% 0 15%; animation-delay: .24s; }
+.degraus li:nth-child(5) { margin: 0 5% 0 20%; animation-delay: .32s; } .degraus li:nth-child(6) { margin-left: 25%; animation-delay: .4s; }
+@keyframes sobe { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@media (max-width: 860px) {
+  .intro { grid-template-columns: 1fr; gap: 6px; padding-top: 2vh; }
+  .degraus { order: 2; max-width: none; justify-self: stretch; margin-top: 8px; }
+  .degraus li { font-size: 15px; }
+}
+
+/* cadastro */
+.form-head { margin: 40px 0 26px; }
+.form-head h2 { font-size: 32px; font-weight: 800; line-height: 1.1; }
+.form-head p { color: var(--muted); margin-top: 10px; }
+.field { margin-bottom: 18px; }
+.field label { display: block; font-size: 15px; font-weight: 500; margin-bottom: 8px; }
+.field label small { color: var(--muted); font-weight: 400; }
+.field input { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; font-size: 16px; }
+.field input:focus { border-color: var(--lime); outline: none; }
+.field .err { color: var(--danger); font-size: 14px; margin-top: 6px; display: none; }
+.field.invalid input { border-color: var(--danger); }
+.field.invalid .err { display: block; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.consent { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; color: var(--muted); margin: 6px 0 12px; cursor: pointer; }
+.consent input { width: 20px; height: 20px; accent-color: var(--lime); margin-top: 2px; flex-shrink: 0; }
+.privado { font-size: 13.5px; color: var(--muted); margin: 0 0 24px; padding: 12px 14px; background: var(--surface); border-radius: 12px; }
+
+/* passos */
+.prog { margin: 26px 0 30px; }
+.prog .lin { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.prog .count { font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--muted); }
+.prog .count b { color: var(--text); font-size: 22px; }
+.prog .tipo { font-size: 13px; font-weight: 600; color: var(--lime); background: var(--lime-soft); padding: 4px 12px; border-radius: 999px; }
+.prog .trk { height: 6px; background: var(--surface-2); border-radius: 99px; overflow: hidden; margin-top: 10px; }
+.prog .trk div { height: 100%; background: var(--lime); border-radius: 99px; transition: width .3s ease; }
+.marco { display: inline-block; margin-bottom: 16px; font-size: 14px; font-weight: 600; color: var(--on-lime); background: var(--lime); padding: 6px 14px; border-radius: 999px; animation: pula .5s ease both; }
+@keyframes pula { 0% { transform: scale(.7); opacity: 0; } 70% { transform: scale(1.06); } 100% { transform: none; opacity: 1; } }
+.q h2 { font-size: clamp(25px, 5vw, 34px); font-weight: 800; line-height: 1.16; text-wrap: balance; }
+.q .ajuda { color: var(--muted); font-size: 17px; margin-top: 10px; }
+.sugestoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.sug { appearance: none; cursor: pointer; padding: 9px 16px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-weight: 600; font-size: 15px;
+       transition: border-color .15s, background .15s; }
+.sug:hover { border-color: rgba(200,240,74,.55); }
+.sug[aria-pressed="true"] { background: var(--lime); color: var(--on-lime); border-color: var(--lime); }
+.sug[aria-pressed="true"]::before { content: '✓ '; }
+.resposta { margin-top: 18px; }
+.resposta textarea { width: 100%; min-height: 150px; resize: vertical; background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+                     padding: 16px 18px; font-size: 17px; line-height: 1.5; }
+.resposta textarea:focus { border-color: var(--lime); outline: none; }
+.resposta textarea::placeholder { color: #5F7177; }
+.quando { display: grid; grid-template-columns: minmax(0, 220px) 1fr; gap: 14px; margin-top: 18px; align-items: end; }
+.quando label { display: block; font-size: 15px; font-weight: 500; margin-bottom: 8px; }
+.quando label small { color: var(--muted); font-weight: 400; }
+.quando input { width: 100%; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; font-size: 16px; }
+.quando input:focus { border-color: var(--lime); outline: none; }
+.quando + .resposta textarea { min-height: 110px; }
+.qnav { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; gap: 12px; }
+.hint { font-size: 13px; color: var(--muted); margin-top: 18px; }
+
+/* plano */
+.res-head { margin: 34px 0 10px; }
+.res-head .who { color: var(--muted); font-size: 15px; }
+.res-head h1 { font-size: clamp(30px, 5.4vw, 44px); font-weight: 800; line-height: 1.06; margin-top: 6px; }
+.destaque { margin-top: 22px; background: var(--lime); color: var(--on-lime); border-radius: 22px; padding: 24px 26px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 20px; align-items: center; }
+.destaque .chapeu { font-size: 14px; font-weight: 600; opacity: .75; }
+.destaque .acao { font-family: var(--display); font-size: clamp(22px, 3.6vw, 30px); font-weight: 800; line-height: 1.2; margin-top: 6px; white-space: pre-wrap; }
+.destaque .data { text-align: center; background: var(--on-lime); color: var(--lime); border-radius: 18px; padding: 12px 18px; min-width: 110px; }
+.destaque .data b { display: block; font-family: var(--display); font-size: 34px; font-weight: 800; line-height: 1; }
+.destaque .data span { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.passos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+.passo { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 18px 20px; display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: start; }
+.passo .n { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--surface-2); color: var(--lime); font-family: var(--display); font-weight: 800; }
+.passo h3 { font-size: 16px; font-weight: 800; }
+.passo p { margin-top: 6px; font-size: 16px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.section { margin-top: 44px; }
+.section > h2 { font-size: 26px; font-weight: 800; }
+.atitudes { display: grid; gap: 12px; margin-top: 20px; counter-reset: at; }
+.atitude { display: grid; grid-template-columns: 44px 1fr; gap: 14px; align-items: start; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; font-size: 16.5px; }
+.atitude::before { counter-increment: at; content: counter(at); width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center;
+                   background: var(--lime); color: var(--on-lime); font-family: var(--display); font-weight: 800; font-size: 20px; }
+.status { margin-top: 16px; font-size: 15px; color: var(--muted); min-height: 24px; }
+.status.ok { color: var(--lime); }
+.status.err { color: var(--danger); }
+.note { margin-top: 40px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+.foot { margin-top: 40px; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.fade { animation: fade .35s ease both; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .fade, .degraus li, .marco { animation: none; } .btn, .sug { transition: none; } }
+
+@media (max-width: 760px) {
+  .passos { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .shell { padding: 18px 16px 40px; }
+  .row2, .facts, .quando { grid-template-columns: 1fr; gap: 0; }
+  .quando { gap: 12px; }
+  .facts { gap: 1px; }
+  .qnav .btn { padding: 14px 20px; }
+  .destaque { grid-template-columns: 1fr; padding: 20px; }
+  .destaque .data { justify-self: start; }
+  .resposta textarea { font-size: 16px; }
+}
+
+@media print {
+  @page { size: A4; margin: 14mm; }
+  :root { --bg: #fff; --surface: #F3F5F4; --surface-2: #E0E1E1; --line: #E0E1E1; --text: #091216; --muted: #5E6467; }
+  body { background: #fff; color: #091216; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 12px; }
+  .shell { max-width: none; padding: 0; }
+  .no-print, .btn, .btn-link, .status { display: none !important; }
+  .top .logo-screen { display: none !important; }
+  .top .logo-print { display: block; height: 18px; }
+  .res-head { margin-top: 12px; } .res-head h1 { font-size: 24px; }
+  .destaque { background: #fff; color: #091216; border: 2px solid #091216; padding: 14px 18px; margin-top: 12px; }
+  .destaque .acao { font-size: 18px; }
+  .destaque .data { background: #091216; color: #fff; padding: 8px 14px; }
+  .destaque .data b { font-size: 24px; }
+  .passos { grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .passo { break-inside: avoid; background: #fff; border: 1px solid #E0E1E1; padding: 10px 14px; grid-template-columns: 30px 1fr; gap: 10px; }
+  .passo .n { width: 30px; height: 30px; background: #091216; color: #fff; font-size: 14px; }
+  .passo h3 { font-size: 13px; } .passo p { font-size: 12.5px; margin-top: 3px; }
+  .section { margin-top: 18px; } .section > h2 { font-size: 16px; break-after: avoid; }
+  .atitudes { gap: 6px; margin-top: 8px; }
+  .atitude { break-inside: avoid; background: #fff; border: 1px solid #E0E1E1; padding: 8px 12px; font-size: 12px; grid-template-columns: 26px 1fr; }
+  .atitude::before { width: 26px; height: 26px; font-size: 13px; background: #091216; color: #fff; }
+  .note { display: none; }
+  .foot { margin-top: 14px; }
+}
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite"></main>
+
+<script type="module">
+const CONFIG = {
+  ferramenta: 'meu-proximo-passo',
+  nome: 'Plano de Ação: Meu Próximo Passo',
+  // o contato só sai nestes endereços (Netlify ou domínio da Mentorei); em qualquer outro lugar (prévia) é simulado
+  dominiosDeEnvio: ['netlify.app', 'mentorei.com.br'],
+  chaveMemoria: 'mentorei-meu-proximo-passo-v1',
+};
+const LOGO = '/assets/logo-clara.png', LOGO_PRINT = '/assets/logo-escura.png';
+
+// As 6 perguntas do plano (o mesmo texto da folha impressa da Mentorei). "sug" = atalhos que entram no texto ao tocar.
+const PASSOS = [
+  { k: 'comportamento', curto: 'Comportamento', t: 'Comportamento que quero fortalecer',
+    ajuda: 'Protagonismo, iniciativa, colaboração ou foco no valor para o cooperado.',
+    sug: ['Protagonismo', 'Iniciativa', 'Colaboração', 'Foco no valor para o cooperado'],
+    ex: 'Ex.: Iniciativa: puxar a solução em vez de esperar alguém pedir.' },
+  { k: 'situacao', curto: 'Situação', t: 'Situação em que vou praticá-lo',
+    ajuda: 'Uma situação real e próxima da rotina.',
+    ex: 'Ex.: Na reunião de segunda com a equipe, quando aparecer um problema de atendimento.' },
+  { k: 'acao', curto: 'Ação', t: 'Ação que vou realizar',
+    ajuda: 'Algo observável e que dependa de você.',
+    ex: 'Ex.: Levar duas propostas de solução prontas e combinar quem faz o quê até sexta.' },
+  { k: 'com_quem', curto: 'Com quem', t: 'Com quem vou colaborar',
+    ajuda: 'Equipe, colega gerente, área parceira ou cooperado.',
+    sug: ['Equipe', 'Colega gerente', 'Área parceira', 'Cooperado'],
+    ex: 'Ex.: Com a minha equipe e com a área de crédito.' },
+  { k: 'quando', curto: 'Quando', t: 'Quando vou dar o primeiro passo',
+    ajuda: 'Defina uma data ou uma ocasião específica.',
+    ex: 'Ex.: Na reunião da equipe de segunda-feira, às 8h.' },
+  { k: 'sinal', curto: 'Sinal de valor', t: 'Como vou perceber que gerou valor',
+    ajuda: 'Um sinal de avanço, como alinhamento mais rápido, retorno ao cooperado, solução encaminhada ou troca de informação mais clara.',
+    sug: ['Alinhamento mais rápido', 'Retorno ao cooperado', 'Solução encaminhada', 'Troca de informação mais clara'],
+    ex: 'Ex.: O cooperado recebe a resposta em até 2 dias, sem precisar cobrar.' },
+];
+const TOTAL = PASSOS.length;
+const MARCOS = { 2: 'Agora, o mais importante: a ação', 4: 'Falta pouco: só mais dois passos' };
+const DICAS = [
+  'Coloque o primeiro passo na sua agenda agora, com dia e hora. O que não entra na agenda costuma ficar para depois.',
+  'Conte o plano para a pessoa com quem vai colaborar. Dizer em voz alta aumenta o compromisso e já abre a conversa.',
+  'Uma semana depois do primeiro passo, volte a este plano e anote o sinal de valor que percebeu. Se não apareceu, ajuste a ação e tente de novo.',
+];
+
+let dadosPlataforma = {};
+const novoEstado = () => ({ tela: 'abertura', i: 0, resp: Object.fromEntries(PASSOS.map((p) => [p.k, ''])), dia: '',
+  dados: { nome: '', email: '', whatsapp: '', cargo: '', empresa: '', ...dadosPlataforma, receber: false, ok: false },
+  contatoOk: null, enviado: false, data: null });
+function carregar() {
+  try { const o = JSON.parse(localStorage.getItem(CONFIG.chaveMemoria) || 'null'); return o && o.resp && typeof o.resp === 'object' && o.dados ? o : null; } catch (_) { return null; }
+}
+function salvar() { try { localStorage.setItem(CONFIG.chaveMemoria, JSON.stringify(S)); } catch (_) { /* sem memória do navegador: segue normal */ } }
+let S = carregar() || novoEstado();
+
+// Dentro da plataforma de mentorias (num quadro): recebe os dados do mentorado e devolve o plano para a ficha dele.
+const naPlataforma = window.parent !== window;
+if (naPlataforma) {
+  window.addEventListener('message', (e) => {
+    if (e.origin !== location.origin || !e.data || e.data.tipo !== 'mentorei-dados') return;
+    ['nome', 'email', 'whatsapp', 'cargo', 'empresa'].forEach((k) => { if (e.data[k]) { dadosPlataforma[k] = e.data[k]; S.dados[k] = S.dados[k] || e.data[k]; } });
+    salvar();
+    if (S.tela === 'abertura' || S.tela === 'resultado') render();
+  });
+  window.parent.postMessage({ tipo: 'mentorei-pronta' }, location.origin);
+}
+
+const app = document.getElementById('app');
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const emPrevia = () => !CONFIG.dominiosDeEnvio.some((d) => location.hostname === d || location.hostname.endsWith(`.${d}`));
+const preenchido = (p) => (p.k === 'quando' ? !!(S.dia || S.resp.quando.trim()) : S.resp[p.k].trim().length > 1);
+const feitos = () => PASSOS.filter(preenchido).length;
+const dataBR = (d) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const diaDe = (iso) => (iso ? new Date(`${iso}T12:00:00`) : null);
+const primeiroNome = () => (S.dados.nome || '').trim().split(' ')[0];
+const topo = (extra = '') => `<div class="top"><img class="logo logo-screen" src="${LOGO}" alt="Mentorei"><img class="logo logo-print" src="${LOGO_PRINT}" alt="Mentorei">${extra}</div>`;
+// "Quando": a data escolhida (por extenso) e a ocasião escrita
+const textoQuando = () => [S.dia ? diaDe(S.dia).toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) : '', S.resp.quando.trim()].filter(Boolean).join(' · ');
+const respostaDe = (p) => (p.k === 'quando' ? textoQuando() : S.resp[p.k].trim());
+
+// ---------------- telas ----------------
+function telaAbertura() {
+  const prog = feitos() > 0 && !S.data;
+  const feito = !!S.data && feitos() === TOTAL;
+  app.innerHTML = `<div class="shell wide fade">${topo()}
+    <section class="intro">
+      <div>
+        <h1>Meu próximo passo</h1>
+        <p class="lead">Transforme o que você aprendeu em uma ação concreta. Em 6 perguntas você monta o seu plano: o comportamento que quer fortalecer, onde vai praticar, o que vai fazer, com quem, quando e como vai perceber que deu certo.</p>
+        <div class="facts"><div><b>6</b><span>perguntas</span></div><div><b>5 min</b><span>para montar</span></div><div><b>1</b><span>plano pronto para levar com você</span></div></div>
+        <div class="actions">
+          ${feito ? '<button class="btn btn-primary" id="ver">Ver o meu plano</button><button class="btn btn-ghost" id="comecar">Fazer um plano novo</button>'
+            : `<button class="btn btn-primary" id="comecar">Começar</button>${prog ? '<button class="btn btn-ghost" id="continuar">Continuar de onde parei</button>' : ''}`}
+        </div>
+      </div>
+      <ol class="degraus" aria-hidden="true">${PASSOS.map((p, n) => `<li><b>${n + 1}</b><span>${esc(p.curto)}</span></li>`).join('')}</ol>
+    </section>
+    <div class="foot"><span>Mentorei · Plano de ação</span><span>contato@mentorei.com.br</span></div></div>`;
+  document.getElementById('comecar').onclick = (ev) => {
+    const b = ev.currentTarget;
+    if ((prog || feito) && !b.dataset.ok) { b.dataset.ok = '1'; b.textContent = 'Começar do zero (apaga as respostas)'; setTimeout(() => { if (b.isConnected) { delete b.dataset.ok; b.textContent = feito ? 'Fazer um plano novo' : 'Começar'; } }, 5000); return; }
+    const dados = { ...S.dados }, contatoOk = S.contatoOk;
+    S = novoEstado();
+    if (dados.ok || naPlataforma) { S.dados = dados; S.contatoOk = contatoOk; }   // quem já se cadastrou não preenche de novo
+    S.tela = naPlataforma || S.dados.ok ? 'passo' : 'dados';
+    salvar(); render();
+  };
+  const c = document.getElementById('continuar'); if (c) c.onclick = () => { S.tela = naPlataforma || S.dados.ok ? 'passo' : 'dados'; render(); };
+  const v = document.getElementById('ver'); if (v) v.onclick = () => { S.tela = 'resultado'; render(); };
+}
+
+function telaDados() {
+  const d = S.dados;
+  app.innerHTML = `<div class="shell fade">${topo('<span class="meta">Antes de começar</span>')}
+    <div class="form-head"><h2>Quem está montando o plano?</h2><p>O seu nome vai no plano. No final, você baixa em PDF ou manda para o seu WhatsApp.</p></div>
+    <form id="f" novalidate>
+      <div class="field" data-k="nome"><label for="nome">Nome completo</label><input id="nome" autocomplete="name" value="${esc(d.nome)}"><div class="err">Escreva o seu nome.</div></div>
+      <div class="row2">
+        <div class="field" data-k="email"><label for="email">E-mail</label><input id="email" type="email" autocomplete="email" inputmode="email" value="${esc(d.email)}"><div class="err">Confira o e-mail.</div></div>
+        <div class="field" data-k="whatsapp"><label for="whatsapp">WhatsApp</label><input id="whatsapp" type="tel" autocomplete="tel" inputmode="tel" placeholder="(19) 99999-9999" value="${esc(d.whatsapp)}"><div class="err">Escreva o WhatsApp com DDD.</div></div>
+      </div>
+      <div class="row2">
+        <div class="field" data-k="cargo"><label for="cargo">Cargo ou função</label><input id="cargo" autocomplete="organization-title" placeholder="Ex.: gerente de agência" value="${esc(d.cargo)}"><div class="err">Escreva o seu cargo ou função.</div></div>
+        <div class="field" data-k="empresa"><label for="empresa">Empresa <small>(opcional)</small></label><input id="empresa" autocomplete="organization" value="${esc(d.empresa)}"></div>
+      </div>
+      <label class="consent"><input type="checkbox" id="receber" ${d.receber ? 'checked' : ''}>
+        <span>Quero receber ferramentas práticas e conteúdos da Mentorei por e-mail e WhatsApp.</span></label>
+      <p class="privado">🔒 O seu plano não sai do seu celular. A Mentorei recebe só os seus dados de contato.</p>
+      <div class="actions"><button class="btn btn-primary" type="submit">Montar o meu plano</button><button class="btn-link" type="button" id="voltar">Voltar</button></div>
+    </form></div>`;
+  const wa = document.getElementById('whatsapp');
+  wa.addEventListener('input', () => {
+    const n = wa.value.replace(/\D/g, '').slice(0, 11);
+    wa.value = n.length > 6 ? `(${n.slice(0, 2)}) ${n.slice(2, n.length - 4)}-${n.slice(-4)}` : n.length > 2 ? `(${n.slice(0, 2)}) ${n.slice(2)}` : n;
+  });
+  document.getElementById('voltar').onclick = () => { S.tela = 'abertura'; render(); };
+  document.getElementById('f').onsubmit = (e) => {
+    e.preventDefault();
+    const v = (id) => document.getElementById(id).value.trim();
+    const antes = { email: S.dados.email, receber: S.dados.receber };
+    Object.assign(S.dados, { nome: v('nome'), email: v('email'), whatsapp: v('whatsapp'), cargo: v('cargo'), empresa: v('empresa'), receber: document.getElementById('receber').checked });
+    const regras = { nome: (x) => x.length > 1, email: (x) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(x), whatsapp: (x) => x.replace(/\D/g, '').length >= 10, cargo: (x) => x.length > 1 };
+    let ok = true;
+    document.querySelectorAll('.field').forEach((f) => { const k = f.dataset.k; const bad = regras[k] && !regras[k](S.dados[k]); f.classList.toggle('invalid', !!bad); if (bad) ok = false; });
+    salvar();
+    if (!ok) { const first = document.querySelector('.field.invalid input'); if (first) first.focus(); return; }
+    S.dados.ok = true;
+    if (S.contatoOk !== true || antes.email !== S.dados.email || antes.receber !== S.dados.receber) S.contatoOk = false;
+    enviarContato();
+    const prox = PASSOS.findIndex((p) => !preenchido(p));
+    S.tela = prox < 0 ? 'resultado' : 'passo'; S.i = prox < 0 ? 0 : prox; salvar(); render();
+  };
+}
+
+// atalho tocado: entra no texto (separado por vírgula) ou sai, se já estava lá
+const temTermo = (txt, s) => txt.toLowerCase().includes(s.toLowerCase());
+function alternarTermo(txt, s) {
+  if (temTermo(txt, s)) {
+    const re = new RegExp(`\\s*,?\\s*${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i');
+    const r = txt.replace(re, '').replace(/^\s*,\s*/, '').trim();
+    return r.charAt(0).toUpperCase() + r.slice(1);
+  }
+  const t = txt.trim();
+  return t ? `${t.replace(/[,.;]$/, '')}, ${s.charAt(0).toLowerCase()}${s.slice(1)}` : s;
+}
+
+function telaPasso() {
+  const i = S.i, p = PASSOS[i], ult = i === TOTAL - 1;
+  const nome = primeiroNome();
+  const hoje = new Date(); hoje.setMinutes(hoje.getMinutes() - hoje.getTimezoneOffset());
+  app.innerHTML = `<div class="shell">${topo(`<span class="meta">${esc(nome)}</span>`)}
+    <div class="prog"><div class="lin"><div class="count"><b>${i + 1}</b> de ${TOTAL}</div><span class="tipo">${esc(p.curto)}</span></div>
+      <div class="trk"><div style="width:${(feitos() / TOTAL) * 100}%"></div></div></div>
+    <section class="q fade">
+      ${MARCOS[i] ? `<span class="marco">${esc(MARCOS[i])}</span>` : ''}
+      <h2 id="perg">${esc(p.t)}</h2>
+      <p class="ajuda">${esc(p.ajuda)}</p>
+      ${p.sug ? `<div class="sugestoes" role="group" aria-label="Atalhos">${p.sug.map((s) => `<button type="button" class="sug" data-s="${esc(s)}" aria-pressed="${temTermo(S.resp[p.k], s)}">${esc(s)}</button>`).join('')}</div>` : ''}
+      ${p.k === 'quando' ? `<div class="quando"><div><label for="dia">Data <small>(opcional)</small></label><input type="date" id="dia" min="${hoje.toISOString().slice(0, 10)}" value="${esc(S.dia)}"></div>
+        <p class="ajuda" style="margin:0 0 12px">Com data, você pode pôr o primeiro passo direto na sua agenda no final.</p></div>` : ''}
+      <div class="resposta"><textarea id="txt" aria-labelledby="perg" placeholder="${esc(p.ex)}">${esc(S.resp[p.k])}</textarea></div>
+      <div class="qnav"><button class="btn btn-ghost" id="ant">${i === 0 ? 'Voltar' : 'Anterior'}</button>
+        <button class="btn btn-primary" id="prox" ${preenchido(p) ? '' : 'disabled'}>${ult ? 'Ver o meu plano' : 'Próxima'}</button></div>
+      <p class="hint no-print">Escreva do seu jeito, em poucas palavras. Quanto mais concreto, mais fácil de colocar em prática.</p>
+    </section></div>`;
+  const txt = document.getElementById('txt'), prox = document.getElementById('prox');
+  const atualizar = () => {
+    prox.disabled = !preenchido(p);
+    app.querySelector('.prog .trk div').style.width = `${(feitos() / TOTAL) * 100}%`;
+    app.querySelectorAll('.sug').forEach((b) => b.setAttribute('aria-pressed', temTermo(S.resp[p.k], b.dataset.s)));
+  };
+  txt.addEventListener('input', () => { S.resp[p.k] = txt.value; salvar(); atualizar(); });
+  app.querySelectorAll('.sug').forEach((b) => { b.onclick = () => { S.resp[p.k] = alternarTermo(S.resp[p.k], b.dataset.s); txt.value = S.resp[p.k]; salvar(); atualizar(); }; });
+  const dia = document.getElementById('dia');
+  if (dia) dia.addEventListener('change', () => { S.dia = dia.value; salvar(); atualizar(); });
+  if (!window.matchMedia('(pointer: coarse)').matches) txt.focus();
+  const avancar = () => {
+    if (!preenchido(p)) return;
+    if (!ult) { S.i = i + 1; salvar(); render(); return; }
+    const falta = PASSOS.findIndex((x) => !preenchido(x));
+    if (falta >= 0) { S.i = falta; salvar(); render(); return; }
+    S.tela = 'resultado'; S.data = new Date().toISOString(); S.enviado = false;
+    salvar(); render();
+  };
+  document.getElementById('ant').onclick = () => { if (i === 0) S.tela = naPlataforma || S.dados.ok ? 'abertura' : 'dados'; else S.i = i - 1; salvar(); render(); };
+  prox.onclick = avancar;
+  txt.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); avancar(); } });
+}
+
+// ---------------- o plano ----------------
+function textoDoPlano() {
+  const quem = [S.dados.nome, S.dados.cargo].filter(Boolean).join(', ');
+  return [`*${CONFIG.nome}*`, `${quem}${quem ? ' · ' : ''}${dataBR(S.data ? new Date(S.data) : new Date())}`, '',
+    ...PASSOS.map((p, n) => `*${n + 1}. ${p.t}:* ${respostaDe(p)}`)].join('\n');
+}
+function linkAgenda() {
+  if (!S.dia) return '';
+  const d = S.dia.replace(/-/g, ''), fim = diaDe(S.dia); fim.setDate(fim.getDate() + 1);
+  const ate = fim.toISOString().slice(0, 10).replace(/-/g, '');
+  const det = `${PASSOS[0].t}: ${S.resp.comportamento.trim()}\n${PASSOS[1].t}: ${S.resp.situacao.trim()}\n${PASSOS[3].t}: ${S.resp.com_quem.trim()}${S.resp.quando.trim() ? `\nOcasião: ${S.resp.quando.trim()}` : ''}\n${PASSOS[5].t}: ${S.resp.sinal.trim()}`;
+  const q = new URLSearchParams({ action: 'TEMPLATE', text: `Meu próximo passo: ${S.resp.acao.trim()}`.slice(0, 200), dates: `${d}/${ate}`, details: det });
+  return `https://calendar.google.com/calendar/render?${q}`;
+}
+
+function telaResultado() {
+  if (PASSOS.some((p) => !preenchido(p))) { S.tela = 'passo'; S.i = PASSOS.findIndex((p) => !preenchido(p)); render(); return; }
+  const quem = [S.dados.nome, S.dados.cargo].filter(Boolean).join(', ') + (S.dados.empresa ? ` · ${S.dados.empresa}` : '');
+  const quando = dataBR(S.data ? new Date(S.data) : new Date());
+  const d = diaDe(S.dia);
+  const agenda = linkAgenda();
+  app.innerHTML = `<div class="shell wide fade">${topo('<span class="meta">Plano de ação</span>')}
+    <header class="res-head"><p class="who">${esc(quem)}${quem ? ' · ' : ''}${quando}</p><h1>Plano de ação: meu próximo passo</h1></header>
+    <div class="destaque">
+      <div><p class="chapeu">A ação que vou realizar</p><p class="acao">${esc(S.resp.acao.trim())}</p></div>
+      ${d ? `<div class="data"><b>${String(d.getDate()).padStart(2, '0')}</b><span>${esc(d.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', ''))} ${d.getFullYear()}</span></div>` : ''}
+    </div>
+    <div class="passos">${PASSOS.map((p, n) => `<div class="passo"><span class="n">${n + 1}</span><div><h3>${esc(p.t)}</h3><p>${esc(respostaDe(p))}</p></div></div>`).join('')}</div>
+    <section class="section"><h2>Para fazer acontecer</h2><div class="atitudes">${DICAS.map((x) => `<div class="atitude"><span>${esc(x)}</span></div>`).join('')}</div></section>
+    <div class="actions" style="margin-top:28px">
+      <button class="btn btn-primary" id="pdf">Baixar em PDF</button>
+      ${agenda ? `<a class="btn btn-ghost" href="${esc(agenda)}" target="_blank" rel="noopener">Pôr na minha agenda</a>` : ''}
+      <a class="btn btn-ghost" id="whats" href="https://wa.me/?text=${encodeURIComponent(textoDoPlano())}" target="_blank" rel="noopener">Mandar pelo WhatsApp</a>
+      <button class="btn btn-ghost" id="copiar">Copiar o plano</button>
+      ${naPlataforma ? '<button class="btn btn-ghost" id="guardar">Guardar na plataforma</button>' : ''}
+    </div>
+    <p class="status" id="status"></p>
+    <p class="note">${naPlataforma ? 'O seu plano fica guardado na sua área da plataforma e o seu mentor pode acompanhar.' : 'O seu plano não sai do seu celular: a Mentorei não recebe as suas respostas. Para guardar, baixe em PDF ou mande para o seu WhatsApp.'}</p>
+    <div class="foot"><span>Mentorei · contato@mentorei.com.br</span><span class="no-print"><button class="btn-link" id="editar">Mudar respostas</button> &nbsp; <button class="btn-link" id="refazer">Fazer um plano novo</button></span></div>
+  </div>`;
+  const st = document.getElementById('status');
+  const msg = (t, cls) => { st.textContent = t; st.className = `status ${cls || ''}`; };
+  document.getElementById('pdf').onclick = () => window.print();
+  document.getElementById('copiar').onclick = async () => {
+    const t = textoDoPlano().replace(/\*/g, '');
+    try { await navigator.clipboard.writeText(t); msg('Plano copiado. Cole onde quiser guardar.', 'ok'); } catch (_) { window.prompt('Copie o plano:', t); }
+  };
+  document.getElementById('editar').onclick = () => { S.tela = 'passo'; S.i = 0; salvar(); render(); };
+  document.getElementById('refazer').onclick = (e) => {
+    const b = e.currentTarget;
+    if (!b.dataset.ok) { b.dataset.ok = '1'; b.textContent = 'Clique de novo para apagar as respostas'; setTimeout(() => { if (b.isConnected) { delete b.dataset.ok; b.textContent = 'Fazer um plano novo'; } }, 5000); return; }
+    const dados = S.dados, contatoOk = S.contatoOk; S = novoEstado(); S.dados = dados; S.contatoOk = contatoOk; S.tela = 'passo'; salvar(); render();
+  };
+  if (naPlataforma) {
+    document.getElementById('guardar').onclick = () => guardarNaPlataforma(true, msg);
+    if (!S.enviado) guardarNaPlataforma(false, msg);
+  }
+}
+
+// ---------------- envios ----------------
+// Contato (nome, e-mail, WhatsApp, cargo e se quer conteúdos) → plataforma Mentorei, Vendas › Pessoa física.
+// As respostas do plano nunca saem daqui. Tenta de novo a cada tela até o servidor confirmar.
+let enviandoContato = null;
+function enviarContato() {
+  const d = S.dados;
+  if (naPlataforma || S.contatoOk === true || !d.ok || !d.email) return Promise.resolve(S.contatoOk === true);
+  if (enviandoContato) return enviandoContato;
+  if (emPrevia()) { S.contatoOk = true; salvar(); return Promise.resolve(true); }
+  enviandoContato = fetch('/api/contato-ferramenta', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ferramenta: CONFIG.ferramenta, nome: d.nome, email: d.email, whats: d.whatsapp, cargo: d.cargo, receber: !!d.receber }) })
+    .then((r) => r.json().catch(() => ({})).then((j) => { if (r.ok && j && j.ok === true) { S.contatoOk = true; salvar(); } return S.contatoOk === true; }))
+    .catch(() => false)
+    .finally(() => { enviandoContato = null; });
+  return enviandoContato;
+}
+window.addEventListener('online', () => enviarContato());
+
+function guardarNaPlataforma(manual, msg) {
+  const pacote = { 'form-name': CONFIG.ferramenta, nome: S.dados.nome, email: S.dados.email, data: dataBR(S.data ? new Date(S.data) : new Date()),
+    ...Object.fromEntries(PASSOS.map((p) => [p.k, respostaDe(p)])) };
+  window.parent.postMessage({ tipo: 'mentorei-resultado', manual, pacote, notas: [] }, location.origin);
+  S.enviado = true; salvar();
+  if (manual) msg('Plano guardado na sua área da plataforma. Seu mentor já pode ver.', 'ok');
+}
+
+function render() {
+  enviarContato();
+  ({ abertura: telaAbertura, dados: telaDados, passo: telaPasso, resultado: telaResultado }[S.tela] || telaAbertura)();
+  window.scrollTo({ top: 0 });
+}
+render();
+</script>
+</body>
+</html>

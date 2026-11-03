@@ -924,6 +924,15 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   com `receber`), nada de Netlify Forms; só "Baixar em PDF". Na plataforma, resultado para `testes` (com `respostas_por_frase`).
   `receber` → rpc `registrar_pessoa_fisica(..., p_conteudos)` → `pessoas_fisicas.quer_conteudos` (antes do script 42 grava sem ele);
   em Pessoa física aparece "📩 Quer receber conteúdos", filtro e coluna no Excel; quem disse NÃO não entra no funil.
+  PLANO DE AÇÃO: MEU PRÓXIMO PASSO (MNT-LID-10, 2026-11-03, ficha no script 65; pedido dela: a folha impressa "PLANO DE ACAO - MEU
+  PROXIMO PASSO.pdf" automatizada e aberta ao público). `public/ferramentas/meu-proximo-passo/`, mesmo visual e mesmo esqueleto da
+  "Qual é o seu canal?". As 6 perguntas da folha, com o mesmo texto (comportamento, situação, ação, com quem, quando = data opcional +
+  ocasião, sinal de valor), uma por tela, resposta escrita; atalhos que entram no texto (Protagonismo…, Equipe…, Retorno ao cooperado…).
+  Fim: o plano com a ação em destaque e a data, "Para fazer acontecer" (3 dicas), Baixar em PDF (uma página A4), Pôr na minha agenda
+  (link do Google, só com data), Mandar pelo WhatsApp (wa.me sem número) e Copiar. PÚBLICA como a Roda do Comunicador: nome, e-mail,
+  WhatsApp, cargo, empresa opcional e "Quero receber…" DESMARCADA; só o contato sai (`/api/contato-ferramenta`, código
+  'meu-proximo-passo'); o plano fica no celular. Na plataforma, o plano vai para `testes` (campos comportamento, situacao, acao,
+  com_quem, quando, sinal). QR code em Vendas › Pessoa física (e PNG entregue em Downloads).
 - PESSOA FÍSICA → FUNIL (2026-10-21, pedido dela: mandar outras informações para quem preencheu as ferramentas): caixinhas na lista
   (a do cabeçalho marca todas da busca) + "Colocar N no funil" (`colocarNoFunil` em telas/pessoa-fisica.js): escolhe o funil, mostra
   quantos entram, já estão, pediram para sair (`descadastros`) ou têm e-mail errado; grava `funil_membros` com origem
@@ -947,6 +956,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- MEU PRÓXIMO PASSO (2026-11-03): ela rodar o script 65 (ficha no arsenal; o link público e o QR funcionam sem ele).
 - AVALIAÇÕES DE 0 A 10 (2026-11-03): ela rodar o script 64 no Supabase (até lá as notas antigas aparecem baixas em Avaliações, com aviso).
 - TUTORIAIS (2026-10-31): FALTA ELA RODAR O SCRIPT 63 e enviar os 9 vídeos em Tutoriais → "Enviar vários vídeos de uma vez" (arquivos
   na pasta `tutorial-videos/` do worktree mentor-platform-tutorial-46c2fc, fora do git). Até lá a página avisa e a caixinha do convite
