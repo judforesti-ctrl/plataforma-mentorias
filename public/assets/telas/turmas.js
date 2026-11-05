@@ -582,7 +582,7 @@ async function paginaModulo(ctx, el, id) {
         ${cartaoAvaliacao(ctx, m, souMentor)}
         <div class="cartao"><h3>Slides dos mentores</h3>
           <p class="peq apagado">A versão que ${souMentor ? 'você vai usar' : 'o mentor vai usar'} na aula (PDF ou PowerPoint, até 50 MB).</p>
-          <p class="peq mt">📌 O último slide leva o <a href="#avaliacao-turma" data-ir-qr>QR code de avaliação</a>. Ao enviar, dá para liberar os slides também para os alunos (em PDF).</p>
+          <p class="peq mt">📌 O último slide leva o <a href="#avaliacao-turma" data-ir-qr>QR code de avaliação</a>. Ao enviar, dá para liberar os slides também para os alunos (em PDF ou PowerPoint).</p>
           ${listaArquivos(dosMentores, 'Nenhum slide enviado pelos mentores ainda.')}
           ${souMentor || adm ? botaoEnvio('mentor', souMentor ? 'Enviar os meus slides' : 'Enviar slides do mentor') : ''}
           <p class="peq apagado mt" id="progresso"></p>
@@ -695,7 +695,8 @@ async function paginaModulo(ctx, el, id) {
   el.querySelector('[data-ir-qr]')?.addEventListener('click', (ev) => { ev.preventDefault(); el.querySelector('#avaliacao-turma').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 
   // envio de slides. Slides do mentor (31/10, pedido da Juliana para o tutorial): na mesma janela ele confirma o QR code e pode
-  // liberar os slides também para os alunos (tipo 'aluno', pasta "<módulo>/aluno/", em PDF; se mandou PowerPoint, escolhe o PDF ali).
+  // liberar os slides também para os alunos (tipo 'aluno', pasta "<módulo>/aluno/"). PDF e PowerPoint vão como estão (05/11, pedido da
+  // Juliana); Keynote, ODP ou ZIP: escolhe ali o PDF ou o PowerPoint para os alunos.
   const subir = async (arq, tipo) => {
     const ext = (arq.name.split('.').pop() || '').toLowerCase();
     const caminho = `${id}/${tipo}/${Date.now()}-${nomeSeguro(arq.name)}`;
@@ -713,7 +714,7 @@ async function paginaModulo(ctx, el, id) {
     const prog = el.querySelector('#progresso');
     try {
       for (const [arq, tipo] of lista) { if (prog) prog.textContent = `Enviando ${arq.name}…`; await subir(arq, tipo); }
-      avisar(lista.some(([, t]) => t === 'aluno') ? 'Slides enviados. Os alunos já podem baixar o PDF na área deles.' : 'Slides enviados.');
+      avisar(lista.some(([, t]) => t === 'aluno') ? 'Slides enviados. Os alunos já podem baixar na área deles.' : 'Slides enviados.');
       ctx.irPara(`#/modulo/${id}`);
     } catch (e) {
       if (prog) prog.textContent = '';
@@ -722,14 +723,14 @@ async function paginaModulo(ctx, el, id) {
   };
   async function janelaSlidesMentor(arq) {
     const { janela } = await import('./agenda-dados.js');
-    const ehPdf = /\.pdf$/i.test(arq.name);
+    const ehPdf = /\.(pdf|pptx?)$/i.test(arq.name); // serve como está para os alunos
     const j = janela(souMentor ? 'Enviar os seus slides' : 'Enviar os slides do mentor', `<div class="grade" style="gap:12px">
       <p><b>${esc(arq.name)}</b> <span class="peq apagado">${tamanho(arq.size)}</span></p>
       <label class="check"><input type="checkbox" id="sm-qr"><span>O QR code de avaliação está no último slide.</span></label>
       <p class="peq apagado" style="margin-top:-6px">Ainda não colocou? Feche esta janela, baixe o QR no cartão "Avaliação da turma", coloque no último slide e envie de novo.</p>
-      <label class="check"><input type="checkbox" id="sm-alunos"${ehPdf ? ' checked' : ''}><span>Liberar também para os alunos (eles baixam na área deles, em PDF)</span></label>
-      ${ehPdf ? '' : `<div class="campo" id="sm-pdf-campo" hidden><label for="sm-pdf">Este arquivo é uma apresentação. Escolha a versão em PDF para os alunos</label>
-        <input type="file" id="sm-pdf" accept=".pdf"><p class="peq apagado">No PowerPoint: Arquivo → Salvar como → PDF. No Keynote: Arquivo → Exportar para → PDF.</p></div>`}
+      <label class="check"><input type="checkbox" id="sm-alunos"${ehPdf ? ' checked' : ''}><span>Liberar também para os alunos (eles baixam na área deles)</span></label>
+      ${ehPdf ? '' : `<div class="campo" id="sm-pdf-campo" hidden><label for="sm-pdf">Os alunos baixam em PDF ou PowerPoint. Escolha essa versão para eles</label>
+        <input type="file" id="sm-pdf" accept=".pdf,.ppt,.pptx"><p class="peq apagado">No Keynote: Arquivo → Exportar para → PDF ou PowerPoint.</p></div>`}
       <div class="linha"><button class="btn pri" type="button" id="sm-enviar" disabled>Enviar</button><button class="btn" type="button" data-fechar>Ainda não</button></div>
     </div>`, { largura: 560 });
     const $j = (s) => j.corpo.querySelector(s);
@@ -744,8 +745,8 @@ async function paginaModulo(ctx, el, id) {
       const lista = [[arq, 'mentor']];
       if ($j('#sm-alunos').checked) {
         const pdf = ehPdf ? arq : $j('#sm-pdf').files[0];
-        if (!/\.pdf$/i.test(pdf.name)) { avisar('Para os alunos, escolha um arquivo PDF.', true); return; }
-        if (pdf.size > 52428800) { avisar('O PDF passa de 50 MB.', true); return; }
+        if (!/\.(pdf|pptx?)$/i.test(pdf.name)) { avisar('Para os alunos, escolha um arquivo PDF ou PowerPoint.', true); return; }
+        if (pdf.size > 52428800) { avisar('O arquivo passa de 50 MB.', true); return; }
         lista.push([pdf, 'aluno']);
       }
       j.fechar();

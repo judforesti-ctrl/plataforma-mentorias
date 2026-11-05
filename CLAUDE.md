@@ -509,6 +509,15 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   sessão concluída só a administração muda (trigger `protege_tarefa`). O script copia as tarefas antigas uma vez (tabela vazia).
   Ficha, Painel, Meus mentorados, lembretes, relatórios/Excel, resumo com IA e WhatsApp já leem a lista.
   Teste local: launch.json "tarefas-teste" (porta 8804) do site do Radar, scratchpad da sessão b18f9662 (?sem33 = sem o script).
+- ARQUIVOS DO MENTOR PARA O MENTORADO (2026-11-05, script 66, pedido dela: mandar PowerPoint, não só PDF do arsenal):
+  `public/assets/arquivos-mentorado.js`, tabela `arquivos_mentorado` (mentorado, sessao_id opcional, nome, caminho, tamanho, recado,
+  enviado_por, baixado_em), arquivos na pasta privada `entregas` em `<mentorado>/do-mentor/` (limite da pasta subiu para 50 MB).
+  Mandam os mentores do mentorado e a administração: na sessão (cartão "Ferramentas e arquivos enviados nesta sessão") e na ficha
+  ("Arquivos enviados para…"); PowerPoint, PDF, Word, Excel, ODP/ODT/ODS, texto ou foto; recado opcional; depois, "Avisar pelo
+  WhatsApp" se ele autorizou. Apaga quem mandou ou a administração. O mentorado baixa em Minha mentoria ("Arquivos que seu mentor
+  mandou"); a 1ª vez marca `baixado_em` (rpc `marcar_arquivo_baixado`) e a equipe vê "Baixado em…". Sem o 66 o cartão avisa.
+  NAS TURMAS (mesmo dia): os slides para os alunos aceitam PDF ou PowerPoint (antes só PDF); ao enviar os slides do mentor em
+  PowerPoint, "Liberar também para os alunos" já vem marcado e vai o mesmo arquivo (Keynote/ODP/ZIP ainda pedem o PDF ou PowerPoint).
 - TROCAR OU INCLUIR MENTOR NO MEIO DO PROCESSO (2026-10-20, a Cláudia ia atender a Dani e não via as sessões; antes não havia
   como mudar os mentores depois do cadastro). `telas/trocar-mentor.js`, só administração, sem script novo (admin_tudo). O que libera
   ficha, sessões, anotações e documentos é o vínculo `mentor_mentorado`; o que põe a sessão na agenda e no "hoje" de Meus mentorados
@@ -956,6 +965,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- ARQUIVOS PARA O MENTORADO (2026-11-05): ela rodar o script 66 (até lá o cartão da sessão e da ficha avisa; nas turmas não precisa).
 - MEU PRÓXIMO PASSO (2026-11-03): ela rodar o script 65 (ficha no arsenal; o link público e o QR funcionam sem ele).
 - AVALIAÇÕES DE 0 A 10 (2026-11-03): ela rodar o script 64 no Supabase (até lá as notas antigas aparecem baixas em Avaliações, com aviso).
 - TUTORIAIS (2026-10-31): FALTA ELA RODAR O SCRIPT 63 e enviar os 9 vídeos em Tutoriais → "Enviar vários vídeos de uma vez" (arquivos

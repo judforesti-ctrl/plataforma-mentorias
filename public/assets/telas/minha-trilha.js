@@ -4,7 +4,7 @@
 // Fase 2 (script 48): "Ferramentas da sua trilha", as ferramentas online que a administração escolheu para a turma, cada uma
 // aberta desde o começo ou a partir do dia de um módulo; o resultado fica com o aluno e os mentores (testes_alunos).
 // O aluno vê o nome da trilha e da empresa, a próxima aula com o botão de entrar, e todos os módulos: data, mentores, link da sala,
-// slides em PDF, tarefas e ferramentas para baixar, a gravação da aula e o atalho para avaliar o encontro.
+// slides (PDF ou PowerPoint), tarefas e ferramentas para baixar, a gravação da aula e o atalho para avaliar o encontro.
 // Os dados do aluno vêm só da função minhas_trilhas() (nada de percepções, recomendações ou slides internos).
 // A administração e o mentor da turma abrem a mesma tela em PRÉVIA ("Ver como o aluno vê", na página da turma).
 // Script 49: presença em cada encontro (da chamada do módulo), "Enviar a tarefa feita" e "Seus envios" (com a resposta do mentor)

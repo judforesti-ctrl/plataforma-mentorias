@@ -1,5 +1,5 @@
 // "Para os alunos" no módulo da turma (script 44): o que aparece na área do aluno, separado do material de trabalho da equipe.
-// Slides da aula em PDF (tipo 'aluno'), tarefas e ferramentas para baixar (tipo 'tarefa') e a gravação da aula
+// Slides da aula em PDF ou PowerPoint (tipo 'aluno'), tarefas e ferramentas para baixar (tipo 'tarefa') e a gravação da aula
 // (achada sozinha na pasta do Zoom no Drive, ou colada à mão). Colocam: administração e mentor do módulo.
 // Baixar e apagar arquivos usam os botões de sempre da página do módulo (data-baixar / data-apagar em turmas.js).
 import { sb, esc, avisar, explicarErro, dataBR, dataHoraBR } from '../base.js';
@@ -27,9 +27,9 @@ export function cartaoParaAlunos(ctx, m, pode) {
     <div class="linha"><h3 style="flex:1">Para os alunos</h3><span class="selo neutro" id="pa-quantos"></span></div>
     <p class="peq apagado">O que os alunos da turma veem na área deles, neste módulo. Os slides de trabalho e as percepções continuam só para a equipe.
       Os slides do mentor entram aqui quando ele marca "Liberar também para os alunos" ao enviar.</p>
-    <h4 class="mt2">Slides da aula (PDF)</h4>
-    ${lista('aluno', 'Nenhum PDF para os alunos ainda.')}
-    ${pode ? '<label class="btn peq pri mt" style="cursor:pointer">Enviar PDF dos slides<input type="file" data-pa-enviar="aluno" accept=".pdf" hidden></label>' : ''}
+    <h4 class="mt2">Slides da aula (PDF ou PowerPoint)</h4>
+    ${lista('aluno', 'Nenhum slide para os alunos ainda.')}
+    ${pode ? '<label class="btn peq pri mt" style="cursor:pointer">Enviar os slides<input type="file" data-pa-enviar="aluno" accept=".pdf,.ppt,.pptx" hidden></label>' : ''}
     <h4 class="mt2">Tarefas e ferramentas</h4>
     ${lista('tarefa', 'Nenhuma tarefa ou ferramenta para os alunos.')}
     ${pode ? '<label class="btn peq pri mt" style="cursor:pointer">Enviar tarefa ou ferramenta<input type="file" data-pa-enviar="tarefa" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.jpg,.jpeg,.png" multiple hidden></label>' : ''}
@@ -137,7 +137,7 @@ export async function ligarParaAlunos(ctx, el, m, pode) {
     let feitos = 0;
     for (const [i, arq] of arquivos.entries()) {
       const ext = (arq.name.split('.').pop() || '').toLowerCase();
-      if (tipo === 'aluno' && ext !== 'pdf') { avisar('Os slides para os alunos vão em PDF. No PowerPoint: Arquivo → Salvar como → PDF.', true); continue; }
+      if (tipo === 'aluno' && !['pdf', 'ppt', 'pptx'].includes(ext)) { avisar('Os slides para os alunos vão em PDF ou PowerPoint. No Keynote: Arquivo → Exportar para → PDF ou PowerPoint.', true); continue; }
       if (!TIPOS[ext]) { avisar(`${arq.name}: envie PDF, Word, Excel, PowerPoint, ZIP ou imagem.`, true); continue; }
       if (arq.size > 52428800) { avisar(`${arq.name} passa de 50 MB.`, true); continue; }
       prog.textContent = arquivos.length > 1 ? `Enviando ${i + 1} de ${arquivos.length}…` : `Enviando ${arq.name}…`;
@@ -154,6 +154,6 @@ export async function ligarParaAlunos(ctx, el, m, pode) {
       }
     }
     prog.textContent = '';
-    if (feitos) { avisar(tipo === 'aluno' ? 'PDF enviado. Os alunos já podem baixar.' : `${feitos} arquivo${feitos > 1 ? 's enviados' : ' enviado'}. Os alunos já podem baixar.`); recarregar(); }
+    if (feitos) { avisar(tipo === 'aluno' ? 'Slides enviados. Os alunos já podem baixar.' : `${feitos} arquivo${feitos > 1 ? 's enviados' : ' enviado'}. Os alunos já podem baixar.`); recarregar(); }
   }));
 }

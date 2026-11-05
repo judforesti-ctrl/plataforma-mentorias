@@ -5,6 +5,7 @@ import { sb, esc, avatar, diaMes, avisar, explicarErro } from '../base.js';
 import { ONLINE, linkOnline, htmlResultado } from '../ferramentas-online.js';
 import { juntarTarefas, prazoBR, atrasada } from '../tarefas.js';
 import { carregarEntregas, htmlEntregas, ligarEntregas, abrirEnvio } from '../entregas.js';
+import { carregarArquivosMentorado, htmlArquivosParaMim, ligarArquivosParaMim } from '../arquivos-mentorado.js';
 import { saudacao, faltam, anel, numero, blocoData, jornada, icone, grade, legendaGrade } from './area-aluno.js';
 
 export async function render(ctx, el) {
@@ -37,6 +38,8 @@ export async function render(ctx, el) {
   const mentores = (m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor).filter(Boolean);
   // envios aos mentores (sem o script 37 os botões não aparecem)
   const { existe: podeEnviar, lista: entregas } = await carregarEntregas((q) => q.eq('mentorado_id', m.id));
+  // arquivos que o mentor mandou (PowerPoint, PDF…; script 66)
+  const { lista: arquivosM } = await carregarArquivosMentorado(m.id);
   const enviosDaTarefa = (t) => entregas.filter((e) => e.tipo === 'tarefa' && (t.id ? e.tarefa_id === t.id : !e.tarefa_id && e.sessao_id === t.sessao_id));
   const enviosDaFerramenta = (fid) => entregas.filter((e) => e.tipo === 'ferramenta' && e.ferramenta_id === fid);
   const seloEnviado = (lista) => (lista.length ? ` · <span class="selo">📎 Enviada em ${diaMes(lista[0].enviado_em)}</span>` : '');
@@ -149,6 +152,9 @@ export async function render(ctx, el) {
           ${podeEnviar && !ONLINE[r.ferramenta.id] ? `<button class="btn peq" data-enviar-ferr="${r.id}" title="Depois de preencher, mande o arquivo ou a foto ${paraOMentor}">Enviar preenchida</button>` : ''}</div></div>`).join('')}</div>`
         : '<p class="apagado">Quando o seu mentor enviar uma ferramenta, ela aparece aqui.</p>'}</section>
 
+    ${arquivosM.length ? `<section class="aa-cartao" id="arquivos-recebidos" aria-labelledby="aa-arq"><h3 id="aa-arq">Arquivos que ${mentores.length > 1 ? 'seus mentores mandaram' : 'seu mentor mandou'}</h3>
+      ${htmlArquivosParaMim(arquivosM)}</section>` : ''}
+
     ${(testes || []).length ? `<section class="aa-cartao" aria-labelledby="aa-res"><h3 id="aa-res">Resultados das suas ferramentas</h3><div class="lista">${testes.map(htmlResultado).join('')}</div></section>` : ''}
 
     ${podeEnviar ? `<section class="aa-cartao" id="envios" aria-labelledby="aa-env"><div class="aa-titulo"><h3 id="aa-env">Documentos enviados ${paraOMentor}</h3>
@@ -168,6 +174,8 @@ export async function render(ctx, el) {
   const recarregar = () => ctx.irPara('#/minha-area');
   const envios = el.querySelector('#envios');
   if (envios) ligarEntregas(envios, entregas, { aoMudar: recarregar });
+  const recebidosArq = el.querySelector('#arquivos-recebidos');
+  if (recebidosArq) ligarArquivosParaMim(recebidosArq, arquivosM);
 
   el.addEventListener('click', async (ev) => {
     const ir = ev.target.closest('[data-ir]');

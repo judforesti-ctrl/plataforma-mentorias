@@ -6,6 +6,7 @@ import { editarLinkMeet, normalizarMeet } from './meet.js';
 import { juntarTarefas, htmlTarefas, seloTarefa, textoTarefas } from '../tarefas.js';
 import { htmlResultado } from '../ferramentas-online.js';
 import { carregarEntregas, htmlEntregas, ligarEntregas } from '../entregas.js';
+import { carregarArquivosMentorado, htmlArquivosEquipe, ligarArquivosEquipe } from '../arquivos-mentorado.js';
 
 // Janela flutuante (fica por cima de tudo, até do Meet): Google Chrome e Edge no computador.
 const FLUTUANTE = 'documentPictureInPicture' in window;
@@ -34,7 +35,7 @@ export async function render(ctx, el, [id]) {
   const m = s.mentorado;
   m.sala_meet = normalizarMeet(m.sala_meet); // link antigo sem "https://" também funciona
   const p = m.perfil || {};
-  const [{ data: todas }, { data: plano }, { data: ferramentas }, { data: enviadas }, { data: testes }, { lista: entregas }, { data: vinculos }] = await Promise.all([
+  const [{ data: todas }, { data: plano }, { data: ferramentas }, { data: enviadas }, { data: testes }, { lista: entregas }, { data: vinculos }, arquivosM] = await Promise.all([
     sb.from('sessoes').select(SEL_SESSAO).eq('mentorado_id', m.id).order('numero'),
     sb.from('programa_temas').select('tema, roteiro, ferramentas').eq('programa_id', m.programa_id).eq('numero', s.numero).maybeSingle(),
     sb.from('ferramentas').select('id, nome, arquivo').order('nome'),
@@ -42,6 +43,7 @@ export async function render(ctx, el, [id]) {
     sb.from('testes').select('*').eq('mentorado_id', m.id).order('criado_em', { ascending: false }),
     carregarEntregas((q) => q.eq('mentorado_id', m.id)),
     sb.from('mentor_mentorado').select('mentor_id').eq('mentorado_id', m.id),
+    carregarArquivosMentorado(m.id),
   ]);
   const souMentor = (vinculos || []).some((v) => v.mentor_id === ctx.perfil.id);
   // várias tarefas por sessão (script 33); sem a tabela, a tarefa única antiga
@@ -247,12 +249,15 @@ export async function render(ctx, el, [id]) {
           ${ctx.ehAdmin ? '<p class="peq apagado mt">Para dar várias tarefas por sessão, rode no Supabase o script 33-varias-tarefas.sql.</p>' : ''}
         </div>`}
 
-        <div class="cartao">
-          <h3>Ferramentas enviadas nesta sessão</h3>
+        <div class="cartao" id="c-ferr-arq">
+          <h3>Ferramentas e arquivos enviados nesta sessão</h3>
           <div class="chips mt" id="enviadas">${(enviadas || []).map((x) => `<span class="selo">${esc(x.ferramenta ? x.ferramenta.nome : '')}</span>`).join('') || '<span class="peq apagado">Nenhuma ainda.</span>'}</div>
           ${pode ? `<div class="linha mt"><input type="search" id="busca-ferr" list="lista-ferr" placeholder="Digite o nome da ferramenta…" style="flex:1;min-width:200px">
             <datalist id="lista-ferr">${(ferramentas || []).filter((f) => f.arquivo).map((f) => `<option value="${esc(f.nome)}">`).join('')}</datalist>
             <button type="button" class="btn peq pri" id="enviar-ferr">Enviar</button><a class="btn peq" href="#/arsenal">Abrir o arsenal</a></div>` : ''}
+          <h4 class="mt2">Arquivos para ${esc(m.nome.split(' ')[0])}</h4>
+          <p class="peq apagado">Um PowerPoint, PDF ou outro arquivo seu (fora do arsenal). Aparece na área do mentorado na hora, para baixar.</p>
+          ${htmlArquivosEquipe({ existe: arquivosM.existe, pode, ehAdmin: ctx.ehAdmin })}
         </div>
 
         <div class="cartao">
@@ -283,6 +288,7 @@ export async function render(ctx, el, [id]) {
 
   const caixaEntregas = el.querySelector('#entregas');
   if (caixaEntregas) ligarEntregas(caixaEntregas, entregas, { marcarVisto: souMentor, perfilId: ctx.perfil.id });
+  ligarArquivosEquipe(el.querySelector('#c-ferr-arq'), { ctx, mentorado: m, sessaoId: s.id, lista: arquivosM.lista, vazio: 'Nenhum arquivo enviado nesta sessão.' });
 
   // ---------- resumo do mentorado: abrir e diminuir ----------
   const sobre = el.querySelector('#sobre');

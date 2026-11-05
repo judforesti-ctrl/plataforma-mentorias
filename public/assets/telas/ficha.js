@@ -6,6 +6,7 @@ import { editarLinkMeet, normalizarMeet } from './meet.js';
 import { redes, linkRede, gravarComRedes } from './perfil-comum.js';
 import { juntarTarefas, seloResumo } from '../tarefas.js';
 import { carregarEntregas, htmlEntregas, ligarEntregas } from '../entregas.js';
+import { carregarArquivosMentorado, htmlArquivosEquipe, ligarArquivosEquipe } from '../arquivos-mentorado.js';
 
 // programa suspenso (script 45): sessões futuras canceladas, mentores liberados, dados guardados
 const SUSP = (m) => m.suspensao || {};
@@ -31,6 +32,8 @@ export async function render(ctx, el, [id]) {
   const mentores = (m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor).filter(Boolean);
   // documentos que o mentorado mandou (script 37); "novo" até um mentor dele abrir
   const { existe: temEntregas, lista: entregas } = await carregarEntregas((q) => q.eq('mentorado_id', id));
+  // arquivos que o mentor mandou (PowerPoint, PDF…; script 66)
+  const arquivosM = await carregarArquivosMentorado(id);
   const p = m.perfil || {};
   const feitas = sess.filter((s) => s.situacao === 'realizada').length;
   const suspenso = m.status === 'suspenso';
@@ -97,6 +100,9 @@ export async function render(ctx, el, [id]) {
       <div class="cartao mt"><div class="linha"><h3 style="flex:1">Ferramentas enviadas</h3><a class="btn peq" href="#/arsenal">Abrir o arsenal</a></div>
         ${(enviadas || []).length ? `<div class="tabela mt"><table><tr><th>Ferramenta</th><th>Enviada em</th><th>Por</th></tr>${enviadas.map((x) => `<tr><td>${esc(x.ferramenta ? x.ferramenta.nome : '')}</td><td>${dataHoraBR(x.enviado_em)}</td><td>${esc(x.por ? x.por.nome : '')}</td></tr>`).join('')}</table></div>`
           : '<p class="apagado mt">Nenhuma ferramenta enviada ainda. No arsenal, use o botão "Enviar".</p>'}</div>
+      <div class="cartao mt" id="arquivos-mentorado"><h3>Arquivos enviados para ${esc(m.nome.split(' ')[0])}</h3>
+        <p class="peq apagado">PowerPoint, PDF, Word, Excel ou foto que a equipe mandou. Aparecem na área do mentorado, para baixar. Na tela da sessão também dá para mandar.</p>
+        ${htmlArquivosEquipe({ existe: arquivosM.existe, pode: !suspenso && (ctx.ehAdmin || mentores.some((x) => x.id === ctx.perfil.id)), ehAdmin: ctx.ehAdmin })}</div>
       <div class="cartao mt"><h3>Resultados das ferramentas online</h3>
         ${(testes || []).length ? `<div class="lista mt">${testes.map(htmlResultado).join('')}</div>` : '<p class="apagado mt">Quando o mentorado responder uma ferramenta online, como a Roda do Comunicador, o resultado aparece aqui.</p>'}</div>
       ${temEntregas ? `<div class="cartao mt" id="entregas"><h3>Documentos enviados por ${esc(m.nome.split(' ')[0])}${entregas.some((e) => !e.visto_em) ? ` <span class="selo">${entregas.filter((e) => !e.visto_em).length} novo${entregas.filter((e) => !e.visto_em).length > 1 ? 's' : ''}</span>` : ''}</h3>
@@ -161,6 +167,7 @@ export async function render(ctx, el, [id]) {
 
   const caixaEntregas = el.querySelector('#entregas');
   if (caixaEntregas) ligarEntregas(caixaEntregas, entregas, { marcarVisto: mentores.some((x) => x.id === ctx.perfil.id), perfilId: ctx.perfil.id });
+  ligarArquivosEquipe(el.querySelector('#arquivos-mentorado'), { ctx, mentorado: { ...m, perfil: p }, lista: arquivosM.lista });
 
   // abas
   el.querySelectorAll('[data-aba]').forEach((b) => b.addEventListener('click', () => {
