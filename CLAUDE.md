@@ -466,8 +466,10 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   RH: `?quem=u-claudia`, `?quem=u-aluno`, `?quem=u-rh&marca=verde`); testes de Node (regras, lembretes, agenda, Zoom) em `%TEMP%\lmsed\t`.
 - AVALIAÇÃO DAS TURMAS (2026-10-11, script 31; substitui o Google Forms e o QR colado à mão do script 30, cuja tabela `qr_avaliacao`
   ficou sem uso). Proposta aprovada: https://claude.ai/artifact/7bBE6Xw7sfgMtnF5tt6JH4. Decisões dela: TUDO ANÔNIMO (não se grava
-  nome, login, IP nem aparelho; nem a Mentorei sabe quem respondeu); o aluno vê no fim a MÉDIA de recomendação 0–10 e o total de
-  avaliações (rpc `avaliacao_contador`); o NPS oficial (−100 a +100) só nos relatórios; comentários vão DIRETO ao mentor (ela não quer
+  nome, login, IP nem aparelho; nem a Mentorei sabe quem respondeu); NENHUMA NOTA PARA O ALUNO NEM NPS PARA O MENTOR (decisão dela,
+  06/11/2026: antes o aluno via no fim a média de recomendação 0–10 e o total pela rpc `avaliacao_contador`, que ficou sem uso; agora o
+  fim é só o agradecimento e /api/avaliar devolve só {ok}; o NPS (−100 a +100) só a administração vê: cartão do módulo, Gestão ›
+  Avaliações, Painel; sai do e-mail ao mentor; o painel do RH continua com NPS); comentários vão DIRETO ao mentor (ela não quer
   ler antes). Ela vai mandar a planilha das respostas antigas do Forms: importar em `avaliacoes` com origem 'google_forms', `formacao`
   = nome que o aluno escreveu, escalas antigas em `extras` (o NPS antigo ia de 1 a 10, sem o 0).
   Página pública `public/avaliar.html?m=<módulo>` (sem login; 6 telas: nota geral 0–10, régua 0–10 para aula, cada mentor, conteúdo e

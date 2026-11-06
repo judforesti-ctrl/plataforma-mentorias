@@ -1,7 +1,7 @@
 // Avaliação da turma dentro do módulo (script 31): o QR code e o link são feitos pela plataforma a partir do endereço
 // do módulo (nada para colar); o mentor baixa a imagem para o ÚLTIMO SLIDE ou copia o link para o chat da aula online.
 // Embaixo, o resultado do encontro: o mentor vê as notas do módulo e só a PRÓPRIA nota de mentor (regra do banco);
-// a administração vê a de cada mentor. Tudo anônimo.
+// a administração vê a de cada mentor. O NPS só a administração vê (decisão da Juliana, 06/11/2026). Tudo anônimo.
 import { sb, esc, avisar } from '../base.js';
 import { linkAvaliacao, janelaAvaliacao, resumir, num1, APRENDEU, TEMPO, HORAS_ATE_EMAIL, DIAS_ABERTA, HORAS_ANTES } from '../avaliacao-regras.js';
 
@@ -94,7 +94,7 @@ export function ligarAvaliacao(ctx, el, m, souMentor) {
 }
 
 async function mostrarResultado(ctx, alvo, m, souMentor) {
-  const { data, error } = await sb.from('avaliacoes').select('id, geral, aula, conteudo, ferramentas, aprendeu, tempo, nps, marcas, comentario, temas, criado_em, notas:avaliacao_mentores(mentor_id, nota)')
+  const { data, error } = await sb.from('avaliacoes').select(`id, geral, aula, conteudo, ferramentas, aprendeu, tempo, ${ctx.ehAdmin ? 'nps, ' : ''}marcas, comentario, temas, criado_em, notas:avaliacao_mentores(mentor_id, nota)`)
     .eq('modulo_id', m.id).order('criado_em', { ascending: false });
   if (error) {
     alvo.innerHTML = /avaliacoes|42P01|PGRST20|schema cache/i.test(`${error.code} ${error.message}`)
@@ -120,7 +120,7 @@ async function mostrarResultado(ctx, alvo, m, souMentor) {
       ${caixa(num1(r.geral), 'nota geral (0 a 10)')}
       ${meus.map((x) => caixa(num1(x.media), ctx.ehAdmin ? `${esc(String(nomes.get(x.id) || 'mentor').split(' ')[0])} (0 a 10)` : 'sua nota (0 a 10)')).join('')}
       ${caixa(num1(r.aula), 'aula (0 a 10)')}${caixa(num1(r.conteudo), 'conteúdo (0 a 10)')}${caixa(num1(r.ferramentas), 'ferramentas (0 a 10)')}
-      ${r.nps ? caixa(r.nps.valor, 'NPS (−100 a 100)') : ''}
+      ${ctx.ehAdmin && r.nps ? caixa(r.nps.valor, 'NPS (−100 a 100)') : ''}
     </div>
     ${lista2(r.aprendeu, APRENDEU) ? `<p class="peq mt"><b>Aprenderam:</b> ${lista2(r.aprendeu, APRENDEU)}</p>` : ''}
     ${lista2(r.tempo, TEMPO) ? `<p class="peq"><b>Tempo:</b> ${lista2(r.tempo, TEMPO)}</p>` : ''}

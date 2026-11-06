@@ -43,7 +43,6 @@ export default async () => {
             `Conteúdo: ${num1(res.conteudo)} de 10`,
             `Aula (ritmo e dinâmica): ${num1(res.aula)} de 10`,
             `Ferramentas e materiais: ${num1(res.ferramentas)} de 10`,
-            ...(res.nps ? [`Recomendariam a Mentorei: NPS ${res.nps.valor} (vai de −100 a +100)`] : []),
           ] },
         ];
         const extras = [

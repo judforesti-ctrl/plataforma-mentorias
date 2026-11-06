@@ -1,7 +1,7 @@
 // Avaliação das turmas, pela página pública avaliar.html (QR code do último slide ou link no chat da aula). Sem login.
 // GET  /api/avaliar?m=<módulo> → dados do encontro para a página (empresa, turma, módulo, mentores) e se aceita respostas
 // POST /api/avaliar {m, geral, aula, conteudo, ferramentas, mentores: {id: nota}, aprendeu, tempo, nps, marcas, comentario, temas}
-//      → grava a resposta e devolve o contador (média de recomendação de 0 a 10 e total de avaliações)
+//      → grava a resposta e devolve só { ok } (nenhuma nota volta para o aluno: decisão da Juliana, 06/11/2026)
 // ANÔNIMO: não se grava nada de quem respondeu (nem endereço de internet, nem aparelho).
 // QR antigo: se o módulo já passou e a mesma turma tem aula hoje, a resposta vai para o módulo de hoje.
 import { json, supa, FUSO } from '../lib/google.mjs';
@@ -33,11 +33,6 @@ const publico = (m) => ({
   empresa: (m.turma && m.turma.empresa && m.turma.empresa.nome) || '', turma: (m.turma && m.turma.nome) || '',
   mentores: (m.mentores || []).map((x) => x.mentor).filter(Boolean).map((p) => ({ id: p.id, nome: String(p.nome || '').split(' ')[0], foto: p.foto_url || null })),
 });
-
-async function contador() {
-  const r = await supa('/rest/v1/rpc/avaliacao_contador', { metodo: 'POST', corpo: {} });
-  return r.ok && r.dados ? { media: r.dados.media == null ? null : Number(r.dados.media), total: Number(r.dados.total) || 0 } : null;
-}
 
 // Todas as notas vão de 0 a 10 (pedido da Juliana, 03/11/2026; o script 64 converte as antigas de 1 a 5). Banco que ainda não
 // rodou o 64 só aceita 1 a 5 em aula, conteúdo, ferramentas e mentor: aí grava a metade (1 a 5) e o 64 dobra depois.
@@ -88,5 +83,5 @@ export default async (req) => {
     const r = await supa('/rest/v1/avaliacao_mentores', { metodo: 'POST', corpo: notas });
     if (!r.ok && VIOLOU.test(JSON.stringify(r.dados || ''))) await supa('/rest/v1/avaliacao_mentores', { metodo: 'POST', corpo: notas.map((x) => ({ ...x, nota: metade(x.nota) })) });
   }
-  return json({ ok: true, contador: await contador() });
+  return json({ ok: true });
 };

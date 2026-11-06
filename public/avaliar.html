@@ -28,7 +28,7 @@
   .corpo { flex: 1; padding: 18px; display: flex; flex-direction: column; gap: 14px; }
   .passo { display: flex; flex-direction: column; gap: 14px; flex: 1; animation: entra .3s ease; }
   @keyframes entra { from { opacity: .3; transform: translateX(14px); } to { opacity: 1; transform: none; } }
-  @media (prefers-reduced-motion: reduce) { .passo { animation: none; } .progresso i, .contador .barra i { transition: none !important; } }
+  @media (prefers-reduced-motion: reduce) { .passo { animation: none; } .progresso i { transition: none !important; } }
   h1 { font-family: var(--f-titulo); font-size: 22px; line-height: 1.25; margin: 0; letter-spacing: -.02em; text-wrap: balance; }
   p { margin: 0; }
   .ajuda { font-size: 13.5px; color: var(--apagado); }
@@ -65,12 +65,6 @@
   .btn[disabled] { opacity: .35; cursor: not-allowed; }
   .leve { background: transparent; border: 0; color: var(--apagado); font-weight: 600; cursor: pointer; padding: 14px 8px; font-size: 14.5px; }
   .fim { text-align: center; align-items: center; justify-content: center; }
-  .contador { background: var(--petroleo); color: #fff; border-radius: 18px; padding: 20px 16px; width: 100%; display: grid; gap: 4px; }
-  .contador .num { font-family: var(--f-titulo); font-size: 60px; font-weight: 800; color: var(--bege); line-height: 1; font-variant-numeric: tabular-nums; }
-  .contador .num small { font-size: 22px; color: #9FB0B6; }
-  .contador .leg { font-size: 13.5px; color: #C6CFD3; }
-  .contador .barra { height: 8px; background: #22383F; border-radius: 99px; overflow: hidden; margin-top: 8px; }
-  .contador .barra i { display: block; height: 100%; width: 0; background: var(--bege); transition: width 1.4s ease; }
   .frase { font-size: 14px; color: var(--apagado); max-width: 34ch; }
   .erro { color: var(--erro); font-size: 14px; }
   .carregando { color: var(--apagado); margin: auto; }
@@ -87,7 +81,7 @@
   </div>
 </main>
 <script type="module">
-import { POSITIVOS, MELHORAR, TEMAS, APRENDEU, TEMPO, num1 } from '/assets/avaliacao-regras.js';
+import { POSITIVOS, MELHORAR, TEMAS, APRENDEU, TEMPO } from '/assets/avaliacao-regras.js';
 
 const corpo = document.getElementById('corpo'), barra = document.getElementById('barra'), conta = document.getElementById('conta');
 const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -180,35 +174,20 @@ async function enviar() {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.mensagem || 'Não conseguimos enviar agora. Tente de novo em instantes.');
     guardar(`mentorei.avaliado.${mod.id}`, '1');
-    obrigado(j.contador);
+    obrigado();
   } catch (e) {
     enviando = false; desenhar();
     document.getElementById('erro').textContent = e.message || 'Sem conexão. Tente de novo em instantes.';
   }
 }
 
-function obrigado(c) {
+// Fim da avaliação: só o agradecimento. Nenhuma nota aparece para o aluno (decisão da Juliana, 06/11/2026).
+function obrigado() {
   barra.style.width = '100%'; conta.textContent = 'Pronto!';
-  const tem = c && c.media != null && c.total > 0;
   corpo.innerHTML = `<div class="passo fim">
     <h1>Obrigada por avaliar!</h1>
     <p class="frase">Você também faz parte do desenvolvimento da Mentorei. Cada resposta muda o próximo encontro.</p>
-    ${tem ? `<div class="contador"><span class="leg">Nossa nota de recomendação hoje</span>
-      <span class="num"><span id="num">0,0</span><small> / 10</small></span><div class="barra"><i id="nbarra"></i></div>
-      <span class="leg">de ${c.total.toLocaleString('pt-BR')} ${c.total === 1 ? 'avaliação' : 'avaliações'}</span></div>
-      <p class="frase">Esse número é a nossa bússola: é olhando para ele que decidimos o que manter e o que melhorar.</p>` : ''}
   </div>`;
-  if (!tem) return;
-  const alvo = c.media, n = document.getElementById('num'), b = document.getElementById('nbarra');
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { n.textContent = num1(alvo); b.style.width = `${alvo * 10}%`; return; }
-  requestAnimationFrame(() => { b.style.width = `${alvo * 10}%`; });
-  setTimeout(() => { n.textContent = num1(alvo); b.style.width = `${alvo * 10}%`; }, 1600);   // se a animação não rodar (aba em segundo plano)
-  const t0 = performance.now();
-  (function quadro(t) {
-    const p = Math.min(1, (t - t0) / 1400);
-    n.textContent = num1(alvo * (1 - Math.pow(1 - p, 3)));
-    if (p < 1) requestAnimationFrame(quadro);
-  })(t0);
 }
 
 corpo.addEventListener('click', (ev) => {
