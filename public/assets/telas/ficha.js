@@ -65,6 +65,7 @@ export async function render(ctx, el, [id]) {
         ${linkedin ? `<a class="btn peq" href="${esc(linkRede('linkedin', linkedin))}" target="_blank" rel="noopener">LinkedIn</a>` : ''}
         ${instagram ? `<a class="btn peq" href="${esc(linkRede('instagram', instagram))}" target="_blank" rel="noopener">Instagram</a>` : ''}
         <span class="linha" id="meet-area" style="gap:6px"></span>
+        ${ctx.ehAdmin ? `<a class="btn peq escuro" href="#/relatorio-mentorado/m/${m.id}" title="A IA monta o relatório do processo inteiro: cada sessão e a síntese da jornada">✨ Relatório da jornada</a>` : ''}
         ${proxima ? `<a class="btn peq pri" href="#/sessao/${proxima.id}">Abrir sessão ${proxima.numero}</a>` : ''}
         ${mexe ? '<button class="btn peq perigo" id="suspender" title="Cancela as sessões futuras e libera os mentores; os dados ficam guardados">Suspender programa</button>' : ''}
         <span class="salvo" id="indicador"></span>

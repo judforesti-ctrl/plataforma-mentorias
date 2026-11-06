@@ -833,6 +833,9 @@ html.area-aluno .mn-formato, html.area-aluno .mn-caminho { display: none !import
 .aa-legenda { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12px; color: var(--apagado); border-top: 1px solid var(--linha); padding-top: 12px; }
 .aa-legenda > span { display: inline-flex; align-items: center; gap: 6px; }
 .aa-legenda .aa-pt { width: 12px; height: 12px; }
+/* relatório da jornada liberado (script 67): cartão em destaque em Minha mentoria */
+.aa-relatorio { border: 2px solid var(--bege); background: linear-gradient(135deg, var(--faixa), var(--papel) 60%); }
+.aa-relatorio .aa-kicker { color: var(--bege-texto); }
 .ct-solta.arrastando { border-color: var(--bege-escuro); background: var(--bege-claro); }
 
 /* ---------- Financeiro (script 52): barras do faturado por mês e das despesas por tipo ---------- */

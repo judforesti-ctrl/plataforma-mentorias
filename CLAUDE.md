@@ -122,6 +122,29 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   sem números). Ela revisa tudo na tela (salva sozinho; o texto original do mentor aparece só ali, em "O que o mentor escreveu"), pede
   ajuste à IA ou reescreve. PDF = `public/relatorio.html?id=` + `assets/relatorio.js` (A4, capa petróleo, uma página por turma, impressão
   do navegador "Salvar como PDF"; testado com o Edge em modo headless).
+- RELATÓRIO DA JORNADA DO MENTORADO (2026-11-06, script 67, pedido da Juliana): na mentoria individual, a administração aperta
+  "✨ Relatório da jornada" (alto da ficha, só admin) ou vai por Relatórios → "Relatório da jornada de cada mentorado"
+  (`#/relatorio-mentorado`: todos, com filtros e "Gerar" num clique; `#/relatorio-mentorado/m/<mentorado>`: os relatórios dele e
+  "Gerar" com pedido opcional; `#/relatorio-mentorado/<id>`: editor; `telas/relatorio-mentorado.js`). Tabela `relatorios_mentorado`
+  (só admin pela RLS; status gerando/rascunho/erro como relatorios_turmas; `opcoes` {evolucao, notas}; `observacoes` = pedido interno).
+  `/api/relatorio-mentorado-gerar` (background, claude-opus-5-5 com json_schema, fallbacks "default"): contas e textos da IA em
+  `netlify/lib/jornada.mjs` (montarDados, entradaParaIA, INSTRUCOES, textoFinal; testável no Node). Números calculados pela plataforma
+  (realizadas de previstas sem canceladas, presença = realizadas ÷ (realizadas + faltas), horas = duracao_min ou a do programa,
+  tarefas só de sessão concluída, nota do mentorado 0–10, dobrada antes do script 64, evolução 1–5 por ponto a desenvolver).
+  A IA lê anotações dos mentores (resumo_mentor), resumos enviados, tema, roteiro, tarefas e ferramentas das sessões REALIZADAS; as
+  informações delicadas nem são lidas (o select não pede), nem as visões do gestor/SWOT. Escreve para o mentorado ("você"): título,
+  abertura, por sessão temas (1 a 4) + resumo curto, e a síntese: pontos altos, o que ELE reconhece que melhorou (lista vazia se não
+  houver registro; o bloco some no PDF), desafios, palavra final. Sessão passada sem "Realizada" fica de fora com aviso na tela.
+  PDF = `public/relatorio-mentorado.html?id=` + `assets/relatorio-mentorado.js` (mesmo desenho do relatório das turmas: capa, visão
+  geral com 4 números, objetivo e pontos, linha do tempo e mentores; "Seus números" com a evolução início → atual e as notas das
+  sessões (cada gráfico desligável no editor); sessão a sessão; síntese). ENTREGA AO MENTORADO: "Liberar na área de X" grava um
+  RETRATO em `liberado` (titulo, opcoes, dados sem `avisos`, texto); o mentorado NUNCA lê a tabela, só a rpc `minha_jornada()`
+  (security definer) → cartão "Relatório da sua jornada" em Minha mentoria e a mesma página A4. Editar depois não muda o que ele vê
+  até "Atualizar a versão de X" (a tela compara com JSON de chaves ordenadas); "Tirar da área"; "Ver o que X vê" (&versao=liberada);
+  "Avisar por e-mail" (`/api/relatorio-mentorado` acao 'avisar', Brevo, só se ele autorizou e-mails; grava avisado_em) e WhatsApp
+  (wa.me, só se autorizou). Mentores não veem o relatório (só a administração e o mentorado, depois de liberado).
+  Testes (Node com Supabase/Claude de mentira e telas no Chrome sem janela com supabase-js falso): scratch /home/claude/teste-jornada
+  da sessão de 06/11 (não fica no git).
 - Google Agenda (script 17, `netlify/lib/google-sync.mjs`): a conta conectada no Painel cria um evento por compromisso com os
   envolvidos como convidados; a chave de cada um fica em `google_eventos` (id fixo `mnt`+sha1, nunca duplica). Liga e desliga em
   Agenda → Google, celular e e-mail (equipe e mentorados separados; começam DESLIGADOS). Sincroniza depois de cada mudança nas telas
@@ -965,6 +988,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- RELATÓRIO DA JORNADA (2026-11-06): ela rodar o script 67 (até lá as telas avisam "falta rodar o script 67" e nada é gravado).
 - ARQUIVOS PARA O MENTORADO (2026-11-05): ela rodar o script 66 (até lá o cartão da sessão e da ficha avisa; nas turmas não precisa).
 - MEU PRÓXIMO PASSO (2026-11-03): ela rodar o script 65 (ficha no arsenal; o link público e o QR funcionam sem ele).
 - AVALIAÇÕES DE 0 A 10 (2026-11-03): ela rodar o script 64 no Supabase (até lá as notas antigas aparecem baixas em Avaliações, com aviso).

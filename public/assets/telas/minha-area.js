@@ -40,6 +40,9 @@ export async function render(ctx, el) {
   const { existe: podeEnviar, lista: entregas } = await carregarEntregas((q) => q.eq('mentorado_id', m.id));
   // arquivos que o mentor mandou (PowerPoint, PDF…; script 66)
   const { lista: arquivosM } = await carregarArquivosMentorado(m.id);
+  // relatório da jornada liberado pela equipe (script 67): só o retrato liberado, pela função minha_jornada()
+  let jornadas = [];
+  try { const { data, error: ej } = await sb.rpc('minha_jornada'); if (!ej && Array.isArray(data)) jornadas = data; } catch (_) { /* sem o script 67 */ }
   const enviosDaTarefa = (t) => entregas.filter((e) => e.tipo === 'tarefa' && (t.id ? e.tarefa_id === t.id : !e.tarefa_id && e.sessao_id === t.sessao_id));
   const enviosDaFerramenta = (fid) => entregas.filter((e) => e.tipo === 'ferramenta' && e.ferramenta_id === fid);
   const seloEnviado = (lista) => (lista.length ? ` · <span class="selo">📎 Enviada em ${diaMes(lista[0].enviado_em)}</span>` : '');
@@ -99,6 +102,12 @@ export async function render(ctx, el) {
         ${numero({ ic: 'resumo', cor: 'ok', valor: resumos.length, texto: resumos.length === 1 ? 'resumo de sessão' : 'resumos das sessões' })}
       </div>
     </div>
+
+    ${jornadas.length ? `<section class="aa-cartao aa-relatorio" aria-labelledby="aa-rel">
+      <div><p class="aa-kicker">Preparado pela equipe Mentorei</p><h3 id="aa-rel">${esc(jornadas[0].titulo || 'Relatório da sua jornada')}</h3>
+        <p class="peq apagado" style="margin-top:4px">Cada sessão, os temas que vocês trabalharam e uma síntese do seu caminho: os pontos altos, o que você já reconhece que melhorou e os desafios que seguem com você.</p></div>
+      <div class="linha"><a class="btn pri" href="/relatorio-mentorado.html?id=${jornadas[0].id}" target="_blank" rel="noopener">Abrir o relatório ${icone('seta', 17)}</a>
+        <span class="peq apagado">Atualizado em ${diaMes(jornadas[0].liberado_em)}. Lá dá para baixar em PDF.</span></div></section>` : ''}
 
     <div class="aa-linha">
       <section class="aa-cartao aa-prox" aria-labelledby="aa-prox">
