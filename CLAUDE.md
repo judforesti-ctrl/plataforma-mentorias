@@ -145,6 +145,24 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (wa.me, só se autorizou). Mentores não veem o relatório (só a administração e o mentorado, depois de liberado).
   Testes (Node com Supabase/Claude de mentira e telas no Chrome sem janela com supabase-js falso): scratch /home/claude/teste-jornada
   da sessão de 06/11 (não fica no git).
+- RELATÓRIO DA MENTORIA PARA A EMPRESA (2026-11-06, script 68, pedido da Juliana depois da leitura macro da Brasdiesel feita à mão
+  num doc para a reunião com o diretor): Relatórios → "Relatório da mentoria para a empresa (diretoria e RH)" (`#/relatorio-empresa`,
+  `telas/relatorio-empresa.js`, só admin): escolhe a empresa e os programas de mentoria individual (já marcados os que têm sessão
+  realizada), pedido opcional, "✨ Gerar". Tabela `relatorios_empresa` (empresa_id, programas uuid[], status gerando/rascunho/erro como
+  relatorios_turmas; `opcoes` {tarefas, avaliacao, mentores}; só admin pela RLS). `/api/relatorio-empresa-gerar` (background,
+  claude-opus-5-5 com json_schema, fallbacks "default"); contas em `netlify/lib/leitura-empresa.mjs` (usa montarDados da jornada por
+  mentorado e soma; entram ativo/concluído/pausado, sem "modelo/teste"; desligado e suspenso ficam de fora com aviso). Para a IA vão
+  só CÓDIGOS (L3 = líder, L3.S2 = sessão), cargo, objetivo, pontos e as sessões REALIZADAS (anotações do mentor, resumo enviado, tema,
+  tarefas), com o nome de cada mentorado trocado por [líder] (`tiraNomes`) e os textos cortados para caber (programas grandes); nunca
+  as informações delicadas nem as visões do gestor. A IA devolve as 4 perguntas (dificuldades, temas mais trabalhados, medos, próximos
+  passos para mentoria/diretoria/RH) com as listas de códigos; a PLATAFORMA conta (n) e confere (código inexistente sai, cada sessão
+  em um tema só, grupo por área de uma pessoa vira "Outras áreas"). Editor: cada item (título, número, descrição) editável e com
+  "Nos registros de: <nomes>" (só na tela, para conferir), + incluir/✕, ajuste à IA. PDF = `public/relatorio-empresa.html?id=` +
+  `assets/relatorio-empresa.js`, com o MESMO desenho do relatório da jornada (o CSS dos dois agora fica em `assets/relatorio-a4.css`):
+  capa, Em uma página (4 respostas com os 3 maiores itens), O programa em números (cartões, tabela, mentores), uma página por pergunta
+  (barras de líderes e de sessões, tabela dos medos) e "Como esta leitura foi feita". Nenhum nome de mentorado no PDF.
+  Testes: /home/claude/teste-jornada (teste-empresa.mjs, seed-empresa.mjs, teste-telas-empresa.py com Inter/Manrope do npm em
+  /home/claude/fontes), fora do git.
 - Google Agenda (script 17, `netlify/lib/google-sync.mjs`): a conta conectada no Painel cria um evento por compromisso com os
   envolvidos como convidados; a chave de cada um fica em `google_eventos` (id fixo `mnt`+sha1, nunca duplica). Liga e desliga em
   Agenda → Google, celular e e-mail (equipe e mentorados separados; começam DESLIGADOS). Sincroniza depois de cada mudança nas telas
@@ -990,6 +1008,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
+- RELATÓRIO PARA A EMPRESA (2026-11-06): ela rodar o script 68 (até lá a tela avisa "falta rodar o script 68" e nada é gravado).
 - RELATÓRIO DA JORNADA (2026-11-06): ela rodar o script 67 (até lá as telas avisam "falta rodar o script 67" e nada é gravado).
 - ARQUIVOS PARA O MENTORADO (2026-11-05): ela rodar o script 66 (até lá o cartão da sessão e da ficha avisa; nas turmas não precisa).
 - MEU PRÓXIMO PASSO (2026-11-03): ela rodar o script 65 (ficha no arsenal; o link público e o QR funcionam sem ele).

@@ -150,6 +150,7 @@ const ROTAS = {
   checklist: () => import('./telas/checklist.js'),
   'relatorio-turmas': () => import('./telas/relatorio-turmas.js'),
   'relatorio-mentorado': () => import('./telas/relatorio-mentorado.js'),
+  'relatorio-empresa': () => import('./telas/relatorio-empresa.js'),
   avaliacoes: () => import('./telas/avaliacoes.js'),
   convites: () => import('./telas/convites.js'),
   certificados: () => import('./telas/certificados.js'),
@@ -192,7 +193,7 @@ async function abrir() {
   if (!rota || !ROTAS[rota]) { location.replace(inicio); return; }
   if (telaAtual && telaAtual.sair) telaAtual.sair();
   const caminho = montarTopo(rota === 'mentorado' || rota === 'sessao' ? (ehAdmin ? 'mentorados' : 'meus') : rota === 'carregar-arsenal' ? 'arsenal'
-    : rota === 'ferramenta' ? (params[1] ? (ehAdmin || atende ? 'turmas' : 'trilha') : perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota === 'pessoa' ? (params[1] === 'mentores' ? 'mentores' : 'equipe') : rota === 'turma' || rota === 'modulo' || rota === 'importar-proposta' || (rota === 'trilha' && (ehAdmin || atende)) ? 'turmas' : rota === 'relatorio-turmas' || rota === 'relatorio-mentorado' ? 'relatorios' : rota === 'rh' && ehAdmin ? 'painel' : rota,
+    : rota === 'ferramenta' ? (params[1] ? (ehAdmin || atende ? 'turmas' : 'trilha') : perfil.papel === 'mentorado' ? 'minha-area' : 'arsenal') : rota === 'pessoa' ? (params[1] === 'mentores' ? 'mentores' : 'equipe') : rota === 'turma' || rota === 'modulo' || rota === 'importar-proposta' || (rota === 'trilha' && (ehAdmin || atende)) ? 'turmas' : rota === 'relatorio-turmas' || rota === 'relatorio-mentorado' || rota === 'relatorio-empresa' ? 'relatorios' : rota === 'rh' && ehAdmin ? 'painel' : rota,
   precisaPrimeiroAcesso);
   // cada tela nasce num elemento novo, para os cliques de uma tela não se acumularem na outra
   const alvo = document.createElement('div');

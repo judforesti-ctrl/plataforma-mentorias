@@ -858,3 +858,11 @@ a.fn-barra:hover, a.fn-barra:focus-visible { background: var(--faixa); }
   border-radius: 10px; background: var(--petroleo); color: #fff; font-size: 14px; }
 .ver-como b { color: var(--bege, #fff); }
 .ver-como .btn { background: #fff; color: var(--petroleo); border-color: #fff; }
+/* Relatório da mentoria para a empresa (script 68): itens editáveis (dificuldades, temas, medos...) */
+.re-linha { border-top: 1px solid var(--linha); padding: 12px 0 4px; }
+.re-campos { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: end; }
+.re-campos .re-num input { width: 90px; }
+.re-campos > .btn { margin-bottom: 2px; }
+.re-quem { margin-top: 6px; }
+.re-quem span { color: var(--apagado); font-style: italic; }
+@media (max-width: 600px) { .re-campos { grid-template-columns: minmax(0, 1fr) auto; } .re-campos > .campo:first-child { grid-column: 1 / -1; } }
