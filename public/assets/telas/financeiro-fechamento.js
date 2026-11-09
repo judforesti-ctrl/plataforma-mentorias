@@ -1,6 +1,7 @@
 // Financeiro, etapa 4 (script 57, 30/10/2026): fechamento do mês e distribuição das sócias, como a aba "Precificação/distribuição"
-// da planilha: faturamento − despesas − Simples − INSS (os impostos PAGOS de verdade, pedido dela) = líquido; 10% fica no caixa; o
-// resto vai para as sócias pela participação (Ju 40, Vivi 40, Cláudia 20; muda em Ajustes), menos a despesa pessoal de cada uma.
+// da planilha: faturamento − despesas − Simples − INSS (os impostos PAGOS de verdade, pedido dela) − pró-labore das sócias = líquido;
+// 10% fica no caixa; o resto vai para as sócias pela participação (Ju 40, Vivi 40, Cláudia 20; muda em Ajustes). Cada uma recebe o
+// pró-labore dela (R$ 10.000, desde 07/2025 na planilha; muda em Ajustes) + a parte − a despesa pessoal dela.
 // Decisão dela: a distribuição só as sócias veem (a aba nem aparece para a Cintia; a tabela fin_fechamentos tem RLS eh_socia()).
 // "Fechar o mês" guarda o retrato dos números (não muda mais se alguém lançar depois); "Reabrir" apaga o retrato.
 // Retiradas = saídas do extrato conferidas como "Retirada de sócia" (etapa 3).
@@ -55,22 +56,23 @@ export async function abaFechamento(ctx, d, el, recarregar, params) {
           ${linha('Despesas', n.despesas)}
           ${linha('Simples (pago)', n.simples)}
           ${linha('INSS (pago)', n.inss)}
+          ${n.pro_labore ? linha('Pró-labore das sócias', n.pro_labore) : ''}
           <tr class="fn-forte"><td>Líquido da Mentorei</td><td class="fn-num" style="text-align:right;${n.liquido < 0 ? 'color:var(--erro)' : ''}">${dinheiro(n.liquido)}</td></tr>
           ${linha(`Caixa da empresa (${pct(n.caixa_pct)})`, n.caixa)}
           <tr class="fn-forte"><td>Para distribuir</td><td class="fn-num" style="text-align:right">${dinheiro(n.distribuir)}</td></tr>
         </tbody></table></div>
-        <p class="peq apagado mt">Faturamento pela data dos módulos e parcelas${mes < d.config.inicio ? ' (antes do início do Financeiro: o da planilha)' : ''}. Impostos = os pagos no mês (despesas do tipo Impostos; INSS pelo nome). Despesa pessoal de sócia sai da parte dela.</p>
+        <p class="peq apagado mt">Faturamento pela data dos módulos e parcelas${mes < d.config.inicio ? ' (antes do início do Financeiro: o da planilha)' : ''}. Impostos = os pagos no mês (despesas do tipo Impostos; INSS pelo nome). O pró-labore sai antes do líquido e volta inteiro para cada sócia. Despesa pessoal de sócia sai do que ela tem a receber.</p>
         ${salvo ? `<p class="peq apagado">Fechado por ${esc((d.pessoa(salvo.fechado_por) || {}).nome || '—')} em ${dataHoraBR(salvo.fechado_em)}. Os números ficaram guardados como estavam.</p>` : ''}
         <div class="linha mt">${semScript ? '' : salvo ? '<button class="btn" type="button" id="fc-reabrir">Reabrir o mês</button>' : '<button class="btn pri" type="button" id="fc-fechar">Fechar o mês</button>'}</div>
       </div>
       <div class="cartao"><h3>Distribuição</h3>
-        <div class="tabela mt"><table><thead><tr><th>Sócia</th><th style="text-align:right">Parte</th><th style="text-align:right">Despesa pessoal</th><th style="text-align:right">A receber</th></tr></thead><tbody>
-          ${n.partes.map((p) => `<tr><td><b>${esc(p.nome)}</b> <small class="apagado">${pct(p.pct)}</small></td><td class="fn-num" style="text-align:right">${dinheiro(p.bruto)}</td>
+        <div class="tabela mt"><table><thead><tr><th>Sócia</th>${n.pro_labore ? '<th style="text-align:right">Pró-labore</th>' : ''}<th style="text-align:right">Parte</th><th style="text-align:right">Despesa pessoal</th><th style="text-align:right">A receber</th></tr></thead><tbody>
+          ${n.partes.map((p) => `<tr><td><b>${esc(p.nome)}</b> <small class="apagado">${pct(p.pct)}</small></td>${n.pro_labore ? `<td class="fn-num" style="text-align:right">${dinheiro(p.pro_labore || 0)}</td>` : ''}<td class="fn-num" style="text-align:right">${dinheiro(p.bruto)}</td>
             <td class="fn-num" style="text-align:right">${p.pessoais ? `− ${dinheiro(p.pessoais)}` : '—'}</td><td class="fn-num" style="text-align:right;font-weight:700">${dinheiro(p.liquido)}</td></tr>`).join('')}
         </tbody></table></div>
         ${n.distribuir < 0 ? '<div class="aviso erro mt">Mês com prejuízo: não há o que distribuir. O valor negativo abate do que cada sócia tem a receber no ano (tabela abaixo).</div>' : ''}
         ${n.pessoais_sem_socia ? `<div class="aviso mt">${dinheiro(n.pessoais_sem_socia)} em despesa pessoal sem dizer de qual sócia: confira em Financeiro → Conferir.</div>` : ''}
-        <p class="peq apagado mt">Participação e caixa mudam em "Ajustes".</p>
+        <p class="peq apagado mt">Participação, pró-labore e caixa mudam em "Ajustes".</p>
       </div>
     </div>
     <div class="cartao mt"><h3>${ano}: devido e retirado</h3>

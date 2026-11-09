@@ -730,7 +730,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   senão 230). "Simular um programa" (módulos, horas, preço, quem dá, presenciais, avião/carro, outros custos) + preço mínimo para a
   margem desejada (`F.precoPara`). FECHAMENTO (aba só para SÓCIAS = admin + tambem_mentor, `telas/financeiro-fechamento.js`; RLS
   `eh_socia()` em `fin_fechamentos`): como a aba da planilha (conferido com abril/2024 ao centavo): faturamento − despesas − Simples −
-  INSS (impostos pagos no mês; INSS pelo nome) = líquido; caixa 10%; o resto pela participação (Ju 40, Vivi 40, Cláudia 20, pelo
+  INSS (impostos pagos no mês; INSS pelo nome) − pró-labore (desde 09/11: R$ 10.000 por sócia, volta inteiro para cada uma) = líquido;
+  caixa 10%; o resto pela participação (Ju 40, Vivi 40, Cláudia 20, pelo
   primeiro nome) menos a despesa pessoal de cada uma (`F.fechamento`); "Fechar o mês" guarda o retrato em fin_fechamentos.numeros,
   "Reabrir" apaga; tabela do ano: devido × retirado (retiradas = movimentos do extrato conferidos como "Retirada de sócia") × falta
   retirar. CAIXA 90 DIAS e ATENÇÃO na Visão da direção (`caixaEAvisos` em financeiro-painel.js; `F.caixaPorSemana`): começa no saldo do
@@ -767,8 +768,38 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   `chave` é a mesma que o PDF daria, importar o PDF de novo não repete; sem arquivo guardado): 14 despesas lançadas conferidas, 3 × 8.900
   do Sescoop ligados aos módulos 3, 4 e 5 da Sicredi Expansão, e os 3 Pix de 09/10 = RETIRADAS (ela: Cláudia tem o menor percentual →
   17.664,49 do CPF ***.769.509-** é dela, com regra "lembrar"; os dois de 25.328,99: ***.578.928-** = JULIANA (ela confirmou em
-  31/10) e ***.853.929-** = Viviane, cada um com regra "lembrar" de retirada). Falta: entrada da CCS de R$ 8.070 em 07/10
-  (sem plano; ela não sabe o que é: ficou nas pendências para verificar, 31/10).
+  31/10) e ***.853.929-** = Viviane, cada um com regra "lembrar" de retirada). A entrada da CCS de R$ 8.070 em 07/10 foi
+  resolvida em 09/11 (abaixo).
+  PLANILHA ATUALIZADA (09/11, ela mandou de novo "Controle de NF e recebimentos.xlsx", agora com outubro inteiro e novembro).
+  Gravado pelo login dela no navegador do Claude (cópia do que mudou em localStorage "claude.fin.antes.2026-11-09" daquele navegador,
+  para desfazer): (1) RECEBIMENTOS: 54 linhas a receber ganharam a data do depósito (aba Contas = banco; a coluna "Data depósito" da
+  aba Faturamento tem erros, p.ex. Isidorus 1/11 = 16/04 no banco e 16/07 na outra), nota emitida (data do envio) e os números de nota
+  certos (593 Cresol Integração, 594 Adidas 5/8, 596 Isidorus 7/11, 603 Nossa Terra, 610 Cresol Conexão set.); outubro recebido pelo
+  banco até 30/10 e pelo "Data depósito" de 03 a 06/11 (Sescoop/PR pagou tudo da Cresol em 06/11). Valores corrigidos pela planilha:
+  Potencializa Elas Cascavel e Cafelândia 1º encontro R$ 4.600 (eram 5.600; total 23.000), Workshop professores Cresol Amazônia
+  R$ 4.950 (era 5.600), Cresol Integração módulo 4 (04/11, palestra "Comunicação que expande possibilidades") R$ 10.273 com nota para
+  a OCEPAR. Cresol Conexão módulo 7 recebido em 20/10 pelo banco (a aba Faturamento diz 04/11). Brasdiesel paga na CONTA DO CNPJ NOVO
+  (não está no Sicoob nem na Unicred). Ativa Idade (Maripá, Triunfo, Amazônia): cobrança em 2 parcelas de R$ 25.200 do Cresol
+  Instituto, não por palestra; as 5 linhas de outubro ficaram "nota emitida" em 26/10 com recado. (2) CCS: linha avulsa (NF 599,
+  17/09, Sicoob Confederação, encontro de 01/09) + o movimento de 07/10 conferido como recebimento. (3) RECADOS dos planos: limpos
+  onde o banco ou a planilha confirmam (18 planos); ficaram 10 (Cooprem último módulo, Grandes Lagos R$ 11.200 na planilha × R$ 16.800
+  da venda, Cresol Conexão 1º módulo e R$ 20.344 × 20.234, Ativa Idade, Unicred sem valor, Isidorus Formação/Líderes, Credseguro).
+  (4) DESPESAS de outubro: fixas pagas (Simples 16.254,01 + 534,93 em 20/10; Cintia R$ 3.000 e ChatGPT 107,09 em 30/10; Contabilizei
+  200,06 em 30/10; site 407,11 em 14/10; integralização Unicred 07/10); valor da fixa da Cintia agora R$ 3.000 (setembro teve a
+  diferença de 500) e da Contabilizei R$ 200,06; 9 despesas novas de 14 a 28/10 (Receita Federal 50, viagem Jataí/GO da Cooprem,
+  hospedagem Cacoal, Juliano evento Adidas); os Pix "para conferir" do extrato explicados pela aba Contas (Caxias do Sul = encontro
+  presencial da Brasdiesel 02/10; táxi Toledo = Cresol Integração; Azul 2.878,01 = Vivi para Cacoal/Cresol Amazônia; Azul 1.382,47 =
+  passagens da Ju para a Cresol Integração, que já reembolsou; Azul 718,74 = Ju para Cascavel, ligada a Maripá com recado; Pix 500
+  de 07/10 = diferença do salário da Cintia; CPF ***.630.956-** = Meyre do LinkedIn, também o de 08/01; 200,06 de 01/10 = Contabilizei).
+  REEMBOLSO DA COOPREM: linha a receber de R$ 5.188 (09/11, planilha de novembro) ligada às 7 despesas "pedir reembolso" (3 passagens
+  de 29/09 + carro, combustível, hotel e churrascaria em Jataí = R$ 4.359,46; 5.188 ≈ × 1,19). (5) fin_meses outubro/2026 =
+  R$ 182.960,36 (estava vazio: o gráfico mostrava "—"). (6) Fundo de reserva pela aba Contas (ver Pendências).
+  Os 15 a 31/10 do extrato NÃO viraram movimentos (só despesas e recebimentos): quando ela importar o PDF, a conferência automática
+  liga pelo valor e dia. Retiradas de 30/10 (8.000 de cada sócia, "retirada parcial" de outubro na aba Precificação) entram com o PDF.
+  PRÓ-LABORE (09/11): a aba Precificação/distribuição tira R$ 30.000 de pró-labore (R$ 10.000 por sócia, desde 07/2025) antes do
+  líquido e soma de volta no "Total a receber por sócia"; a plataforma não fazia isso. `PADRAO_CUSTOS.pro_labore` (por primeiro nome,
+  muda em Ajustes → Distribuição das sócias), `F.fechamento` devolve `pro_labore` e cada parte com `pro_labore`; conferido com
+  09/2026 ao centavo (25.328,99 / 25.328,99 / 17.664,49 = as retiradas de 09/10) e, com pró-labore zero, com abril/2024.
   ARQUIVO PARA A CONTABILIDADE (script 59, 31/10, pedido dela: "fácil e simples, flegar os clientes e gerar o arquivo"): Financeiro →
   Emitir nota: caixinhas (+ "marcar todas") e "📄 Gerar arquivo para a contabilidade" (`telas/financeiro-contabilidade.js`): uma nota
   por turma/mentoria do mesmo tomador (opção "juntar"), tomador = pagador do plano, senão o cliente (CNPJ só números); planilha .xlsx
@@ -1010,37 +1041,43 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
 ## Pendências conhecidas
-- RELATÓRIO PARA A EMPRESA (2026-11-06): ela rodar o script 68 (até lá a tela avisa "falta rodar o script 68" e nada é gravado).
-- RELATÓRIO DA JORNADA (2026-11-06): ela rodar o script 67 (até lá as telas avisam "falta rodar o script 67" e nada é gravado).
-- ARQUIVOS PARA O MENTORADO (2026-11-05): ela rodar o script 66 (até lá o cartão da sessão e da ficha avisa; nas turmas não precisa).
-- MEU PRÓXIMO PASSO (2026-11-03): ela rodar o script 65 (ficha no arsenal; o link público e o QR funcionam sem ele).
-- AVALIAÇÕES DE 0 A 10 (2026-11-03): ela rodar o script 64 no Supabase (até lá as notas antigas aparecem baixas em Avaliações, com aviso).
-- TUTORIAIS (2026-10-31): FALTA ELA RODAR O SCRIPT 63 e enviar os 9 vídeos em Tutoriais → "Enviar vários vídeos de uma vez" (arquivos
+- CONFERIDO EM 09/11 (select de verdade pelo login dela): existem as tabelas dos scripts 32, 37, 44, 46, 48, 49, 54 a 61, 63, 66, 67
+  e 68, e `configuracoes.avaliacoes_escala` = 10 (script 64). Os avisos "falta rodar o script N" desses não valem mais.
+- RELATÓRIO PARA A EMPRESA (2026-11-06): script 68 rodado (tabela conferida em 09/11).
+- RELATÓRIO DA JORNADA (2026-11-06): script 67 rodado (tabela conferida em 09/11).
+- ARQUIVOS PARA O MENTORADO (2026-11-05): script 66 rodado (tabela conferida em 09/11).
+- MEU PRÓXIMO PASSO (2026-11-03): ela rodar o script 65 (ficha no arsenal; o link público e o QR funcionam sem ele). Não conferido.
+- AVALIAÇÕES DE 0 A 10 (2026-11-03): script 64 rodado (configuracoes.avaliacoes_escala conferida em 09/11).
+- TUTORIAIS (2026-10-31): script 63 rodado (tabela com os 9 cartões em 09/11), mas NENHUM VÍDEO ENVIADO ainda: falta enviar os 9 vídeos em Tutoriais → "Enviar vários vídeos de uma vez" (arquivos
   na pasta `tutorial-videos/` do worktree mentor-platform-tutorial-46c2fc, fora do git). Até lá a página avisa e a caixinha do convite
   não aparece. Próximas séries: mentorado, RH, administração. Assinatura do contrato: recomendado manter na plataforma + código por
   e-mail + PDF por e-mail (não feito).
-- NOTAS FISCAIS DOS CLIENTES: o script 32 nunca foi rodado (descoberto em 31/10); "Importar notas fiscais" em Vendas só funciona
-  depois dele (o 32 de agora já guarda o resumo em empresa_notas; o 62 NÃO precisa). Quem vê o quê: ela conferir quem é administração com
+- NOTAS FISCAIS DOS CLIENTES: o script 32 já foi rodado (tabelas notas_fiscais e empresa_notas existem em 09/11), mas NENHUMA nota
+  importada (as duas vazias): falta "Importar notas fiscais" em Vendas → Clientes com a planilha das notas (o 62 NÃO precisa).
+  Quem vê o quê: ela conferir quem é administração com
   `select nome, email, papel, tambem_mentor from perfis where papel = 'admin' and ativo order by nome;` (devem ser só Cintia,
   Juliana, Viviane e Cláudia).
 - FINANCEIRO (2026-10-30): scripts 52 e 53 rodados; ela conferir na aba Conferir os planos e despesas que vieram da planilha;
-  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; Etapa 2 feita (falta rodar o script 54 e completar o cadastro financeiro dos mentores); etapas 3 e 4, notas dos mentores e agenda de pagamentos publicadas em 31/10; arquivo para a contabilidade publicado em 31/10 (script 59 rodado, 78 tomadores carregados); extrato do mentor publicado em 31/10 (FALTA ELA RODAR O SCRIPT 60; até lá o mentor não vê o extrato nem o campo de recado, e a Cintia vê o aviso em Mentores → Pagamento do mês) (scripts 56, 57 e 58 RODADOS; atenção: select com head:true não acusa tabela que falta, conferir com select de verdade; falta marcar como pagas as fixas de outubro, que aparecem como atrasadas na agenda); HUB de inovação de Holambra fica de fora por enquanto.
-  LEMBRAR A JULIANA NA ETAPA FINAL (4) DO FINANCEIRO (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia
-  05/02 R$ 6.570,49 e 19/03 R$ 1.489 e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e os
-  extratos do Sicoob e da Unicred de janeiro de 2026 até hoje (só veio Sicoob 01-14/10).
-  FUNDO DE RESERVA (pedido dela, 30/10): ela mandar o EXTRATO da aplicação do fundo de reserva (capital de giro; hoje "acho que uns
-  62 mil", valor provisório na tela) para lançar o saldo de verdade em Financeiro → Visão geral → Fundo de reserva → Atualizar
-  (e onde está aplicado). Lembrar junto com os outros extratos. NÃO é o saldo da conta corrente (ela confirmou em 30/10).
-  LEMBRADA na etapa 4 (30/10) dos relatórios de reembolso e extratos que faltam; continuar lembrando até chegarem.
-  VERIFICAR (31/10, ela não sabe o que é): ENTRADA DA CCS DE R$ 8.070,00 NO SICOOB EM 07/10/2026 (sem nota emitida nem plano que
-  bata; a última nota dessa empresa na planilha e a Cintia podem dizer). Até saber, o movimento fica "para conferir" em Financeiro →
-  Extratos. Quando souber: se for pagamento de nota, ligar à nota; se for outra coisa, "Outra entrada" com o recado.
+  conferir em "Ajustes" o mês de início (padrão 11/2026) e o nome do outro CNPJ; todas as etapas e scripts do Financeiro (52 a 61)
+  rodados (atenção: select com head:true não acusa tabela que falta, conferir com select de verdade); falta completar o cadastro
+  financeiro dos mentores (valores provisórios de R$ 187/h); HUB de inovação de Holambra fica de fora por enquanto.
+  Depois da carga de 09/11 (ver "PLANILHA ATUALIZADA" no Financeiro), a aba Conferir ficou com 10 planos e 49 despesas.
+  LEMBRAR A JULIANA (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia 05/02 R$ 6.570,49 e 19/03 R$ 1.489
+  e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e os extratos do Sicoob (de 14/10 em
+  diante; antes disso só veio 01-14/10) e da Unicred, e o da CONTA DO CNPJ NOVO (a Brasdiesel paga lá; nenhum extrato dela ainda).
+  Em 09/11 ela mandou de novo os MESMOS 11 relatórios já lançados em 30/10 (Cláudia maio duas vezes, arquivos iguais): os que faltam
+  continuam faltando. Continuar lembrando até chegarem.
+  FUNDO DE RESERVA: em 09/11 os 62 mil provisórios foram trocados pelos saldos da "Aplicação financeira" (RDC no Sicoob) da aba Contas
+  da planilha (jan a set/2026; último 30/09: R$ 45.948,63; resgate de R$ 40.000 em 02-05/03). Outubro está em branco na planilha:
+  lançar o saldo de outubro/novembro quando vier o extrato do RDC. Se ela disser que o fundo de reserva é outra aplicação, voltar.
+  CCS R$ 8.070 DE 07/10: RESOLVIDO em 09/11 (era a NF 599 de 17/09 para a Sicoob Confederação, encontro de 01/09 da turma CCS ·
+  Gerentes de Relacionamento T1; linha avulsa a receber + movimento conferido como recebimento).
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
   09/11: 37 + 46 + 49 entregues num bloco só (nessa ordem: o minhas_trilhas do 49 lê gravacoes.senha do 46), com conferência no fim;
   ela não lembrava a senha do Supabase no navegador do Claude, então roda ela mesma. O 49 liga os lembretes aos mentores (8h).
-- FERRAMENTAS DA TRILHA (2026-10-28): ela rodar o script 48 no Supabase (até lá o cartão da turma avisa e o aluno não vê a seção).
+- FERRAMENTAS DA TRILHA (2026-10-28): script 48 rodado (tabela conferida em 09/11).
 - CERTIFICADOS: concluído e aprovado por ela em 28/10 (as 5 etapas, certificados.mentorei.com.br com HTTPS e QR lido no celular → "Certificado válido"). Nada pendente.
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
   gravações em Turmas; conferir se o Workspace deixa "qualquer pessoa com o link"; revisão jurídica do TERMO_ALUNO. Nada testado com

@@ -914,6 +914,9 @@ function janelaAjustes(d, recarregar) {
     ${ehSocia(d.perfil) ? `<details><summary><b>Distribuição das sócias</b></summary><div class="grade g4 mt" style="gap:10px">
       <div class="campo"><label for="a-caixa">Caixa da empresa (%)</label><input type="number" id="a-caixa" min="0" max="100" step="1" value="${cu.caixa_pct}"></div>
       ${d.socias.map((s) => `<div class="campo"><label for="a-p-${s.id}">${esc(s.nome.split(' ')[0])} (%)</label><input type="number" id="a-p-${s.id}" data-socia="${esc(F.primeiroNome(s.nome))}" min="0" max="100" step="1" value="${cu.participacao[F.primeiroNome(s.nome)] ?? 0}"></div>`).join('')}
+      <div class="campo" style="grid-column:1/-1;margin-bottom:-4px"><small>Pró-labore por mês (sai antes do líquido e volta inteiro para cada sócia; a planilha usa R$ 10.000 cada desde 07/2025):</small></div>
+      <div></div>
+      ${d.socias.map((s) => `<div class="campo"><label for="a-pl-${s.id}">Pró-labore ${esc(s.nome.split(' ')[0])} (R$)</label><input type="number" id="a-pl-${s.id}" data-prolabore="${esc(F.primeiroNome(s.nome))}" min="0" step="100" value="${cu.pro_labore[F.primeiroNome(s.nome)] ?? 0}"></div>`).join('')}
     </div></details>` : ''}
     <div class="linha"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`, { largura: 760 });
   const f = j.corpo.querySelector('form');
@@ -924,8 +927,10 @@ function janelaAjustes(d, recarregar) {
     const n = (id, padrao) => { const i = f.querySelector(id); return !i || i.value === '' ? padrao : Number(i.value); };
     const participacao = { ...cu.participacao };
     f.querySelectorAll('[data-socia]').forEach((i) => { participacao[i.dataset.socia] = Number(i.value) || 0; });
+    const proLabore = { ...cu.pro_labore };
+    f.querySelectorAll('[data-prolabore]').forEach((i) => { proLabore[i.dataset.prolabore] = Number(i.value) || 0; });
     valor.custos = { ...(c.custos || {}), hora_referencia: n('#a-hora', null), socia_vezes: n('#a-vezes', cu.socia_vezes), margem_alvo: n('#a-alvo', cu.margem_alvo),
-      cidade_socias: f.querySelector('#a-cidade').value.trim() || cu.cidade_socias, caixa_pct: n('#a-caixa', cu.caixa_pct), participacao,
+      cidade_socias: f.querySelector('#a-cidade').value.trim() || cu.cidade_socias, caixa_pct: n('#a-caixa', cu.caixa_pct), participacao, pro_labore: proLabore,
       viagem: { ...cu.viagem, passagem: n('#a-pass', cu.viagem.passagem), hotel: n('#a-hotel', cu.viagem.hotel), dia: n('#a-dia', cu.viagem.dia), km: n('#a-km', cu.viagem.km) } };
     const { error } = await sb.from('configuracoes').upsert({ chave: 'financeiro', valor });
     if (error) { avisar(explicarErro(error), true); return; }

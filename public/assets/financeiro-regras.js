@@ -344,11 +344,15 @@ export const PADRAO_CUSTOS = {
   viagem: { passagem: 1400, hotel: 350, dia: 180, km: 1.5, noites_aviao: 2, dias_aviao: 3, noites_carro: 1, dias_carro: 2 },
   caixa_pct: 10,                  // parte do líquido que fica no caixa da empresa (planilha: 10%)
   participacao: { juliana: 40, viviane: 40, claudia: 20 },   // pelo primeiro nome, sem acento
+  // pró-labore mensal de cada sócia (planilha, desde 07/2025: R$ 10.000 cada, R$ 30.000 no total): sai antes do líquido e volta
+  // inteiro para cada uma no "a receber" (é o que fecha com as retiradas de verdade)
+  pro_labore: { juliana: 10000, viviane: 10000, claudia: 10000 },
   margem_alvo: 30,
 };
 export function custos(config) {
   const c = (config && config.custos) || {};
-  return { ...PADRAO_CUSTOS, ...c, viagem: { ...PADRAO_CUSTOS.viagem, ...(c.viagem || {}) }, participacao: { ...PADRAO_CUSTOS.participacao, ...(c.participacao || {}) } };
+  return { ...PADRAO_CUSTOS, ...c, viagem: { ...PADRAO_CUSTOS.viagem, ...(c.viagem || {}) }, participacao: { ...PADRAO_CUSTOS.participacao, ...(c.participacao || {}) },
+    pro_labore: { ...PADRAO_CUSTOS.pro_labore, ...(c.pro_labore || {}) } };
 }
 const semAcento = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 export const primeiroNome = (nome) => semAcento(nome).split(/\s+/)[0] || '';
@@ -389,8 +393,9 @@ export function precoPara({ custos: c, pct = 0, alvo = 30 }) {
   return sobra > 0 ? arred(Number(c || 0) / sobra) : null;
 }
 
-// Fechamento do mês como na aba "Precificação/distribuição" da planilha: faturamento − despesas − Simples − INSS = líquido;
-// caixa da empresa (10%); o resto dividido entre as sócias pela participação, menos as despesas pessoais de cada uma.
+// Fechamento do mês como na aba "Precificação/distribuição" da planilha: faturamento − despesas − Simples − INSS − pró-labore
+// das sócias = líquido; caixa da empresa (10%); o resto dividido entre as sócias pela participação. Cada sócia recebe o pró-labore
+// dela + a parte − as despesas pessoais dela (na planilha, "Total a receber por sócia"; conferido com 09/2026 ao centavo).
 // despesas = do mês (pela data); socias = [{ id, nome }].
 export function fechamento({ faturado, despesas, socias = [], cfg = PADRAO_CUSTOS }) {
   const imp = despesas.filter((x) => x.categoria === 'impostos');
@@ -398,7 +403,9 @@ export function fechamento({ faturado, despesas, socias = [], cfg = PADRAO_CUSTO
   const simples = arred(soma(imp, (x) => x.valor) - inss);
   const pessoais = despesas.filter((x) => x.categoria === 'socia');
   const gerais = soma(despesas.filter((x) => x.categoria !== 'impostos' && x.categoria !== 'socia'), (x) => x.valor);
-  const liquido = arred(Number(faturado || 0) - gerais - simples - inss);
+  const pl = socias.map((s) => Number((cfg.pro_labore || {})[primeiroNome(s.nome)] || 0));
+  const proLabore = arred(pl.reduce((a, x) => a + x, 0));
+  const liquido = arred(Number(faturado || 0) - gerais - simples - inss - proLabore);
   const caixa = arred(Math.max(0, liquido) * Number(cfg.caixa_pct || 0) / 100);
   const distribuir = arred(liquido - caixa);
   const pcts = socias.map((s) => Number(cfg.participacao[primeiroNome(s.nome)] || 0));
@@ -406,9 +413,9 @@ export function fechamento({ faturado, despesas, socias = [], cfg = PADRAO_CUSTO
   const partes = socias.map((s, i) => {
     const bruto = arred(distribuir * pcts[i] / totalPct);
     const pess = soma(pessoais.filter((x) => x.pessoa_id === s.id), (x) => x.valor);
-    return { id: s.id, nome: s.nome, pct: pcts[i], bruto, pessoais: pess, liquido: arred(bruto - pess) };
+    return { id: s.id, nome: s.nome, pct: pcts[i], pro_labore: pl[i], bruto, pessoais: pess, liquido: arred(pl[i] + bruto - pess) };
   });
-  return { faturado: arred(faturado || 0), despesas: gerais, simples, inss, liquido, caixa_pct: Number(cfg.caixa_pct || 0), caixa, distribuir, partes,
+  return { faturado: arred(faturado || 0), despesas: gerais, simples, inss, pro_labore: proLabore, liquido, caixa_pct: Number(cfg.caixa_pct || 0), caixa, distribuir, partes,
     pessoais_sem_socia: soma(pessoais.filter((x) => !socias.some((s) => s.id === x.pessoa_id)), (x) => x.valor) };
 }
 
