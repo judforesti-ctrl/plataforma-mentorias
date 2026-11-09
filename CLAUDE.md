@@ -802,7 +802,11 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   novo `lerUnicredApp` para o PDF do APLICATIVO da Unicred ("Extrato · Período de … a … · Coop: 566 - AG: 1714 - Conta: 87378";
   histórico comprido quebra em 3 linhas com a data no meio); REGEX_TARIFA ganhou "PJ CONTA PJ" (tarifa mensal da Unicred, ~R$ 57) e
   "INTEGRALIZACAO PARCIAL DE CAPITAL". Testado no Node com o pdf.js 4 e os PDFs dela (scratch /home/claude/fin/node, fora do git):
-  os dois batem com o saldo do banco. Importados pela tela de verdade (arquivo posto no campo pelo navegador do Claude). Fundo de
+  os dois batem com o saldo do banco. Gravados pelo login dela no navegador do Claude com as chaves de `comChaves` (importar o PDF de
+  novo não repete) e conferidos com as mesmas regras da tela (sugerirEntrada/sugerirSaida): os 18 conferidos (Brasdiesel 15.000 =
+  parcela 1/8; integralizações da Unicred ligadas às fixas; tarifas e 8 integralizações atrasadas da conta capital da Mentorei
+  viraram despesas "bancarias"); sem arquivo guardado. Despesas fixas novas: "Tarifa da conta PJ · Unicred" R$ 57 dia 15 e
+  "Tarifa do pacote de serviços · Sicoob Mentorei" R$ 28,50 dia 20. Fundo de
   reserva = carteira de renda fixa no Sicoob 74.479-4: R$ 47.816,33 bruto em 04/11/2026 (rendeu R$ 5.773,04 no ano, 99,13% do CDI;
   print do app). CONTA CAPITAL (cotas na cooperativa, não é dinheiro disponível, fora das contas): FSK R$ 3.681,88 e Mentorei R$ 530
   em 30/10/2026; a Unicred também debita integralização de R$ 40 por mês.
