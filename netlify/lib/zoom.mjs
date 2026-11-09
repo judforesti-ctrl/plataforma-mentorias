@@ -91,7 +91,7 @@ const temVideo = (m) => !(m.recording_files && m.recording_files.length) || m.re
 // Testa as chaves e liga (ou atualiza) uma conta. Devolve { ok, mensagem }.
 export async function ligarContaZoom({ nome, account_id, client_id, client_secret, por }) {
   const conta = { account_id: String(account_id || '').trim(), client_id: String(client_id || '').trim(), client_secret: String(client_secret || '').trim() };
-  if (!conta.account_id || !conta.client_id || !conta.client_secret) return { ok: false, mensagem: 'Cole os três: Account ID, Client ID e Client Secret.' };
+  if (!conta.account_id || !conta.client_id || !conta.client_secret) return { ok: false, mensagem: 'Cole os três: ID da conta, ID do cliente e Segredo do cliente.' };
   let token, us;
   try { token = await tokenZoom(conta); us = await usuarios(token); } catch (e) { return { ok: false, mensagem: e.message }; }
   const contas = await lerContasZoom();

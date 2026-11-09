@@ -63,37 +63,38 @@ export async function cartaoGravacoes(velho) {
     <div class="mt" id="gv-z-form" hidden style="background:var(--bg);border-radius:12px;padding:14px">
       <p class="peq"><b>Passo a passo no Zoom</b> (você, como administradora, faz uma vez em cada conta do Zoom):</p>
       <ol class="peq mt" style="line-height:1.6">
-        <li>Entre em <a href="https://marketplace.zoom.us" target="_blank" rel="noopener">marketplace.zoom.us</a> com o login de administradora do Zoom.</li>
-        <li>No alto, clique em <b>Develop</b> e depois em <b>Build App</b>.</li>
-        <li>Escolha <b>Server-to-Server OAuth App</b> e clique em <b>Create</b>. Nome do app: <b>Plataforma Mentorei</b>.</li>
-        <li>Na página <b>App Credentials</b> aparecem <b>Account ID</b>, <b>Client ID</b> e <b>Client Secret</b>: copie cada um para os campos abaixo.</li>
-        <li>Em <b>Information</b>, preencha o nome da empresa (Mentorei), o seu nome e o seu e-mail e clique em <b>Continue</b>.</li>
-        <li>Em <b>Scopes</b>, clique em <b>+ Add Scopes</b> e marque estas 4 permissões. Embaixo de cada opção o Zoom mostra um código em letra
-          pequena: confira se é igual ao daqui (a parte em negrito serve para a busca).
+        <li>Entre em <a href="https://marketplace.zoom.us" target="_blank" rel="noopener">marketplace.zoom.us</a> com o login de administradora do Zoom.
+          Os nomes estão em português; entre parênteses, como aparecem se o Zoom estiver em inglês.</li>
+        <li>No alto, à direita, clique em <b>Desenvolver</b> (Develop) e depois em <b>Criar aplicativo</b> (Build App).</li>
+        <li>Escolha <b>Server-to-Server OAuth</b> (esse nome fica em inglês mesmo) e clique em <b>Criar</b> (Create).
+          Nome do aplicativo: <b>Plataforma Mentorei</b>. Clique em <b>Criar</b> de novo.</li>
+        <li>Na página <b>Credenciais do aplicativo</b> (App Credentials) aparecem <b>ID da conta</b> (Account ID), <b>ID do cliente</b> (Client ID)
+          e <b>Segredo do cliente</b> (Client Secret): copie cada um para o campo de mesmo nome aqui embaixo.</li>
+        <li>No lado esquerdo, clique em <b>Informações</b> (Information), preencha o nome da empresa (Mentorei), o seu nome e o seu e-mail
+          e clique em <b>Continuar</b> (Continue).</li>
+        <li>Clique em <b>Escopos</b> (Scopes) e depois em <b>Adicionar escopos</b> (Add Scopes). Marque estas 4 permissões. Embaixo de cada opção
+          o Zoom mostra um código em letra pequena, que não muda com o idioma: confira se é igual ao daqui (a parte em negrito serve para a busca).
           <ul style="margin:4px 0 0 18px">
-            <li>Grupo <b>Recording</b> (as gravações): cloud_recording:read:<b>list_user_recordings</b>:admin</li>
-            <li>Grupo <b>User</b> (as pessoas da conta): user:read:<b>list_users</b>:admin</li>
-            <li>Grupo <b>Meeting</b> (para a presença): meeting:read:<b>list_past_instances</b>:admin</li>
-            <li>Grupo <b>Report</b> (para a presença): report:read:<b>list_meeting_participants</b>:admin</li></ul>
-          Clique em <b>Done</b> e em <b>Continue</b>. Se alguma não aparecer, confira se entrou com o login de dona ou administradora da conta.</li>
-        <li>Em <b>Activation</b>, clique em <b>Activate your app</b>.</li>
-        <li>Volte aqui e clique em <b>Ligar a conta</b>.</li>
-        <li>Para os alunos conseguirem assistir: abra as <a href="https://zoom.us/account/setting?tab=recording" target="_blank" rel="noopener">configurações de gravação da conta do Zoom</a>
-          e desligue a opção que exige autenticação para ver as gravações na nuvem (em inglês: <i>Require users to authenticate before viewing cloud recordings</i>).
-          Confira também se o Zoom não apaga as gravações sozinho depois de alguns dias.</li></ol>
+            <li>Grupo <b>Gravação</b> (Recording), para as gravações: cloud_recording:read:<b>list_user_recordings</b>:admin</li>
+            <li>Grupo <b>Usuário</b> (User), para as pessoas da conta: user:read:<b>list_users</b>:admin</li>
+            <li>Grupo <b>Reunião</b> (Meeting), para a presença: meeting:read:<b>list_past_instances</b>:admin</li>
+            <li>Grupo <b>Relatório</b> (Report), para a presença: report:read:<b>list_meeting_participants</b>:admin</li></ul>
+          Clique em <b>Concluído</b> (Done) e em <b>Continuar</b> (Continue). Se alguma não aparecer, confira se entrou com o login de dona ou
+          administradora da conta.</li>
+        <li>No lado esquerdo, clique em <b>Ativação</b> (Activation) e depois em <b>Ativar seu aplicativo</b> (Activate your app).</li>
+        <li>Volte aqui, cole os três códigos e clique em <b>Ligar a conta</b>.</li>
+        <li>Para os alunos conseguirem assistir: abra as <a href="https://zoom.us/account/setting?tab=recording" target="_blank" rel="noopener">configurações
+          de gravação da conta do Zoom</a> e deixe <b>desligada</b> a opção "Exigir que os usuários se autentiquem antes de ver as gravações na nuvem"
+          (Require users to authenticate before viewing cloud recordings). Na mesma tela, veja se está ligada a opção de <b>apagar as gravações
+          na nuvem depois de alguns dias</b>: se estiver, as gravações somem do Zoom (e do link do aluno) depois desse prazo.</li></ol>
       <div class="grade g2 mt" style="gap:10px">
         <div class="campo" style="grid-column:1/-1"><label for="gv-z-nome">Nome para reconhecer esta conta</label><input type="text" id="gv-z-nome" placeholder="Ex.: Zoom das turmas" autocomplete="off"></div>
-        <div class="campo"><label for="gv-z-acc">Account ID</label><input type="text" id="gv-z-acc" autocomplete="off" spellcheck="false"></div>
-        <div class="campo"><label for="gv-z-cli">Client ID</label><input type="text" id="gv-z-cli" autocomplete="off" spellcheck="false"></div>
-        <div class="campo" style="grid-column:1/-1"><label for="gv-z-sec">Client Secret</label><input type="password" id="gv-z-sec" autocomplete="new-password" spellcheck="false"></div>
+        <div class="campo"><label for="gv-z-acc">ID da conta (Account ID)</label><input type="text" id="gv-z-acc" autocomplete="off" spellcheck="false"></div>
+        <div class="campo"><label for="gv-z-cli">ID do cliente (Client ID)</label><input type="text" id="gv-z-cli" autocomplete="off" spellcheck="false"></div>
+        <div class="campo" style="grid-column:1/-1"><label for="gv-z-sec">Segredo do cliente (Client Secret)</label><input type="password" id="gv-z-sec" autocomplete="new-password" spellcheck="false"></div>
       </div>
       <div class="linha mt"><button class="btn pri" type="button" id="gv-z-ligar">Ligar a conta</button><button class="btn" type="button" id="gv-z-fechar">Desistir</button></div>
       <p class="peq apagado mt">As chaves ficam guardadas só no servidor da plataforma: ninguém consegue ver depois, nem a administração.</p>
-      <details class="mt peq"><summary style="cursor:pointer"><b>Dois ajustes no Zoom para os alunos conseguirem assistir</b></summary>
-        <ol class="mt" style="line-height:1.6"><li>Em <a href="https://zoom.us/profile/setting?tab=recording" target="_blank" rel="noopener">zoom.us, Configurações, Gravação</a>, deixe <b>desligada</b>
-          a opção "Exigir que os usuários se autentiquem antes de ver as gravações na nuvem". Assim o aluno assiste sem ter conta no Zoom.</li>
-          <li>Na mesma tela, veja se está ligada a opção de <b>apagar as gravações na nuvem depois de alguns dias</b>. Se estiver, as gravações somem do Zoom
-          (e do link do aluno) depois desse prazo.</li></ol></details>
     </div>`;
   const driveHtml = semScript ? corpo : `<details class="mt2"${cfg.pasta_id ? ' open' : ''}><summary style="cursor:pointer"><b>Gravações numa pasta do Google Drive</b> <span class="peq apagado">(opcional)</span></summary>
     <p class="peq apagado mt">Só se alguma aula for gravada fora do Zoom e o vídeo for para o Google Drive.</p>${corpo}</details>`;
@@ -147,7 +148,7 @@ export async function cartaoGravacoes(velho) {
   box.querySelector('#gv-z-fechar')?.addEventListener('click', () => { box.querySelector('#gv-z-form').hidden = true; box.querySelector('#gv-z-abrir').hidden = false; });
   box.querySelector('#gv-z-ligar')?.addEventListener('click', async (ev) => {
     const v = (id) => box.querySelector(id).value.trim();
-    if (!v('#gv-z-acc') || !v('#gv-z-cli') || !v('#gv-z-sec')) { avisar('Cole os três: Account ID, Client ID e Client Secret.', true); return; }
+    if (!v('#gv-z-acc') || !v('#gv-z-cli') || !v('#gv-z-sec')) { avisar('Cole os três: ID da conta, ID do cliente e Segredo do cliente.', true); return; }
     const b = ev.target.closest('button'); b.disabled = true; b.textContent = 'Conferindo com o Zoom…';
     try {
       const j = await api('/api/gravacoes', { acao: 'zoom_ligar', nome: v('#gv-z-nome'), account_id: v('#gv-z-acc'), client_id: v('#gv-z-cli'), client_secret: v('#gv-z-sec') });

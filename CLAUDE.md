@@ -409,7 +409,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   aula de turma no horário (ex.: mentoria individual) NÃO é guardada; ambígua vai para "Gravações sem aula". Guarda `zoom_id` (uuid,
   único), `senha` (password), `link` = share_url + `?pwd=` recording_play_passcode (documentado pelo Zoom). Aluno vê "Assistir" + senha
   com "Copiar" (`minhas_trilhas` do 46 devolve `senha`). Colar à mão aceita senha. O passo a passo do cartão (09/11) já pede os 4 escopos
-  de uma vez (gravações, usuários e os 2 da presença, pelo grupo e pelo código) e o ajuste de autenticação das gravações. Telas leem `gravacoes` com `select('*')` (funciona
+  de uma vez (gravações, usuários e os 2 da presença, pelo grupo e pelo código) e o ajuste de autenticação das gravações; está em
+  PORTUGUÊS com o inglês entre parênteses (o Zoom dela é em português) e os campos se chamam ID da conta, ID do cliente, Segredo do cliente. Telas leem `gravacoes` com `select('*')` (funciona
   antes e depois do 46). Ajustes no Zoom para o aluno assistir: desligar "exigir autenticação para ver gravações na nuvem"; conferir
   se apaga gravações depois de N dias. Testes com Zoom e banco de mentira: scratchpad 81051e2a testes/zoom.mjs.
   Teste local: launch.json "alunos-teste" (porta 8820) do site do Radar, scratchpad da sessão 81051e2a (teste/, `?quem=u-aluno`, `?sem44`).
