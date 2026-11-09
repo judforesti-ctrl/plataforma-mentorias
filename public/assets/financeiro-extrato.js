@@ -13,6 +13,10 @@ const isoBR = (s) => { const [d, m, a] = s.split('/'); return iso(d, m, a); };
 const limpa = (s) => String(s || '').replace(/\t+/g, ' ').replace(/\s+/g, ' ').trim();
 
 // ---------- Sicoob (PDF) ----------
+// Contas do Sicoob: a principal (FSK, 74.479-4) continua "Sicoob" (as chaves dos movimentos já gravados usam esse nome); a do CNPJ
+// novo da Mentorei (139.403-7, onde a Brasdiesel paga; 09/11/2026) é "Sicoob Mentorei"; outra conta desconhecida = "Sicoob <número>".
+export const CONTAS_SICOOB = { '74.479-4': 'Sicoob', '139.403-7': 'Sicoob Mentorei' };
+export const nomeContaSicoob = (numero) => (!numero ? 'Sicoob' : CONTAS_SICOOB[numero] || `Sicoob ${numero}`);
 export function lerSicoob(linhas) {
   const txt = linhas.join('\n');
   const per = txt.match(/PER[IÍ]ODO:?\s*(\d{2}\/\d{2}\/\d{4})\s*-\s*(\d{2}\/\d{2}\/\d{4})/i);
@@ -47,7 +51,7 @@ export function lerSicoob(linhas) {
     atual.detalhes.push(l);
   }
   return {
-    formato: 'sicoob_pdf', conta: 'Sicoob', numero_conta: conta, de, ate, saldo_inicial: saldoInicial, saldo_final: saldoFinal ?? saldoDia,
+    formato: 'sicoob_pdf', conta: nomeContaSicoob(conta), numero_conta: conta, de, ate, saldo_inicial: saldoInicial, saldo_final: saldoFinal ?? saldoDia,
     movimentos: movs.map(({ detalhes, ...x }) => ({ ...x, detalhe: detalhes.join(' · ') || null })),
   };
 }
@@ -92,6 +96,61 @@ export function lerUnicred(linhas) {
     saldo_inicial: ini ? numero(ini[1]) : null, saldo_final: saldoFinal, movimentos: movs };
 }
 
+// ---------- Unicred, extrato do aplicativo (PDF "Extrato · Período de … a … · Coop: … - AG: … - Conta: …"; 09/11/2026) ----------
+// Linha do lançamento: "dd/mm/aaaa<tab>HISTÓRICO ( Doc.: N )<tab>- R$ 57,00<tab>R$ 3.405,87". Histórico comprido quebra em 3 linhas
+// e a data fica no meio, sem texto: "HISTÓRICO ( Doc.: 20036" / "dd/mm/aaaa<tab>- R$ 40,00<tab>R$ …" / ")".
+const RS = /(-|\+)?\s*R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2})/;
+export function lerUnicredApp(linhas) {
+  const txt = linhas.map(limpa).join('\n');
+  const per = txt.match(/Per[ií]odo de (\d{2}\/\d{2}\/\d{4}) a (\d{2}\/\d{2}\/\d{4})/i);
+  const conta = (txt.match(/Conta:\s*(\d+)/i) || [])[1] || null;
+  const ini = txt.match(/Saldo em \d{2}\/\d{2}\/\d{4}:\s*(-)?\s*R\$\s*([\d.]+,\d{2})/i);
+  const fimM = txt.match(/Saldo no final do per[ií]odo\s*(-)?\s*R\$\s*([\d.]+,\d{2})/i);
+  const itens = [];
+  let dentro = false;
+  for (const bruta of linhas) {
+    const l = String(bruta || '').trim();
+    if (!l) continue;
+    if (/^Data\s+Lan[cç]amentos\s+Valor/i.test(limpa(l))) { if (dentro || itens.length) break; dentro = true; continue; }
+    if (!dentro) continue;
+    if (/^Saldo no final do per/i.test(l)) break;
+    const d = l.match(/^(\d{2}\/\d{2}\/\d{4})\s+(.*)$/);
+    if (d) {
+      let resto = d[2];
+      const vs = [];
+      for (let k = 0; k < 2; k++) {
+        const m = resto.match(/(?:^|\s)((?:-|\+)?\s*R\$\s*\d{1,3}(?:\.\d{3})*,\d{2})\s*$/);
+        if (!m) break;
+        vs.unshift(m[1]); resto = resto.slice(0, m.index).trim();
+      }
+      if (!vs.length) continue;
+      const v = vs[0].match(RS);
+      itens.push({ tipo: 'd', data: isoBR(d[1]), hist: limpa(resto), valor: arred(numero(v[2]) * (v[1] === '-' ? -1 : 1)) });
+    } else itens.push({ tipo: 't', s: limpa(l) });
+  }
+  // textos soltos: antes de uma data sem histórico = começo dele; depois de um histórico com "(" aberto = fim dele
+  const movs = [];
+  let pend = [];
+  for (const it of itens) {
+    if (it.tipo === 't') {
+      const ult = movs[movs.length - 1];
+      if (ult && !pend.length && (ult.hist.match(/\(/g) || []).length > (ult.hist.match(/\)/g) || []).length) ult.hist = limpa(`${ult.hist} ${it.s}`);
+      else pend.push(it.s);
+      continue;
+    }
+    movs.push({ ...it, hist: limpa(`${pend.join(' ')} ${it.hist}`) });
+    pend = [];
+  }
+  return { formato: 'unicred_app_pdf', conta: 'Unicred', numero_conta: conta, de: per ? isoBR(per[1]) : null, ate: per ? isoBR(per[2]) : null,
+    saldo_inicial: ini ? numero(ini[2]) * (ini[1] ? -1 : 1) : null, saldo_final: fimM ? numero(fimM[2]) * (fimM[1] ? -1 : 1) : null,
+    movimentos: movs.map((m) => {
+      const doc = m.hist.match(/\(\s*Doc\.:\s*([^)]*?)\s*\)?\s*$/i);
+      const historico = limpa(doc ? m.hist.slice(0, doc.index) : m.hist);
+      const documento = doc && doc[1].trim() && doc[1].trim() !== '0' ? doc[1].trim() : null;
+      return { data: m.data, historico, detalhe: null, documento, valor: m.valor };
+    }) };
+}
+
 // ---------- OFX (qualquer banco) ----------
 const BANCOS = { 756: 'Sicoob', 136: 'Unicred', 748: 'Sicredi', 1: 'Banco do Brasil', 237: 'Bradesco', 341: 'Itaú', 104: 'Caixa', 33: 'Santander', 260: 'Nubank', 77: 'Inter' };
 export function lerOFX(texto) {
@@ -116,6 +175,7 @@ export function lerExtrato({ linhas = null, texto = null }) {
     const t = linhas.join('\n');
     if (/UNICRED/i.test(t) && /EXTRATO DE CONTA CORRENTE/i.test(t)) r = lerUnicred(linhas);
     else if (/SICOOB/i.test(t) && /HIST[OÓ]RICO DE MOVIMENTA/i.test(t)) r = lerSicoob(linhas);
+    else if (/Coop:\s*\d+\s*-\s*AG:/i.test(t) && /Saldo no final do per[ií]odo/i.test(t) && /Lan[cç]amentos/i.test(t)) r = lerUnicredApp(linhas);
   }
   if (!r) return null;
   const soma = arred(r.movimentos.reduce((a, m) => a + m.valor, 0));
@@ -184,7 +244,7 @@ export function sugerirEntrada(mov, linhas, { nome = () => '', pagador = () => '
   return out.sort((a, b) => b.score - a.score);
 }
 
-const REGEX_TARIFA = /tarifa|tar\.|pacote servi|cesta|deb\.parc\.subs|integr parc capital|manutencao de conta|tar cob/;
+const REGEX_TARIFA = /tarifa|tar\.|pacote servi|cesta|deb\.parc\.subs|integr parc capital|integralizacao parcial de capital|manutencao de conta|tar cob|pj conta pj/;
 const REGEX_IMPOSTO = /simples nacional|\bdas\b|darf|receita federal|\binss\b|\bgps\b|prefeitura|iss /;
 // Uma regra vale se o texto dela aparece no movimento (e o sentido é o mesmo)
 export const regraDoMovimento = (mov, regras) => regras.find((r) => r.sentido === (mov.valor >= 0 ? 'entrada' : 'saida') && r.texto && textoDe(mov).includes(normal(r.texto))) || null;

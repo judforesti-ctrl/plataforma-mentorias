@@ -383,7 +383,7 @@ function janelaImportar(x, recarregar) {
     try {
       const ofx = /\.(ofx|qfx)$/i.test(arq.name);
       const r = X.lerExtrato(ofx ? { texto: await arq.text() } : { linhas: await linhasDoPdf(arq) });
-      if (!r) { res.innerHTML = '<div class="aviso erro">Não reconheci este extrato. Por enquanto a plataforma lê o PDF do Sicoob, o PDF da Unicred e arquivos OFX. Mande o arquivo para o Claude ver.</div>'; return; }
+      if (!r) { res.innerHTML = '<div class="aviso erro">Não reconheci este extrato. Por enquanto a plataforma lê o PDF do Sicoob (as duas contas), o PDF da Unicred (do internet banking ou do aplicativo) e arquivos OFX. Mande o arquivo para o Claude ver.</div>'; return; }
       if (!r.movimentos.length) { res.innerHTML = '<div class="aviso">Não achei nenhum movimento neste extrato.</div>'; return; }
       const movs = X.comChaves(r.conta, r.movimentos);
       const ja = new Set();

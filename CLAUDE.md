@@ -796,6 +796,16 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   R$ 182.960,36 (estava vazio: o gráfico mostrava "—"). (6) Fundo de reserva pela aba Contas (ver Pendências).
   Os 15 a 31/10 do extrato NÃO viraram movimentos (só despesas e recebimentos): quando ela importar o PDF, a conferência automática
   liga pelo valor e dia. Retiradas de 30/10 (8.000 de cada sócia, "retirada parcial" de outubro na aba Precificação) entram com o PDF.
+  CONTAS E EXTRATOS NOVOS (09/11, à tarde): são TRÊS contas correntes: Sicoob 74.479-4 (FSK, a principal, conta "Sicoob"), Sicoob
+  139.403-7 (MENTOREI TREINAMENTO EM DESENVOLVIMENTO PROFISSIONAL, o CNPJ novo, onde a Brasdiesel paga; conta "Sicoob Mentorei",
+  `CONTAS_SICOOB`/`nomeContaSicoob` em financeiro-extrato.js) e Unicred 87378 (no app aparece "MENTOREI CAPITAL INTELECTUAL"). Leitor
+  novo `lerUnicredApp` para o PDF do APLICATIVO da Unicred ("Extrato · Período de … a … · Coop: 566 - AG: 1714 - Conta: 87378";
+  histórico comprido quebra em 3 linhas com a data no meio); REGEX_TARIFA ganhou "PJ CONTA PJ" (tarifa mensal da Unicred, ~R$ 57) e
+  "INTEGRALIZACAO PARCIAL DE CAPITAL". Testado no Node com o pdf.js 4 e os PDFs dela (scratch /home/claude/fin/node, fora do git):
+  os dois batem com o saldo do banco. Importados pela tela de verdade (arquivo posto no campo pelo navegador do Claude). Fundo de
+  reserva = carteira de renda fixa no Sicoob 74.479-4: R$ 47.816,33 bruto em 04/11/2026 (rendeu R$ 5.773,04 no ano, 99,13% do CDI;
+  print do app). CONTA CAPITAL (cotas na cooperativa, não é dinheiro disponível, fora das contas): FSK R$ 3.681,88 e Mentorei R$ 530
+  em 30/10/2026; a Unicred também debita integralização de R$ 40 por mês.
   PRÓ-LABORE (09/11): a aba Precificação/distribuição tira R$ 30.000 de pró-labore (R$ 10.000 por sócia, desde 07/2025) antes do
   líquido e soma de volta no "Total a receber por sócia"; a plataforma não fazia isso. `PADRAO_CUSTOS.pro_labore` (por primeiro nome,
   muda em Ajustes → Distribuição das sócias), `F.fechamento` devolve `pro_labore` e cada parte com `pro_labore`; conferido com
@@ -1063,13 +1073,14 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   financeiro dos mentores (valores provisórios de R$ 187/h); HUB de inovação de Holambra fica de fora por enquanto.
   Depois da carga de 09/11 (ver "PLANILHA ATUALIZADA" no Financeiro), a aba Conferir ficou com 10 planos e 49 despesas.
   LEMBRAR A JULIANA (pedido dela, 30/10): mandar os relatórios de reembolso que faltam (Cláudia 05/02 R$ 6.570,49 e 19/03 R$ 1.489
-  e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e os extratos do Sicoob (de 14/10 em
-  diante; antes disso só veio 01-14/10) e da Unicred, e o da CONTA DO CNPJ NOVO (a Brasdiesel paga lá; nenhum extrato dela ainda).
+  e R$ 1.560; Juliana março R$ 623,56; "Pix Juliana" R$ 240; "Vivi - Ju" 30/09 R$ 1.910,64) e o extrato da conta corrente
+  PRINCIPAL do Sicoob 74.479-4 de 14/10 em diante (em 09/11 vieram a Unicred 13/07 a 09/11 e a Sicoob Mentorei de outubro, já
+  importadas; da principal só há 01-14/10). Da Sicoob Mentorei falta novembro (a parcela 2/8 da Brasdiesel vence 16/11).
   Em 09/11 ela mandou de novo os MESMOS 11 relatórios já lançados em 30/10 (Cláudia maio duas vezes, arquivos iguais): os que faltam
   continuam faltando. Continuar lembrando até chegarem.
   FUNDO DE RESERVA: em 09/11 os 62 mil provisórios foram trocados pelos saldos da "Aplicação financeira" (RDC no Sicoob) da aba Contas
-  da planilha (jan a set/2026; último 30/09: R$ 45.948,63; resgate de R$ 40.000 em 02-05/03). Outubro está em branco na planilha:
-  lançar o saldo de outubro/novembro quando vier o extrato do RDC. Se ela disser que o fundo de reserva é outra aplicação, voltar.
+  da planilha (jan a set/2026; resgate de R$ 40.000 em 02-05/03) e, à tarde, pelo saldo do app do Sicoob: R$ 47.816,33 em 04/11/2026
+  (renda fixa, 1 produto). Resolvido; atualizar quando ela mandar print ou extrato novo.
   CCS R$ 8.070 DE 07/10: RESOLVIDO em 09/11 (era a NF 599 de 17/09 para a Sicoob Confederação, encontro de 01/09 da turma CCS ·
   Gerentes de Relacionamento T1; linha avulsa a receber + movimento conferido como recebimento).
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e

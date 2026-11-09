@@ -766,7 +766,7 @@ function formDespesa(d, desp, recarregar) {
     <div class="aviso" id="d-imposto" hidden></div>
     <div class="grade g2" style="gap:10px">
       <div class="campo"><label for="d-pago">Pago em</label><input type="date" id="d-pago" value="${x.pago_em || ''}"><small>Vazio = ainda não foi pago.</small></div>
-      <div class="campo"><label for="d-conta">Conta</label><select id="d-conta"><option value="">—</option>${['Sicoob', 'Unicred', 'Cartão PJ'].map((c) => `<option${c === x.conta ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
+      <div class="campo"><label for="d-conta">Conta</label><select id="d-conta"><option value="">—</option>${['Sicoob', 'Sicoob Mentorei', 'Unicred', 'Cartão PJ'].map((c) => `<option${c === x.conta ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
     </div>
     <div class="campo"><label for="d-obs">Observações</label><textarea id="d-obs" rows="2">${esc(x.observacoes || '')}</textarea></div>
     <div class="linha"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-fechar>Desistir</button><span style="flex:1"></span>
@@ -873,7 +873,7 @@ function formFixa(fixa, recarregar) {
       <div class="campo"><label for="x-dia">Dia do mês</label><input type="number" id="x-dia" min="1" max="28" value="${x.dia}"></div>
       <div class="campo"><label for="x-cat">Tipo</label><select id="x-cat">${opcoesCategoria(x.categoria)}</select></div>
     </div>
-    <div class="campo"><label for="x-conta">Conta</label><select id="x-conta"><option value="">—</option>${['Sicoob', 'Unicred', 'Cartão PJ'].map((c) => `<option${c === x.conta ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
+    <div class="campo"><label for="x-conta">Conta</label><select id="x-conta"><option value="">—</option>${['Sicoob', 'Sicoob Mentorei', 'Unicred', 'Cartão PJ'].map((c) => `<option${c === x.conta ? ' selected' : ''}>${c}</option>`).join('')}</select></div>
     <label class="check"><input type="checkbox" id="x-ativo"${x.ativo ? ' checked' : ''}><span>Ligada (entra todo mês)</span></label>
     <p class="peq apagado">Mudar o valor vale a partir do próximo mês; a deste mês você muda na própria lista.</p>
     <div class="linha"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`, { largura: 560 });
