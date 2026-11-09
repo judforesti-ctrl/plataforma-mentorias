@@ -879,7 +879,14 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   ou postMessage (prévia em iframe 1123×794 escalado, `montarPrevia`). ÚNICA MUDANÇA NO DESENHO, pedida por ela (28/10): verso sem o traço
   (.fio) e slogan centralizado embaixo do logo; frente com "Educação Corporativa" (`.logo-sub`, mesma letra do slogan) embaixo do logo;
   os dois centrados na palavra MENTOREI (21 mm da esquerda do logo, sem o ®). Feita nas DUAS cópias (docs e public continuam idênticas);
-  os PDFs de docs/certificados/exemplos são de antes disso. Regras e textos (datas por extenso, período, horas, maiúsculas,
+  os PDFs de docs/certificados/exemplos são de antes disso. SEGUNDA MUDANÇA, aprovada por prévia (09/11): (1) "Certificado de
+  conclusão" da FRENTE de 6,9 para 12,5 pt (`#frente .rotulo`; o "Conteúdo da trilha" do verso ficou como estava); (2) logo do
+  cliente também na FRENTE, abaixo da cidade e data (`#cliente-frente`, `.logo-cliente-frente`, até 14 × 45 mm, mesmo `cliente_logo`
+  do verso; sem logo some e a frente fica como antes; o miolo continua centralizado, então com logo o texto sobe ~1 cm; miolo
+  apertado = logo diminui até 8 mm em `ajustar()`); (3) logo do verso de até 9 para até 12 mm de altura (largura 40 → 50 mm). Ela
+  NÃO quis mexer no resto (viu a prévia com nome, curso e todos os textos maiores e preferiu não: o nome com mais de ~25 caracteres
+  já ocupa a largura toda do miolo e não cresceria). Nome com mais de ~43 caracteres continua podendo ir para 2 linhas (caber 38/22/2).
+  Patch e testes: /home/claude/scripts (patch_v3.py, render.py), fora do git. Regras e textos (datas por extenso, período, horas, maiúsculas,
   retrato, QR SVG #0E3B44 margem 1, CSV com BOM e ";", nomes dos arquivos) em `public/assets/certificados-regras.js` (telas e servidor).
   Tabelas: `cert_pastas` (uma por cliente e programa; logo do cliente na pasta pública fotos/logos, o mesmo das propostas/área do aluno),
   `cert_assinaturas` (lista reaproveitável; lado mentorei/cliente; exclusão só marcada), `cert_certificados` (código único
