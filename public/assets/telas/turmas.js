@@ -11,6 +11,7 @@ import { cartaoMarca, ligarMarca } from './marca-cliente.js';
 import { cartaoParaAlunos, ligarParaAlunos } from './alunos-modulo.js';
 import { cartaoPresenca, ligarPresenca } from './presenca-modulo.js';
 import { cartaoEnviosAlunos, ligarEnviosAlunos, enviosNovosAlunos } from './envios-alunos.js';
+import { ditado } from '../voz.js';
 
 const FORMATO = { meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', presencial: 'Presencial', outro: 'Outro', indefinido: 'Local a definir' };
 const STATUS = { planejada: ['Planejada', 'neutro'], em_andamento: ['Em andamento', ''], concluida: ['Concluída', 'neutro'], pausada: ['Pausada', 'alerta'] };
@@ -592,10 +593,11 @@ async function paginaModulo(ctx, el, id) {
         ${cartaoPresenca()}
         ${cartaoEnviosAlunos()}
         <div class="cartao" style="${podePercepcao ? 'border-color:var(--verde);background:linear-gradient(var(--verde-claro), var(--papel) 90px)' : ''}">
-          <h3>Percepções sobre a aula</h3>
-          <p class="peq">${podePercepcao ? 'Depois da aula, conte como foi: engajamento, o que funcionou, pontos de atenção e sugestões para os próximos módulos. Só a equipe da Mentorei lê.' : 'Escritas pelo mentor depois da aula.'}</p>
+          <div class="linha"><h3 style="flex:1">Percepções sobre a aula</h3>${podePercepcao ? '<button type="button" class="btn peq" id="perc-voz" title="Fale e o texto entra na caixa">🎤 Falar</button>' : ''}</div>
+          <p class="peq">${podePercepcao ? 'Depois da aula, conte como foi: engajamento, o que funcionou, pontos de atenção e sugestões para os próximos módulos. Pode escrever ou clicar em 🎤 Falar e contar em voz alta. Só a equipe da Mentorei lê.' : 'Escritas pelo mentor depois da aula.'}</p>
           <div class="campo mt" style="max-width:220px"><label>Participantes presentes</label><input type="number" min="0" data-perc="participantes_presentes" value="${esc(m.participantes_presentes ?? '')}"${podePercepcao ? '' : ' disabled'}></div>
           <textarea class="mt" data-perc="percepcoes" style="min-height:180px" placeholder="Como foi a aula?"${podePercepcao ? '' : ' disabled'}>${esc(m.percepcoes || '')}</textarea>
+          ${podePercepcao ? '<p class="peq apagado" id="perc-ouvindo" role="status"></p>' : ''}
           ${m.percepcoes_em ? `<p class="peq apagado mt">Registradas em ${dataHoraBR(m.percepcoes_em)}.</p>` : ''}
         </div>
         <div class="cartao" id="fotos-aula">
@@ -631,6 +633,10 @@ async function paginaModulo(ctx, el, id) {
     },
   });
   el.querySelectorAll(adm ? '[data-mod], [data-perc]' : '[data-perc]').forEach((c) => { if (!c.disabled) { c.addEventListener('input', salvador.mudou); c.addEventListener('change', salvador.mudou); } });
+
+  // percepções por voz (o mesmo "🎤 Falar" das anotações da sessão individual)
+  const voz = ditado({ avisar });
+  if (podePercepcao) voz.ligar(el.querySelector('#perc-voz'), el.querySelector('[data-perc="percepcoes"]'), el.querySelector('#perc-ouvindo'));
 
   // descritivo do módulo pela proposta (administração, quando o módulo ainda está sem)
   el.querySelector('#descritivo')?.addEventListener('click', async () => {
@@ -882,7 +888,7 @@ async function paginaModulo(ctx, el, id) {
     }
   });
 
-  return { sair: () => { salvador.agora(); salvador.parar(); } };
+  return { sair: () => { voz.parar(); salvador.agora(); salvador.parar(); } };
 }
 
 // ---------- resumo para o Painel da administração ----------

@@ -344,6 +344,12 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   de uma vez (reduzidas no navegador: 2000 px + miniatura 480 px) em `turmas/<módulo>/foto/` e `foto-mini/`, linha em
   `modulo_arquivos` com tipo 'foto'. Foto grande com anterior/próxima (setas), Baixar; mentor apaga só as dele. Sem o script 29 a
   tela avisa (administração: "falta rodar o script 29"; mentor: "avise a Cintia"). Os nomes dos mentores no módulo aparecem com foto.
+- PERCEPÇÕES POR VOZ (2026-11-09, pedido dela: "gravar as percepções assim como o mentor faz nas mentorias individuais"): botão
+  "🎤 Falar" no cartão "Percepções sobre a aula" do módulo (mentor do módulo e administração; quem só lê não vê). Mesmo ditado das
+  anotações da sessão (reconhecimento do navegador, pt-BR, sem gravar áudio nem mandar nada ao servidor): a frase entra no fim da
+  caixa e o salvamento automático grava (1ª vez marca percepcoes_em/por, como digitando). Lógica em `public/assets/voz.js`
+  (`ditado({ avisar })` → `ligar(botao, area, aviso)` / `parar()`; sair da tela desliga); sessao.js continua com a cópia própria.
+  Texto digitado sem ponto final ganha o ponto antes da frase falada (só no voz.js). Sem script novo.
 - MATERIAIS NECESSÁRIOS NO MÓDULO (2026-10-21, script 40, `telas/materiais-modulo.js`, pedido dela: lugar no módulo da turma para
   colar, preencher ou subir o checklist de ferramentas, áudio e vídeo e materiais de apoio). Cartão "Materiais necessários" na coluna
   da esquerda (depois de Recomendações): itens em `modulo_materiais` (categoria ferramenta/audio_video/apoio/outro, texto, quem
