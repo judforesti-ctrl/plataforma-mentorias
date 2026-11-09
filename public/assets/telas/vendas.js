@@ -216,8 +216,8 @@ export async function mudarEtapa(ctx, o, etapa, recarregar) {
     if (!(await gravar())) { recarregar(); return; }
     const j = janela('Fechou! 🎉', `<p>A oportunidade <b>${esc(o.titulo)}</b> foi marcada como fechada${o.valor ? ` (${dinheiro(o.valor)})` : ''}.</p>
       <p class="mt">Agora é hora de colocar na operação:</p>
-      <div class="linha mt"><a class="btn pri" href="#/importar-proposta">Criar turma a partir da proposta</a><a class="btn" href="#/painel/novo-programa/${o.empresa_id}">Criar programa de mentoria individual</a><button class="btn" type="button" data-fechar>Depois</button></div>
-      <p class="peq apagado mt">Quando a turma é criada pela importação da proposta, ela fica ligada a esta oportunidade sozinha.</p>`, { largura: 560, aoFechar: recarregar });
+      <div class="linha mt"><a class="btn pri" href="#/importar-proposta/${o.id}">Criar turma a partir da proposta</a><a class="btn" href="#/painel/novo-programa/${o.empresa_id}">Criar programa de mentoria individual</a><button class="btn" type="button" data-fechar>Depois</button></div>
+      <p class="peq apagado mt">A turma é criada com a proposta que foi enviada ao cliente: perfil da turma, metodologia e, em cada módulo, o objetivo, a entrega prática e os tópicos. Ela fica ligada a esta oportunidade sozinha.</p>`, { largura: 560, aoFechar: recarregar });
     void j;
     return;
   }
@@ -399,7 +399,7 @@ async function paginaOportunidade(ctx, el, id) {
       <div class="acoes"><span class="selo ${o.etapa === 'fechado' ? '' : o.etapa === 'perdido' ? 'erro' : 'escuro'}">${NOME_ETAPA[o.etapa]} · ${chanceDe(o)}%</span>${seloTemp(o)}
         <button class="btn" type="button" id="editar">Editar</button></div></div>
     ${o.etapa === 'perdido' ? `<div class="aviso erro" style="margin-bottom:14px">Perdida em ${dataBR(o.perdido_em)}${o.motivo_perda ? ` · ${MOTIVOS[o.motivo_perda]}` : ''}${o.motivo_perda_texto ? `: ${esc(o.motivo_perda_texto)}` : ''}. <button class="btn peq" type="button" data-etapa="negociacao">Reabrir</button></div>` : ''}
-    ${o.etapa === 'fechado' ? `<div class="aviso ok" style="margin-bottom:14px">Fechada em ${dataBR(o.fechado_em)}${o.turma_id ? ` · <a href="#/turma/${o.turma_id}">ver a turma</a>` : o.programa_id ? ` · <a href="#/painel/programa/${o.programa_id}">ver o programa</a>` : ' · <a href="#/importar-proposta">criar a turma pela proposta</a>'}.</div>` : ''}
+    ${o.etapa === 'fechado' ? `<div class="aviso ok" style="margin-bottom:14px">Fechada em ${dataBR(o.fechado_em)}${o.turma_id ? ` · <a href="#/turma/${o.turma_id}">ver a turma</a>` : o.programa_id ? ` · <a href="#/painel/programa/${o.programa_id}">ver o programa</a>` : ` · <a href="#/importar-proposta/${o.id}">criar a turma pela proposta</a>`}.</div>` : ''}
     <div class="linha" style="margin-bottom:14px;gap:8px">
       <span class="peq apagado">Etapa:</span>${ETAPAS.map(([k, n]) => `<button class="btn peq${k === o.etapa ? ' pri' : ''}" type="button" data-etapa="${k}"${k === o.etapa ? ' disabled' : ''}>${n}</button>`).join('')}</div>
     <div class="linha" style="margin-bottom:18px;gap:8px">

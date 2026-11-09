@@ -148,6 +148,8 @@ export default async (req) => {
     // arquivo original guardado pela tela (só aceita o caminho desta importação)
     const guardado = String(b.arquivo_storage || '');
     const arquivoStorage = guardado.startsWith(`importadas/${id}/`) && /^[\w./-]+$/.test(guardado) && !guardado.includes('..') ? guardado : null;
+    // proposta que JÁ está em Vendas (criar a turma pela proposta enviada, 2026-11-09): não cria outra oportunidade nem outra versão
+    if (b.sem_vendas === true) return;
     try { await criarOportunidade(secreta, id, resultado, String(b.arquivo || ''), eu.dados.id, arquivoStorage); } catch (_) { /* o pipeline não pode travar a importação */ }
   } catch (e) {
     if (e instanceof Anthropic.AuthenticationError) return falhar('A chave do Claude na Netlify não está valendo.');

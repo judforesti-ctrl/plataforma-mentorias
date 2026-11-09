@@ -2,8 +2,9 @@
 // (em segundo plano, no servidor) e a administração revisa tudo antes de criar as turmas.
 // O que a proposta não traz (datas, link, mentores) a coordenação completa depois na turma.
 // Depois de criar, a plataforma confere a agenda e avisa se alguma data já tem conflito.
-import { sb, esc, avisar, explicarErro, localParaISO } from '../base.js';
+import { sb, esc, avisar, explicarErro, localParaISO, dataBR } from '../base.js';
 import { COMO, gravarTurma } from './turmas.js';
+import { tipoArquivo, fonteDaProposta, textoDaPropostaIA } from '../descritivo-regras.js';
 
 const JSZIP = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm';
 const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs';
@@ -55,62 +56,162 @@ export async function lerTextoPptx(arquivo, aoAvancar) {
   return partes.join('\n\n');
 }
 
-export async function render(ctx, el) {
+// Proposta guardada na pasta privada "propostas" (enviada ao cliente pela plataforma) → texto, lido no navegador.
+export async function textoDoArquivoGuardado(caminho, aoAvancar = () => {}) {
+  aoAvancar('Abrindo o arquivo da proposta…');
+  const { data, error } = await sb.storage.from('propostas').download(caminho);
+  if (error || !data) throw new Error('Não consegui abrir o arquivo da proposta guardado na plataforma.');
+  return tipoArquivo(caminho) === 'pptx' ? lerTextoPptx(data, aoAvancar) : lerTextoPdf(data, aoAvancar);
+}
+
+// Propostas que já estão em Vendas (enviadas ou prontas para enviar) e ainda não viraram turma nem programa: a última versão
+// de cada oportunidade que dá para ler (a leitura da importação, o conteúdo gerado pela IA ou o arquivo PDF/.pptx guardado).
+// Pedido da Juliana (2026-11-09): criar a turma a partir da proposta enviada ao cliente, sem subir o arquivo de novo,
+// e com o que deve ser abordado em cada módulo já na temática.
+const SEL_PROPOSTA = 'id, versao, status, enviada_em, criado_em, conteudo, importacao_id, arquivo, arquivo_storage, oportunidade:oportunidades(id, titulo, etapa, turma_id, programa_id, empresa_id, empresa:empresas(nome))';
+async function comFonte(props) {
+  const ids = [...new Set(props.map((p) => p.importacao_id).filter(Boolean))];
+  const { data: imps } = ids.length ? await sb.from('importacoes_proposta').select('id, resultado').in('id', ids).eq('status', 'pronto') : { data: [] };
+  const resultadoDe = new Map((imps || []).map((i) => [i.id, i.resultado]));
+  return props.map((p) => {
+    const importacao = p.importacao_id ? resultadoDe.get(p.importacao_id) || null : null;
+    return { ...p, importacao, fonte: fonteDaProposta(p, importacao) };
+  }).filter((p) => p.fonte);
+}
+async function propostasSemTurma() {
+  const { data, error } = await sb.from('propostas').select(SEL_PROPOSTA).in('status', ['enviada', 'aprovada']).order('criado_em', { ascending: false }).limit(300);
+  if (error) return [];   // sem os scripts 19/20: só o arquivo
+  const abertas = (data || []).filter((p) => p.oportunidade && !p.oportunidade.turma_id && !p.oportunidade.programa_id && p.oportunidade.etapa !== 'perdido');
+  const lidas = await comFonte(abertas);
+  const ultima = new Map();
+  for (const p of lidas) { const o = ultima.get(p.oportunidade.id); if (!o || (p.versao || 1) > (o.versao || 1)) ultima.set(p.oportunidade.id, p); }
+  const enviada = (p) => p.status === 'enviada' || !!p.enviada_em;
+  return [...ultima.values()].sort((a, b) => ((b.oportunidade.etapa === 'fechado') - (a.oportunidade.etapa === 'fechado'))
+    || (enviada(b) - enviada(a)) || String(b.enviada_em || b.criado_em).localeCompare(String(a.enviada_em || a.criado_em)));
+}
+// A proposta de uma oportunidade (botão "Criar turma a partir da proposta" de Vendas): a mais nova que dá para ler.
+async function propostaDaOportunidade(oportunidadeId) {
+  const { data, error } = await sb.from('propostas').select(SEL_PROPOSTA).eq('oportunidade_id', oportunidadeId).order('versao', { ascending: false });
+  if (error) return null;
+  const lidas = await comFonte((data || []).filter((p) => p.status !== 'gerando' && p.status !== 'erro'));
+  return lidas[0] || null;
+}
+const nomeProposta = (p) => (p.conteudo && p.conteudo.capa && p.conteudo.capa.nome) || p.oportunidade.titulo || p.arquivo || 'Proposta';
+const ORIGEM = { importacao: 'importada', ia: 'gerada pela IA', arquivo: 'arquivo' };
+const situacaoProposta = (p) => `${p.oportunidade.etapa === 'fechado' ? 'Venda fechada · ' : ''}${p.status === 'enviada' || p.enviada_em ? `Enviada${p.enviada_em ? ` em ${dataBR(`${p.enviada_em}T12:00:00-03:00`)}` : ''}` : 'Pronta para enviar'}`
+  + ` · versão ${p.versao || 1} · ${p.fonte === 'arquivo' ? (tipoArquivo(p.arquivo_storage) === 'pptx' ? 'PowerPoint' : 'PDF') : ORIGEM[p.fonte]}`;
+
+export async function render(ctx, el, params = []) {
   if (!ctx.ehAdmin) { el.innerHTML = '<div class="vazio">Só a administração importa propostas.</div>'; return; }
-  const { data: empresas } = await sb.from('empresas').select('id, nome').order('nome');
+  const oportunidadeId = /^[0-9a-f-]{36}$/i.test(params[0] || '') ? params[0] : null;
+  const [{ data: empresas }, enviadas, daOportunidade] = await Promise.all([
+    sb.from('empresas').select('id, nome').order('nome'), propostasSemTurma(), oportunidadeId ? propostaDaOportunidade(oportunidadeId) : Promise.resolve(null)]);
+  const visiveis = enviadas.slice(0, 8), mais = enviadas.slice(8);
+  const linha = (p) => `<div class="item" style="grid-template-columns:1fr auto">
+      <div style="min-width:0"><div class="nome" style="word-break:break-word">${esc(p.oportunidade.empresa ? p.oportunidade.empresa.nome : '')} · ${esc(nomeProposta(p))}</div>
+        <div class="info">${esc(situacaoProposta(p))}</div></div>
+      <button class="btn peq pri" type="button" data-proposta="${p.id}">Usar esta</button></div>`;
 
   el.innerHTML = `
-    <div class="cab"><div><p class="peq apagado"><a href="#/turmas">← Turmas</a></p><h1>Importar proposta</h1>
-      <p class="sub">Envie a proposta em PDF ou PowerPoint. A plataforma lê a empresa, as turmas, o perfil e os módulos, e você confere tudo antes de criar.</p></div></div>
+    <div class="cab"><div><p class="peq apagado"><a href="#/turmas">← Turmas</a></p><h1>${oportunidadeId ? 'Criar turma pela proposta' : 'Importar proposta'}</h1>
+      <p class="sub">A plataforma lê a proposta (empresa, turmas, perfil e módulos, com o objetivo, a entrega prática e os tópicos de cada módulo) e você confere tudo antes de criar.</p></div></div>
     <div class="cartao" style="max-width:760px">
-      <h3>1. Escolha o arquivo da proposta</h3>
+      ${oportunidadeId && !daOportunidade ? '<div class="aviso">Esta venda não tem a proposta guardada na plataforma (PDF, PowerPoint ou gerada pela IA). Envie o arquivo da proposta aqui embaixo.</div>' : ''}
+      ${enviadas.length && !daOportunidade ? `<h3>1. Escolha a proposta enviada ao cliente</h3>
+        <p class="peq apagado mt">Propostas de Vendas que ainda não viraram turma. Não precisa subir o arquivo de novo.</p>
+        <div class="lista mt" id="enviadas">${visiveis.map(linha).join('')}</div>
+        ${mais.length ? `<details class="mt"><summary class="peq" style="cursor:pointer">Ver mais ${mais.length} proposta(s)</summary><div class="lista mt">${mais.map(linha).join('')}</div></details>` : ''}
+        <h4 class="mt2">Ou envie o arquivo da proposta</h4>` : `<h3>${daOportunidade ? 'Proposta desta venda' : '1. Escolha o arquivo da proposta'}</h3>`}
+      ${daOportunidade ? `<div class="lista mt">${linha(daOportunidade)}</div><p class="peq apagado mt">Ou envie outro arquivo:</p>` : ''}
       <p class="peq apagado mt">PDF ou PowerPoint (.pptx). Leva de 1 a 3 minutos. Pode deixar a tela aberta enquanto isso. Preços e condições comerciais não são copiados.</p>
-      <label class="btn pri mt" style="cursor:pointer">Escolher o arquivo<input type="file" id="pdf" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.ppt" hidden></label>
+      <label class="btn${enviadas.length || daOportunidade ? '' : ' pri'} mt" style="cursor:pointer">Escolher o arquivo<input type="file" id="pdf" accept="application/pdf,.pdf,.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.ppt" hidden></label>
       <p class="mt" id="estado" role="status"></p>
     </div>
     <div id="revisao"></div>`;
 
   const estado = el.querySelector('#estado');
+  const caixa = el.querySelector('#revisao');
   let parar = false;
+  const travar = (sim) => el.querySelectorAll('[data-proposta], #pdf').forEach((b) => { b.disabled = sim; });
+  const pronto = (resultado, opcoes) => {
+    estado.innerHTML = '<span class="selo">Pronto</span> Confira abaixo, ajuste o que precisar e clique em "Criar".';
+    revisar(ctx, caixa, resultado, empresas || [], opcoes);
+    travar(false);
+  };
+
+  // a IA organiza o texto em segundo plano (/api/proposta); "semVendas" = a proposta já está em Vendas (não cria outra oportunidade)
+  const organizar = async (texto, arquivo, { arquivoStorage = null, semVendas = false } = {}) => {
+    estado.textContent = 'Organizando a proposta com a IA… (de 1 a 3 minutos)';
+    const { data: imp, error } = await sb.from('importacoes_proposta').insert({ arquivo }).select('id').single();
+    if (error) throw error;
+    const storage = typeof arquivoStorage === 'function' ? await arquivoStorage(imp.id) : arquivoStorage;
+    const { data: { session } } = await sb.auth.getSession();
+    const r = await fetch('/api/proposta', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ importacao_id: imp.id, arquivo, texto, arquivo_storage: storage, ...(semVendas ? { sem_vendas: true } : {}) }) });
+    if (!r.ok && r.status !== 202) throw new Error('Não foi possível começar a leitura da proposta.');
+    const inicio = Date.now();
+    while (!parar && Date.now() - inicio < 5 * 60 * 1000) {
+      await new Promise((ok) => setTimeout(ok, 4000));
+      const { data } = await sb.from('importacoes_proposta').select('status, resultado, erro').eq('id', imp.id).single();
+      if (data && data.status !== 'processando') {
+        if (data.status === 'erro') { estado.innerHTML = `<span class="selo erro">Não deu certo</span> ${esc(data.erro || '')}`; return null; }
+        return { id: imp.id, resultado: data.resultado };
+      }
+      estado.textContent = `Organizando a proposta com a IA… ${Math.round((Date.now() - inicio) / 1000)} s`;
+    }
+    if (!parar) estado.textContent = 'Demorou mais que o esperado. Tente de novo em alguns minutos.';
+    return null;
+  };
+  const curto = (texto) => texto.replace(/--- (página|slide) \d+ ---/g, '').trim().length < 200;
+
+  // proposta que já está em Vendas
+  const usar = async (p) => {
+    caixa.innerHTML = '';
+    travar(true);
+    try {
+      const opcoes = { oportunidadeId: p.oportunidade.id, empresaId: p.oportunidade.empresa_id };
+      if (p.fonte === 'importacao') { pronto(p.importacao, { ...opcoes, importacaoId: p.importacao_id }); return; }
+      const empresa = p.oportunidade.empresa ? p.oportunidade.empresa.nome : '';
+      const texto = p.fonte === 'ia' ? textoDaPropostaIA(p.conteudo, empresa) : await textoDoArquivoGuardado(p.arquivo_storage, (t) => { estado.textContent = t; });
+      if (curto(texto)) {
+        estado.innerHTML = '<span class="selo erro">Não consegui ler o texto desta proposta</span> Se o arquivo for uma imagem escaneada, exporte de novo como PDF a partir do Canva ou do PowerPoint e envie aqui.';
+        travar(false);
+        return;
+      }
+      const feito = await organizar(texto, `${empresa} · ${nomeProposta(p)} (versão ${p.versao || 1})`.slice(0, 250), { semVendas: true });
+      if (feito) pronto(feito.resultado, { ...opcoes, importacaoId: feito.id }); else travar(false);
+    } catch (e) { estado.textContent = ''; avisar(explicarErro(e), true); travar(false); }
+  };
+  el.querySelectorAll('[data-proposta]').forEach((b) => b.addEventListener('click', () => {
+    const p = [daOportunidade, ...enviadas].find((x) => x && x.id === b.dataset.proposta);
+    if (p) usar(p);
+  }));
 
   el.querySelector('#pdf').addEventListener('change', async (ev) => {
     const arq = ev.target.files[0]; if (!arq) return;
-    el.querySelector('#revisao').innerHTML = '';
+    caixa.innerHTML = '';
+    travar(true);
     try {
       const ext = (arq.name.split('.').pop() || '').toLowerCase();
-      if (ext === 'ppt') { estado.innerHTML = '<span class="selo erro">Formato antigo do PowerPoint</span> Abra no PowerPoint e salve como .pptx (ou exporte como PDF) e envie de novo.'; return; }
+      if (ext === 'ppt') { estado.innerHTML = '<span class="selo erro">Formato antigo do PowerPoint</span> Abra no PowerPoint e salve como .pptx (ou exporte como PDF) e envie de novo.'; travar(false); return; }
       const texto = ext === 'pptx' ? await lerTextoPptx(arq, (t) => { estado.textContent = t; }) : await lerTextoPdf(arq, (t) => { estado.textContent = t; });
-      if (texto.replace(/--- (página|slide) \d+ ---/g, '').trim().length < 200) {
+      if (curto(texto)) {
         estado.innerHTML = ext === 'pptx' ? '<span class="selo erro">Este PowerPoint quase não tem texto</span> Se os slides forem imagens, exporte a proposta como PDF a partir do Canva e envie o PDF.'
           : '<span class="selo erro">Este PDF não tem texto legível</span> Parece ser uma imagem escaneada. Exporte a proposta de novo como PDF a partir do Canva ou do PowerPoint.';
+        travar(false);
         return;
       }
-      estado.textContent = 'Organizando a proposta com a IA… (de 1 a 3 minutos)';
-      const { data: imp, error } = await sb.from('importacoes_proposta').insert({ arquivo: arq.name }).select('id').single();
-      if (error) throw error;
-      // guarda o arquivo original na pasta das propostas, para dar para enviar ao cliente depois pela plataforma
-      const arquivoStorage = await guardarOriginal(arq, imp.id);
-      const { data: { session } } = await sb.auth.getSession();
-      const r = await fetch('/api/proposta', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ importacao_id: imp.id, arquivo: arq.name, texto, arquivo_storage: arquivoStorage }) });
-      if (!r.ok && r.status !== 202) throw new Error('Não foi possível começar a leitura da proposta.');
-      // acompanha o resultado (a IA trabalha em segundo plano)
-      const inicio = Date.now();
-      let res = null;
-      while (!parar && Date.now() - inicio < 5 * 60 * 1000) {
-        await new Promise((ok) => setTimeout(ok, 4000));
-        const { data } = await sb.from('importacoes_proposta').select('status, resultado, erro').eq('id', imp.id).single();
-        if (data && data.status !== 'processando') { res = data; break; }
-        estado.textContent = `Organizando a proposta com a IA… ${Math.round((Date.now() - inicio) / 1000)} s`;
-      }
-      if (parar) return;
-      if (!res) { estado.textContent = 'Demorou mais que o esperado. Tente de novo em alguns minutos.'; return; }
-      if (res.status === 'erro') { estado.innerHTML = `<span class="selo erro">Não deu certo</span> ${esc(res.erro || '')}`; return; }
-      estado.innerHTML = '<span class="selo">Pronto</span> Confira abaixo, ajuste o que precisar e clique em "Criar".';
-      revisar(ctx, el.querySelector('#revisao'), res.resultado, empresas || [], imp.id);
-    } catch (e) { estado.textContent = ''; avisar(explicarErro(e), true); }
+      // guarda o arquivo original na pasta das propostas, para dar para enviar ao cliente depois pela plataforma.
+      // Vindo de uma venda (Vendas → Criar turma), a proposta já está lá: não cria outra oportunidade.
+      const feito = await organizar(texto, arq.name, { arquivoStorage: oportunidadeId ? null : (impId) => guardarOriginal(arq, impId), semVendas: !!oportunidadeId });
+      if (feito) pronto(feito.resultado, { importacaoId: feito.id, oportunidadeId, empresaId: daOportunidade ? daOportunidade.oportunidade.empresa_id : null });
+      else travar(false);
+    } catch (e) { estado.textContent = ''; avisar(explicarErro(e), true); travar(false); }
+    ev.target.value = '';
   });
 
+  // veio de Vendas com a proposta da venda: já começa
+  if (daOportunidade) usar(daOportunidade);
   return { sair: () => { parar = true; } };
 }
 
@@ -135,9 +236,10 @@ function formatoInicial(t, m) {
   return 'indefinido';
 }
 
-function revisar(ctx, box, r, empresas, importacaoId = null) {
+function revisar(ctx, box, r, empresas, { importacaoId = null, oportunidadeId = null, empresaId: empresaDaVenda = null } = {}) {
   const turmas = r.turmas || [];
-  const achada = empresas.find((e) => norm(e.nome) === norm(r.empresa)) || empresas.find((e) => norm(e.nome) && norm(r.empresa).includes(norm(e.nome)));
+  const achada = (empresaDaVenda && empresas.find((e) => e.id === empresaDaVenda))
+    || empresas.find((e) => norm(e.nome) === norm(r.empresa)) || empresas.find((e) => norm(e.nome) && norm(r.empresa).includes(norm(e.nome)));
   box.innerHTML = `
     <div class="cartao" style="max-width:980px"><h3>2. Empresa</h3>
       <div class="grade g2 mt" style="gap:10px">
@@ -235,7 +337,16 @@ function revisar(ctx, box, r, empresas, importacaoId = null) {
       }
       if (!criadas.length) throw new Error('Marque pelo menos uma turma para criar.');
       // pipeline de vendas: a oportunidade desta proposta fecha e fica ligada à turma
-      if (importacaoId) {
+      if (oportunidadeId) {
+        const { data: op } = await sb.from('oportunidades').select('id, etapa, turma_id').eq('id', oportunidadeId).maybeSingle();
+        if (op && op.etapa !== 'fechado') {
+          await sb.from('oportunidades').update({ etapa: 'fechado', chance: 100, fechado_em: new Date().toISOString(), turma_id: criadas[0], empresa_id: empresaId }).eq('id', op.id);
+          await sb.from('interacoes').insert({ oportunidade_id: op.id, tipo: 'etapa', texto: 'Fechou: turma criada a partir da proposta.' });
+        } else if (op && !op.turma_id) {
+          await sb.from('oportunidades').update({ turma_id: criadas[0] }).eq('id', op.id);
+          await sb.from('interacoes').insert({ oportunidade_id: op.id, tipo: 'sistema', texto: 'Turma criada a partir da proposta.' });
+        }
+      } else if (importacaoId) {
         const { data: ops } = await sb.from('oportunidades').select('id, etapa').eq('importacao_id', importacaoId);
         for (const op of (ops || []).filter((o) => o.etapa !== 'fechado' && o.etapa !== 'perdido')) {
           await sb.from('oportunidades').update({ etapa: 'fechado', chance: 100, fechado_em: new Date().toISOString(), turma_id: criadas[0], empresa_id: empresaId }).eq('id', op.id);

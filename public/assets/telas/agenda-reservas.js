@@ -330,7 +330,7 @@ async function converterEmTurma(ctx, d, r, recarregar) {
   const quem = (r.mentores || []).filter((x) => x.resposta !== 'recusado');
   const ds = ordemDatas(r);
   const html = `<p class="peq">Vão ser criados <b>${ds.length} módulo${ds.length > 1 ? 's' : ''}</b>, um em cada data (${ds.map((x) => ddmm(x.dia)).join(', ')}), com os mentores marcados abaixo.
-      Depois, na turma, você dá o título de cada módulo, confere o horário, o link da sala e envia os slides.</p>
+      O que deve ser abordado em cada módulo vem sozinho da proposta enviada a esta empresa. Depois, na turma, você dá o título de cada módulo, confere o horário, o link da sala e envia os slides.</p>
     <div class="campo mt"><label for="c-emp">Empresa</label><select id="c-emp"><option value="">Escolha…</option>
       ${r.cliente && !porNome ? `<option value="nova"${empInicial === 'nova' ? ' selected' : ''}>Cadastrar "${esc(r.cliente)}" como empresa nova</option>` : ''}
       ${(empresas || []).map((e) => `<option value="${e.id}"${e.id === empInicial ? ' selected' : ''}>${esc(e.nome)}</option>`).join('')}</select></div>
@@ -393,6 +393,8 @@ async function converterEmTurma(ctx, d, r, recarregar) {
       }
       const { error: e3 } = await sb.from('agenda_reservas').update({ situacao: 'convertida', turma_id: turmaId, empresa_id: empresa }).eq('id', r.id);
       if (e3) throw e3;
+      // a temática dos módulos (e o perfil da turma) vem sozinha da proposta enviada a esta empresa
+      await import('./descritivo-proposta.js').then(({ descritivoAutomatico }) => descritivoAutomatico(turmaId)).catch(() => {});
       limparCache(); avisarGoogle();
       avisar('Turma criada com os módulos nas datas do pré-bloqueio.');
       j.fechar();

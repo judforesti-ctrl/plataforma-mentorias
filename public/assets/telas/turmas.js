@@ -241,7 +241,8 @@ async function paginaTurma(ctx, el, id) {
       <div class="cartao" style="margin-top:0">
         <div class="linha"><h3 style="flex:1">Módulos (${mods.length})</h3>${adm ? `${mods.length ? `<button class="btn peq" id="descritivo">Descritivo da proposta</button><button class="btn peq" id="link-sala">Link da sala para vários</button><button class="btn peq" id="a-definir">Datas a definir</button>
           <button class="btn peq" id="excluir-mods">Excluir módulos</button>` : ''}<button class="btn peq escuro" id="novo-mod">+ Novo módulo</button>` : ''}</div>
-        ${adm && mods.some((m) => !String(m.tematica || '').trim()) ? `<p class="peq apagado mt">${mods.filter((m) => !String(m.tematica || '').trim()).length} módulo(s) sem o descritivo do que deve ser abordado. Clique em "Descritivo da proposta" para trazer da proposta.</p>` : ''}
+        ${adm && mods.some((m) => !String(m.tematica || '').trim()) ? `<p class="peq apagado mt">${mods.filter((m) => !String(m.tematica || '').trim()).length} módulo(s) sem o descritivo do que deve ser abordado. Clique em "Descritivo da proposta" para trazer da proposta.</p>
+          <p class="peq mt" id="desc-auto" role="status" hidden></p>` : ''}
         ${adm ? `<form id="f-mod" class="mt" hidden style="background:var(--bg);border-radius:12px;padding:12px">
           <div class="grade g2" style="gap:10px">
             <div class="campo" style="grid-column:1/-1"><label>Título do módulo</label><input type="text" id="m-titulo" placeholder="Ex.: Feedback que desenvolve" required></div>
@@ -272,14 +273,18 @@ async function paginaTurma(ctx, el, id) {
   ligarFerramentasTurma(ctx, el, t);   // ferramentas online da trilha (script 48)
   ligarMarca(ctx, el, t);   // logo e cores do cliente na área do aluno (administração)
   if (!adm) return;
+  // perfil e metodologia vazios só vão como "apagar" se já tinham texto gravado: o descritivo automático pode estar escrevendo neles
+  const gravado = { perfil_turma: t.perfil_turma || null, observacoes: t.observacoes || null };
   const salvador = autoSalvar({
     indicador: el.querySelector('#indicador'),
     salvar: async () => {
       const mud = {};
       el.querySelectorAll('[data-t]').forEach((c) => { const x = c.value.trim(); mud[c.dataset.t] = c.type === 'number' ? (x === '' ? null : Number(x)) : (x || null); });
       if (!mud.nome) delete mud.nome;
+      for (const k of Object.keys(gravado)) if (!mud[k] && !gravado[k]) delete mud[k];
       const { error: e } = await gravarTurma(mud, id);
       if (e) throw e;
+      for (const k of Object.keys(gravado)) if (k in mud) gravado[k] = mud[k];
       import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
     },
   });
@@ -297,6 +302,32 @@ async function paginaTurma(ctx, el, id) {
     const { abrirDescritivo } = await import('./descritivo-proposta.js');
     abrirDescritivo(ctx, id, { aoTerminar: () => ctx.irPara(`#/turma/${id}`) });
   });
+  // descritivo automático (2026-11-09): módulos acabaram de entrar e a plataforma está trazendo a temática da proposta
+  let pararAuto = null;
+  const linhaAuto = el.querySelector('#desc-auto');
+  if (linhaAuto) {
+    import('./descritivo-proposta.js').then(({ acompanharAutomatico }) => {
+      pararAuto = acompanharAutomatico(id, {
+        aoProcessar: () => { linhaAuto.hidden = false; linhaAuto.innerHTML = '⏳ Trazendo da proposta o descritivo dos módulos… Leva cerca de 1 minuto. Pode continuar mexendo na turma.'; },
+        aoTerminar: async (x, jaEstava) => {
+          const r = x.resultado || {};
+          const n = (r.gravados || []).length;
+          const { data: tu } = await sb.from('turmas').select('perfil_turma, observacoes').eq('id', id).maybeSingle();
+          for (const k of Object.keys(gravado)) {
+            const c = el.querySelector(`[data-t="${k}"]`);
+            if (tu && tu[k] && c && !c.value.trim()) { c.value = tu[k]; gravado[k] = tu[k]; }
+          }
+          const nome = r.proposta ? ` <b>${esc(r.proposta.nome)}</b>` : '';
+          linhaAuto.hidden = false;
+          linhaAuto.innerHTML = x.status === 'erro' ? `Não consegui trazer o descritivo da proposta sozinha: ${esc(x.erro || 'erro desconhecido')} Use "Descritivo da proposta".`
+            : n ? `✓ Descritivo da proposta${nome} colocado em ${n} módulo(s).${jaEstava ? '' : ' <button class="btn peq" type="button" id="desc-auto-ver">Ver os módulos</button>'}`
+            : r.proposta_da_turma === false ? `A proposta${nome} parece ser de outro programa, então não coloquei nada. Use "Descritivo da proposta" para escolher outra.`
+            : `${esc(r.nada || 'Não achei na proposta o tema dos módulos que estão sem descritivo.')}`;
+          el.querySelector('#desc-auto-ver')?.addEventListener('click', async () => { await salvador.agora(); ctx.irPara(`#/turma/${id}`); });
+        },
+      });
+    });
+  }
   el.querySelector('#link-sala')?.addEventListener('click', () => janelaLinkSala(ctx, t, mods));
   el.querySelector('#a-definir')?.addEventListener('click', () => janelaDatasADefinir(ctx, t, mods));
   el.querySelector('#excluir-mods')?.addEventListener('click', () => janelaExcluirModulos(ctx, t, mods));
@@ -318,6 +349,8 @@ async function paginaTurma(ctx, el, id) {
     if (e) { avisar(explicarErro(e), true); return; }
     const ids = [...el.querySelectorAll('input[name=m-ment]:checked')].map((c) => ({ modulo_id: novo.id, mentor_id: c.value }));
     if (ids.length) { const r = await sb.from('modulo_mentores').insert(ids); if (r.error) avisar(explicarErro(r.error), true); }
+    // a temática vem sozinha da proposta enviada a esta empresa (o módulo abre mostrando "Trazendo da proposta…")
+    await import('./descritivo-proposta.js').then(({ descritivoAutomatico }) => descritivoAutomatico(id)).catch(() => {});
     avisar('Módulo criado.');
     import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
     const { conferirModulos, mostrarConflitos } = await import('./agenda-dados.js');
@@ -325,7 +358,7 @@ async function paginaTurma(ctx, el, id) {
     if (conflitos.length) { mostrarConflitos(conflitos, { intro: 'O módulo foi criado, mas a data bate com algo na agenda:', aoFechar: () => ctx.irPara(`#/modulo/${novo.id}`) }); return; }
     ctx.irPara(`#/modulo/${novo.id}`);
   });
-  return { sair: () => { salvador.agora(); salvador.parar(); } };
+  return { sair: () => { if (pararAuto) pararAuto(); salvador.agora(); salvador.parar(); } };
 }
 
 // ---------- link da sala em vários módulos de uma vez ----------
@@ -540,14 +573,13 @@ async function paginaModulo(ctx, el, id) {
       <div class="sessao-col">
         <div class="cartao"><h3>A turma</h3>
           <p class="mt"><b>${esc(m.turma.empresa ? m.turma.empresa.nome : '')}</b> · ${esc(m.turma.nome)}${m.turma.participantes_previstos ? ` · <span class="selo neutro">${m.turma.participantes_previstos} participantes esperados</span>` : ''}</p>
-          ${m.turma.perfil_turma ? `<p class="peq mt" style="white-space:pre-wrap">${esc(m.turma.perfil_turma)}</p>` : '<p class="peq apagado mt">Perfil da turma ainda não preenchido.</p>'}
-          ${m.turma.observacoes ? `<p class="peq mt"><b>Metodologia e observações</b></p><p class="peq" style="white-space:pre-wrap">${esc(m.turma.observacoes)}</p>` : ''}
+          <div id="mod-turma-textos">${textosDaTurma(m.turma)}</div>
         </div>
         <div class="cartao"><h3>Temática da aula</h3>
           <p class="peq apagado">O que deve ser abordado, conforme a proposta.</p>
           ${adm ? `<div class="campo mt"><label>Título</label><input type="text" data-mod="titulo" value="${esc(m.titulo)}"></div>
             <textarea class="mt" data-mod="tematica" style="min-height:${m.tematica ? 240 : 120}px" placeholder="Objetivo, entrega prática e tópicos que devem ser abordados na aula.">${esc(m.tematica || '')}</textarea>
-            ${String(m.tematica || '').trim() ? '' : '<div class="aviso mt">Este módulo ainda está sem o descritivo. <button class="btn peq pri" type="button" id="descritivo">Trazer da proposta</button></div>'}`
+            ${String(m.tematica || '').trim() ? '' : '<div class="aviso mt" id="descritivo-aviso"><span id="descritivo-texto">Este módulo ainda está sem o descritivo.</span> <button class="btn peq pri" type="button" id="descritivo">Trazer da proposta</button></div>'}`
           : m.tematica ? `<div class="mt" style="white-space:pre-wrap;line-height:1.55">${textoAula(m.tematica)}</div>`
             : '<p class="apagado mt">A coordenação ainda não colocou o descritivo deste módulo. Se precisar, clique em "Falar com a Cintia".</p>'}
         </div>
@@ -612,6 +644,8 @@ async function paginaModulo(ctx, el, id) {
     </div>`;
 
   // salvamento automático (administração: tudo; mentor do módulo: percepções e presença)
+  // A temática vazia só vai como "apagar" se já tinha texto gravado: o descritivo automático pode estar escrevendo nela.
+  let tematicaGravada = String(m.tematica || '').trim() ? m.tematica : null;
   const salvador = autoSalvar({
     indicador: el.querySelector('#indicador'),
     salvar: async () => {
@@ -626,9 +660,11 @@ async function paginaModulo(ctx, el, id) {
       if (mud.data_hora && !dataExiste(mud.data_hora)) delete mud.data_hora;   // ainda digitando ou ano errado: não grava
       if (aviso) aviso.textContent = adm && el.querySelector('[data-mod="data_hora"]').value && !('data_hora' in mud) ? DATA_NAO_EXISTE : '';
       if (adm && !mud.titulo) delete mud.titulo;
+      if (adm && !mud.tematica && !tematicaGravada) delete mud.tematica;
       if (mud.percepcoes && !m.percepcoes_em) { mud.percepcoes_em = new Date().toISOString(); mud.percepcoes_por = ctx.perfil.id; m.percepcoes_em = mud.percepcoes_em; }
       const { error: e } = await sb.from('modulos').update(mud).eq('id', id);
       if (e) throw e;
+      if ('tematica' in mud) tematicaGravada = mud.tematica;
       if (adm) import('./agenda-dados.js').then(({ avisarGoogle }) => avisarGoogle());
     },
   });
@@ -637,6 +673,39 @@ async function paginaModulo(ctx, el, id) {
   // percepções por voz (o mesmo "🎤 Falar" das anotações da sessão individual)
   const voz = ditado({ avisar });
   if (podePercepcao) voz.ligar(el.querySelector('#perc-voz'), el.querySelector('[data-perc="percepcoes"]'), el.querySelector('#perc-ouvindo'));
+
+  // descritivo automático (2026-11-09): se a plataforma está trazendo a temática da proposta, mostra e coloca no campo
+  let pararAuto = null;
+  const avisoDesc = el.querySelector('#descritivo-aviso');
+  if (adm && avisoDesc) {
+    import('./descritivo-proposta.js').then(({ acompanharAutomatico, motivoSemDescritivo }) => {
+      const texto = avisoDesc.querySelector('#descritivo-texto'), botao = avisoDesc.querySelector('#descritivo');
+      pararAuto = acompanharAutomatico(m.turma.id, {
+        aoProcessar: () => { texto.textContent = '⏳ Trazendo da proposta o que deve ser abordado neste módulo… Leva cerca de 1 minuto.'; botao.hidden = true; },
+        aoTerminar: async (x) => {
+          botao.hidden = false;
+          const [{ data: agora }, { data: tu }] = await Promise.all([sb.from('modulos').select('tematica').eq('id', id).maybeSingle(),
+            sb.from('turmas').select('perfil_turma, observacoes').eq('id', m.turma.id).maybeSingle()]);
+          if (tu && (tu.perfil_turma !== m.turma.perfil_turma || tu.observacoes !== m.turma.observacoes)) {
+            Object.assign(m.turma, tu);
+            el.querySelector('#mod-turma-textos').innerHTML = textosDaTurma(m.turma);
+          }
+          const ta = el.querySelector('[data-mod="tematica"]');
+          if (agora && String(agora.tematica || '').trim()) {
+            tematicaGravada = agora.tematica;
+            if (ta && !ta.value.trim()) { ta.value = agora.tematica; ta.style.minHeight = '240px'; }
+            const nome = x.resultado && x.resultado.proposta ? x.resultado.proposta.nome : '';
+            avisoDesc.className = 'aviso ok mt';
+            texto.innerHTML = `✓ Trazido da proposta${nome ? ` <b>${esc(nome)}</b>` : ''}. Confira e ajuste se precisar.`;
+            botao.hidden = true;
+            return;
+          }
+          const motivo = motivoSemDescritivo(x, id);
+          texto.textContent = `Este módulo ainda está sem o descritivo.${motivo ? ` ${motivo}` : ''}`;
+        },
+      });
+    });
+  }
 
   // descritivo do módulo pela proposta (administração, quando o módulo ainda está sem)
   el.querySelector('#descritivo')?.addEventListener('click', async () => {
@@ -888,7 +957,13 @@ async function paginaModulo(ctx, el, id) {
     }
   });
 
-  return { sair: () => { voz.parar(); salvador.agora(); salvador.parar(); } };
+  return { sair: () => { voz.parar(); if (pararAuto) pararAuto(); salvador.agora(); salvador.parar(); } };
+}
+
+// Perfil e metodologia da turma no alto do módulo (o descritivo automático pode preencher com a tela aberta).
+function textosDaTurma(t) {
+  return `${t.perfil_turma ? `<p class="peq mt" style="white-space:pre-wrap">${esc(t.perfil_turma)}</p>` : '<p class="peq apagado mt">Perfil da turma ainda não preenchido.</p>'}
+    ${t.observacoes ? `<p class="peq mt"><b>Metodologia e observações</b></p><p class="peq" style="white-space:pre-wrap">${esc(t.observacoes)}</p>` : ''}`;
 }
 
 // ---------- resumo para o Painel da administração ----------

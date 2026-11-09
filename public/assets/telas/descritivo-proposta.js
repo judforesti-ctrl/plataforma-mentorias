@@ -4,85 +4,40 @@
 // (importada ou gerada pela IA em Vendas). Nada é gravado antes de a administração conferir e clicar em "Colocar".
 // O servidor (/api/proposta-modulos) devolve o resultado pela tabela importacoes_proposta, como na importação.
 import { sb, esc, avisar, explicarErro, dataBR } from '../base.js';
-import { normalizarConteudo } from '../proposta-comum.js';
+import { textoDaImportacao, textoDaPropostaIA, mesmaEmpresa, importacaoComModulos, conteudoComModulos, arquivoLegivel, tipoArquivo } from '../descritivo-regras.js';
 
-const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
-// palavras que não ajudam a reconhecer a empresa (nome do sistema, "cooperativa"...)
-const GENERICAS = new Set(['sicoob', 'sicredi', 'unicred', 'cresol', 'ailos', 'cooperativa', 'credito', 'livre', 'admissao', 'associados',
-  'ltda', 'grupo', 'central', 'banco', 'coop', 'dos', 'das', 'e', 'de', 'do', 'da']);
-const palavras = (s) => norm(s).split(' ').filter((p) => p.length >= 3 && !GENERICAS.has(p));
-function mesmaEmpresa(a, b) {
-  const na = norm(a), nb = norm(b);
-  if (!na || !nb) return false;
-  if (na === nb) return true;
-  const pa = new Set(palavras(a));
-  return palavras(b).some((p) => pa.has(p));
-}
-const tituloTexto = (x) => (x && typeof x === 'object' ? `${x.texto || ''}${x.destaque || ''}` : String(x || ''));
-
-// Proposta importada (resultado da IA na importação) → texto para a IA ligar aos módulos.
-function textoDaImportacao(r) {
-  const L = [`Empresa: ${r.empresa || ''}`];
-  for (const t of r.turmas || []) {
-    L.push('', `Turma: ${t.nome || ''}`);
-    if (t.perfil_turma) L.push('O que entendemos da demanda e quem participa:', t.perfil_turma);
-    if (t.metodologia) L.push('Metodologia:', t.metodologia);
-    for (const m of t.modulos || []) {
-      L.push('', `Módulo ${m.numero} · ${m.titulo || ''}`);
-      if (m.tematica) L.push(m.tematica);
-      if (m.recomendacoes) L.push(`Orientações para quem conduz: ${m.recomendacoes}`);
-    }
-  }
-  return L.join('\n');
-}
-
-// Proposta gerada pela IA em Vendas (conteúdo do PowerPoint) → texto.
-function textoDaPropostaIA(conteudo, empresa) {
-  const c = normalizarConteudo(conteudo) || {};
-  const cp = c.capa || {};
-  const rot = c.rotulo_modulo || 'MÓDULO';
-  const L = [`Empresa: ${empresa || ''}`, ...[cp.tipo, cp.nome, cp.subtitulo1, cp.subtitulo2, cp.linha1, cp.linha2].filter(Boolean)];
-  if (c.demanda && (c.demanda.itens || []).length) L.push('', 'O que entendemos da sua demanda:', ...c.demanda.itens.map((i) => `• ${i.titulo}: ${i.texto}`), c.demanda.frase || '');
-  (c.modulos || []).forEach((m, i) => {
-    L.push('', `${rot} ${i + 1} · ${m.titulo || ''}`);
-    if (m.subtitulo) L.push(m.subtitulo);
-    if (m.objetivo) L.push(`Objetivo: ${m.objetivo}`);
-    if (m.entrega) L.push(`Entrega prática: ${m.entrega}`);
-    if ((m.topicos || []).length) L.push('Tópicos abordados:', ...m.topicos.map((tp) => `• ${[tp.destaque, tp.texto].filter(Boolean).join(' ')}`));
-    for (const d of (c.destaques || []).filter((x) => Number(x.apos_modulo) === i + 1)) {
-      L.push(`Aprofundamento de ${rot} ${i + 1}: ${tituloTexto(d.titulo)}${d.subtitulo ? ` · ${d.subtitulo}` : ''}`,
-        ...(d.itens || []).map((it) => `• ${[it.destaque, it.texto_destaque, it.texto].filter(Boolean).join(' ')}`));
-    }
-  });
-  if (c.metodologia && (c.metodologia.itens || []).length) L.push('', 'Uma experiência dinâmica e aplicada:', ...c.metodologia.itens.map((i) => `• ${i.titulo}: ${i.texto}`));
-  if (c.personalizacao && (c.personalizacao.itens || []).length) L.push('', 'Personalização que faz diferença:', ...c.personalizacao.itens.map((i) => `• ${i.titulo}: ${i.texto}`), c.personalizacao.frase || '');
-  return L.join('\n');
-}
-
-// As propostas que já estão na plataforma (importadas e geradas pela IA), com as desta empresa primeiro.
+// As propostas que já estão na plataforma (importadas, geradas pela IA e as enviadas como arquivo PDF ou PowerPoint),
+// com as desta empresa primeiro. "texto" lê a proposta na hora (o arquivo é baixado da pasta privada e lido no navegador).
 async function propostasGuardadas(turma) {
   const empresa = turma.empresa ? turma.empresa.nome : '';
   const lista = [];
   const { data: imps } = await sb.from('importacoes_proposta').select('id, arquivo, criado_em, resultado').eq('status', 'pronto').order('criado_em', { ascending: false }).limit(300);
   for (const i of imps || []) {
     const r = i.resultado || {};
-    if (r.tipo === 'modulos' || !(r.turmas || []).some((t) => (t.modulos || []).length)) continue;
+    if (!importacaoComModulos(r)) continue;
     const nMod = (r.turmas || []).reduce((s, t) => s + (t.modulos || []).length, 0);
     lista.push({ chave: `i${i.id}`, nome: i.arquivo || 'Proposta importada', empresa: r.empresa || '', quando: i.criado_em, nMod,
-      daEmpresa: mesmaEmpresa(r.empresa, empresa), origem: 'Importada', texto: () => textoDaImportacao(r) });
+      daEmpresa: mesmaEmpresa(r.empresa, empresa), origem: 'Importada', texto: async () => textoDaImportacao(r) });
   }
-  // propostas geradas pela IA (sem o script 20 a coluna "conteudo" não existe: a lista só fica sem elas)
-  const { data: props, error } = await sb.from('propostas').select('id, versao, criado_em, conteudo, oportunidade:oportunidades(titulo, empresa_id, empresa:empresas(nome))')
-    .not('conteudo', 'is', null).order('criado_em', { ascending: false }).limit(200);
-  if (!error) {
-    for (const p of props || []) {
-      const c = p.conteudo || {};
-      if (!(c.modulos || []).length) continue;
-      const op = p.oportunidade || {};
-      const emp = op.empresa ? op.empresa.nome : '';
+  // propostas de Vendas: geradas pela IA (conteúdo) e enviadas como arquivo (as importadas já estão acima)
+  let { data: props, error } = await sb.from('propostas').select('id, versao, status, enviada_em, criado_em, conteudo, importacao_id, arquivo, arquivo_storage, oportunidade:oportunidades(titulo, empresa_id, empresa:empresas(nome))')
+    .order('criado_em', { ascending: false }).limit(300);
+  if (error) props = [];   // sem o script 20 (sem conteudo/arquivo_storage): a lista fica só com as importadas
+  for (const p of props || []) {
+    const op = p.oportunidade || {};
+    const emp = op.empresa ? op.empresa.nome : '';
+    const daEmpresa = Boolean(turma.empresa_id && op.empresa_id === turma.empresa_id) || mesmaEmpresa(emp, empresa);
+    if (conteudoComModulos(p.conteudo)) {
+      const c = p.conteudo;
       const nome = (c.capa && c.capa.nome) || op.titulo || 'Proposta';
       lista.push({ chave: `p${p.id}`, nome: `${nome} · versão ${p.versao || 1}`, empresa: emp, quando: p.criado_em, nMod: c.modulos.length,
-        daEmpresa: Boolean(turma.empresa_id && op.empresa_id === turma.empresa_id) || mesmaEmpresa(emp, empresa), origem: 'Gerada pela IA', texto: () => textoDaPropostaIA(c, emp) });
+        daEmpresa, origem: 'Gerada pela IA', texto: async () => textoDaPropostaIA(c, emp) });
+    } else if (!p.importacao_id && arquivoLegivel(p.arquivo_storage)) {
+      const { textoDoArquivoGuardado } = await import('./importar-proposta.js');
+      lista.push({ chave: `a${p.id}`, nome: `${p.arquivo || op.titulo || 'Proposta'} · versão ${p.versao || 1}`, empresa: emp, quando: p.enviada_em || p.criado_em,
+        formato: tipoArquivo(p.arquivo_storage) === 'pptx' ? 'PowerPoint' : 'PDF', daEmpresa,
+        origem: p.status === 'enviada' || p.enviada_em ? 'Enviada ao cliente' : 'Arquivo guardado',
+        texto: (aoAvancar) => textoDoArquivoGuardado(p.arquivo_storage, aoAvancar) });
     }
   }
   return lista.sort((a, b) => (b.daEmpresa - a.daEmpresa) || String(b.quando).localeCompare(String(a.quando)));
@@ -111,7 +66,7 @@ export async function abrirDescritivo(ctx, turmaId, { aoTerminar } = {}) {
     const outras = guardadas.filter((p) => !p.daEmpresa);
     const linha = (p) => `<div class="item" style="grid-template-columns:1fr auto">
       <div style="min-width:0"><div class="nome" style="word-break:break-word">${esc(p.nome)}</div>
-        <div class="info">${esc(p.empresa || 'Empresa não informada')} · ${p.origem} em ${dataBR(p.quando)} · ${p.nMod} módulo(s)</div></div>
+        <div class="info">${esc(p.empresa || 'Empresa não informada')} · ${p.origem} em ${dataBR(p.quando)} · ${p.nMod ? `${p.nMod} módulo(s)` : p.formato || ''}</div></div>
       <button class="btn peq pri" type="button" data-usar="${esc(p.chave)}">Usar esta</button></div>`;
     j.corpo.innerHTML = `
       <p>A plataforma lê a proposta e escreve em cada módulo de <b>${esc(nomeTurma)}</b> o que deve ser abordado: objetivo, entrega prática e tópicos.
@@ -124,9 +79,19 @@ export async function abrirDescritivo(ctx, turmaId, { aoTerminar } = {}) {
       <p class="mt" id="d-estado" role="status"></p>`;
     const estado = j.corpo.querySelector('#d-estado');
     const travar = (sim) => j.corpo.querySelectorAll('button[data-usar], #d-arq').forEach((b) => { b.disabled = sim; });
-    j.corpo.querySelectorAll('[data-usar]').forEach((b) => b.addEventListener('click', () => {
+    j.corpo.querySelectorAll('[data-usar]').forEach((b) => b.addEventListener('click', async () => {
       const p = guardadas.find((x) => x.chave === b.dataset.usar);
-      if (p) processar(p.texto(), p.nome, estado, travar);
+      if (!p) return;
+      travar(true);
+      try {
+        const texto = await p.texto((t) => { estado.textContent = t; });
+        if (String(texto || '').replace(/--- (página|slide) \d+ ---/g, '').trim().length < 200) {
+          estado.innerHTML = '<span class="selo erro">Não consegui ler o texto desta proposta</span> Se o arquivo for uma imagem escaneada, exporte de novo como PDF a partir do Canva ou do PowerPoint e envie aqui.';
+          travar(false);
+          return;
+        }
+        await processar(texto, p.nome, estado, travar);
+      } catch (e) { estado.textContent = ''; avisar(explicarErro(e), true); travar(false); }
     }));
     j.corpo.querySelector('#d-arq').addEventListener('change', async (ev) => {
       const arq = ev.target.files[0]; if (!arq) return;
@@ -225,4 +190,61 @@ export async function abrirDescritivo(ctx, turmaId, { aoTerminar } = {}) {
   };
 
   escolher();
+}
+
+// ---------- descritivo automático (2026-11-09, pedido da Juliana) ----------
+// Toda vez que a turma ganha módulos (+ Novo módulo, pré-bloqueio que vira turma), o servidor procura sozinho a proposta
+// enviada a esta empresa e escreve a temática dos módulos que estão VAZIOS (e o perfil e a metodologia da turma, se vazios).
+// Nada que alguém escreveu é trocado. A linha em importacoes_proposta (resultado.automatico) é o que as telas acompanham.
+export async function descritivoAutomatico(turmaId) {
+  try {
+    const { data: imp, error } = await sb.from('importacoes_proposta')
+      .insert({ arquivo: 'Descritivo automático dos módulos', resultado: { tipo: 'modulos', automatico: true, turma_id: turmaId } }).select('id').single();
+    if (error || !imp) return null;
+    const { api } = await import('./agenda-dados.js');
+    const r = await api('/api/proposta-modulos', { importacao_id: imp.id, turma_id: turmaId, automatico: true });
+    if (!r.ok) {
+      await sb.from('importacoes_proposta').update({ status: 'erro', erro: r.mensagem || 'Não foi possível começar a leitura da proposta.' }).eq('id', imp.id);
+      return null;
+    }
+    return imp.id;
+  } catch (_) { return null; }
+}
+
+// Acompanha o descritivo automático mais recente desta turma (dos últimos 10 minutos): aoProcessar(linha) enquanto a IA lê,
+// aoTerminar(linha, jaEstavaPronto) quando acaba (pronto ou erro). Devolve a função que para de acompanhar.
+export function acompanharAutomatico(turmaId, { aoProcessar, aoTerminar } = {}) {
+  let parar = false, timer = null;
+  const olhar = async (primeira) => {
+    if (parar) return;
+    const desde = new Date(Date.now() - 10 * 60000).toISOString();
+    const { data, error } = await sb.from('importacoes_proposta').select('id, status, resultado, erro, criado_em')
+      .eq('resultado->>turma_id', turmaId).eq('resultado->>automatico', 'true').gte('criado_em', desde)
+      .order('criado_em', { ascending: false }).limit(1);
+    if (parar || error) return;
+    const x = (data || [])[0];
+    if (!x) return;
+    if (x.status === 'processando') {
+      if (Date.now() - new Date(x.criado_em).getTime() > 8 * 60000) return;   // parou no meio: a tela fica como está
+      if (aoProcessar) aoProcessar(x);
+      timer = setTimeout(() => olhar(false), 4000);
+      return;
+    }
+    if (aoTerminar) aoTerminar(x, primeira);
+  };
+  olhar(true);
+  return () => { parar = true; clearTimeout(timer); };
+}
+
+// Frase para a tela do módulo quando o automático acabou e o módulo continua sem descritivo.
+export function motivoSemDescritivo(x, moduloId) {
+  if (!x) return '';
+  const r = x.resultado || {};
+  const nome = r.proposta && r.proposta.nome ? `"${r.proposta.nome}"` : 'da empresa';
+  if (x.status === 'erro') return `Tentei trazer da proposta sozinha, mas não deu certo: ${x.erro || 'erro desconhecido'}.`;
+  if (r.nada) return r.nada;
+  if (r.proposta_da_turma === false) return `A proposta ${nome} parece ser de outro programa, então não coloquei nada.${r.aviso ? ` ${r.aviso}` : ''}`;
+  const item = (r.modulos || []).find((m) => m.modulo_id === moduloId);
+  if (item && !item.achado) return `Procurei na proposta ${nome} e não achei o tema deste módulo.`;
+  return '';
 }

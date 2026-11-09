@@ -252,6 +252,39 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (`resultado.tipo = 'modulos'`, fora da lista de propostas) → a administração confere e marca (módulo que já tem texto vem desmarcado)
   → grava `tematica`, e se marcado `perfil_turma` e `observacoes` da turma. O mentor vê temática e recomendações como texto (não caixa
   desabilitada) e a metodologia da turma no alto do módulo. Sem script novo.
+  Desde 09/11 a lista de "Trazer da proposta" também traz as propostas ENVIADAS COMO ARQUIVO (PDF/.pptx em `propostas.arquivo_storage`,
+  "Enviada ao cliente"): o navegador baixa da pasta privada e lê (`textoDoArquivoGuardado` em importar-proposta.js).
+- DESCRITIVO AUTOMÁTICO (2026-11-09, pedido da Juliana com print do módulo da Unicred "Todos os colaboradores da Sede administrativa"
+  vazio: "toda vez que formos criar uma turma a partir da proposta enviada para o cliente, objetivo, descritivo e temas dos módulos
+  entram nesse campo"). Sem script novo. Regras puras em `public/assets/descritivo-regras.js` (textoDaImportacao, textoDaPropostaIA,
+  mesmaEmpresa, fonteDaProposta, `escolherProposta`), usadas pelas telas e pelo servidor.
+  DISPARO: depois de "+ Novo módulo" (turmas.js) e do pré-bloqueio que vira turma (agenda-reservas.js, inclusive "acrescentar a uma
+  turma que já existe") a tela chama `descritivoAutomatico(turma)` (descritivo-proposta.js): cria a linha em `importacoes_proposta`
+  com `resultado = {tipo:'modulos', automatico:true, turma_id}` e chama `/api/proposta-modulos` com `automatico: true`. A importação
+  da proposta não dispara (já traz a temática).
+  SERVIDOR (proposta-modulos.mjs): espera outro automático da mesma turma que começou antes (módulos criados um atrás do outro);
+  se nenhum módulo está vazio, nem chama a IA; acha a proposta: a da oportunidade com `turma_id` desta turma > mesma empresa
+  (enviada > pronta > rascunho; venda fechada +; já virou outra turma −; perdida −; a mais nova) > empresa de nome parecido (cadastro
+  repetido) > importação antiga sem Vendas pelo nome. Lê: resultado da importação, `conteudo` da proposta da IA, ou o arquivo guardado
+  (PDF vai INTEIRO para o Claude como documento, até 20 MB; .pptx vira texto no servidor por `netlify/lib/texto-pptx.mjs`). A IA
+  devolve também `proposta_da_turma` (false = outro programa: não grava nada). Título genérico ("Módulo 3", do pré-bloqueio) liga pela
+  ordem. GRAVA SÓ O VAZIO: temática dos módulos e perfil/metodologia da turma, cada PATCH com o filtro "o campo continua como foi lido"
+  (`is.null`), então o que alguém escreveu enquanto a IA lia nunca é trocado. Resultado na mesma linha: `gravados` (ids), `proposta`
+  {nome, fonte, proposta_id}, `perfil_gravado`, `metodologia_gravada`, `nada` (o motivo quando não fez nada) ou status erro.
+  TELAS: módulo vazio mostra "⏳ Trazendo da proposta…" enquanto a linha está processando (`acompanharAutomatico`, a cada 4 s, só os
+  últimos 10 min) e põe o texto no campo ao terminar ("✓ Trazido da proposta X. Confira"); sem achar, o aviso diz o porquê
+  (`motivoSemDescritivo`) e o botão "Trazer da proposta" continua. A turma mostra a mesma situação no cartão Módulos e põe o perfil e a
+  metodologia nos campos vazios. SALVAMENTO AUTOMÁTICO: módulo (tematica) e turma (perfil_turma, observacoes) não mandam "apagar"
+  campo vazio que nunca teve texto gravado (senão apagariam o que o servidor acabou de escrever); apagar o que já tinha texto continua
+  valendo.
+  CRIAR TURMA PELA PROPOSTA ENVIADA: Importar proposta (`#/importar-proposta[/<oportunidade>]`) lista as propostas de Vendas enviadas
+  ou prontas que ainda não viraram turma nem programa (última versão de cada oportunidade que dá para ler; venda fechada e enviada
+  primeiro) com "Usar esta": importada abre a revisão na hora (sem IA); gerada pela IA ou arquivo vai para `/api/proposta` com
+  `sem_vendas: true` (NÃO cria oportunidade nem versão nova). Vendas → "Fechou!" → "Criar turma a partir da proposta" e o link da
+  oportunidade fechada abrem `#/importar-proposta/<oportunidade>`, que já começa com a proposta dessa venda. Criar liga a turma à
+  oportunidade (`turma_id`; fecha se ainda não estava fechada).
+  Testes (fora do git): /home/claude/teste-desc (regras.mjs; servidor.mjs com Supabase e Claude de mentira; telas.mjs no Chrome sem
+  janela com `web/supabase-falso.js`, banco em window.__DB).
 
 - Prospecção (2026-10-08, script 23, `telas/prospeccao.js`, aba Vendas → Prospecção, rota `#/vendas/prospeccao[/<sistema>]`):
   listas de cooperativas por sistema (1ª lista: Banco Central set/2026, 457 cooperativas; arquivo único em
