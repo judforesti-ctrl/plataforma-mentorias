@@ -408,7 +408,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   leitura desde 25/07, depois 45 dias para trás); só reunião com MP4; `escolherModulo({ inicio: start_time, nomes: [topic] })`; SEM
   aula de turma no horário (ex.: mentoria individual) NÃO é guardada; ambígua vai para "Gravações sem aula". Guarda `zoom_id` (uuid,
   único), `senha` (password), `link` = share_url + `?pwd=` recording_play_passcode (documentado pelo Zoom). Aluno vê "Assistir" + senha
-  com "Copiar" (`minhas_trilhas` do 46 devolve `senha`). Colar à mão aceita senha. Telas leem `gravacoes` com `select('*')` (funciona
+  com "Copiar" (`minhas_trilhas` do 46 devolve `senha`). Colar à mão aceita senha. O passo a passo do cartão (09/11) já pede os 4 escopos
+  de uma vez (gravações, usuários e os 2 da presença, pelo grupo e pelo código) e o ajuste de autenticação das gravações. Telas leem `gravacoes` com `select('*')` (funciona
   antes e depois do 46). Ajustes no Zoom para o aluno assistir: desligar "exigir autenticação para ver gravações na nuvem"; conferir
   se apaga gravações depois de N dias. Testes com Zoom e banco de mentira: scratchpad 81051e2a testes/zoom.mjs.
   Teste local: launch.json "alunos-teste" (porta 8820) do site do Radar, scratchpad da sessão 81051e2a (teste/, `?quem=u-aluno`, `?sem44`).
@@ -1036,6 +1037,8 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
 - ESCOPO DA CLÁUDIA (2026-10-28): o script 37 NUNCA tinha sido rodado (o 49 deu "relation public.entregas does not exist"): rodar o 37 e
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
+  09/11: 37 + 46 + 49 entregues num bloco só (nessa ordem: o minhas_trilhas do 49 lê gravacoes.senha do 46), com conferência no fim;
+  ela não lembrava a senha do Supabase no navegador do Claude, então roda ela mesma. O 49 liga os lembretes aos mentores (8h).
 - FERRAMENTAS DA TRILHA (2026-10-28): ela rodar o script 48 no Supabase (até lá o cartão da turma avisa e o aluno não vê a seção).
 - CERTIFICADOS: concluído e aprovado por ela em 28/10 (as 5 etapas, certificados.mentorei.com.br com HTTPS e QR lido no celular → "Certificado válido"). Nada pendente.
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das

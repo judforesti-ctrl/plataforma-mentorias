@@ -68,10 +68,19 @@ export async function cartaoGravacoes(velho) {
         <li>Escolha <b>Server-to-Server OAuth App</b> e clique em <b>Create</b>. Nome do app: <b>Plataforma Mentorei</b>.</li>
         <li>Na página <b>App Credentials</b> aparecem <b>Account ID</b>, <b>Client ID</b> e <b>Client Secret</b>: copie cada um para os campos abaixo.</li>
         <li>Em <b>Information</b>, preencha o nome da empresa (Mentorei), o seu nome e o seu e-mail e clique em <b>Continue</b>.</li>
-        <li>Em <b>Scopes</b>, clique em <b>+ Add Scopes</b>, procure <b>recording</b> e marque <b>View all user recordings</b>; procure <b>user</b> e marque
-          <b>View all user information</b>. Clique em <b>Done</b> e em <b>Continue</b>.</li>
+        <li>Em <b>Scopes</b>, clique em <b>+ Add Scopes</b> e marque estas 4 permissões. Embaixo de cada opção o Zoom mostra um código em letra
+          pequena: confira se é igual ao daqui (a parte em negrito serve para a busca).
+          <ul style="margin:4px 0 0 18px">
+            <li>Grupo <b>Recording</b> (as gravações): cloud_recording:read:<b>list_user_recordings</b>:admin</li>
+            <li>Grupo <b>User</b> (as pessoas da conta): user:read:<b>list_users</b>:admin</li>
+            <li>Grupo <b>Meeting</b> (para a presença): meeting:read:<b>list_past_instances</b>:admin</li>
+            <li>Grupo <b>Report</b> (para a presença): report:read:<b>list_meeting_participants</b>:admin</li></ul>
+          Clique em <b>Done</b> e em <b>Continue</b>. Se alguma não aparecer, confira se entrou com o login de dona ou administradora da conta.</li>
         <li>Em <b>Activation</b>, clique em <b>Activate your app</b>.</li>
-        <li>Volte aqui e clique em <b>Ligar a conta</b>.</li></ol>
+        <li>Volte aqui e clique em <b>Ligar a conta</b>.</li>
+        <li>Para os alunos conseguirem assistir: abra as <a href="https://zoom.us/account/setting?tab=recording" target="_blank" rel="noopener">configurações de gravação da conta do Zoom</a>
+          e desligue a opção que exige autenticação para ver as gravações na nuvem (em inglês: <i>Require users to authenticate before viewing cloud recordings</i>).
+          Confira também se o Zoom não apaga as gravações sozinho depois de alguns dias.</li></ol>
       <div class="grade g2 mt" style="gap:10px">
         <div class="campo" style="grid-column:1/-1"><label for="gv-z-nome">Nome para reconhecer esta conta</label><input type="text" id="gv-z-nome" placeholder="Ex.: Zoom das turmas" autocomplete="off"></div>
         <div class="campo"><label for="gv-z-acc">Account ID</label><input type="text" id="gv-z-acc" autocomplete="off" spellcheck="false"></div>
