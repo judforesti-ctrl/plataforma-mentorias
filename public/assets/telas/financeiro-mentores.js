@@ -8,7 +8,7 @@ import { sb, esc, dataBR, hojeISO, avisar, explicarErro } from '../base.js';
 import { janela, faltaScript } from './agenda-dados.js';
 import { dinheiro, linkWhats } from './vendas.js';
 import * as F from '../financeiro-regras.js';
-import { VERSAO as CONTRATO_VERSAO } from '../contrato-mentor.js';
+import { VERSAO as CONTRATO_VERSAO, liberadoSemAssinar } from '../contrato-mentor.js';
 
 const AVISO_54 = '<div class="aviso">Falta rodar o script <b>54-financeiro-recibos-mentores.sql</b> no Supabase (SQL Editor → New query → colar → Run).</div>';
 const v2 = (v) => (v == null || v === '' ? '' : Number(v).toFixed(2));
@@ -31,7 +31,7 @@ async function carregar(d) {
   };
   // quem recebe: mentores da equipe que não são da administração (as sócias são administração e recebem pela distribuição)
   // contrato de prestação de serviço (script 55): quem já assinou a versão atual
-  const ct = await sb.from('contratos_mentor').select('perfil_id, aceito_em').eq('versao', CONTRATO_VERSAO);
+  const ct = await sb.from('contratos_mentor').select('perfil_id, aceito_em, adiado_em').eq('versao', CONTRATO_VERSAO);
   // notas fiscais e dados para pagamento que o próprio mentor envia (script 58)
   const [nf, dp] = await Promise.all([sb.from('fin_notas_mentor').select('*'), sb.from('mentor_pagamento_dados').select('*')]);
   m.notas = nf.error ? [] : nf.data || [];
@@ -108,7 +108,7 @@ function cadastro(d, m, el, recarregar) {
       <td>${c && c.valor != null ? `${esc(F.nomeForma(c.forma))} · ${c.forma === 'percentual' ? `${c.valor}%` : dinheiro(c.valor)}` : '<span class="selo alerta">Completar o cadastro</span>'}</td>
       <td>${c && c.cidade_saida ? esc(c.cidade_saida) : '<span class="apagado">—</span>'}</td>
       <td>${al.length ? `${conferidos} de ${al.length} conferidas` : '<span class="apagado">nenhuma</span>'}</td>
-      <td>${(() => { const ct = m.contrato(p.id); return ct === undefined ? '<span class="apagado">—</span>' : ct && ct.aceito_em ? `<span class="selo ok">assinado ${esc(dataBR(ct.aceito_em))}</span>` : '<a class="selo alerta" href="#/contrato">não assinou</a>'; })()}</td>
+      <td>${(() => { const ct = m.contrato(p.id); return ct === undefined ? '<span class="apagado">—</span>' : ct && ct.aceito_em ? `<span class="selo ok">assinado ${esc(dataBR(ct.aceito_em))}</span>` : liberadoSemAssinar(ct) ? '<a class="selo escuro" href="#/contrato">liberado sem assinar</a>' : '<a class="selo alerta" href="#/contrato">não assinou</a>'; })()}</td>
       <td><button class="btn peq${c ? '' : ' pri'}" type="button" data-editar="${p.id}">${c ? 'Abrir' : 'Completar'}</button></td></tr>`;
   };
   el.innerHTML = `<p class="apagado" style="margin-bottom:10px">Mentores parceiros (as sócias recebem pela distribuição e não entram aqui). O mentor não vê esta tela.</p>

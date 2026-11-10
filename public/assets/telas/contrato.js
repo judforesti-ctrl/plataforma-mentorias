@@ -38,6 +38,14 @@ async function assinar(ctx, el) {
     el.querySelector('#imprimir').addEventListener('click', () => window.print());
     return;
   }
+  // liberado pela administração enquanto o contrato é ajustado: sem formulário (nem "Ler depois", que tiraria a liberação)
+  if (C.liberadoSemAssinar(reg)) {
+    el.innerHTML = `<div style="max-width:860px;margin:0 auto">
+      <div class="cab"><div><h1>Meu contrato</h1><p class="sub">${esc(C.TITULO)}</p></div></div>
+      <div class="aviso">A Mentorei está ajustando o seu contrato. Enquanto isso, você usa a plataforma normalmente.
+        Quando a versão final estiver pronta, ela aparece aqui para você ler e assinar.</div></div>`;
+    return;
+  }
   const dias = diasDesde(reg.visto_em);
   const podeDepois = dias < C.PRAZO_LER_DEPOIS;
   el.innerHTML = `
@@ -103,6 +111,7 @@ async function painel(ctx, el) {
   const situacao = (m) => {
     const r = reg(m.id);
     if (r && r.aceito_em) return `<span class="selo ok">Assinado em ${esc(dataBR(r.aceito_em))}</span>`;
+    if (C.liberadoSemAssinar(r)) return '<span class="selo escuro">Liberado sem assinar</span>';
     if (r && r.visto_em) return `<span class="selo alerta">Viu em ${esc(dataBR(r.visto_em))}, ainda não assinou</span>`;
     return m.termo_aceito_em ? '<span class="selo neutro">Ainda não abriu</span>' : '<span class="selo neutro">Ainda não entrou na plataforma</span>';
   };
@@ -113,14 +122,47 @@ async function painel(ctx, el) {
     <div class="grade g2 mt">
       <div class="cartao"><h3>Situação de cada mentor</h3>
         ${lista.length ? `<div class="tabela mt"><table><tbody>${lista.map((m) => `<tr><td><b>${esc(m.nome)}</b></td><td>${situacao(m)}</td>
-          <td>${reg(m.id) && reg(m.id).aceito_em ? `<button class="btn peq" type="button" data-ver="${m.id}">Ver o assinado</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="apagado">Nenhum mentor parceiro.</p>'}
-        <p class="peq apagado mt">O mentor pode deixar para depois por ${C.PRAZO_LER_DEPOIS} dias; depois disso, o contrato aparece a cada entrada até ele assinar.</p></div>
+          <td>${reg(m.id) && reg(m.id).aceito_em ? `<button class="btn peq" type="button" data-ver="${m.id}">Ver o assinado</button>`
+            : falta ? '' : C.liberadoSemAssinar(reg(m.id)) ? `<button class="btn peq" type="button" data-tirar="${m.id}">Tirar a liberação</button>`
+            : `<button class="btn peq" type="button" data-liberar="${m.id}">Liberar sem assinar</button>`}</td></tr>`).join('')}</tbody></table></div>` : '<p class="apagado">Nenhum mentor parceiro.</p>'}
+        <p class="peq apagado mt">O mentor pode deixar para depois por ${C.PRAZO_LER_DEPOIS} dias; depois disso, o contrato aparece a cada entrada até ele assinar.
+          <b>Liberar sem assinar</b> serve para quem está com o contrato em ajuste: o contrato para de aparecer e ele usa a plataforma normalmente até a liberação ser tirada (ou até uma versão nova do contrato).</p></div>
       <div class="cartao"><h3>O modelo</h3><div class="texto-termo mt" style="max-height:520px;overflow:auto">${C.preencher()}</div></div>
     </div>`;
   el.addEventListener('click', (ev) => {
+    const lib = ev.target.closest('[data-liberar], [data-tirar]');
+    if (lib) { liberacao(ctx, lista.find((m) => m.id === (lib.dataset.liberar || lib.dataset.tirar)), !!lib.dataset.liberar); return; }
     const b = ev.target.closest('[data-ver]'); if (!b) return;
     const r = reg(b.dataset.ver);
     janela(`Contrato assinado · ${r.nome}`, `<div class="texto-termo">${C.preencher({ nome: r.nome, documento: r.documento, email: r.email, data: dataExtenso(r.aceito_em.slice(0, 10)) })}</div>
       <p class="peq apagado mt">Assinado eletronicamente em ${esc(dataHoraBR(r.aceito_em))} · versão ${esc(r.versao)} · código ${esc(String(r.texto_hash || '').slice(0, 16))}.</p>`, { largura: 820 });
+  });
+}
+
+// Liberar sem assinar / tirar a liberação (administração). Gravado na linha do mentor desta versão (adiado_em = C.LIBERACAO).
+// Tirar a liberação recomeça os 7 dias de "Ler depois" a partir de hoje.
+function liberacao(ctx, m, liberar) {
+  if (!m) return;
+  const nome = esc(m.nome.split(' ')[0]);
+  const j = janela(liberar ? `Liberar ${m.nome} sem assinar` : `Tirar a liberação de ${m.nome}`, `
+    <p>${liberar
+      ? `${nome} passa a usar a plataforma normalmente, sem o contrato aparecer na entrada e sem a faixa "Falta assinar".
+        Em "Meu contrato" ele vê que o contrato está sendo ajustado.`
+      : `O contrato volta a aparecer para ${nome} na próxima entrada, com 7 dias para "Ler depois", contados a partir de hoje.`}</p>
+    ${liberar ? '<p class="peq apagado mt">Quando o contrato ajustado estiver pronto, volte aqui e aperte "Tirar a liberação" para ele assinar.</p>' : ''}
+    <div class="linha mt"><button class="btn pri" type="button" id="lb-ok">${liberar ? 'Liberar' : 'Tirar a liberação'}</button>
+      <button class="btn" type="button" data-fechar>Cancelar</button><span class="peq apagado" id="lb-msg" role="status"></span></div>`);
+  const botao = j.corpo.querySelector('#lb-ok');
+  botao.addEventListener('click', async () => {
+    botao.disabled = true;
+    const msg = j.corpo.querySelector('#lb-msg');
+    msg.textContent = 'Gravando…';
+    const { error } = liberar
+      ? await sb.from('contratos_mentor').upsert({ perfil_id: m.id, versao: C.VERSAO, adiado_em: C.LIBERACAO }, { onConflict: 'perfil_id,versao' })
+      : await sb.from('contratos_mentor').update({ adiado_em: null, visto_em: new Date().toISOString() }).eq('perfil_id', m.id).eq('versao', C.VERSAO);
+    if (error) { msg.textContent = explicarErro(error); botao.disabled = false; return; }
+    j.fechar();
+    avisar(liberar ? `${m.nome.split(' ')[0]} está liberado para usar a plataforma sem assinar.` : 'Liberação tirada. O contrato volta a aparecer na próxima entrada.');
+    ctx.irPara('#/contrato');
   });
 }

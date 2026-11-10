@@ -1154,6 +1154,12 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   por 7 dias (sessionStorage na sessão + faixa no alto de toda tela); depois de 7 dias o contrato volta a cada entrada (não bloqueia).
   "Meu contrato" (mentor) e Gestão → "Contrato dos mentores" (situação de cada um, "Ver o assinado", o modelo). Financeiro →
   Mentores mostra a coluna Contrato.
+  LIBERAR SEM ASSINAR (10/11/2026, pedido dela: o Juliano não conseguia usar a plataforma enquanto o contrato dele é ajustado).
+  Gestão → Contrato dos mentores: "Liberar sem assinar" / "Tirar a liberação" em cada mentor. Sem script novo: grava
+  `contratos_mentor.adiado_em = LIBERACAO` (2099-12-31; `liberadoSemAssinar()` em contrato-mentor.js), que o "Ler depois" do mentor
+  nunca alcança. Liberado: app.js não abre o contrato nem mostra a faixa; "Meu contrato" diz que está sendo ajustado (sem formulário);
+  selo "Liberado sem assinar" na Gestão e no Financeiro → Mentores. Tirar = adiado_em null + visto_em hoje (7 dias novos). Vale só
+  para a VERSAO atual. Contrato ajustado só para um mentor ainda não existe (o texto é um só para todos).
 - Cadastro simples (convidados das trilhas): mentor com e-mail provisório `…@pendente.mentorei.com.br`, que nunca recebe nada
   (`emailReal()` no servidor, `emailPendente()` nas telas). A administração coloca o e-mail real em Mentores → Editar dados
   (`/api/convidar` acao trocar_email) e só então manda o convite.

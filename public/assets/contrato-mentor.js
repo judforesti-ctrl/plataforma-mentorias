@@ -8,6 +8,13 @@ export const VERSAO = '2026-10-30';
 export const LIBERADO = true;
 export const PRAZO_LER_DEPOIS = 7;   // dias em que o mentor pode deixar para depois sem o lembrete a cada entrada
 
+// LIBERADO SEM ASSINAR (pedido da Juliana, 10/11/2026: o Juliano precisava usar a plataforma enquanto o contrato dele é ajustado).
+// A administração marca em Gestão → Contrato dos mentores. Fica na linha do mentor em contratos_mentor (sem script novo):
+// adiado_em = LIBERACAO (data lá na frente). O "Ler depois" do próprio mentor grava a hora de agora, então nunca chega lá.
+// Liberado = o contrato não abre sozinho e a faixa "Falta assinar" some; vale para esta VERSAO (versão nova pede a assinatura de novo).
+export const LIBERACAO = '2099-12-31T00:00:00.000Z';
+export const liberadoSemAssinar = (reg) => !!(reg && !reg.aceito_em && reg.adiado_em && new Date(reg.adiado_em).getTime() >= Date.UTC(2099, 0, 1));
+
 export const CONTRATANTE = {
   razao: 'FSK Capital Intelectual Ltda.',
   marca: 'Mentorei',

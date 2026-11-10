@@ -3,7 +3,7 @@ import { sb, sessaoAtual, meuPerfil, registrarAcesso, sair, esc, explicarErro, v
 import { montarMenu } from './menu.js';
 import { temMarca } from './marca.js';
 import { aplicarMarca } from './telas/area-aluno.js';
-import { VERSAO as CONTRATO_VERSAO, LIBERADO as CONTRATO_LIBERADO } from './contrato-mentor.js';
+import { VERSAO as CONTRATO_VERSAO, LIBERADO as CONTRATO_LIBERADO, liberadoSemAssinar } from './contrato-mentor.js';
 
 const tela = document.getElementById('tela');
 
@@ -37,12 +37,12 @@ if (!perfil.ativo) {
 if (!verComo) registrarAcesso(perfil.id);
 
 // Contrato de prestação de serviço (script 55): só o mentor parceiro (papel 'mentor') assina. Pendente = ainda não assinou a versão
-// atual. Sem o script 55, nada muda.
+// atual. Sem o script 55, nada muda. Liberado pela administração sem assinar (contrato-mentor.js) = não está pendente.
 let contratoPendente = null;
 if (perfil.papel === 'mentor' && CONTRATO_LIBERADO) {
   try {
-    const { data, error } = await sb.from('contratos_mentor').select('aceito_em, visto_em').eq('perfil_id', perfil.id).eq('versao', CONTRATO_VERSAO).maybeSingle();
-    if (!error && !(data && data.aceito_em)) contratoPendente = { visto_em: data ? data.visto_em : null };
+    const { data, error } = await sb.from('contratos_mentor').select('aceito_em, visto_em, adiado_em').eq('perfil_id', perfil.id).eq('versao', CONTRATO_VERSAO).maybeSingle();
+    if (!error && !(data && data.aceito_em) && !liberadoSemAssinar(data)) contratoPendente = { visto_em: data ? data.visto_em : null };
   } catch (_) { /* sem o script 55 */ }
 }
 const contratoAdiado = () => { try { return sessionStorage.getItem('mentorei.contratoDepois') === CONTRATO_VERSAO; } catch (_) { return false; } };
