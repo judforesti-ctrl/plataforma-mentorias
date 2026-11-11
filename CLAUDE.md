@@ -3,7 +3,25 @@
 Site no ar: https://plataforma.mentorei.com.br (Netlify, projeto "mentormentorei"; publica sozinho a cada push no `main`
 de github.com/judforesti-ctrl/plataforma-mentorias). Os endereços antigos (mentorias.mentorei.com.br e
 mentormentorei.netlify.app) redirecionam pelo `netlify.toml`. O DNS do mentorei.com.br fica na Hostinger.
-Banco: Supabase próprio (projeto `mixnubenhaleohkcanma`, São Paulo), separado do Radar e do Calendário.
+Banco: Supabase próprio (projeto `mixnubenhaleohkcanma`, nome "mentorei-mentorias", org "Mentorei", servidor us-east-1),
+separado do Radar e do Calendário.
+
+## ACESSO DIRETO: o Claude faz, ela não copia e cola (decisão dela, 2026-11-11)
+Pedido dela: "toda conversa daqui pra frente, você tem acesso direto e faz mais coisas automáticas, sem eu ficar copiando e colando".
+- Código: no começo de qualquer conversa que mexa na plataforma, anexar e clonar `judforesti-ctrl/plataforma-mentorias` (add_repo,
+  acesso push) sem perguntar. O GitHub da conta já está autorizado.
+- Navegador do Claude (built-in browser, `mcp__remote-devices__Claude_Browser__*`; funciona com o app do Claude aberto no PC dela):
+  plataforma.mentorei.com.br, supabase.com e app.netlify.com estão em "permitir sempre" (11/11) e ela está LOGADA nos três
+  (plataforma como administração; Supabase na org "Mentorei"; Netlify no time "judforesti"). Login que cair: pedir só que ela entre de novo.
+- SCRIPTS SQL: o Claude roda, não entrega para ela colar. Caminho: conector Supabase, se estiver ligado na conversa; senão o SQL Editor
+  no navegador do Claude: abrir https://supabase.com/dashboard/project/mixnubenhaleohkcanma/sql/new, pôr o texto com
+  `javascript_tool`: `window.monaco.editor.getModels()[0].setValue(<sql>)`, clicar no botão verde "Run" (alto, à direita; na 1ª vez
+  pode aparecer o aviso "Snippets no longer save automatically" → "Understood") e ler o resultado com `get_page_text`. Testado em
+  11/11 com um select. Depois de rodar, conferir com select de verdade e contar a ela o resultado em uma frase. Rodar sem perguntar o
+  script que faz parte do que ela pediu; PERGUNTAR ANTES de qualquer comando que apague ou sobrescreva dados reais (delete, truncate,
+  drop de tabela com dados, update em massa). Só se nada disso funcionar (app fechado, sem conector) entregar o bloco para ela.
+- Publicação: conferir na Netlify (navegador ou conector) se o push entrou no ar, em vez de pedir print.
+- Continua precisando da confirmação dela: mandar e-mail, convite ou WhatsApp a alguém, apagar dados, pagamentos e digitar senhas.
 
 ## Quem pede
 A Juliana (sócia da Mentorei, também é mentora) é leiga em tecnologia: responda em português, passo a passo, sem jargão,
@@ -27,8 +45,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
 - Variáveis na Netlify: `SUPABASE_SECRET_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BREVO_API_KEY`
   (e-mails da agenda; sem ela os avisos ficam só na plataforma), `BREVO_API_KEY_MARKETING` (opcional: conta do Brevo dos funis de
   listas frias) e `BREVO_REMETENTE_MARKETING` (opcional). Nunca mostrar chaves.
-- Banco: scripts numerados em `supabase/` (01, 02...). A Juliana roda cada script novo no Supabase (SQL Editor → New query → colar → Run):
-  entregue o bloco SQL completo na conversa, pronto para copiar. Segurança por Row Level Security (admin vê tudo; mentor só os seus
+- Banco: scripts numerados em `supabase/` (01, 02...). Desde 11/11/2026 o CLAUDE roda cada script novo (ver "ACESSO DIRETO" no alto);
+  só sem acesso entregue o bloco SQL completo para ela colar (SQL Editor → New query → colar → Run). Segurança por Row Level Security (admin vê tudo; mentor só os seus
   mentorados; mentorado só o que é dele). Código novo deve funcionar mesmo antes de ela rodar o script (ou avisar claramente).
 - IA: modelo `claude-opus-5-5` pelo SDK oficial `@anthropic-ai/sdk`. Informações delicadas da sessão NUNCA vão para a IA.
 - E-mail: Supabase Auth com SMTP do Brevo, remetente contato@mentorei.com.br (domínio autenticado). Modelos em `supabase/emails/`
@@ -1114,7 +1132,7 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
 - RELATÓRIO PARA A EMPRESA (2026-11-06): script 68 rodado (tabela conferida em 09/11).
 - RELATÓRIO DA JORNADA (2026-11-06): script 67 rodado (tabela conferida em 09/11).
 - ARQUIVOS PARA O MENTORADO (2026-11-05): script 66 rodado (tabela conferida em 09/11).
-- MEU PRÓXIMO PASSO (2026-11-03): ela rodar o script 65 (ficha no arsenal; o link público e o QR funcionam sem ele). Não conferido.
+- MEU PRÓXIMO PASSO (2026-11-03): script 65 rodado (ficha MNT-LID-10 conferida no banco em 11/11).
 - AVALIAÇÕES DE 0 A 10 (2026-11-03): script 64 rodado (configuracoes.avaliacoes_escala conferida em 09/11).
 - TUTORIAIS (2026-10-31): script 63 rodado (tabela com os 9 cartões em 09/11), mas NENHUM VÍDEO ENVIADO ainda: falta enviar os 9 vídeos em Tutoriais → "Enviar vários vídeos de uma vez" (arquivos
   na pasta `tutorial-videos/` do worktree mentor-platform-tutorial-46c2fc, fora do git). Até lá a página avisa e a caixinha do convite
@@ -1145,7 +1163,7 @@ Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra)
   DEPOIS o 49 inteiro de novo (o 37 recria protege_entrega e pode_ver_entregas na versão antiga); para "Puxar do Zoom": rodar o 46, ligar as contas e acrescentar os 2 escopos
   de presença em cada app do Zoom; revisão jurídica do TERMO_RH e do novo trecho do TERMO_ALUNO. Nada testado com login real.
   09/11: 37 + 46 + 49 entregues num bloco só (nessa ordem: o minhas_trilhas do 49 lê gravacoes.senha do 46), com conferência no fim;
-  ela não lembrava a senha do Supabase no navegador do Claude, então roda ela mesma. O 49 liga os lembretes aos mentores (8h).
+  naquele dia ela não lembrava a senha do Supabase no navegador do Claude (em 11/11 entrou: agora o Claude roda). O 49 liga os lembretes aos mentores (8h).
 - FERRAMENTAS DA TRILHA (2026-10-28): script 48 rodado (tabela conferida em 09/11).
 - CERTIFICADOS: concluído e aprovado por ela em 28/10 (as 5 etapas, certificados.mentorei.com.br com HTTPS e QR lido no celular → "Certificado válido"). Nada pendente.
 - ALUNOS/GRAVAÇÕES (2026-10-27): script 44 RODADO por ela; falta rodar o 46 e ligar as 2 contas do Zoom; (opcional) reconectar o Google e colar a pasta das
