@@ -13,7 +13,11 @@ Pedido dela: "toda conversa daqui pra frente, você tem acesso direto e faz mais
 - Navegador do Claude (built-in browser, `mcp__remote-devices__Claude_Browser__*`; funciona com o app do Claude aberto no PC dela):
   plataforma.mentorei.com.br, supabase.com e app.netlify.com estão em "permitir sempre" (11/11) e ela está LOGADA nos três
   (plataforma como administração; Supabase na org "Mentorei"; Netlify no time "judforesti"). Login que cair: pedir só que ela entre de novo.
-- SCRIPTS SQL: o Claude roda, não entrega para ela colar. Caminho: conector Supabase, se estiver ligado na conversa; senão o SQL Editor
+- CONECTORES (ligados por ela em 11/11, funcionam mesmo com o computador dela desligado; testados no mesmo dia): Supabase
+  (`mcp__Supabase__execute_sql` / `apply_migration` com project_id `mixnubenhaleohkcanma`) e Netlify (site id
+  `62fa5db8-71e9-4daa-ac8f-343c85cd376a`, nome "mentormentorei", time judforesti; `netlify-open-deployments` para ver se o push
+  entrou no ar). São o PRIMEIRO caminho; o navegador do Claude fica de reserva. Se não aparecerem na conversa, procurar com ToolSearch.
+- SCRIPTS SQL: o Claude roda, não entrega para ela colar. Caminho: conector Supabase (acima); se não estiver ligado, o SQL Editor
   no navegador do Claude: abrir https://supabase.com/dashboard/project/mixnubenhaleohkcanma/sql/new, pôr o texto com
   `javascript_tool`: `window.monaco.editor.getModels()[0].setValue(<sql>)`, clicar no botão verde "Run" (alto, à direita; na 1ª vez
   pode aparecer o aviso "Snippets no longer save automatically" → "Understood") e ler o resultado com `get_page_text`. Testado em
