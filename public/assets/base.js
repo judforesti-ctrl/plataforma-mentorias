@@ -156,7 +156,7 @@ export async function sairDoVerComo() {
 
 export const NADA_GRAVADO = 'Você está vendo como o mentor vê: nada é gravado neste modo.';
 // só leitura: estas funções do banco não mudam nada
-const RPC_LEITURA = new Set(['catalogo_ferramentas', 'contato_coordenacao', 'ferramentas_da_trilha', 'meu_extrato_mentor', 'minha_jornada', 'minhas_trilhas', 'numeros_trilhas', 'painel_rh', 'avaliacao_contador']);
+const RPC_LEITURA = new Set(['catalogo_ferramentas', 'contato_coordenacao', 'ferramentas_da_trilha', 'meu_extrato_mentor', 'minha_jornada', 'minhas_trilhas', 'numeros_trilhas', 'painel_rh', 'avaliacao_contador', 'planejamento_nivel', 'planejamento_pessoas']);
 // resposta de "barrado": serve para qualquer encadeamento (.select().single(), .eq()...) e, aguardada, devolve o erro
 function barrado() {
   avisar(NADA_GRAVADO, true);

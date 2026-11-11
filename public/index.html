@@ -41,7 +41,9 @@
 import { sb, sessaoAtual, explicarErro } from '/assets/base.js';
 
 const msg = document.getElementById('msg');
-if (await sessaoAtual()) location.replace('/app.html');
+// ?volta=/planejamento.html (página que mandou para o login): só caminho do próprio site
+const volta = (() => { const v = new URLSearchParams(location.search).get('volta') || ''; return /^\/(?!\/)[\w./#-]*$/.test(v) ? v : '/app.html'; })();
+if (await sessaoAtual()) location.replace(volta);
 
 document.getElementById('f-entrar').addEventListener('submit', async (ev) => {
   ev.preventDefault();
@@ -51,7 +53,7 @@ document.getElementById('f-entrar').addEventListener('submit', async (ev) => {
   msg.textContent = 'Entrando…';
   const { error } = await sb.auth.signInWithPassword({ email, password: senha });
   if (error) { msg.textContent = explicarErro(error); return; }
-  location.replace('/app.html');
+  location.replace(volta);
 });
 
 document.getElementById('esqueci').addEventListener('click', async () => {

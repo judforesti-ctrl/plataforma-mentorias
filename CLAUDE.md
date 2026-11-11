@@ -1048,6 +1048,23 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   paguei") e CNPJ sem "onde a nota é emitida". Cada cartão tem a NOTA FELIZ (`.fn-feliz`) em primeira pessoa: o que a plataforma faz
   sozinha depois que ela resolve. As perguntas dos planos e as despesas sem dono continuam embaixo, também com nota feliz. O número na
   aba conta os cartões; a Visão geral → Para fazer leva para lá. Pendência nova no Financeiro = cartão novo ali, com nota feliz.
+- PLANEJAMENTO ESTRATÉGICO 2027 (2026-11-11, script 72, pedido da Juliana: "algumas pessoas não têm conta no Claude; quero que cada
+  um tenha o seu login e que cada comentário fique guardado no nome da pessoa"). O site do planejamento nasceu como artifact do Claude
+  (https://claude.ai/artifact/FBD8j4batE4wM3Nkuthy8q, que fica parado) e agora é `public/planejamento.html` (página própria, com o
+  menu dela; item "Planejamento 2027" em Gestão para a administração e para quem foi incluído). `assets/planejamento/conexao.js`
+  confere login (sem login → `/?volta=/planejamento.html`; index.html volta para o caminho de `volta`, só do próprio site) e acesso
+  (rpc `planejamento_nivel()`: administração ativa = 'editora'; `planejamento_membros` = 'colaboradora' (lê e comenta) ou 'leitora';
+  null = "Você ainda não participa"), lê o CONTEÚDO DO PLANO do banco (`planejamento_docs` colecao 'conteudo' id 'base': VERT, ETAPAS,
+  CONT, CONC, DEC, PRIORIDADE, FONTES, AREAS, VENDAS, MKT, OPER, PESSOAS, OUTROS...; NÃO fica em arquivo público do site) e põe no escopo
+  global, e liga a lógica do artifact (`assets/planejamento/app.js`, que usa claude.use('db'|'user')) ao Supabase: coleção/documento =
+  linha (colecao, id, dados jsonb, por, em) de `planejamento_docs`, leitura de novo a cada 30 s e ao voltar para a aba, comentário
+  sempre insert (autor = login, `autorNome` guardado junto). Coleções: decisoes, comentarios, acoes, metas, casas, premissas,
+  fin e finpremissas (valores em reais: RLS só deixa a administração ler), conteudo. RLS: editora tudo; colaboradora só cria e apaga
+  os próprios comentários (`por` e `dados.autor` = auth.uid()). Nomes pela rpc `planejamento_pessoas()` (mentor não lê perfis).
+  "Quem participa" (`#participantes`, só administração): mentores ativos com "Sem acesso / Lê e comenta / Só lê"; quem não está na
+  plataforma é cadastrado e convidado pelo caminho de sempre (Equipe/Convites), nunca por aqui. MUDAR O CONTEÚDO DO PLANO = update
+  em `planejamento_docs` (colecao 'conteudo', id 'base', jsonb inteiro) pelo conector, sem push. Teste local: /home/claude/teste-plan
+  (cópia de public/ com import map para `teste/base-falso.js`, `?quem=admin|colab|leitora|nada|semlogin`), fora do git.
 
 - CONTATOS DO SITE (2026-11-11, script 70 rodado pelo conector no mesmo dia; pedido da Juliana): o formulário "20 minutos. Seu desafio
   no centro." do site institucional (repo judforesti-ctrl/site-mentorei, hoje em mentoreitreinamentos.netlify.app, depois mentorei.com.br)

@@ -63,6 +63,11 @@ if (aluno || mentorado) {
   try { const { data } = await sb.rpc('minhas_trilhas'); trilhas = Array.isArray(data) ? data : []; } catch (_) { /* sem o script 44 */ }
 }
 const temTrilha = aluno || trilhas.length > 0;
+// Planejamento 2027 (script 72): administração sempre; mentor só se a administração incluiu (planejamento_membros)
+let noPlanejamento = ehAdmin;
+if (!ehAdmin && atende) {
+  try { const { data } = await sb.rpc('planejamento_nivel'); noPlanejamento = !!data; } catch (_) { /* sem o script 72 */ }
+}
 // RH da empresa cliente (script 49): só o painel da empresa (números) e os dados dele; as cores do cliente vêm na própria tela
 const rh = perfil.papel === 'rh';
 if (rh) { document.documentElement.classList.add('area-aluno'); document.documentElement.dataset.menu = 'lateral'; }
@@ -105,6 +110,7 @@ const GRUPOS = [
     { nome: 'Convites', icone: 'mail', rota: '#/convites', pode: ehAdmin },
     { nome: 'Contrato dos mentores', icone: 'file-signature', rota: '#/contrato', pode: ehAdmin },
     { nome: 'Checklist', icone: 'list-checks', rota: '#/checklist', pode: ehAdmin || atende },
+    { nome: 'Planejamento 2027', icone: 'compass', rota: '/planejamento.html', pode: noPlanejamento },
     { nome: 'Avaliações', icone: 'star', rota: '#/avaliacoes', pode: ehAdmin },
     { nome: 'Emitir certificados', icone: 'award', rota: '#/certificados', pode: ehAdmin },
     { nome: 'Importar planilha', icone: 'file-up', rota: '#/importar', pode: ehAdmin },
