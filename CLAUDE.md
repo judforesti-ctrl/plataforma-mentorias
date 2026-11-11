@@ -1038,6 +1038,16 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   a linha parecida" com valor até 25% diferente) e o total dos meses antes do início (quadro "MÊS RECEITA" da aba, senão a soma).
   Grava em `fin_importacoes` com o "antes"; "Desfazer essa importação" volta tudo. Teste das telas: /home/claude/teste-ui (Chrome sem
   janela, Supabase de mentira).
+  PENDÊNCIAS NO CONFERIR (11/11, pedido dela: "toda e qualquer pendência na lista de conferir para a Cintia, com pequenas notas
+  felizes, para incentivar"): a aba Conferir abre com "Oi, <nome>! Tem N coisinhas esperando você" e um cartão por pendência
+  (`telas/financeiro-pendencias.js`: `pendencias(d, ajuda)` calcula, `desenhar` mostra): notas para emitir não pedidas, pedidas sem
+  nota, quem recebe a nota sem CNPJ ("Pôr o CNPJ" = janelaTomador exportada de financeiro-contabilidade.js; o mesmo pagador em várias
+  turmas vira uma linha e o CNPJ vai para todas), tomador incompleto, atrasados, notas sem número desde inicio−3 meses ("Pôr os
+  números", uma janela só), linhas com valor zero, sem plano, módulos novos, reembolsos, movimentos do extrato, conta com extrato de
+  mais de 15 dias, notas e recados de mentores, mentores sem cadastro ou com valor provisório, contas fixas vencidas sem pago_em ("Já
+  paguei") e CNPJ sem "onde a nota é emitida". Cada cartão tem a NOTA FELIZ (`.fn-feliz`) em primeira pessoa: o que a plataforma faz
+  sozinha depois que ela resolve. As perguntas dos planos e as despesas sem dono continuam embaixo, também com nota feliz. O número na
+  aba conta os cartões; a Visão geral → Para fazer leva para lá. Pendência nova no Financeiro = cartão novo ali, com nota feliz.
 
 ## Regras do negócio
 - QUEM VÊ O QUÊ (decisão dela, 31/10/2026): Financeiro, Vendas/comercial, cópias de segurança, Painel, Relatórios e tudo o que é

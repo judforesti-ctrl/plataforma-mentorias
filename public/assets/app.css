@@ -894,3 +894,17 @@ select.bs-escondido { position: absolute !important; opacity: 0 !important; poin
 .bs-item.bs-marcado .bs-nome { font-weight: 600; }
 .bs-nome { min-width: 0; overflow-wrap: anywhere; }
 .bs-nada { padding: 14px 12px; color: var(--apagado); font-size: 13.5px; }
+/* Financeiro → Conferir: lista de pendências com notas felizes (11/11/2026) */
+.fn-pend-topo { margin-bottom: 14px; }
+.fn-pend-topo h2 { margin: 0 0 4px; }
+.fn-pend-topo p { margin: 0; }
+.fn-pend { margin-bottom: 14px; }
+.fn-pend-cab { display: flex; gap: 12px; align-items: flex-start; }
+.fn-pend-cab > div { flex: 1; }
+.fn-pend-cab h3 { margin: 0 0 2px; }
+.fn-pend-cab p { margin: 0; }
+.fn-pend-ic { font-size: 24px; line-height: 1; width: 32px; text-align: center; }
+.fn-pend-linhas { list-style: none; margin: 10px 0 0 44px; padding: 0; display: grid; gap: 6px; }
+.fn-pend-linhas li { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 6px 10px; border-radius: 8px; background: var(--fundo, #f3f5f4); }
+.fn-feliz { margin: 10px 0 0 44px; padding: 8px 12px; border-radius: 10px; background: var(--faixa); border-left: 4px solid var(--bege); color: var(--bege-texto); font-size: 14px; }
+@media (max-width: 640px) { .fn-pend-linhas, .fn-feliz { margin-left: 0; } .fn-pend-cab { flex-wrap: wrap; } }

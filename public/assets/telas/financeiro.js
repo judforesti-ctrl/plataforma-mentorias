@@ -103,15 +103,20 @@ export async function render(ctx, el, params) {
   d.eu = ctx.perfil.id;
   d.perfil = ctx.perfil;
   if (!d.falta) await acertar(d);
+  const recarregar = () => ctx.irPara(location.hash);
+  // todas as pendências do Financeiro (aba Conferir, pedido da Juliana em 11/11/2026)
+  const pend = d.falta ? null : await (await import('./financeiro-pendencias.js')).pendencias(d, { semPlano, modulosSemLinha,
+    editorPlano: (p) => editorPlano(ctx, d, { plano: p }, recarregar), ajustes: () => janelaAjustes(d, recarregar) }).catch((e) => { console.error(e); return null; });
+  d.pendencias = pend || [];
+  const nConferir = d.pendencias.length + (d.aConferir.planos.length ? 1 : 0) + (d.aConferir.despesas.length ? 1 : 0);
   el.innerHTML = `
     <div class="cab"><div><h1>Financeiro</h1><p class="sub">O faturamento nasce das turmas e mentorias: no dia do módulo ou da parcela, a nota aparece para emitir.</p></div>
       ${d.falta ? '' : '<div class="acoes"><button class="btn" type="button" id="planilha" title="Atualiza notas e recebimentos pela planilha de controle">📥 Importar a planilha da Cintia</button><button class="btn" type="button" id="ajustes">Ajustes</button><button class="btn pri" type="button" id="nova-desp">+ Despesa</button></div>'}</div>
     ${d.falta ? AVISO_52 : ''}
-    <nav class="abas" aria-label="Partes do Financeiro">${abas.map(([k, t]) => `<button type="button" data-aba="${k}" class="${k === aba ? 'atual' : ''}">${t}${k === 'emitir' ? contador(d) : k === 'extratos' && d.movimentosAConferir ? ` <span class="selo alerta">${d.movimentosAConferir}</span>` : k === 'pagamentos' && d.notasAConferir + d.recadosNovos ? ` <span class="selo alerta">${d.notasAConferir + d.recadosNovos}</span>` : k === 'conferir' && !d.falta && d.aConferir.planos.length + d.aConferir.despesas.length ? ` <span class="selo alerta">${d.aConferir.planos.length + d.aConferir.despesas.length}</span>` : ''}</button>`).join('')}</nav>
+    <nav class="abas" aria-label="Partes do Financeiro">${abas.map(([k, t]) => `<button type="button" data-aba="${k}" class="${k === aba ? 'atual' : ''}">${t}${k === 'emitir' ? contador(d) : k === 'extratos' && d.movimentosAConferir ? ` <span class="selo alerta">${d.movimentosAConferir}</span>` : k === 'pagamentos' && d.notasAConferir + d.recadosNovos ? ` <span class="selo alerta">${d.notasAConferir + d.recadosNovos}</span>` : k === 'conferir' && nConferir ? ` <span class="selo alerta">${nConferir}</span>` : ''}</button>`).join('')}</nav>
     <div id="conteudo"></div>`;
   el.querySelector('.abas').addEventListener('click', (ev) => { const b = ev.target.closest('[data-aba]'); if (b) location.hash = `#/financeiro/${b.dataset.aba}`; });
   if (d.falta) return;
-  const recarregar = () => ctx.irPara(location.hash);
   el.querySelector('#ajustes').addEventListener('click', () => janelaAjustes(d, recarregar));
   el.querySelector('#planilha').addEventListener('click', async () => (await import('./financeiro-planilha.js')).janelaPlanilha(d, recarregar));
   el.querySelector('#nova-desp').addEventListener('click', () => formDespesa(d, null, recarregar));
@@ -194,6 +199,7 @@ function abaGeral(d, el, recarregar, mesParam) {
     ${blocoPorCnpj(d, mes, { aEmitir, aReceber, atrasado })}
     <div class="grade g2 mt">
       <div class="cartao"><h3>Para fazer</h3><div class="grade" style="gap:8px">
+        ${d.pendencias.length ? `<a class="pend" href="#/financeiro/conferir"><b>${d.pendencias.length}</b><span>pendências na aba Conferir, cada uma com o botão para resolver 💛</span></a>` : ''}
         ${d.aConferir.planos.length + d.aConferir.despesas.length ? `<a class="pend" href="#/financeiro/conferir"><b>${d.aConferir.planos.length + d.aConferir.despesas.length}</b><span>para conferir: ${[d.aConferir.planos.length && `${d.aConferir.planos.length} plano${d.aConferir.planos.length > 1 ? 's' : ''} de faturamento`, d.aConferir.despesas.length && `${d.aConferir.despesas.length} despesa${d.aConferir.despesas.length > 1 ? 's' : ''}`].filter(Boolean).join(' e ')}</span></a>` : ''}
         ${d.reembolsosACobrar.length ? `<a class="pend" href="#/financeiro/emitir"><b>${d.reembolsosACobrar.length}</b><span>${d.reembolsosACobrar.length === 1 ? 'despesa que o cliente reembolsa' : 'despesas que o cliente reembolsa'} ainda sem cobrança · ${dinheiro(F.soma(d.reembolsosACobrar, (x) => x.valor))} + imposto</span></a>` : ''}
         ${d.notasAConferir ? `<a class="pend" href="#/financeiro/pagamentos"><b>${d.notasAConferir}</b><span>${d.notasAConferir === 1 ? 'nota fiscal de mentor para conferir' : 'notas fiscais de mentores para conferir'}</span></a>` : ''}
@@ -296,19 +302,22 @@ function abaConferir(ctx, d, el, recarregar) {
   const { planos, despesas } = d.aConferir;
   const lista = [...despesas].sort((a, b) => a.data.localeCompare(b.data));
   el.innerHTML = `
-    ${!planos.length && !lista.length ? '<div class="vazio">Nada para conferir. 🎉</div>' : ''}
-    ${planos.length ? `<div class="cartao" style="margin-bottom:14px"><h3>Valores de turmas e mentorias (${planos.length})</h3>
-      <p class="apagado">Cada linha tem uma pergunta. Se a resposta é sim, clique em <b>Está certo</b>. Se não, clique em <b>Corrigir</b>, mude o valor ou a data e salve.</p>
+    <div id="fn-pend"></div>
+    ${planos.length ? `<div class="cartao fn-pend" style="margin-bottom:14px"><div class="fn-pend-cab"><span class="fn-pend-ic" aria-hidden="true">❓</span><div><h3>${planos.length === 1 ? '1 pergunta' : `${planos.length} perguntas`} sobre turmas e mentorias</h3>
+      <p class="apagado">Cada linha tem uma pergunta. Se a resposta é sim, clique em <b>Está certo</b>. Se não, clique em <b>Corrigir</b>, mude o valor ou a data e salve.</p></div></div>
       <div class="tabela mt"><table><thead><tr><th>Cliente</th><th>O que precisa ver</th><th></th></tr></thead><tbody>${planos.map((p) => `<tr><td style="min-width:200px"><b>${esc(d.empresa(p.empresa_id).nome)}</b><br><small class="apagado">${esc(p.titulo)} · ${esc(d.cnpjs[p.emissor || 'principal'].apelido)}</small></td><td>${esc(p.conferir)}</td>
-        <td style="white-space:nowrap"><button class="btn peq pri" type="button" data-certo="${p.id}">Está certo</button> <button class="btn peq" type="button" data-plano="${p.id}">Corrigir</button></td></tr>`).join('')}</tbody></table></div></div>` : ''}
-    ${lista.length ? `<div class="cartao"><h3>Despesas sem dono (${lista.length})</h3>
-      <p class="apagado">Para cada despesa, escolha em "É de…" a turma ou mentoria. Se não for de nenhuma, escolha a sócia (despesa pessoal) ou "Mentorei (geral)". Depois clique em <b>Confirmar</b>.</p>
+        <td style="white-space:nowrap"><button class="btn peq pri" type="button" data-certo="${p.id}">Está certo</button> <button class="btn peq" type="button" data-plano="${p.id}">Corrigir</button></td></tr>`).join('')}</tbody></table></div>
+      <p class="fn-feliz">Cada "Está certo" deixa a previsão de caixa mais certinha, e eu paro de perguntar. 📈</p></div>` : ''}
+    ${lista.length ? `<div class="cartao fn-pend"><div class="fn-pend-cab"><span class="fn-pend-ic" aria-hidden="true">🏷️</span><div><h3>${lista.length === 1 ? '1 despesa sem dono' : `${lista.length} despesas sem dono`}</h3>
+      <p class="apagado">Para cada despesa, escolha em "É de…" a turma ou mentoria. Se não for de nenhuma, escolha a sócia (despesa pessoal) ou "Mentorei (geral)". Depois clique em <b>Confirmar</b>.</p></div></div>
+      <p class="fn-feliz">Com o dono de cada despesa, eu calculo sozinha quanto sobra de cada cliente. 💪</p>
       <div class="tabela mt"><table><thead><tr><th>Dia</th><th>O que</th><th style="text-align:right">Valor</th><th>Pista</th><th>É de…</th><th></th></tr></thead><tbody>
       ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}<br><small class="apagado">${esc(F.nomeCategoria(x.categoria))}</small></td>
         <td class="fn-num" style="text-align:right">${dinheiro(x.valor)}</td><td><small>${esc(x.conferir)}</small></td>
         <td><select data-onde="${x.id}" aria-label="De que programa é" style="max-width:260px">${opcoesOnde(d, valorOnde(x))}</select></td>
         <td style="white-space:nowrap"><button class="btn peq pri" type="button" data-ok="${x.id}">Confirmar</button> <button class="btn peq" type="button" data-editar="${x.id}">Editar</button></td></tr>`).join('')}
       </tbody></table></div></div>` : ''}`;
+  import('./financeiro-pendencias.js').then((m) => m.desenhar(el.querySelector('#fn-pend'), d.pendencias, { nome: ctx.perfil && ctx.perfil.nome, extras: (planos.length ? 1 : 0) + (lista.length ? 1 : 0), depois: recarregar }));
   el.addEventListener('click', async (ev) => {
     const pl = ev.target.closest('[data-plano]'), ok = ev.target.closest('[data-ok]'), ed = ev.target.closest('[data-editar]'), certo = ev.target.closest('[data-certo]');
     if (pl) editorPlano(ctx, d, { plano: d.plano(pl.dataset.plano) }, recarregar);

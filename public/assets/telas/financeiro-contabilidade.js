@@ -28,6 +28,16 @@ function acharPeloNome(nome, tomadores) {
   return achados.length === 1 ? achados[0] : null;
 }
 
+// Quem recebe a nota de uma linha: o pagador do plano (Sescoop etc.), senão o cliente; sem CNPJ, tenta achar pelo nome
+export function quemPaga(d, l, tomadores) {
+  const p = d.plano(l.plano_id), e = d.empresa(l.empresa_id);
+  const nome = (p && p.pagador_nome) || e.razao_social || e.nome;
+  const doc = F.soNumeros((p && p.pagador_cnpj) || ((p && p.pagador_nome) ? '' : e.cnpj));
+  if (doc) return { doc, nome };
+  const t = acharPeloNome(nome, tomadores);
+  return t ? { doc: t.documento, nome, peloNome: true } : { doc: '', nome };
+}
+
 export async function janelaContabilidade(d, linhas, recarregar) {
   const r = await sb.from('fin_tomadores').select('*');
   const semScript = r.error && faltaScript(r.error);
@@ -35,14 +45,7 @@ export async function janelaContabilidade(d, linhas, recarregar) {
   const tomadores = new Map((r.data || []).map((t) => [t.documento, t]));
   const hoje = hojeISO();
   const estado = { juntar: true, emissao: hoje };
-  const quem = (l) => {
-    const p = d.plano(l.plano_id), e = d.empresa(l.empresa_id);
-    const nome = (p && p.pagador_nome) || e.razao_social || e.nome;
-    const doc = F.soNumeros((p && p.pagador_cnpj) || ((p && p.pagador_nome) ? '' : e.cnpj));
-    if (doc) return { doc, nome };
-    const t = acharPeloNome(nome, tomadores);
-    return t ? { doc: t.documento, nome, peloNome: true } : { doc: '', nome };
-  };
+  const quem = (l) => quemPaga(d, l, tomadores);
   const montar = () => {
     const grupos = new Map();
     for (const l of linhas) {
@@ -109,7 +112,7 @@ export async function janelaContabilidade(d, linhas, recarregar) {
 }
 
 // Completar ou mudar os dados do tomador (fica guardado para as próximas notas)
-function janelaTomador(d, n, tomadores, depois) {
+export function janelaTomador(d, n, tomadores, depois) {
   const t = n.tomador || { documento: n.documento, razao_social: n.razao, retencoes: {} };
   const campo = (id, rotulo, v, extra = '') => `<div class="campo"><label for="tm-${id}">${rotulo}</label><input type="text" id="tm-${id}" value="${esc(v || '')}" ${extra}></div>`;
   const j = janela(`Dados para a nota · ${n.documento ? F.documentoFormatado(n.documento) : n.razao}`, `<form class="grade" style="gap:10px" novalidate>
@@ -139,10 +142,12 @@ function janelaTomador(d, n, tomadores, depois) {
     if (error) { avisar(explicarErro(error), true); return; }
     tomadores.set(doc, data || reg);
     // sem CNPJ na plataforma: fica no plano (quando quem paga é outro, como o Sescoop) ou no cadastro do cliente
-    if (!n.documento) {
-      const p = d.plano(n.plano_id), e = d.empresa(n.empresa_id);
+    // n.outros: o mesmo pagador em outras turmas (lista de pendências do Conferir)
+    if (!n.documento) for (const alvo of [{ plano_id: n.plano_id, empresa_id: n.empresa_id }, ...(n.outros || [])]) {
+      const p = d.plano(alvo.plano_id), e = d.empresa(alvo.empresa_id);
+      if (p && p.pagador_nome ? p.pagador_cnpj : e.cnpj) continue;
       const u = p && p.pagador_nome ? await sb.from('fin_planos').update({ pagador_cnpj: F.documentoFormatado(doc) }).eq('id', p.id)
-        : await sb.from('empresas').update({ cnpj: F.documentoFormatado(doc) }).eq('id', n.empresa_id);
+        : await sb.from('empresas').update({ cnpj: F.documentoFormatado(doc) }).eq('id', alvo.empresa_id);
       if (u.error) avisar(`Dados guardados, mas o CNPJ não ficou gravado em ${p && p.pagador_nome ? p.titulo : e.nome}: ${explicarErro(u.error)}`, true);
       else if (p && p.pagador_nome) p.pagador_cnpj = F.documentoFormatado(doc);
       else e.cnpj = F.documentoFormatado(doc);
