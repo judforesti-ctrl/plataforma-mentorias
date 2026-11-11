@@ -1049,6 +1049,17 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   sozinha depois que ela resolve. As perguntas dos planos e as despesas sem dono continuam embaixo, também com nota feliz. O número na
   aba conta os cartões; a Visão geral → Para fazer leva para lá. Pendência nova no Financeiro = cartão novo ali, com nota feliz.
 
+- CONTATOS DO SITE (2026-11-11, script 70 rodado pelo conector no mesmo dia; pedido da Juliana): o formulário "20 minutos. Seu desafio
+  no centro." do site institucional (repo judforesti-ctrl/site-mentorei, hoje em mentoreitreinamentos.netlify.app, depois mentorei.com.br)
+  manda para `/api/contato-site` (`netlify/functions/contato-site.mjs`, CORS só para os endereços do site, limite 10/min por IP, campo
+  invisível `bot`). Empresa de nome igual (sem maiúsculas) ou nova com origem Site; contato pelo e-mail; oportunidade aberta da empresa
+  é reaproveitada (a de "A prospectar" passa para a etapa nova) ou nasce uma "Site · <temas>" na ETAPA NOVA `novo` = "Contato novo"
+  (antes de Primeiro contato feito; `ETAPAS`/`ANTES_DA_PROPOSTA` em vendas.js, check, `nome_etapa` e `marcar_interacao` no 70: ligação,
+  e-mail ou WhatsApp registrados passam sozinhos para Primeiro contato), próximo contato = agora, anotação com temas e desafio (mesmo
+  e-mail em 15 min não repete). Aviso por E-MAIL (Brevo) para `configuracoes.contatos_site.avisar` (ids: Cintia e Viviane; sem lista =
+  contato@). WhatsApp automático: decisão dela, só quando contratarem um serviço de API (ex.: Z-API); até lá, nada de WhatsApp sozinho.
+  O site também grava o envio no Netlify Forms (formulário "conversa" do projeto mentoreitreinamentos) como reserva.
+
 ## Regras do negócio
 - QUEM VÊ O QUÊ (decisão dela, 31/10/2026): Financeiro, Vendas/comercial, cópias de segurança, Painel, Relatórios e tudo o que é
   da Mentorei só a administração (sócias + Cintia; a distribuição só as sócias). O mentor vê só o que é dele: os mentorados, as

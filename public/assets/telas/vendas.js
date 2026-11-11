@@ -5,13 +5,14 @@ import { sb, esc, avatar, dataBR, dataHoraBR, hojeISO, avisar, explicarErro, loc
 import { janela, api, primeiroNome, faltaScript } from './agenda-dados.js';
 
 // "A prospectar" = lista de prospecção, ainda sem conversa (fica na aba Prospecção, fora das colunas e das contas do pipeline).
+// "Contato novo" (script 70): quem pediu os 20 minutos pelo formulário do site (/api/contato-site) cai aqui.
 // O funil anda sozinho pelo histórico (script 23): ligação, e-mail ou WhatsApp → Primeiro contato; reunião → Reunião marcada;
 // apresentação → Apresentação feita; proposta → Proposta enviada. Nunca volta sozinho.
-export const ETAPAS = [['prospectar', 'A prospectar', 0], ['contato', 'Primeiro contato feito', 10], ['reuniao', 'Reunião marcada', 20], ['apresentacao', 'Apresentação feita', 30],
+export const ETAPAS = [['prospectar', 'A prospectar', 0], ['novo', 'Contato novo', 5], ['contato', 'Primeiro contato feito', 10], ['reuniao', 'Reunião marcada', 20], ['apresentacao', 'Apresentação feita', 30],
   ['proposta', 'Proposta enviada', 40], ['negociacao', 'Negociação', 70], ['fechado', 'Fechado', 100], ['perdido', 'Perdido', 0]];
 export const NOME_ETAPA = Object.fromEntries(ETAPAS.map(([k, n]) => [k, n]));
 // etapas antes da proposta: mandar uma proposta leva direto para "Proposta enviada"
-export const ANTES_DA_PROPOSTA = ['prospectar', 'contato', 'reuniao', 'apresentacao'];
+export const ANTES_DA_PROPOSTA = ['prospectar', 'novo', 'contato', 'reuniao', 'apresentacao'];
 const CHANCE = Object.fromEntries(ETAPAS.map(([k, , c]) => [k, c]));
 export const SERVICOS = { palestra: 'Palestra', treinamento: 'Treinamento', workshop: 'Workshop', mentoria_grupo: 'Mentoria em grupo', mentoria_individual: 'Mentoria individual', diagnostico: 'Diagnóstico', outro: 'Outro' };
 const MOTIVOS = { preco: 'Preço', momento: 'Momento / sem verba agora', concorrente: 'Fechou com outro', sem_resposta: 'Sem resposta', outro: 'Outro' };
