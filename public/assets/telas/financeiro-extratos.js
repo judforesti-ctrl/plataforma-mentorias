@@ -9,6 +9,7 @@ import { janela, faltaScript } from './agenda-dados.js';
 import { dinheiro } from './vendas.js';
 import * as F from '../financeiro-regras.js';
 import * as X from '../financeiro-extrato.js';
+import * as RB from './financeiro-reembolsos.js';
 
 const PDFJS = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs';
 const PDFJS_WORKER = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs';
@@ -16,7 +17,16 @@ const AVISO_56 = '<div class="aviso">Falta rodar o script <b>56-financeiro-extra
 const ACOES = {
   recebimento: 'Recebimento de nota', despesa: 'Despesa já lançada', despesa_nova: 'Despesa nova', retirada: 'Retirada de sócia',
   reserva: 'Fundo de reserva', transferencia: 'Transferência entre contas', entrada: 'Outra entrada', ignorado: 'Não entra nas contas',
+  reembolso: 'Reembolso',
 };
+// despesas que um PIX pode pagar: as divididas entre programas contam pelo total do pagamento; os gastos de reembolso não
+// (o PIX do reembolso é reconhecido pelo total do reembolso)
+function despesasDoExtrato(d) {
+  const soltas = d.despesas.filter((y) => !y.reembolso_id && !y.grupo);
+  const grupos = new Map();
+  for (const y of d.despesas.filter((z) => z.grupo && !z.reembolso_id)) { if (!grupos.has(y.grupo)) grupos.set(y.grupo, []); grupos.get(y.grupo).push(y); }
+  return [...soltas, ...[...grupos.values()].map((ys) => ({ ...ys[0], valor: F.soma(ys, (z) => z.valor), partes: ys, descricao: `${ys[0].descricao} (dividida em ${ys.length})` }))];
+}
 const ENTRADAS = [['rendimento', 'Rendimento da aplicação'], ['aporte_socias', 'Aporte das sócias'], ['reembolso', 'Reembolso'], ['emprestimo', 'Empréstimo'], ['outra', 'Outra entrada']];
 
 // PDF em linhas: junta os pedaços de texto de cada linha da página (pela altura); colunas distantes ficam separadas por tabulação
@@ -55,7 +65,8 @@ async function carregar() {
   ]);
   const falta = [ext, movs, regras].some((r) => r.error && faltaScript(r.error));
   for (const r of [ext, movs, regras]) if (r.error && !faltaScript(r.error)) throw r.error;
-  return { falta, extratos: ext.data || [], movimentos: movs.data || [], regras: regras.data || [] };
+  const reembolsos = await RB.carregarReembolsos().catch(() => null);
+  return { falta, extratos: ext.data || [], movimentos: movs.data || [], regras: regras.data || [], reembolsos: reembolsos || [] };
 }
 
 // ---------- sugestão e conferência de um movimento ----------
@@ -69,7 +80,10 @@ function sugestao(x, mov) {
     const c = todos[0];
     return { tipo: 'recebimento', cand: c, todos, automatico: c.ja_recebido && c.igual && (todos.length === 1 || todos[1].score < c.score) };
   }
-  return X.sugerirSaida(mov, { despesas: d.despesas, ligadas: x.ligD, regras: x.regras, socias: d.socias });
+  // reembolso de sócia ou mentor: pelo total, antes das regras (o CPF da sócia tem regra de retirada)
+  const r = RB.sugestaoReembolso(mov, x.reembolsos, x.pessoaDoTexto);
+  if (r) return r;
+  return X.sugerirSaida(mov, { despesas: x.despesasExtrato, ligadas: x.ligD, regras: x.regras, socias: d.socias });
 }
 function rotuloNota(d, c) {
   const l0 = c.linhas[0];
@@ -82,6 +96,7 @@ function textoSugestao(x, s) {
   if (s.tipo === 'existente') return `Despesa lançada: ${esc(s.despesa.descricao)} (${dataBR(s.despesa.data)})`;
   if (s.tipo === 'nova') return `Despesa nova: ${esc(F.nomeCategoria(s.categoria))} · ${esc(s.descricao)}`;
   if (s.tipo === 'retirada') return `Retirada de ${esc(s.pessoa.nome)}`;
+  if (s.tipo === 'reembolso') return `Reembolso de ${esc((d.pessoa(s.reembolsos[0].pessoa_id) || {}).nome || '')} · ${dinheiro(F.soma(s.reembolsos, (r) => r.total))}${s.reembolsos.length > 1 ? ` (${s.reembolsos.length} planilhas)` : ''}`;
   return '';
 }
 // a escolha que a sugestão representa
@@ -95,6 +110,7 @@ function escolhaDe(s) {
   if (s.tipo === 'existente') return { acao: 'despesa', despesa: s.despesa };
   if (s.tipo === 'nova') return { acao: 'despesa_nova', categoria: s.categoria, descricao: s.descricao, onde: {} };
   if (s.tipo === 'retirada') return { acao: 'retirada', pessoa_id: s.pessoa.id };
+  if (s.tipo === 'reembolso') return { acao: 'reembolso', reembolsos: s.reembolsos };
   return null;
 }
 
@@ -111,7 +127,7 @@ async function mudarReserva(d, mudar) {
 async function aplicar(x, mov, e) {
   const { d } = x;
   const agora = new Date().toISOString();
-  const reg = { situacao: 'conciliado', acao: e.acao, receber_ids: [], despesa_id: null, pessoa_id: e.pessoa_id || null, regra_id: e.regra_id || null,
+  const reg = { situacao: 'conciliado', acao: e.acao, receber_ids: [], despesa_id: null, pessoa_id: e.pessoa_id || null, regra_id: e.regra_id || null, ...(x.reembolsosLigados ? { reembolso_id: null } : {}),
     observacao: e.obs || null, desfazer: null, conciliado_por: d.eu, conciliado_em: agora };
   if (e.acao === 'recebimento') {
     const ls = e.linhas;
@@ -127,6 +143,16 @@ async function aplicar(x, mov, e) {
       }
     }
     reg.receber_ids.forEach((id) => x.ligR.add(id));
+  } else if (e.acao === 'despesa' && e.despesa.partes) {
+    // pagamento dividido entre vários programas: marca todas as partes
+    const ps = e.despesa.partes;
+    reg.despesa_id = ps[0].id;
+    reg.desfazer = { despesas: ps.map((y) => ({ id: y.id, pago_em: y.pago_em || null, conta: y.conta || null })) };
+    for (const y of ps) {
+      const { error } = await sb.from('fin_despesas').update({ pago_em: y.pago_em || mov.data, conta: y.conta || mov.conta }).eq('id', y.id);
+      if (error) throw error;
+      x.ligD.add(y.id);
+    }
   } else if (e.acao === 'despesa') {
     const dp = e.despesa;
     reg.despesa_id = dp.id;
@@ -140,6 +166,24 @@ async function aplicar(x, mov, e) {
       Object.assign(dp, mud);
     }
     x.ligD.add(dp.id);
+  } else if (e.acao === 'reembolso') {
+    await RB.pagarReembolsos(e.reembolsos, mov);
+    reg.reembolso_id = e.reembolsos[0].id;
+    reg.pessoa_id = e.reembolsos[0].pessoa_id;
+    reg.desfazer = { reembolsos: e.reembolsos.map((r) => r.id) };
+    if (e.reembolsos.length > 1 && !reg.observacao) reg.observacao = `${e.reembolsos.length} reembolsos num PIX só`;
+  } else if (e.acao === 'despesa_nova' && e.partes) {
+    const grupo = crypto.randomUUID();
+    const linhas = e.partes.map((pt) => { const o = d.camposOnde(pt.v, { categoria: e.categoria }); return { data: mov.data, descricao: e.descricao || mov.historico, valor: pt.valor,
+      categoria: o.categoria || e.categoria || 'outros', empresa_id: o.empresa_id || null, turma_id: o.turma_id || null, programa_id: o.programa_id || null, modulo_id: null,
+      pessoa_id: o.pessoa_id || null, pago_em: mov.data, conta: mov.conta, origem: 'extrato', grupo,
+      observacoes: [mov.historico, mov.detalhe, `Parte de um pagamento de ${dinheiro(Math.abs(mov.valor))} dividido em ${e.partes.length}`].filter(Boolean).join(' · ').slice(0, 300) }; });
+    const { data, error } = await sb.from('fin_despesas').insert(linhas).select('*');
+    if (error) throw error;
+    d.despesas.push(...data);
+    reg.despesa_id = data[0].id;
+    reg.desfazer = { apagar_grupo: grupo };
+    data.forEach((y) => x.ligD.add(y.id));
   } else if (e.acao === 'despesa_nova') {
     const o = e.onde || {};
     const nova = { data: mov.data, descricao: e.descricao || mov.historico, valor: Math.abs(mov.valor), categoria: e.categoria || 'outros',
@@ -169,9 +213,12 @@ async function desfazer(x, mov) {
   }
   if (u.despesa) { const { error } = await sb.from('fin_despesas').update({ pago_em: u.despesa.pago_em, conta: u.despesa.conta }).eq('id', u.despesa.id); if (error) throw error; }
   if (u.apagar_despesa) { const { error } = await sb.from('fin_despesas').delete().eq('id', u.apagar_despesa); if (error) throw error; }
+  if (u.apagar_grupo) { const { error } = await sb.from('fin_despesas').delete().eq('grupo', u.apagar_grupo); if (error) throw error; }
+  for (const y of u.despesas || []) { const { error } = await sb.from('fin_despesas').update({ pago_em: y.pago_em, conta: y.conta }).eq('id', y.id); if (error) throw error; }
+  if (u.reembolsos) await RB.desfazerReembolsos(u.reembolsos);
   if (u.reserva) await mudarReserva(x.d, (l) => l.filter((z) => z.id !== u.reserva));
   const { error } = await sb.from('fin_movimentos').update({ situacao: 'pendente', acao: null, receber_ids: [], despesa_id: null, pessoa_id: null, regra_id: null,
-    observacao: null, desfazer: null, conciliado_por: null, conciliado_em: null }).eq('id', mov.id);
+    ...('reembolso_id' in mov ? { reembolso_id: null } : {}), observacao: null, desfazer: null, conciliado_por: null, conciliado_em: null }).eq('id', mov.id);
   if (error) throw error;
 }
 
@@ -191,6 +238,11 @@ export async function abaExtratos(ctx, d, el, recarregar, params) {
   const e = await carregar();
   if (e.falta) { el.innerHTML = AVISO_56; return; }
   const x = { d, ...e, ligR: new Set(e.movimentos.flatMap((m) => m.receber_ids || [])), ligD: new Set(e.movimentos.map((m) => m.despesa_id).filter(Boolean)) };
+  // partes de pagamentos divididos já ligadas contam como ligadas (o movimento guarda só a primeira)
+  for (const m of e.movimentos) for (const y of ((m.desfazer || {}).despesas || [])) x.ligD.add(y.id);
+  x.despesasExtrato = despesasDoExtrato(d);
+  x.reembolsosLigados = e.movimentos.some((m) => 'reembolso_id' in m);
+  x.pessoaDoTexto = RB.pessoaDoTextoCom(e.regras, d.perfis, X);
   const filtro = ['conferidos', 'todos'].includes(params[0]) ? params[0] : 'conferir';
   const conta = params[1] || '';
   const ultimos = new Map();
@@ -203,6 +255,7 @@ export async function abaExtratos(ctx, d, el, recarregar, params) {
     if (m.acao === 'recebimento') { const ls = d.receber.filter((l) => (m.receber_ids || []).includes(l.id)); return ls.length ? `${ls[0].nota_numero ? `Nota ${ls[0].nota_numero} · ` : ''}${esc(d.empresa(ls[0].empresa_id).nome)}` : ''; }
     if (m.acao === 'despesa' || m.acao === 'despesa_nova') { const dp = d.despesas.find((y) => y.id === m.despesa_id); return dp ? `${esc(dp.descricao)} · ${esc(F.nomeCategoria(dp.categoria))}` : ''; }
     if (m.acao === 'retirada') return esc((d.pessoa(m.pessoa_id) || {}).nome || '');
+    if (m.acao === 'reembolso') return `${esc((d.pessoa(m.pessoa_id) || {}).nome || '')}${m.observacao ? ` · ${esc(m.observacao)}` : ''}`;
     return esc(m.observacao || '');
   };
   const hrefFiltro = (f, c = conta) => `#/financeiro/extratos/${f}${c ? `/${encodeURIComponent(c)}` : ''}`;
@@ -270,8 +323,10 @@ export async function abaExtratos(ctx, d, el, recarregar, params) {
 }
 
 // ---------- conferir um movimento ----------
-function janelaMovimento(x, mov, s, recarregar) {
+async function janelaMovimento(x, mov, s, recarregar) {
   const { d } = x;
+  const EX = await import('./financeiro-extras.js');
+  const div = EX.divisao(d);
   const entrada = mov.valor >= 0;
   const op = (v, rotulo, corpo = '', marcado = false) => `<div class="cartao" style="padding:10px 12px"><label class="check"><input type="radio" name="o" value="${v}"${marcado ? ' checked' : ''}><span><b>${rotulo}</b></span></label>
     ${corpo ? `<div class="mt" data-sub="${v}" hidden>${corpo}</div>` : ''}</div>`;
@@ -299,15 +354,19 @@ function janelaMovimento(x, mov, s, recarregar) {
     html += op('transferencia', 'Transferência entre contas da Mentorei', '', pre === 'transferencia');
   } else {
     const v = Math.abs(mov.valor);
-    const iguais = d.despesas.filter((y) => !x.ligD.has(y.id) && Math.abs(Number(y.valor) - v) < 0.01 && Math.abs(F.diasEntre(y.pago_em || y.data, mov.data)) <= 40)
+    const iguais = x.despesasExtrato.filter((y) => !x.ligD.has(y.id) && Math.abs(Number(y.valor) - v) < 0.01 && Math.abs(F.diasEntre(y.pago_em || y.data, mov.data)) <= 40)
       .sort((a, b) => Math.abs(F.diasEntre(a.pago_em || a.data, mov.data)) - Math.abs(F.diasEntre(b.pago_em || b.data, mov.data))).slice(0, 6);
     x.iguais = iguais;
     if (iguais.length) html += op('despesa', 'Despesa que já está lançada', iguais.map((y, i) => `<label class="check"><input type="radio" name="dp" value="${i}"${i === 0 ? ' checked' : ''}><span>${esc(y.descricao)} · ${dataBR(y.data)} · ${esc(F.nomeCategoria(y.categoria))}</span></label>`).join(''), pre === 'despesa');
     const sn = s && s.tipo === 'nova' ? s : s && s.tipo === 'regra' ? s.regra : {};
     html += op('despesa_nova', 'Despesa nova', `<div class="grade g2" style="gap:10px">
-        <div class="campo"><label for="mv-cat">Tipo</label><select id="mv-cat">${F.CATEGORIAS.filter(([k]) => k !== 'socia').map(([k, n]) => `<option value="${k}"${k === (sn.categoria || 'outros') ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
+        <div class="campo"><label for="mv-cat">Tipo <button class="btn peq" type="button" id="mv-nova-cat" style="margin-left:6px">+ Nova</button></label><select id="mv-cat">${F.CATEGORIAS.filter(([k]) => k !== 'socia').map(([k, n]) => `<option value="${k}"${k === (sn.categoria || 'outros') ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
         <div class="campo"><label for="mv-onde">É de</label><select id="mv-onde">${d.opcoesOnde('g:')}</select></div></div>
-      <div class="campo mt"><label for="mv-desc">Descrição</label><input type="text" id="mv-desc" maxlength="160" value="${esc(sn.descricao || [mov.historico, X.chaveSugerida(mov)].filter((t, i, a) => t && a.indexOf(t) === i).join(' · '))}"></div>`, pre === 'despesa_nova' || !pre);
+      <div class="campo mt"><label for="mv-desc">Para que foi essa despesa?</label><input type="text" id="mv-desc" maxlength="160" placeholder="Ex.: imposto do mês, boleto da contabilidade" value="${esc(sn.descricao || [mov.historico, X.chaveSugerida(mov)].filter((t, i, a) => t && a.indexOf(t) === i).join(' · '))}"></div>
+      <div class="mt">${div.html}</div>`, pre === 'despesa_nova' || !pre);
+    const abertos = x.reembolsos.filter((r) => r.situacao !== 'pago');
+    if (abertos.length) html += op('reembolso', 'Reembolso de sócia ou mentor (planilha importada)', `${abertos.map((r, i) => `<label class="check"><input type="checkbox" name="rb" value="${r.id}"${s && s.tipo === 'reembolso' && s.reembolsos.some((z) => z.id === r.id) ? ' checked' : ''}><span>${esc((d.pessoa(r.pessoa_id) || {}).nome || '')} · ${esc(r.titulo || r.arquivo || '')} · ${dinheiro(r.total)}</span></label>`).join('')}
+      <small class="apagado">Marque a planilha (ou as planilhas) que este PIX pagou: os gastos ficam como pagos neste dia.</small>`, pre === 'reembolso');
     html += op('retirada', 'Retirada de sócia', `<select id="mv-socia">${d.socias.map((p) => `<option value="${p.id}"${s && s.tipo === 'retirada' && s.pessoa.id === p.id ? ' selected' : ''}>${esc(p.nome)}</option>`).join('')}</select>
       <small class="apagado">Entra na distribuição das sócias (etapa 4), não nas despesas.</small>`, pre === 'retirada');
     html += op('reserva', 'Aplicação no fundo de reserva', '<small class="apagado">Sai da conta e entra no fundo de reserva.</small>', pre === 'reserva');
@@ -323,10 +382,12 @@ function janelaMovimento(x, mov, s, recarregar) {
     <div class="linha"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`, { largura: 680 });
   const f = j.corpo.querySelector('form');
   const $ = (q) => f.querySelector(q);
+  if (f.querySelector('[data-divisao]')) div.ligar(f, () => Math.abs(mov.valor));
+  if ($('#mv-nova-cat')) EX.ligarNovaCategoria(d, $('#mv-cat'), $('#mv-nova-cat'));
   const mostrar = () => {
     const o = (f.querySelector('input[name="o"]:checked') || {}).value;
     f.querySelectorAll('[data-sub]').forEach((z) => { z.hidden = z.dataset.sub !== o; });
-    $('#mv-lembrar').hidden = !o || o === 'recebimento' || o === 'despesa';
+    $('#mv-lembrar').hidden = !o || o === 'recebimento' || o === 'despesa' || o === 'reembolso';
   };
   f.addEventListener('change', mostrar);
   mostrar();
@@ -345,6 +406,11 @@ function janelaMovimento(x, mov, s, recarregar) {
     else if (o === 'despesa_nova') {
       const campos = d.camposOnde($('#mv-onde').value || 'g:', { categoria: $('#mv-cat').value });
       e = { ...e, categoria: campos.categoria, descricao: $('#mv-desc').value.trim() || mov.historico, onde: campos };
+      try { const partes = f.querySelector('[data-divisao]') ? div.partes() : null; if (partes) e = { ...e, categoria: $('#mv-cat').value, partes }; } catch (er) { avisar(er.message, true); return; }
+    } else if (o === 'reembolso') {
+      const ids = [...f.querySelectorAll('input[name="rb"]:checked')].map((c) => c.value);
+      if (!ids.length) { avisar('Marque qual reembolso este PIX pagou.', true); return; }
+      e.reembolsos = x.reembolsos.filter((r) => ids.includes(r.id));
     } else if (o === 'retirada') e.pessoa_id = $('#mv-socia').value;
     else if (o === 'entrada') e.obs = [ENTRADAS.find(([k]) => k === $('#mv-tipo-entrada').value)[1], obs].filter(Boolean).join(' · ');
     try {

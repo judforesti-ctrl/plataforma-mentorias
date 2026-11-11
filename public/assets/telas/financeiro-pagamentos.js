@@ -49,8 +49,16 @@ export async function abaPagamentos(ctx, d, el, recarregar, mentores) {
       itens.push({ tipo: 'fixa', f, desp, mes, venc, dia, valor: Number((desp || f).valor) });
     }
   }
-  // outras despesas lançadas e não pagas
-  for (const x of d.despesas.filter((y) => !y.pago_em && !y.fixa_id && y.categoria !== 'socia' && y.data >= F.somarDias(hoje, -60))) {
+  // reembolsos das sócias e dos mentores (script 70): uma linha por planilha, no próximo dia de pagamento depois do envio
+  const RB = await import('./financeiro-reembolsos.js');
+  const reembolsos = (await RB.carregarReembolsos().catch(() => null)) || [];
+  for (const r of reembolsos.filter((y) => y.situacao !== 'pago')) {
+    const base = r.enviado_em || String(r.criado_em).slice(0, 10);
+    const dia = base < hoje ? base : F.proximoPagamento(base, feriadoDe);
+    if (dia <= ultimo) itens.push({ tipo: 'reembolso', r, dia, valor: Number(r.total) });
+  }
+  // outras despesas lançadas e não pagas (os gastos de reembolso vão pela planilha, acima)
+  for (const x of d.despesas.filter((y) => !y.pago_em && !y.fixa_id && !y.reembolso_id && y.categoria !== 'socia' && y.data >= F.somarDias(hoje, -60))) {
     const dia = x.data < hoje ? x.data : F.pagamentoDaConta(x.data, feriadoDe);
     if (dia <= ultimo) itens.push({ tipo: 'conta', x, dia, valor: Number(x.valor) });
   }
@@ -80,6 +88,8 @@ export async function abaPagamentos(ctx, d, el, recarregar, mentores) {
     if (i.tipo === 'fixa') return `<tr><td><span class="selo neutro">Conta fixa</span></td><td><b>${esc(i.f.descricao)}</b><br><small class="apagado">vence ${dataBR(i.venc)}${i.f.conta ? ` · ${esc(i.f.conta)}` : ''}</small></td>
       <td class="fn-num" style="text-align:right">${dinheiro(i.valor)}</td><td></td>
       <td><button class="btn peq" type="button" data-pagar-fixa="${i.f.id}|${i.mes}">Marcar como paga</button></td></tr>`;
+    if (i.tipo === 'reembolso') return `<tr><td><span class="selo neutro">Reembolso</span></td><td><b>${esc((d.pessoa(i.r.pessoa_id) || {}).nome || '')}</b> · ${esc(i.r.titulo || i.r.arquivo || '')}<br><small class="apagado">quando o PIX aparecer no extrato, fica pago sozinho</small></td>
+      <td class="fn-num" style="text-align:right">${dinheiro(i.valor)}</td><td></td><td><a class="btn peq" href="#/financeiro/despesas">Ver</a></td></tr>`;
     return `<tr><td><span class="selo neutro">Conta</span></td><td><b>${esc(i.x.descricao)}</b><br><small class="apagado">${esc(F.nomeCategoria(i.x.categoria))} · lançada em ${dataBR(i.x.data)}</small></td>
       <td class="fn-num" style="text-align:right">${dinheiro(i.valor)}</td><td></td>
       <td><button class="btn peq" type="button" data-pagar-conta="${i.x.id}">Marcar como paga</button></td></tr>`;

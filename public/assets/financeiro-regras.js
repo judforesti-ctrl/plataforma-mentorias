@@ -13,6 +13,16 @@ export const CATEGORIAS = [
   ['ferramentas', 'Ferramentas e assinaturas'], ['bancarias', 'Tarifas do banco'], ['socia', 'Despesa pessoal de sócia'], ['outros', 'Outros'],
 ];
 export const nomeCategoria = (k) => (CATEGORIAS.find(([c]) => c === k) || [k, k || 'Outros'])[1];
+// Categorias criadas pela administração (script 70, pedido da Cintia: "Despesas digital"), em configuracoes.financeiro.categorias
+// [{k, nome}]. Entram antes de "Despesa pessoal de sócia" e "Outros"; chamar de novo troca as anteriores.
+const FIXAS = CATEGORIAS.map(([k]) => k);
+export const normalCategoria = (t) => String(t || '').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+export function usarCategoriasExtras(extras) {
+  for (let i = CATEGORIAS.length - 1; i >= 0; i--) if (!FIXAS.includes(CATEGORIAS[i][0])) CATEGORIAS.splice(i, 1);
+  const lista = (Array.isArray(extras) ? extras : []).filter((x) => x && x.k && x.nome && !FIXAS.includes(x.k));
+  const pos = CATEGORIAS.findIndex(([k]) => k === 'socia');
+  CATEGORIAS.splice(pos < 0 ? CATEGORIAS.length : pos, 0, ...lista.map((x) => [x.k, x.nome]));
+}
 // despesas de viagem (vão para a margem da turma ou do módulo)
 export const VIAGEM = ['passagem', 'hospedagem', 'refeicao', 'transporte'];
 

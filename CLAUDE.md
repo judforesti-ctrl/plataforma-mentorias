@@ -1161,6 +1161,29 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 `node --check` e para rodar módulos puros como o motor das propostas. Funções com Supabase/Claude continuam sendo testadas no navegador.
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
+- PEDIDOS DA CINTIA NO FINANCEIRO + REEMBOLSOS (2026-11-11, script 70, rodado pelo conector no mesmo dia). Feedback dela pelo
+  WhatsApp, repassado pela Juliana. (1) CATEGORIAS NOVAS: "+ Nova" ao lado de Tipo (despesa e extrato), guardadas em
+  `configuracoes.financeiro.categorias` [{k: 'x_…', nome}] e aplicadas por `F.usarCategoriasExtras` (mexe no próprio F.CATEGORIAS)
+  ao carregar; o campo da despesa virou "Para que foi essa despesa?". (2) DIVIDIR ENTRE VÁRIOS PROGRAMAS (`divisao()` em
+  `telas/financeiro-extras.js`, no "+ Despesa" e no "Despesa nova" do extrato): uma despesa por parte com o mesmo
+  `fin_despesas.grupo`; no extrato o grupo conta pelo total (`despesasDoExtrato`), "Desfazer" apaga o grupo (`apagar_grupo`) ou volta
+  as partes (`desfazer.despesas`). (3) PDF DA NOTA: `fin_receber.nota_arquivo` (pasta financeiro/notas/<cnpj>/…), campo na janela
+  "Nota emitida" e "Anexar PDF"/"📎 Nota" em A receber. (4) EMITIR NOTA: "Editar" em cada linha (texto, valor, data se não for de
+  módulo; "Excluir esta linha" se em aberto; "Abrir o plano inteiro" para trocar para parcelas, caso Cresol Instituto), "Copiar o texto
+  das marcadas" (uma nota para vários módulos/turmas, caso Sicoob Jovem: a nota vale para as linhas marcadas pelo "Nota emitida para
+  as marcadas", cada turma fica com a sua linha) e "Juntar numa linha só" (mesmo plano; plano por módulo passa a parcelas para os
+  módulos juntados não voltarem como "sem linha"). (5) REEMBOLSOS (`telas/financeiro-reembolsos.js`, regras puras em
+  `public/assets/financeiro-reembolso.js`, testadas no Node): Despesas → "📥 Importar planilha de reembolso" (Excel, CSV ou PDF; acha
+  a linha de títulos por sinônimos, o nome de quem gastou e a data de envio acima da tabela; para no TOTAL); cada gasto vira despesa
+  (`origem 'reembolso'`, `reembolso_id`, `pessoa_id` = quem gastou, sem pago_em) com tipo adivinhado e "É de" achado pelo texto
+  (cliente/turma) e pela AGENDA de quem gastou (módulo de 2 dias antes a 2 depois em que a pessoa é mentora; depois a cidade);
+  sem cliente vai para Conferir. Tabela `fin_reembolsos` (total, enviado_em, situacao a_pagar|pago, movimento_id). O PIX: na
+  conferência do extrato `sugestaoReembolso` vem ANTES das regras (o CPF da sócia tem regra de retirada) e é automático quando o
+  valor bate com um reembolso a pagar (ou a soma dos da mesma pessoa), de 15 dias antes do envio a 75 depois; acao 'reembolso',
+  `fin_movimentos.reembolso_id`, desfazer {reembolsos}. Na importação, se o PIX já está no extrato (pendente ou conferido como
+  retirada), liga na hora. Agenda de pagamentos mostra uma linha por reembolso a pagar (os gastos soltos saem de lá).
+  Decisão dela: a Cintia NÃO assinala o PIX de reembolso; a plataforma reconhece. Testes (fora do git): /home/claude/teste-reemb
+  (t.mjs regras; t1/t2/t3.py telas no Chrome sem janela com Supabase de mentira em web/base-falso.js).
 - CAMPOS DE ESCOLHA COM PESQUISA (2026-11-11, pedido da Juliana: "quero pesquisar e flegar a empresa em todos os campos"):
   `public/assets/busca-select.js`, ligado uma vez em app.js (`ligarBuscaNosSelects`). Todo `<select>` de empresa/cliente (id terminado
   em -emp, -empresa, -cliente ou aria-label com Empresa/Cliente) e todo select com 12 opções ou mais (menos listas de texto curto:

@@ -54,6 +54,7 @@ async function carregar() {
     recadosNovos: recadosNovos.error ? 0 : (recadosNovos.data || []).length,
   };
   d.config.emissores = { ...PADRAO_CONFIG.emissores, ...(d.config.emissores || {}) };
+  F.usarCategoriasExtras(d.config.categorias);   // categorias criadas pela Cintia (script 70)
   // os dois CNPJs da Mentorei: cada linha a receber é de um deles (o do plano; a avulsa diz na própria linha)
   d.cnpjs = F.cnpjs(d.config);
   d.cnpjDe = (l) => F.cnpjDaLinha(l, d.plano(l.plano_id));
@@ -403,11 +404,14 @@ function abaEmitir(d, el, recarregar) {
       <td>${esc(l.descricao)}</td>
       <td>${quemPaga(l)}</td>
       <td class="fn-num" style="text-align:right">${dinheiro(l.valor)}</td>
-      <td><div class="linha" style="gap:6px;flex-wrap:nowrap"><button class="btn peq" type="button" data-texto="${l.id}">Copiar texto</button><button class="btn peq escuro" type="button" data-nota="${l.id}">Nota emitida</button></div></td></tr>`; };
+      <td><div class="linha" style="gap:6px;flex-wrap:nowrap"><button class="btn peq" type="button" data-linha="${l.id}" title="Mudar o texto, a data ou o valor, ou excluir">Editar</button><button class="btn peq" type="button" data-texto="${l.id}">Copiar texto</button><button class="btn peq escuro" type="button" data-nota="${l.id}">Nota emitida</button></div></td></tr>`; };
   el.innerHTML = blocoReembolsos(d) + (linhas.length ? `
-    <p class="apagado" style="margin-bottom:10px">Módulos e parcelas que já aconteceram (ou acontecem nesta semana) e ainda estão sem nota, <b>separados pelo CNPJ que emite a nota</b>. Marque as linhas e clique em "Gerar arquivo para a contabilidade": sai uma planilha para cada CNPJ. Quando a nota sair, registre o número em "Nota emitida".</p>
+    <p class="apagado" style="margin-bottom:10px">Módulos e parcelas que já aconteceram (ou acontecem nesta semana) e ainda estão sem nota, <b>separados pelo CNPJ que emite a nota</b>. Marque as linhas e clique em "Gerar arquivo para a contabilidade": sai uma planilha para cada CNPJ. Quando a nota sair, registre o número em "Nota emitida" (e anexe o PDF).</p>
+    <p class="apagado" style="margin-bottom:10px"><b>Uma nota para vários módulos</b> (por exemplo, a nota do mês com todos os módulos do Sicoob Jovem): marque as linhas, clique em "Copiar o texto das marcadas" para levar a descrição com todos os módulos e, quando a nota sair, em "Nota emitida para as marcadas". Cada turma continua com a sua linha, todas com o mesmo número de nota. <b>Algo lançado errado?</b> Use "Editar" na linha (muda texto, data e valor, ou exclui) ou "Juntar numa linha só".</p>
     <div class="linha" style="margin-bottom:10px"><button class="btn pri" type="button" id="contabilidade" disabled>📄 Gerar arquivo para a contabilidade</button>
-      <button class="btn escuro" type="button" id="nota-varias" disabled>Nota emitida para as marcadas</button><span class="peq apagado" id="soma-sel"></span></div>
+      <button class="btn" type="button" id="copiar-varias" disabled>Copiar o texto das marcadas</button>
+      <button class="btn escuro" type="button" id="nota-varias" disabled>Nota emitida para as marcadas</button>
+      <button class="btn" type="button" id="juntar" disabled title="Várias linhas da mesma turma viram uma só">Juntar numa linha só</button><span class="peq apagado" id="soma-sel"></span></div>
     ${F.porCnpj(linhas, d.cnpjDe).map(([k, ls]) => `${tituloCnpj(d, k, `${ls.length} linha${ls.length > 1 ? 's' : ''} · ${dinheiro(F.soma(ls, (l) => l.valor))}`)}
     <div class="tabela cartao" style="padding:0;margin-bottom:16px"><table><thead><tr><th><input type="checkbox" data-sel-cnpj="${k}" aria-label="Marcar todas deste CNPJ"></th><th>Data</th><th>Cliente</th><th>O que</th><th>Quem paga</th><th style="text-align:right">Valor</th><th></th></tr></thead>
       <tbody>${ls.map(linha).join('')}</tbody></table></div>`).join('')}`
@@ -419,11 +423,24 @@ function abaEmitir(d, el, recarregar) {
     const m = marcadas();
     if (el.querySelector('#nota-varias')) el.querySelector('#nota-varias').disabled = m.length < 1;
     if (el.querySelector('#contabilidade')) el.querySelector('#contabilidade').disabled = m.length < 1;
+    if (el.querySelector('#copiar-varias')) el.querySelector('#copiar-varias').disabled = m.length < 1;
+    if (el.querySelector('#juntar')) el.querySelector('#juntar').disabled = m.length < 2;
     el.querySelector('#soma-sel').textContent = m.length ? `${m.length} marcada${m.length > 1 ? 's' : ''} · ${dinheiro(F.soma(m, (l) => l.valor))}` : '';
   });
   el.addEventListener('click', async (ev) => {
     const t = ev.target.closest('[data-texto]'), n = ev.target.closest('[data-nota]'), cb = ev.target.closest('[data-cobrar]');
     if (cb) return janelaCobrar(d, d.despesas.find((x) => x.id === cb.dataset.cobrar), recarregar);
+    const ed = ev.target.closest('[data-linha]');
+    if (ed) return (await import('./financeiro-extras.js')).janelaLinha(d, d.receber.find((x) => x.id === ed.dataset.linha), recarregar, (p) => editorPlano(null, d, { plano: p }, recarregar));
+    if (ev.target.id === 'juntar') return (await import('./financeiro-extras.js')).janelaJuntar(d, marcadas(), recarregar);
+    if (ev.target.id === 'copiar-varias') {
+      const m = marcadas().sort((a, b) => (a.data || '').localeCompare(b.data || ''));
+      if (new Set(m.map((l) => l.empresa_id)).size > 1) { avisar('Marque linhas de um cliente só: uma nota é para um cliente.', true); return; }
+      const planos = [...new Set(m.map((l) => l.plano_id))].map((id) => d.plano(id)).filter(Boolean);
+      const base = planos.length === 1 ? (planos[0].descricao_nota || `${planos[0].titulo} · ${d.empresa(m[0].empresa_id).nome}`) : d.empresa(m[0].empresa_id).nome;
+      const nomeLinha = (l) => { const p = d.plano(l.plano_id); return `${planos.length > 1 && p ? `${p.titulo} · ` : ''}${l.descricao}${l.data ? ` (${dataBR(l.data)})` : ''}`; };
+      return copiar([base, m.map((l) => `- ${nomeLinha(l)}`).join('\n'), `Total: ${dinheiro(F.soma(m, (l) => l.valor))}`].join('\n'));
+    }
     if (t) { const l = d.receber.find((x) => x.id === t.dataset.texto); copiar(F.textoDaNota({ plano: d.plano(l.plano_id), linhas: [l], empresa: d.empresa(l.empresa_id).nome })); }
     if (n) janelaNota(d, [d.receber.find((x) => x.id === n.dataset.nota)], recarregar);
     if (ev.target.closest('#contabilidade')) return (await import('./financeiro-contabilidade.js')).janelaContabilidade(d, marcadas(), recarregar);
@@ -453,6 +470,7 @@ function janelaNota(d, linhas, recarregar) {
       <div class="campo"><label for="n-em">Emitida em</label><input type="date" id="n-em" value="${hoje}"></div>
       <div class="campo"><label for="n-venc">Vence em</label><input type="date" id="n-venc" value="${F.vencimentoPadrao(hoje, p ? p.prazo_dias : 30)}"></div>
     </div>
+    <div class="campo"><label for="n-pdf">PDF da nota (se já tiver)</label><input type="file" id="n-pdf" accept="application/pdf,.pdf"><small>Fica guardado junto com a linha. Dá para anexar depois em "A receber".</small></div>
     ${uma ? `<div class="campo"><label for="n-valor">Valor da nota (R$)</label><input type="number" id="n-valor" min="0" step="0.01" value="${v2(linhas[0].valor)}"><small>Mude se o valor mudou na negociação.</small></div>`
       : `<p>Total: <b>${dinheiro(F.soma(linhas, (l) => l.valor))}</b></p>`}
     <div class="linha"><button class="btn pri" type="submit">Salvar</button><button class="btn" type="button" data-fechar>Desistir</button></div></form>`, { largura: 560 });
@@ -467,8 +485,14 @@ function janelaNota(d, linhas, recarregar) {
       for (const l of linhas) {
         const corpo = uma && f.querySelector('#n-valor').value !== '' ? { ...base, valor: Number(f.querySelector('#n-valor').value) } : base;
         const { error } = await sb.from('fin_receber').update(corpo).eq('id', l.id); if (error) throw error;
+        l.nota_numero = numero;
       }
-      j.fechar(); avisar(`Nota ${numero} registrada.`); recarregar();
+      const pdf = f.querySelector('#n-pdf').files[0];
+      if (pdf) {
+        try { await (await import('./financeiro-extras.js')).enviarPdfNota(d, linhas, pdf); }
+        catch (e) { j.fechar(); avisar(`Nota ${numero} registrada, mas o PDF não foi: ${explicarErro(e)}. Anexe em "A receber".`, true); recarregar(); return; }
+      }
+      j.fechar(); avisar(pdf ? `Nota ${numero} registrada com o PDF.` : `Nota ${numero} registrada.`); recarregar();
     } catch (e) { avisar(explicarErro(e), true); }
   });
 }
@@ -505,15 +529,18 @@ function abaReceber(d, el, recarregar) {
         <td>${g.map((l) => esc(l.descricao)).join('<br>')}</td>
         <td>${dataBR(g[0].vencimento)}<br>${prazo(g)}</td>
         <td class="fn-num" style="text-align:right">${dinheiro(total(g))}</td>
-        <td><div class="linha" style="gap:6px;flex-wrap:nowrap"><button class="btn peq escuro" type="button" data-receber="${idsDe(g)}">Recebido</button><button class="btn peq" type="button" data-desfazer-nota="${idsDe(g)}" title="A nota foi cancelada: a linha volta para Emitir nota">Voltar</button></div></td></tr>`).join('')}
+        <td><div class="linha" style="gap:6px;flex-wrap:nowrap">${g[0].nota_arquivo ? `<button class="btn peq" type="button" data-ver-nota="${esc(g[0].nota_arquivo)}" title="Abrir o PDF da nota">📎 Nota</button>` : `<button class="btn peq" type="button" data-anexar="${idsDe(g)}" title="Anexar o PDF da nota">Anexar PDF</button>`}<button class="btn peq escuro" type="button" data-receber="${idsDe(g)}">Recebido</button><button class="btn peq" type="button" data-desfazer-nota="${idsDe(g)}" title="A nota foi cancelada: a linha volta para Emitir nota">Voltar</button></div></td></tr>`).join('')}
       </tbody></table></div>`).join('') : '<div class="vazio">Nenhuma nota esperando pagamento.</div>'}
     ${recentes.length ? `<details class="cartao mt"><summary><b>Recebidos nos últimos 60 dias</b> · ${dinheiro(F.soma(recentes.flat(), (l) => l.valor_recebido ?? l.valor))}</summary>
       <div class="tabela mt"><table><tbody>${recentes.map((g) => `<tr><td>${dataBR(g[0].recebido_em)}</td><td>Nota ${g[0].nota_numero || '—'}</td><td>${esc(d.cnpjs[d.cnpjDe(g[0])].apelido)}</td><td>${esc(d.empresa(g[0].empresa_id).nome)}</td>
-        <td class="fn-num" style="text-align:right">${dinheiro(F.soma(g, (l) => l.valor_recebido ?? l.valor))}</td><td><button class="btn peq" type="button" data-desfazer-receb="${idsDe(g)}">Desfazer</button></td></tr>`).join('')}</tbody></table></div></details>` : ''}`;
+        <td class="fn-num" style="text-align:right">${dinheiro(F.soma(g, (l) => l.valor_recebido ?? l.valor))}</td><td style="white-space:nowrap">${g[0].nota_arquivo ? `<button class="btn peq" type="button" data-ver-nota="${esc(g[0].nota_arquivo)}">📎 Nota</button> ` : `<button class="btn peq" type="button" data-anexar="${idsDe(g)}">Anexar PDF</button> `}<button class="btn peq" type="button" data-desfazer-receb="${idsDe(g)}">Desfazer</button></td></tr>`).join('')}</tbody></table></div></details>` : ''}`;
   const pegar = (ids) => ids.split(',').map((id) => d.receber.find((l) => l.id === id));
   el.addEventListener('click', async (ev) => {
     const r = ev.target.closest('[data-receber]'), dn = ev.target.closest('[data-desfazer-nota]'), dr = ev.target.closest('[data-desfazer-receb]');
+    const vn = ev.target.closest('[data-ver-nota]'), an = ev.target.closest('[data-anexar]');
     try {
+      if (vn) await (await import('./financeiro-extras.js')).abrirPdfNota(vn.dataset.verNota);
+      if (an) (await import('./financeiro-extras.js')).janelaAnexar(d, pegar(an.dataset.anexar), recarregar);
       if (r) janelaRecebido(pegar(r.dataset.receber), recarregar);
       if (dn) {
         for (const l of pegar(dn.dataset.desfazerNota)) { const { error } = await sb.from('fin_receber').update({ situacao: 'aberto', nota_numero: null, nota_emitida_em: null, vencimento: null, atualizado_em: new Date().toISOString() }).eq('id', l.id); if (error) throw error; }
@@ -750,12 +777,14 @@ async function editorPlano(ctx, d, { plano = null, tipo = null, id = null }, rec
 }
 
 // ---------- despesas ----------
-function abaDespesas(d, el, recarregar, mesParam) {
+async function abaDespesas(d, el, recarregar, mesParam) {
   const hoje = hojeISO();
+  const RB = await import('./financeiro-reembolsos.js');
+  const reembolsos = await RB.carregarReembolsos().catch((e) => { console.warn(e); return []; });
   const mes = /^\d{4}-\d{2}$/.test(mesParam || '') ? mesParam : hoje.slice(0, 7);
   const lista = d.despesas.filter((x) => F.mesDe(x.data) === mes).sort((a, b) => a.data.localeCompare(b.data));
   const onde = (x) => ondeTexto(d, x);
-  el.innerHTML = `
+  el.innerHTML = `${RB.blocoReembolsos(d, reembolsos)}
     <div class="linha" style="margin-bottom:14px">
       <button class="btn peq" type="button" data-mes="${F.somarMeses(mes, -1)}" aria-label="Mês anterior">‹</button>
       <h2 style="margin:0">${maiuscula(F.nomeMes(mes))}</h2>
@@ -763,7 +792,7 @@ function abaDespesas(d, el, recarregar, mesParam) {
       <span style="flex:1"></span><b>${dinheiro(F.soma(lista, (x) => x.valor))}</b>
     </div>
     ${lista.length ? `<div class="tabela cartao" style="padding:0"><table><thead><tr><th>Dia</th><th>O que</th><th>Tipo</th><th>Cliente · turma</th><th style="text-align:right">Valor</th><th>Pago</th><th></th></tr></thead><tbody>
-      ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}${x.fixa_id ? ' <span class="selo neutro">fixa</span>' : ''}${x.reembolsavel ? ` <span class="selo alerta" title="A nota do reembolso paga imposto">cliente reembolsa · imposto ${dinheiro(F.impostoSobre(F.comImpostoIncluido(x.valor, d.aliquota.pct), d.aliquota.pct))}${x.reembolso_receber_id ? ' · cobrado' : ''}</span>` : ''}${x.conferir ? ' <a class="selo alerta" href="#/financeiro/conferir">conferir</a>' : ''}${x.comprovante ? ` <button class="btn peq" type="button" data-comprovante="${esc(x.comprovante)}" title="Ver o comprovante">📎</button>` : ''}</td>
+      ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}${x.fixa_id ? ' <span class="selo neutro">fixa</span>' : ''}${x.reembolso_id ? ` <span class="selo neutro">reembolso${x.pessoa_id && d.pessoa(x.pessoa_id) ? ` de ${esc(d.pessoa(x.pessoa_id).nome.split(' ')[0])}` : ''}</span>` : ''}${x.grupo ? ' <span class="selo neutro" title="Parte de um pagamento dividido entre vários programas">dividida</span>' : ''}${x.reembolsavel ? ` <span class="selo alerta" title="A nota do reembolso paga imposto">cliente reembolsa · imposto ${dinheiro(F.impostoSobre(F.comImpostoIncluido(x.valor, d.aliquota.pct), d.aliquota.pct))}${x.reembolso_receber_id ? ' · cobrado' : ''}</span>` : ''}${x.conferir ? ' <a class="selo alerta" href="#/financeiro/conferir">conferir</a>' : ''}${x.comprovante ? ` <button class="btn peq" type="button" data-comprovante="${esc(x.comprovante)}" title="Ver o comprovante">📎</button>` : ''}</td>
         <td>${esc(F.nomeCategoria(x.categoria))}</td><td>${onde(x) || '<span class="apagado">—</span>'}</td><td class="fn-num" style="text-align:right">${dinheiro(x.valor)}</td>
         <td>${x.pago_em ? `<span class="selo ok">${dataBR(x.pago_em)}</span>` : `<button class="btn peq" type="button" data-pagar="${x.id}">Marcar pago</button>`}</td>
         <td><button class="btn peq" type="button" data-editar="${x.id}">Editar</button></td></tr>`).join('')}</tbody></table></div>
@@ -776,6 +805,7 @@ function abaDespesas(d, el, recarregar, mesParam) {
         <td><button class="btn peq" type="button" data-fixa="${x.id}">Editar</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="peq apagado mt">Nenhuma ainda.</p>'}
     </div>`;
   el.querySelectorAll('[data-mes]').forEach((b) => b.addEventListener('click', () => { location.hash = `#/financeiro/despesas/${b.dataset.mes}`; }));
+  RB.ligarBloco(d, el, reembolsos || [], recarregar);
   el.addEventListener('click', async (ev) => {
     const pg = ev.target.closest('[data-pagar]'), ed = ev.target.closest('[data-editar]'), fx = ev.target.closest('[data-fixa]'), cp = ev.target.closest('[data-comprovante]');
     if (cp) { try { (await import('./financeiro-recibo.js')).abrirComprovante(cp.dataset.comprovante); } catch (e) { avisar(explicarErro(e), true); } return; }
@@ -788,8 +818,11 @@ function abaDespesas(d, el, recarregar, mesParam) {
 
 const opcoesCategoria = (atual) => F.CATEGORIAS.map(([k, n]) => `<option value="${k}"${k === atual ? ' selected' : ''}>${esc(n)}</option>`).join('');
 
-function formDespesa(d, desp, recarregar) {
+async function formDespesa(d, desp, recarregar) {
   const x = desp || { data: hojeISO(), categoria: 'outros', reembolsavel: false };
+  const EX = await import('./financeiro-extras.js');
+  const div = EX.divisao(d, { inicial: desp ? valorOnde(desp) : '' });
+  const divisaoHtml = div.html;
   const empresas = [...d.empresas].sort((a, b) => a.nome.localeCompare(b.nome));
   const j = janela(desp ? 'Editar despesa' : 'Nova despesa', `<form class="grade" style="gap:12px" novalidate>
     ${x.conferir ? `<div class="aviso">Para conferir: ${esc(x.conferir)} Ao salvar, sai da lista "Conferir".</div>` : ''}
@@ -802,9 +835,9 @@ function formDespesa(d, desp, recarregar) {
     <div class="grade g3" style="gap:10px">
       <div class="campo"><label for="d-data">Dia *</label><input type="date" id="d-data" value="${x.data || ''}"></div>
       <div class="campo"><label for="d-valor">Valor (R$) *</label><input type="number" id="d-valor" min="0" step="0.01" value="${v2(x.valor)}"></div>
-      <div class="campo"><label for="d-cat">Tipo</label><select id="d-cat">${opcoesCategoria(x.categoria)}</select></div>
+      <div class="campo"><label for="d-cat">Tipo</label><div class="linha" style="gap:6px;flex-wrap:nowrap"><select id="d-cat" style="flex:1">${opcoesCategoria(x.categoria)}</select><button class="btn peq" type="button" id="d-nova-cat" title="Criar uma categoria nova">+ Nova</button></div></div>
     </div>
-    <div class="campo"><label for="d-desc">O que foi *</label><input type="text" id="d-desc" maxlength="200" placeholder="Ex.: Passagem Azul Campinas → Goiânia" value="${esc(x.descricao || '')}"></div>
+    <div class="campo"><label for="d-desc">Para que foi essa despesa? *</label><input type="text" id="d-desc" maxlength="200" placeholder="Ex.: imposto do mês, boleto da contabilidade, passagem Campinas → Goiânia" value="${esc(x.descricao || '')}"></div>
     <div class="grade g3" style="gap:10px">
       <div class="campo"><label for="d-emp">Cliente</label><select id="d-emp"><option value="">— nenhum (despesa da Mentorei)</option>${empresas.map((e) => `<option value="${e.id}"${e.id === x.empresa_id ? ' selected' : ''}>${esc(e.nome)}</option>`).join('')}</select></div>
       <div class="campo"><label for="d-turma">Turma</label><select id="d-turma"></select></div>
@@ -814,6 +847,7 @@ function formDespesa(d, desp, recarregar) {
       <div class="campo"><label for="d-prog">Ou mentoria individual</label><select id="d-prog"></select></div>
       <div class="campo" id="c-socia"><label for="d-socia">Despesa pessoal de</label><select id="d-socia"><option value="">—</option>${d.socias.map((p) => `<option value="${p.id}"${p.id === x.pessoa_id ? ' selected' : ''}>${esc(p.nome)}</option>`).join('')}</select></div>
     </div>
+    ${x.grupo ? '<div class="aviso">Esta despesa é uma parte de um pagamento dividido entre vários programas.</div>' : x.reembolso_id ? '<div class="aviso">Este gasto veio de uma planilha de reembolso.</div>' : x.fixa_id ? '' : divisaoHtml}
     <label class="check"><input type="checkbox" id="d-reemb"${x.reembolsavel ? ' checked' : ''}><span>O cliente vai reembolsar esta despesa</span></label>
     <div class="aviso" id="d-imposto" hidden></div>
     <div class="grade g2" style="gap:10px">
@@ -825,6 +859,8 @@ function formDespesa(d, desp, recarregar) {
       ${desp ? '<button class="btn perigo" type="button" id="d-apagar">Apagar</button>' : ''}</div></form>`, { largura: 720 });
   const f = j.corpo.querySelector('form');
   const $ = (s) => f.querySelector(s);
+  if (f.querySelector('[data-divisao]')) div.ligar(f, () => num($('#d-valor')) || 0);
+  EX.ligarNovaCategoria(d, $('#d-cat'), $('#d-nova-cat'));
   const turmasDe = () => {
     const e = $('#d-emp').value;
     const ts = d.turmas.filter((t) => !e || t.empresa_id === e).sort((a, b) => a.nome.localeCompare(b.nome));
@@ -910,6 +946,21 @@ function formDespesa(d, desp, recarregar) {
     if (corpo.categoria === 'socia' && !corpo.pessoa_id) { avisar('Escolha de qual sócia é a despesa.', true); return; }
     if (!desp || !('conferir' in desp)) delete corpo.conferir;   // antes do script 53 a coluna não existe
     if (comprovante !== (x.comprovante || null)) { corpo.comprovante = comprovante; if (!desp) corpo.origem = 'foto'; }
+    // dividido entre vários programas: uma despesa por parte, todas com o mesmo grupo
+    let partes = null;
+    try { partes = f.querySelector('[data-divisao]') ? div.partes() : null; } catch (e) { avisar(e.message, true); return; }
+    if (partes) {
+      const grupo = crypto.randomUUID();
+      const linhas = partes.map((pt) => { const c = camposOnde(d, pt.v, corpo); return { ...corpo, ...c, pessoa_id: c.pessoa_id || corpo.pessoa_id, valor: pt.valor, grupo,
+        descricao: corpo.descricao, observacoes: [corpo.observacoes, `Parte de um pagamento de ${dinheiro(corpo.valor)} dividido em ${partes.length}`].filter(Boolean).join(' · ') }; });
+      try {
+        if (desp) { const { error } = await sb.from('fin_despesas').update(linhas[0]).eq('id', desp.id); if (error) throw error; }
+        else { const { error } = await sb.from('fin_despesas').insert({ ...linhas[0], origem: corpo.origem || 'divisao' }); if (error) throw error; }
+        const { error } = await sb.from('fin_despesas').insert(linhas.slice(1).map((l) => ({ ...l, origem: 'divisao', comprovante: comprovante || null })));
+        if (error) throw error;
+      } catch (e) { avisar(explicarErro(e), true); return; }
+      j.fechar(); avisar(`Despesa dividida em ${partes.length} programas.`); recarregar(); return;
+    }
     const r = desp ? await sb.from('fin_despesas').update(corpo).eq('id', desp.id) : await sb.from('fin_despesas').insert(corpo);
     if (r.error) { avisar(explicarErro(r.error), true); return; }
     j.fechar(); avisar('Despesa salva.'); recarregar();
