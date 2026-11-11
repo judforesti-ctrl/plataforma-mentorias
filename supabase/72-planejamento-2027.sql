@@ -3,7 +3,7 @@
 -- nome da pessoa." O site do planejamento (antes um artifact do Claude) passa a ser /planejamento.html, com o login da
 -- plataforma. Quem vê o quê:
 --   administração (sócias e Cintia) = editora: decide, edita, vê os valores em reais;
---   quem a administração inclui em planejamento_membros = colaboradora (lê e comenta) ou leitora (só lê);
+--   quem a administração inclui em planejamento_membros = colaboradora (faz a jornada e comenta) ou leitora (só lê);
 --   o financeiro do planejamento (coleções fin e finpremissas) só a administração lê.
 -- Os dados ficam em planejamento_docs como documentos (coleção + id + dados jsonb), no mesmo formato do artifact.
 -- O conteúdo do plano (vertentes, concorrentes, decisões...) é o documento conteudo/base: fica no banco, não em arquivo
@@ -44,10 +44,12 @@ create table if not exists public.planejamento_docs (
 );
 alter table public.planejamento_docs enable row level security;
 
+-- Leitura: administração lê tudo; quem participa lê o plano sem o financeiro, e da jornada só a própria.
 drop policy if exists plan_docs_ler on public.planejamento_docs;
 create policy plan_docs_ler on public.planejamento_docs for select using (
   public.planejamento_nivel() = 'editora'
-  or (public.planejamento_nivel() in ('colaboradora', 'leitora') and colecao not in ('fin', 'finpremissas'))
+  or (public.planejamento_nivel() in ('colaboradora', 'leitora') and colecao not in ('fin', 'finpremissas')
+      and (colecao <> 'jornada' or id = auth.uid()::text))
 );
 drop policy if exists plan_docs_editora on public.planejamento_docs;
 create policy plan_docs_editora on public.planejamento_docs for all
@@ -62,6 +64,18 @@ drop policy if exists plan_docs_apagar_comentario on public.planejamento_docs;
 create policy plan_docs_apagar_comentario on public.planejamento_docs for delete using (
   colecao = 'comentarios' and public.planejamento_nivel() = 'colaboradora' and por = auth.uid()
 );
+
+-- Jornada (pedido da Juliana, 11/11/2026): cada pessoa percorre o plano clicando nas suas escolhas e pode parar e voltar.
+-- Um documento por pessoa (coleção jornada, id = o login). A colaboradora cria e muda só a dela; a leitora não responde;
+-- a administração lê todas (relatório geral com convergências e divergências).
+drop policy if exists plan_docs_jornada_criar on public.planejamento_docs;
+create policy plan_docs_jornada_criar on public.planejamento_docs for insert with check (
+  colecao = 'jornada' and id = auth.uid()::text and por = auth.uid() and public.planejamento_nivel() = 'colaboradora'
+);
+drop policy if exists plan_docs_jornada_mudar on public.planejamento_docs;
+create policy plan_docs_jornada_mudar on public.planejamento_docs for update
+  using (colecao = 'jornada' and id = auth.uid()::text and public.planejamento_nivel() = 'colaboradora')
+  with check (colecao = 'jornada' and id = auth.uid()::text and por = auth.uid() and public.planejamento_nivel() = 'colaboradora');
 
 -- Nomes e fotos de quem participa (mentor não lê os perfis da equipe): só para quem tem acesso ao planejamento.
 create or replace function public.planejamento_pessoas()

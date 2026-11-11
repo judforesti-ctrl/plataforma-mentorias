@@ -3,6 +3,8 @@
    conexao.js em cima do Supabase da plataforma (tabela planejamento_docs, script 72). O conteúdo do plano (VERT, CONT,
    DEC, CONC...) vem do banco (conteudo/base) e conexao.js o põe no escopo global antes de importar este arquivo.
    Valores em reais só nas coleções fin e finpremissas, que só a administração lê. */
+import { criarJornada } from "./jornada.js";
+
 (function () {
   "use strict";
 
@@ -27,6 +29,8 @@
     filtroDec: { v: "todas", st: "abertas" }, filtroConc: "todas",
     rolarPara: null, renderPendente: false
   };
+
+  let J = null; // jornada (jornada.js), criada logo abaixo das funções
 
   /* ---------- utilidades ---------- */
   function dataBR(iso) {
@@ -163,7 +167,7 @@
   function renderNav() {
     const r = S.rota;
     const on = (cond) => (cond ? ' class="on" aria-current="page"' : "");
-    const papel = !S.db ? "Só leitura neste momento" : S.canEdit ? "Decide e vê os valores" : S.podeComentar ? "Lê e comenta" : "Só lê";
+    const papel = !S.db ? "Só leitura neste momento" : S.canEdit ? "Decide e vê os valores" : S.podeComentar ? "Participa e comenta" : "Só lê";
     const quem = S.user ? `<div class="quem"><b>${esc(S.meNome || "Você")}</b><span>${papel}</span></div>` : "";
     const conex = {
       conectando: ["", "Carregando as decisões salvas"],
@@ -175,7 +179,8 @@
       <a class="voltar-plat" href="/app.html">← Voltar para a plataforma</a>
       <div class="marca"><span>Mentorei</span><b>Planejamento 2027</b></div>
       ${quem}
-      <div class="grupo">
+      ${J.nav(r)}
+      <div class="grupo"><div class="grupo-tit">O plano</div>
         <a href="#inicio"${on(r.tipo === "inicio")}>Início</a>
         ${S.canEdit ? `<a href="#participantes"${on(r.tipo === "participantes")}>Quem participa</a>` : ""}
         <a href="#decisoes"${on(r.tipo === "decisoes")}>Decisões</a>
@@ -260,6 +265,7 @@
         <p class="contexto">${esc(d.contexto)}</p>
         <div class="opcoes">${opcoes}</div>
         <p class="porque"><b>Por que recomendamos ${esc(rotOp(d.rec[0]))}:</b> ${esc(d.rec[1])}</p>
+        ${J.resumoDec(d.id)}
         ${quem ? `<p class="decidido-por">${quem}</p>` : ""}
         ${admin}
         ${blocoComentarios(`d-${d.id}`, false)}
@@ -414,7 +420,7 @@
     ev.sort((a, b) => String(b.em).localeCompare(String(a.em)));
     const movHtml = ev.length ? `<div class="mov">${ev.slice(0, 8).map((x) => `<div><small>${dataBR(x.em)}</small><span><b>${esc(nome(x.quem))}</b> <a href="${esc(x.href)}">${esc(x.txt)}</a></span></div>`).join("")}</div>`
       : `<p class="sem">${S.db ? "Ainda não há movimentos. As decisões e comentários aparecem aqui." : "Os movimentos aparecem quando os dados carregam."}</p>`;
-    return `<div class="heroi">
+    return `${J.faixaInicio()}<div class="heroi">
         <span class="olho">Mentorei, planejamento estratégico</span>
         <h1>2027: dois segmentos, seis vertentes, sete etapas</h1>
         <p>Aqui a gente percorre cada vertente da Mentorei, olha o mercado e os concorrentes, toma as decisões e transforma tudo em metas e plano de ação. O que for decidido fica salvo para todas.</p>
@@ -922,7 +928,7 @@
 
   /* ---------- Quem participa (só a administração) ---------- */
   S.part = null;
-  const NIVEIS = [["", "Sem acesso"], ["colaboradora", "Lê e comenta"], ["leitora", "Só lê"]];
+  const NIVEIS = [["", "Sem acesso"], ["colaboradora", "Participa: faz a jornada e comenta"], ["leitora", "Só lê"]];
   async function carregarParticipantes() {
     const P = window.PLANEJAMENTO;
     try {
@@ -943,7 +949,7 @@
     const rosto = (p) => `<span class="rosto">${p.foto_url ? `<img src="${esc(p.foto_url)}" alt="">` : esc((String(p.nome || "?").trim()[0] || "?").toUpperCase())}</span>`;
     const nPart = outros.filter((p) => S.part.membros[p.id]).length;
     return `<header class="cab"><span class="olho">Quem participa</span><h1>Quem entra no planejamento</h1>
-        <p>Cada pessoa entra com o login dela na plataforma, e cada comentário fica no nome de quem escreveu. A administração decide e vê os valores em reais; quem você incluir aqui lê o plano e comenta (ou só lê), sem ver o financeiro.</p></header>
+        <p>Cada pessoa entra com o login dela na plataforma, e cada comentário e cada escolha da jornada ficam no nome de quem fez. A administração decide e vê os valores em reais; quem você incluir aqui como "Participa" faz a jornada e comenta, sem ver o financeiro. "Só lê" lê o plano e não responde.</p></header>
       <div class="cartao"><div class="h4">Administração: decide e vê os valores</div>
         <div class="pessoas">${adm.map((p) => `<div class="pessoa">${rosto(p)}<b>${esc(p.nome)}</b></div>`).join("")}</div></div>
       <section class="bloco"><h2>Mentores e equipe</h2><p class="sub">${nPart} de ${outros.length} com acesso. A mudança vale na hora.</p>
@@ -969,6 +975,8 @@
   /* ---------- rotas e render ---------- */
   function lerRota() {
     const h = decodeURIComponent((location.hash || "").replace(/^#/, ""));
+    const rj = J.rota(h);
+    if (rj) return rj;
     let m;
     if ((m = h.match(/^v-([a-z]+)(?:-([a-z]+))?$/)) && V[m[1]]) return { tipo: "vertente", id: m[1], secao: m[2] && E[m[2]] ? m[2] : null };
     if ((m = h.match(/^e-([a-z]+)$/)) && E[m[1]]) return { tipo: "etapa", id: m[1] };
@@ -989,6 +997,7 @@
     else if (r.tipo === "fontes") html = pagFontes();
     else if (r.tipo === "area") html = pagArea(r.id);
     else if (r.tipo === "participantes") html = pagParticipantes();
+    else if (r.tipo === "jornada" || r.tipo === "meu-relatorio" || r.tipo === "relatorio-geral") html = J.pagina(r);
     else html = pagInicio();
     $("#view").innerHTML = html;
     renderNav();
@@ -1012,16 +1021,18 @@
     const r = S.rota;
     if (r.tipo === "vertente" && r.secao) S.rolarPara = `s-${r.secao}`;
     if (r.tipo === "decisoes" && r.foco) { S.abertas.add(r.foco); S.filtroDec = { v: "todas", st: "todas" }; S.rolarPara = `dec-${r.foco}`; }
+    const rolaJornada = J.aoNavegar(r);
     $("#menu").classList.remove("aberta");
     $("#abrirMenu").setAttribute("aria-expanded", "false");
+    if (!S.rolarPara && !rolaJornada && !(r.tipo === "vertente" && r.secao) && !(r.tipo === "decisoes" && r.foco)) window.scrollTo(0, 0);
     render();
-    if (!S.rolarPara && !(r.tipo === "vertente" && r.secao) && !(r.tipo === "decisoes" && r.foco)) window.scrollTo(0, 0);
   }
 
   /* ---------- eventos ---------- */
   document.addEventListener("click", async (ev) => {
     const b = ev.target.closest("[data-acao]");
     if (!b || !$("#view").contains(b)) return;
+    if (await J.clique(b, ev)) return;
     const a = b.dataset.acao, id = b.dataset.id;
     if (a === "salvar-premissa") { await salvarPremissas(b.dataset.grupos.split(" ")); return; }
     if (a === "restaurar-premissa") {
@@ -1100,6 +1111,7 @@
 
   document.addEventListener("input", (ev) => {
     const t = ev.target;
+    if (J.digitou(t)) return;
     if (t.dataset.calc || t.dataset.calcfin || t.dataset.turma) {
       if (t.dataset.turma) {
         const i = Number(t.dataset.turma), n = lerNum(t.value);
@@ -1152,7 +1164,8 @@
   });
 
   document.addEventListener("focusout", () => {
-    setTimeout(() => { if (S.renderPendente && !ocupado()) render(); }, 0);
+    // espera o clique terminar: redesenhar no meio do clique engoliria o botão apertado
+    setTimeout(() => { if (S.renderPendente && !ocupado()) render(); }, 300);
   });
   document.addEventListener("toggle", (ev) => {
     const d = ev.target;
@@ -1208,7 +1221,7 @@
       try { S.meId = await user.id(); } catch (e) { S.meId = null; }
       try { const me = await user.me(); S.meNome = (me && me.name) || ""; } catch (e) { S.meNome = ""; }
     }
-    if (!db) { S.conexao = "offline"; S.canEdit = false; S.podeComentar = false; render(); return; }
+    if (!db) { S.conexao = "offline"; S.canEdit = false; S.podeComentar = false; J.iniciar(); render(); return; }
     S.db = db;
     if (S.canEdit) S.podeComentar = true;
     S.conexao = "conectando";
@@ -1220,9 +1233,11 @@
     assinar("premissas", (l) => { S.premissas = porId(l); aplicarPremissas(); });
     if (S.canEdit) assinar("fin", (l) => { S.fin = porId(l); });
     if (S.canEdit) assinar("finpremissas", (l) => { S.finp = porId(l); aplicarPremissas(); });
+    J.iniciar();
     render();
   }
 
+  J = criarJornada({ S, esc, toast, agendarRender, dataBR, decInfo, D, V, chipV });
   S.rota = lerRota();
   navegar();
   iniciar();

@@ -1063,7 +1063,24 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   os próprios comentários (`por` e `dados.autor` = auth.uid()). Nomes pela rpc `planejamento_pessoas()` (mentor não lê perfis).
   "Quem participa" (`#participantes`, só administração): mentores ativos com "Sem acesso / Lê e comenta / Só lê"; quem não está na
   plataforma é cadastrado e convidado pelo caminho de sempre (Equipe/Convites), nunca por aqui. MUDAR O CONTEÚDO DO PLANO = update
-  em `planejamento_docs` (colecao 'conteudo', id 'base', jsonb inteiro) pelo conector, sem push. Teste local: /home/claude/teste-plan
+  em `planejamento_docs` (colecao 'conteudo', id 'base', jsonb inteiro) pelo conector, sem push (o jsonb tem ~80 mil caracteres:
+  mandar em partes de ~20 mil para colecao 'tmpconteudo', conferir o md5 de cada parte, juntar com string_agg e apagar as partes).
+  JORNADA (11/11, mesmo dia, pedido dela: "uma mini jornada para percorrer, clicando nas escolhas; relatório pessoal e, quando todos
+  terminarem, o geral com convergência e divergência; explicação e tempo antes de cada parte; parar e voltar de onde parou; obrigada
+  personalizado"): `assets/planejamento/jornada.js` (criarJornada, ligada no app.js: rotas, menu "Jornada 2027", faixa no Início,
+  resumo no cartão da decisão para a administração). Um documento por pessoa em `planejamento_docs` colecao 'jornada', id = login
+  ({nome, papel, nivel, iniciadaEm, atualizadaEm, concluidaEm, posicao {parte, item}, respostas {chave: {escolha, texto, meta, em}}});
+  salva a cada clique (texto: 0,9 s depois) e tenta de novo sozinha sem rede. RLS (no 72): colaboradora cria/muda só a dela e só
+  lê a dela; leitora não responde (vê "seu acesso é só de leitura"); a administração lê todas. Partes (PARTES em jornada.js): energia
+  (prioridade das vertentes), direção, decisões já tomadas (D01 a D12: concordo/ressalva), 5 grupos das decisões pendentes (a de
+  "Pessoas, gestão e finanças" só para a administração), metas (entra no painel? + meta sugerida), o que mais pensar, para fechar
+  (3 perguntas abertas). Antes de cada parte: o que escolher, por que importa, tempo (segundos por tipo em SEG). Rotas: `#jornada`
+  (vazio = jornada para quem participa; obrigada personalizado por papel: sócia, coordenação, mentor), `#jornada/<parte>` (introdução),
+  `#jornada/<parte>/<n>` (um por tela) ou `/lista` (todas na mesma página), `#jornada/fim` (concluir), `#meu-relatorio` (imprimir em
+  PDF), `#relatorio-geral[/<item>]` (só administração: quem participa, convergência = 75% ou mais na mesma opção com 2+ respostas,
+  divergência = nenhuma opção acima de 50%, ranking das vertentes e dos temas, detalhe com nomes e comentários). "Quem participa"
+  agora diz "Participa: faz a jornada e comenta". Teste local: /home/claude/teste-plan (t2.py testa a jornada; `&semente=1` põe
+  jornadas de Cintia, Viviane e Cláudio no banco falso). Teste local: /home/claude/teste-plan
   (cópia de public/ com import map para `teste/base-falso.js`, `?quem=admin|colab|leitora|nada|semlogin`), fora do git.
 
 - CONTATOS DO SITE (2026-11-11, script 70 rodado pelo conector no mesmo dia; pedido da Juliana): o formulário "20 minutos. Seu desafio
