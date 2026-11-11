@@ -1020,6 +1020,24 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   proposta [feita]. O QR da plataforma (qrcode-generator) escolhe outra máscara que o `referencia/qr.py`: desenho
   diferente, mesmo conteúdo (conferido com jsQR). Teste local: launch.json "certificados-teste" (porta 8811), scratchpad da sessão
   76384cb3 (teste/ com cert_pastas no base-falso.js; `?sem47`).
+- FINANCEIRO POR CNPJ E PLANILHA DA CINTIA (2026-11-11, script 69, rodado pelo conector no mesmo dia). Pedido da Juliana: "sempre
+  separar os faturamentos por CNPJ", "explicações das pendências muito confusas" e "um campo para a Cintia importar a planilha que ela
+  ainda usa para as notas, até parar de usar". CNPJs em `configuracoes.financeiro.cnpjs` (Ajustes → "Os CNPJs da Mentorei"; padrão
+  `F.PADRAO_CNPJS`: principal = FSK Capital Intelectual Ltda. 30.589.703/0001-68, nota pela Contabilizei; outro = Mentorei Treinamento
+  em Desenvolvimento Profissional 61.077.391/0001-37, conta Sicoob 139.403-7). Cada linha é do CNPJ do plano (`fin_planos.emissor`) ou,
+  na avulsa, de `fin_receber.emissor` (`F.cnpjDaLinha`, `d.cnpjDe`). Brasdiesel passou para 'outro' (paga na conta do CNPJ novo).
+  Separado por CNPJ: Visão geral (cartão "Separado por CNPJ"), Emitir nota (uma tabela por CNPJ; "Nota emitida para as marcadas" não
+  mistura CNPJ), A receber, Turmas e mentorias (coluna) e o arquivo da contabilidade (uma planilha por CNPJ; "Emitir por" = razão,
+  CNPJ e onde emite). CONFERIR: cada item é uma pergunta curta; planos têm "Está certo" (limpa e guarda a pergunta em observacoes) e
+  "Corrigir"; os recados antigos foram reescritos no banco. IMPORTAR A PLANILHA (botão no alto do Financeiro,
+  `telas/financeiro-planilha.js`, regras puras em `public/assets/financeiro-planilha.js`, testadas no Node com a planilha real em
+  /home/claude/teste-planilha, fora do git): lê a aba "Faturamento AAAA" (blocos "Data | Cliente | Valor | … | Emissão NF | Data
+  depósito"; o dd/mm escrito no texto do cliente vale mais que a coluna Data; "9/11" de um algarismo é parcela; ano errado do depósito
+  é corrigido), casa cada linha com fin_receber (valor + dia ≤ 40 dias + nome; parcela/turma/módulo somam ou tiram) e mostra por CNPJ:
+  o que atualiza (só avança: nota emitida, número, recebido), o que não está na plataforma (escolher plano, cliente avulso ou "Corrigir
+  a linha parecida" com valor até 25% diferente) e o total dos meses antes do início (quadro "MÊS RECEITA" da aba, senão a soma).
+  Grava em `fin_importacoes` com o "antes"; "Desfazer essa importação" volta tudo. Teste das telas: /home/claude/teste-ui (Chrome sem
+  janela, Supabase de mentira).
 
 ## Regras do negócio
 - QUEM VÊ O QUÊ (decisão dela, 31/10/2026): Financeiro, Vendas/comercial, cópias de segurança, Painel, Relatórios e tudo o que é

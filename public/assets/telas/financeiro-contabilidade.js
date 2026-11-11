@@ -47,14 +47,15 @@ export async function janelaContabilidade(d, linhas, recarregar) {
     const grupos = new Map();
     for (const l of linhas) {
       const q = quem(l);
-      const k = estado.juntar ? `${q.doc || l.empresa_id}|${l.plano_id || 'avulso'}` : l.id;
+      const k = `${d.cnpjDe(l)}|${estado.juntar ? `${q.doc || l.empresa_id}|${l.plano_id || 'avulso'}` : l.id}`;   // nunca junta dois CNPJs
       if (!grupos.has(k)) grupos.set(k, { linhas: [], q });
       grupos.get(k).linhas.push(l);
     }
     return [...grupos.values()].map((g) => {
       const p = d.plano(g.linhas[0].plano_id);
-      return { empresa_id: g.linhas[0].empresa_id, plano_id: g.linhas[0].plano_id, peloNome: !!g.q.peloNome, ...F.notaContabilidade({ linhas: g.linhas, plano: p, empresaNome: g.q.nome, documento: g.q.doc, tomador: tomadores.get(g.q.doc) || null,
-        emissao: estado.emissao, vencimento: F.vencimentoPadrao(estado.emissao, p ? p.prazo_dias : 30), emissor: d.config.emissores[p ? p.emissor : 'principal'] || '',
+      const cnpj = d.cnpjDe(g.linhas[0]);
+      return { cnpj, empresa_id: g.linhas[0].empresa_id, plano_id: g.linhas[0].plano_id, peloNome: !!g.q.peloNome, ...F.notaContabilidade({ linhas: g.linhas, plano: p, empresaNome: g.q.nome, documento: g.q.doc, tomador: tomadores.get(g.q.doc) || null,
+        emissao: estado.emissao, vencimento: F.vencimentoPadrao(estado.emissao, p ? p.prazo_dias : 30), emissor: F.emitirPor(d.cnpjs[cnpj]),
         observacao: p && p.pagador_nome ? `Serviço para ${d.empresa(g.linhas[0].empresa_id).nome}` : '' }) };
     });
   };
@@ -69,16 +70,17 @@ export async function janelaContabilidade(d, linhas, recarregar) {
         <div class="campo"><label for="ct-emissao">Data de emissão das notas</label><input type="date" id="ct-emissao" value="${estado.emissao}"></div>
         <label class="check" style="align-self:end;padding-bottom:10px"><input type="checkbox" id="ct-juntar"${estado.juntar ? ' checked' : ''}><span>Juntar as linhas da mesma turma ou mentoria numa nota só</span></label>
       </div>
-      <div class="tabela mt"><table><thead><tr><th>Tomador</th><th>O que</th><th style="text-align:right">Valor</th><th style="text-align:right">Retenções</th><th style="text-align:right">Líquido</th><th>Dados</th></tr></thead><tbody>
-        ${notas.map((n, i) => { const ret = F.soma(Object.values(n.ret)); return `<tr><td><b>${esc(n.razao)}</b><br><small class="apagado">${esc(F.documentoFormatado(n.documento) || 'sem CNPJ')}</small></td>
+      ${F.porCnpj(notas.map((n, i) => ({ n, i })), (x) => x.n.cnpj).map(([k, ns]) => `<h3 class="mt">${esc(F.rotuloCnpj(d.cnpjs[k]))}</h3><p class="peq apagado">${ns.length} nota${ns.length === 1 ? '' : 's'} · ${dinheiro(F.soma(ns, (x) => x.n.valor))} · sai numa planilha só deste CNPJ</p>
+      <div class="tabela"><table><thead><tr><th>Tomador</th><th>O que</th><th style="text-align:right">Valor</th><th style="text-align:right">Retenções</th><th style="text-align:right">Líquido</th><th>Dados</th></tr></thead><tbody>
+        ${ns.map(({ n, i }) => { const ret = F.soma(Object.values(n.ret)); return `<tr><td><b>${esc(n.razao)}</b><br><small class="apagado">${esc(F.documentoFormatado(n.documento) || 'sem CNPJ')}</small></td>
           <td><small>${esc(n.descricao).replace(/\n/g, '<br>')}</small></td>
           <td class="fn-num" style="text-align:right">${dinheiro(n.valor)}</td><td class="fn-num" style="text-align:right">${ret ? dinheiro(ret) : '—'}</td>
           <td class="fn-num" style="text-align:right">${dinheiro(n.liquido)}</td>
           <td>${n.falta.length ? `<span class="selo alerta">falta ${esc(n.falta.join(', '))}</span><br>` : '<span class="selo ok">completos</span><br>'}${n.peloNome ? '<span class="selo neutro">achado pelo nome: conferir</span><br>' : ''}
             ${!semScript ? `<button class="btn peq" type="button" data-tomador="${i}">${n.tomador ? 'Ver ou mudar' : 'Completar'}</button>` : ''}</td></tr>`; }).join('')}
-      </tbody></table></div>
+      </tbody></table></div>`).join('')}
       <p class="peq mt">${notas.length} nota${notas.length === 1 ? '' : 's'} · ${dinheiro(F.soma(notas, (n) => n.valor))}${faltam.length ? ` · <b>${faltam.length} com dados faltando</b> (a planilha sai assim mesmo, com o campo em branco)` : ''}</p>
-      <div class="linha mt"><button class="btn pri" type="button" id="ct-baixar">Baixar a planilha para a contabilidade</button><button class="btn" type="button" data-fechar>Desistir</button></div>
+      <div class="linha mt"><button class="btn pri" type="button" id="ct-baixar">${new Set(notas.map((n) => n.cnpj)).size > 1 ? 'Baixar as planilhas (uma por CNPJ)' : 'Baixar a planilha para a contabilidade'}</button><button class="btn" type="button" data-fechar>Desistir</button></div>
       <p class="peq apagado mt">Mesmas colunas da planilha de notas fiscais. Número da nota e código de verificação ficam em branco para a contabilidade. Quando a nota sair, registre o número em "Nota emitida".</p>`;
     corpo.querySelector('#ct-emissao').addEventListener('change', (ev) => { estado.emissao = ev.target.value || hoje; desenhar(); });
     corpo.querySelector('#ct-juntar').addEventListener('change', (ev) => { estado.juntar = ev.target.checked; desenhar(); });
@@ -87,11 +89,14 @@ export async function janelaContabilidade(d, linhas, recarregar) {
       ev.target.disabled = true;
       try {
         const XLSX = await import(XLSX_URL);
-        const ws = XLSX.utils.aoa_to_sheet([F.COLUNAS_CONTABILIDADE, ...notas.map(F.linhaContabilidade)]);
-        ws['!cols'] = F.COLUNAS_CONTABILIDADE.map((c) => ({ wch: c === 'Descrição serviço' ? 60 : c === 'Cliente / razão social' ? 40 : 14 }));
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Notas para emitir');
-        XLSX.writeFile(wb, `Mentorei - notas para emitir - ${estado.emissao}.xlsx`);
+        // uma planilha por CNPJ: cada CNPJ emite as próprias notas
+        for (const [k, ns] of F.porCnpj(notas, (n) => n.cnpj)) {
+          const ws = XLSX.utils.aoa_to_sheet([F.COLUNAS_CONTABILIDADE, ...ns.map(F.linhaContabilidade)]);
+          ws['!cols'] = F.COLUNAS_CONTABILIDADE.map((c) => ({ wch: c === 'Descrição serviço' ? 60 : c === 'Cliente / razão social' || c === 'Emitir por' ? 40 : 14 }));
+          const wb = XLSX.utils.book_new();
+          XLSX.utils.book_append_sheet(wb, ws, 'Notas para emitir');
+          XLSX.writeFile(wb, `Notas para emitir - ${(d.cnpjs[k].apelido || k).replace(/[\\/:*?"<>|]/g, '')} - ${estado.emissao}.xlsx`);
+        }
         if (!semScript) {
           const { error } = await sb.from('fin_receber').update({ contabilidade_em: new Date().toISOString() }).in('id', linhas.map((l) => l.id));
           if (error) throw error;

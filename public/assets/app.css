@@ -840,6 +840,11 @@ html.area-aluno .mn-formato, html.area-aluno .mn-caminho { display: none !import
 
 /* ---------- Financeiro (script 52): barras do faturado por mês e das despesas por tipo ---------- */
 .fn-num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fn-cnpj { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 6px 0 8px; padding: 8px 12px; border-left: 4px solid var(--petroleo); background: var(--papel); border-radius: 8px; }
+.fn-cnpj b { font-size: 16px; }
+.fn-cnpj span { font-size: 13px; color: var(--apagado); }
+.fn-cnpj em { margin-left: auto; font-style: normal; font-weight: 600; font-variant-numeric: tabular-nums; }
+.fn-imp-muda { display: flex; flex-wrap: wrap; gap: 4px; }
 .fn-barras { display: grid; gap: 6px; }
 .fn-barra { display: grid; grid-template-columns: minmax(44px, 30%) minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; color: inherit; text-decoration: none; border-radius: 6px; padding: 2px 4px; }
 a.fn-barra:hover, a.fn-barra:focus-visible { background: var(--faixa); }

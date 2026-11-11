@@ -482,3 +482,31 @@ export function saldoReserva(lancamentos) {
   }
   return { saldo: saldo == null ? null : arred(saldo), data, ultimoExtrato };
 }
+
+// ---------- os dois CNPJs da Mentorei (11/11/2026, pedido da Juliana: "sempre separar os faturamentos por CNPJ") ----------
+// Cada plano diz qual CNPJ emite a nota (fin_planos.emissor: principal | outro); a linha avulsa, sem plano, diz na própria linha
+// (fin_receber.emissor, script 69). Os dados de cada CNPJ ficam em Ajustes (configuracoes.financeiro.cnpjs).
+export const CHAVES_CNPJ = ['principal', 'outro'];
+export const PADRAO_CNPJS = {
+  principal: { apelido: 'FSK', nome: 'FSK Capital Intelectual Ltda.', cnpj: '30.589.703/0001-68', emite_por: 'Contabilizei', contas: 'Sicoob 74.479-4 · Unicred 87378' },
+  outro: { apelido: 'Mentorei Treinamento', nome: 'Mentorei Treinamento em Desenvolvimento Profissional', cnpj: '61.077.391/0001-37', emite_por: '', contas: 'Sicoob 139.403-7 (Sicoob Mentorei)' },
+};
+export function cnpjs(config) {
+  const salvos = (config && config.cnpjs) || {};
+  const antigos = (config && config.emissores) || {};   // antes de 11/11 só havia o nome de onde a nota sai
+  return Object.fromEntries(CHAVES_CNPJ.map((k) => {
+    const c = { ...PADRAO_CNPJS[k], ...(salvos[k] || {}) };
+    if (!salvos[k] && k === 'principal' && typeof antigos.principal === 'string' && antigos.principal) c.emite_por = antigos.principal;
+    return [k, c];
+  }));
+}
+export const cnpjDaLinha = (linha, plano) => (linha && linha.emissor) || (plano && plano.emissor) || 'principal';
+export const rotuloCnpj = (c) => `${c.apelido || c.nome}${c.cnpj ? ` · CNPJ ${c.cnpj}` : ''}`;
+// "Emitir por" no arquivo da contabilidade: razão social, CNPJ e onde a nota sai
+export const emitirPor = (c) => [c.nome, c.cnpj && `CNPJ ${c.cnpj}`, c.emite_por && `(${c.emite_por})`].filter(Boolean).join(' ');
+// Separa uma lista pelo CNPJ (na ordem principal, outro), só os grupos que têm algo
+export function porCnpj(lista, chave) {
+  const g = Object.fromEntries(CHAVES_CNPJ.map((k) => [k, []]));
+  for (const x of lista) (g[chave(x)] || g.principal).push(x);
+  return CHAVES_CNPJ.filter((k) => g[k].length).map((k) => [k, g[k]]);
+}

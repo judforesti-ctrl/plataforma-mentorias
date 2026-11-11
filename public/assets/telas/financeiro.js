@@ -16,6 +16,8 @@ const ehSocia = (p) => p && p.papel === 'admin' && !!p.tambem_mentor;
 const SOCIAS_NOMES = /^(juliana|viviane|cl[aá]udia)\b/i;
 const AVISO_52 = '<div class="aviso">Falta rodar o script <b>52-financeiro.sql</b> no Supabase (SQL Editor → New query → colar → Run). Até lá esta tela fica vazia.</div>';
 const PADRAO_CONFIG = { inicio: '2026-11', emissores: { principal: 'Contabilizei', outro: 'Prefeitura' }, imposto_pct: 11.5 };
+// Cabeçalho de cada CNPJ nas listas (pedido da Juliana, 11/11/2026: tudo separado por CNPJ)
+const tituloCnpj = (d, k, extra = '') => { const c = d.cnpjs[k]; return `<div class="fn-cnpj"><b>${esc(c.apelido || c.nome)}</b><span>${esc(c.nome)}${c.cnpj ? ` · CNPJ ${esc(c.cnpj)}` : ''}${c.emite_por ? ` · nota pela ${esc(c.emite_por)}` : ''}</span>${extra ? `<em>${extra}</em>` : ''}</div>`; };
 const selo = (estado) => { const [t, c] = F.ROTULO_ESTADO[estado] || [estado, 'neutro']; return `<span class="selo ${c === 'ruim' ? 'erro' : c}">${t}</span>`; };
 const v2 = (v) => (v == null || v === '' ? '' : Number(v).toFixed(2));
 const maiuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
@@ -52,6 +54,9 @@ async function carregar() {
     recadosNovos: recadosNovos.error ? 0 : (recadosNovos.data || []).length,
   };
   d.config.emissores = { ...PADRAO_CONFIG.emissores, ...(d.config.emissores || {}) };
+  // os dois CNPJs da Mentorei: cada linha a receber é de um deles (o do plano; a avulsa diz na própria linha)
+  d.cnpjs = F.cnpjs(d.config);
+  d.cnpjDe = (l) => F.cnpjDaLinha(l, d.plano(l.plano_id));
   d.empresa = (id) => d.empresas.find((e) => e.id === id) || { nome: '—' };
   d.plano = (id) => d.planos.find((p) => p.id === id) || null;
   d.modulo = (id) => d.modulos.find((m) => m.id === id) || null;
@@ -100,7 +105,7 @@ export async function render(ctx, el, params) {
   if (!d.falta) await acertar(d);
   el.innerHTML = `
     <div class="cab"><div><h1>Financeiro</h1><p class="sub">O faturamento nasce das turmas e mentorias: no dia do módulo ou da parcela, a nota aparece para emitir.</p></div>
-      ${d.falta ? '' : '<div class="acoes"><button class="btn" type="button" id="ajustes">Ajustes</button><button class="btn pri" type="button" id="nova-desp">+ Despesa</button></div>'}</div>
+      ${d.falta ? '' : '<div class="acoes"><button class="btn" type="button" id="planilha" title="Atualiza notas e recebimentos pela planilha de controle">📥 Importar a planilha da Cintia</button><button class="btn" type="button" id="ajustes">Ajustes</button><button class="btn pri" type="button" id="nova-desp">+ Despesa</button></div>'}</div>
     ${d.falta ? AVISO_52 : ''}
     <nav class="abas" aria-label="Partes do Financeiro">${abas.map(([k, t]) => `<button type="button" data-aba="${k}" class="${k === aba ? 'atual' : ''}">${t}${k === 'emitir' ? contador(d) : k === 'extratos' && d.movimentosAConferir ? ` <span class="selo alerta">${d.movimentosAConferir}</span>` : k === 'pagamentos' && d.notasAConferir + d.recadosNovos ? ` <span class="selo alerta">${d.notasAConferir + d.recadosNovos}</span>` : k === 'conferir' && !d.falta && d.aConferir.planos.length + d.aConferir.despesas.length ? ` <span class="selo alerta">${d.aConferir.planos.length + d.aConferir.despesas.length}</span>` : ''}</button>`).join('')}</nav>
     <div id="conteudo"></div>`;
@@ -108,6 +113,7 @@ export async function render(ctx, el, params) {
   if (d.falta) return;
   const recarregar = () => ctx.irPara(location.hash);
   el.querySelector('#ajustes').addEventListener('click', () => janelaAjustes(d, recarregar));
+  el.querySelector('#planilha').addEventListener('click', async () => (await import('./financeiro-planilha.js')).janelaPlanilha(d, recarregar));
   el.querySelector('#nova-desp').addEventListener('click', () => formDespesa(d, null, recarregar));
   const alvo = el.querySelector('#conteudo');
   if (aba === 'conferir') return abaConferir(ctx, d, alvo, recarregar);
@@ -185,6 +191,7 @@ function abaGeral(d, el, recarregar, mesParam) {
       <div class="cartao numero"><b>${dinheiro(F.soma(aReceber, (l) => l.valor))}</b><span>a receber (nota emitida)${atrasado.length ? ` · <b style="font-size:13px;color:var(--erro)">${dinheiro(F.soma(atrasado, (l) => l.valor))} atrasado</b>` : ''}</span></div>
       <div class="cartao numero"><b>${dinheiro(despesas)}</b><span>despesas do mês${faturado ? ` · sobra ${dinheiro(faturado - despesas)}` : ''}</span></div>
     </div>
+    ${blocoPorCnpj(d, mes, { aEmitir, aReceber, atrasado })}
     <div class="grade g2 mt">
       <div class="cartao"><h3>Para fazer</h3><div class="grade" style="gap:8px">
         ${d.aConferir.planos.length + d.aConferir.despesas.length ? `<a class="pend" href="#/financeiro/conferir"><b>${d.aConferir.planos.length + d.aConferir.despesas.length}</b><span>para conferir: ${[d.aConferir.planos.length && `${d.aConferir.planos.length} plano${d.aConferir.planos.length > 1 ? 's' : ''} de faturamento`, d.aConferir.despesas.length && `${d.aConferir.despesas.length} despesa${d.aConferir.despesas.length > 1 ? 's' : ''}`].filter(Boolean).join(' e ')}</span></a>` : ''}
@@ -214,6 +221,26 @@ function abaGeral(d, el, recarregar, mesParam) {
     <div id="fn-direcao"></div>`;
   el.querySelectorAll('[data-mes]').forEach((b) => b.addEventListener('click', () => { location.hash = `#/financeiro/geral/${b.dataset.mes}`; }));
   el.querySelector('#meses').addEventListener('click', () => janelaMeses(d, ano, recarregar));
+}
+
+// Os números do mês separados pelos dois CNPJs (pelas linhas da plataforma; antes do início do Financeiro, o total do mês vem
+// da planilha, que não separa por CNPJ)
+function blocoPorCnpj(d, mes, { aEmitir, aReceber, atrasado }) {
+  const doCnpj = (k, lista) => lista.filter((l) => d.cnpjDe(l) === k);
+  const linhas = F.CHAVES_CNPJ.map((k) => {
+    const doMes = doCnpj(k, d.receber.filter((l) => l.situacao !== 'cancelado' && F.mesDe(l.data) === mes));
+    const receb = doCnpj(k, d.receber.filter((l) => l.situacao === 'recebido' && F.mesDe(l.recebido_em) === mes));
+    return { k, faturado: F.soma(doMes, (l) => l.valor), recebido: F.soma(receb, (l) => l.valor_recebido ?? l.valor),
+      aReceber: F.soma(doCnpj(k, aReceber), (l) => l.valor), atrasado: F.soma(doCnpj(k, atrasado), (l) => l.valor), aEmitir: F.soma(doCnpj(k, aEmitir), (l) => l.valor), nEmitir: doCnpj(k, aEmitir).length };
+  });
+  return `<div class="cartao mt"><h3>Separado por CNPJ</h3>
+    <div class="tabela"><table><thead><tr><th>CNPJ</th><th style="text-align:right">Faturado no mês</th><th style="text-align:right">Recebido no mês</th><th style="text-align:right">A receber</th><th style="text-align:right">Notas para emitir</th></tr></thead><tbody>
+    ${linhas.map((x) => { const c = d.cnpjs[x.k]; return `<tr><td><b>${esc(c.apelido || c.nome)}</b><br><small class="apagado">${esc(c.cnpj || 'sem CNPJ em Ajustes')}</small></td>
+      <td class="fn-num" style="text-align:right">${dinheiro(x.faturado)}</td><td class="fn-num" style="text-align:right">${dinheiro(x.recebido)}</td>
+      <td class="fn-num" style="text-align:right">${dinheiro(x.aReceber)}${x.atrasado ? `<br><small style="color:var(--erro)">${dinheiro(x.atrasado)} atrasado</small>` : ''}</td>
+      <td class="fn-num" style="text-align:right">${x.nEmitir ? `${dinheiro(x.aEmitir)}<br><small>${x.nEmitir} linha${x.nEmitir > 1 ? 's' : ''}</small>` : '—'}</td></tr>`; }).join('')}
+    </tbody></table></div>
+    ${mes < d.config.inicio ? `<p class="peq apagado mt">Antes de ${F.nomeMes(d.config.inicio)} o total do mês vem da planilha (sem CNPJ); aqui aparecem só as linhas que estão na plataforma.</p>` : ''}</div>`;
 }
 
 function barrasCategorias(lista) {
@@ -270,21 +297,32 @@ function abaConferir(ctx, d, el, recarregar) {
   const lista = [...despesas].sort((a, b) => a.data.localeCompare(b.data));
   el.innerHTML = `
     ${!planos.length && !lista.length ? '<div class="vazio">Nada para conferir. 🎉</div>' : ''}
-    ${planos.length ? `<div class="cartao" style="margin-bottom:14px"><h3>Planos de faturamento para validar (${planos.length})</h3>
-      <p class="apagado">Montados com os valores da planilha de faturamento ou sem valor. Abra, confira valores e datas das parcelas e salve: sai desta lista.</p>
-      <div class="tabela mt"><table><tbody>${planos.map((p) => `<tr><td><b>${esc(d.empresa(p.empresa_id).nome)}</b><br>${esc(p.titulo)}</td><td>${esc(p.conferir)}</td>
-        <td style="white-space:nowrap"><button class="btn peq escuro" type="button" data-plano="${p.id}">Abrir e conferir</button></td></tr>`).join('')}</tbody></table></div></div>` : ''}
-    ${lista.length ? `<div class="cartao"><h3>Despesas para confirmar (${lista.length})</h3>
-      <p class="apagado">Escolha de que programa é cada despesa. Se não for de nenhum, escolha "Despesa pessoal de" e a sócia, ou "Mentorei (geral)". Depois clique em Confirmar.</p>
-      <div class="tabela mt"><table><thead><tr><th>Dia</th><th>O que</th><th style="text-align:right">Valor</th><th>Por que conferir</th><th>É de…</th><th></th></tr></thead><tbody>
+    ${planos.length ? `<div class="cartao" style="margin-bottom:14px"><h3>Valores de turmas e mentorias (${planos.length})</h3>
+      <p class="apagado">Cada linha tem uma pergunta. Se a resposta é sim, clique em <b>Está certo</b>. Se não, clique em <b>Corrigir</b>, mude o valor ou a data e salve.</p>
+      <div class="tabela mt"><table><thead><tr><th>Cliente</th><th>O que precisa ver</th><th></th></tr></thead><tbody>${planos.map((p) => `<tr><td style="min-width:200px"><b>${esc(d.empresa(p.empresa_id).nome)}</b><br><small class="apagado">${esc(p.titulo)} · ${esc(d.cnpjs[p.emissor || 'principal'].apelido)}</small></td><td>${esc(p.conferir)}</td>
+        <td style="white-space:nowrap"><button class="btn peq pri" type="button" data-certo="${p.id}">Está certo</button> <button class="btn peq" type="button" data-plano="${p.id}">Corrigir</button></td></tr>`).join('')}</tbody></table></div></div>` : ''}
+    ${lista.length ? `<div class="cartao"><h3>Despesas sem dono (${lista.length})</h3>
+      <p class="apagado">Para cada despesa, escolha em "É de…" a turma ou mentoria. Se não for de nenhuma, escolha a sócia (despesa pessoal) ou "Mentorei (geral)". Depois clique em <b>Confirmar</b>.</p>
+      <div class="tabela mt"><table><thead><tr><th>Dia</th><th>O que</th><th style="text-align:right">Valor</th><th>Pista</th><th>É de…</th><th></th></tr></thead><tbody>
       ${lista.map((x) => `<tr><td>${dataBR(x.data)}</td><td>${esc(x.descricao)}<br><small class="apagado">${esc(F.nomeCategoria(x.categoria))}</small></td>
         <td class="fn-num" style="text-align:right">${dinheiro(x.valor)}</td><td><small>${esc(x.conferir)}</small></td>
         <td><select data-onde="${x.id}" aria-label="De que programa é" style="max-width:260px">${opcoesOnde(d, valorOnde(x))}</select></td>
         <td style="white-space:nowrap"><button class="btn peq pri" type="button" data-ok="${x.id}">Confirmar</button> <button class="btn peq" type="button" data-editar="${x.id}">Editar</button></td></tr>`).join('')}
       </tbody></table></div></div>` : ''}`;
   el.addEventListener('click', async (ev) => {
-    const pl = ev.target.closest('[data-plano]'), ok = ev.target.closest('[data-ok]'), ed = ev.target.closest('[data-editar]');
+    const pl = ev.target.closest('[data-plano]'), ok = ev.target.closest('[data-ok]'), ed = ev.target.closest('[data-editar]'), certo = ev.target.closest('[data-certo]');
     if (pl) editorPlano(ctx, d, { plano: d.plano(pl.dataset.plano) }, recarregar);
+    if (certo) {
+      const p = d.plano(certo.dataset.certo);
+      const obs = [p.observacoes, `Conferido em ${dataBR(hojeISO())}: ${p.conferir}`].filter(Boolean).join('\n');
+      const { error } = await sb.from('fin_planos').update({ conferir: null, observacoes: obs, atualizado_em: new Date().toISOString() }).eq('id', p.id);
+      if (error) { avisar(explicarErro(error), true); return; }
+      p.conferir = null; p.observacoes = obs;
+      d.aConferir.planos = d.aConferir.planos.filter((y) => y.id !== p.id);
+      certo.closest('tr').remove();
+      avisar('Pronto: saiu da lista.');
+      if (!d.aConferir.despesas.length && !d.aConferir.planos.length) recarregar();
+    }
     if (ed) formDespesa(d, d.despesas.find((x) => x.id === ed.dataset.editar), recarregar);
     if (ok) {
       const x = d.despesas.find((y) => y.id === ok.dataset.ok);
@@ -355,19 +393,19 @@ function abaEmitir(d, el, recarregar) {
       <td><b>${esc(d.empresa(l.empresa_id).nome)}</b><br><small>${esc(p ? p.titulo : '')}</small></td>
       <td>${esc(l.descricao)}</td>
       <td>${quemPaga(l)}</td>
-      <td>${esc(d.config.emissores[p ? p.emissor : 'principal'] || '')}</td>
       <td class="fn-num" style="text-align:right">${dinheiro(l.valor)}</td>
       <td><div class="linha" style="gap:6px;flex-wrap:nowrap"><button class="btn peq" type="button" data-texto="${l.id}">Copiar texto</button><button class="btn peq escuro" type="button" data-nota="${l.id}">Nota emitida</button></div></td></tr>`; };
   el.innerHTML = blocoReembolsos(d) + (linhas.length ? `
-    <p class="apagado" style="margin-bottom:10px">Módulos e parcelas que já aconteceram (ou acontecem nesta semana) e ainda estão sem nota. Marque as linhas e clique em "Gerar arquivo para a contabilidade": sai a planilha com tudo o que a Contabilizei precisa. Quando a nota sair, registre o número em "Nota emitida".</p>
+    <p class="apagado" style="margin-bottom:10px">Módulos e parcelas que já aconteceram (ou acontecem nesta semana) e ainda estão sem nota, <b>separados pelo CNPJ que emite a nota</b>. Marque as linhas e clique em "Gerar arquivo para a contabilidade": sai uma planilha para cada CNPJ. Quando a nota sair, registre o número em "Nota emitida".</p>
     <div class="linha" style="margin-bottom:10px"><button class="btn pri" type="button" id="contabilidade" disabled>📄 Gerar arquivo para a contabilidade</button>
       <button class="btn escuro" type="button" id="nota-varias" disabled>Nota emitida para as marcadas</button><span class="peq apagado" id="soma-sel"></span></div>
-    <div class="tabela cartao" style="padding:0"><table><thead><tr><th><input type="checkbox" id="sel-todas" aria-label="Marcar todas"></th><th>Data</th><th>Cliente</th><th>O que</th><th>Quem paga</th><th>Nota por</th><th style="text-align:right">Valor</th><th></th></tr></thead>
-      <tbody>${linhas.map(linha).join('')}</tbody></table></div>`
+    ${F.porCnpj(linhas, d.cnpjDe).map(([k, ls]) => `${tituloCnpj(d, k, `${ls.length} linha${ls.length > 1 ? 's' : ''} · ${dinheiro(F.soma(ls, (l) => l.valor))}`)}
+    <div class="tabela cartao" style="padding:0;margin-bottom:16px"><table><thead><tr><th><input type="checkbox" data-sel-cnpj="${k}" aria-label="Marcar todas deste CNPJ"></th><th>Data</th><th>Cliente</th><th>O que</th><th>Quem paga</th><th style="text-align:right">Valor</th><th></th></tr></thead>
+      <tbody>${ls.map(linha).join('')}</tbody></table></div>`).join('')}`
     : '<div class="vazio">Nenhuma nota para emitir agora. Quando um módulo ou uma parcela chegar, ela aparece aqui.</div>');
   const marcadas = () => [...el.querySelectorAll('[data-sel]:checked')].map((c) => d.receber.find((l) => l.id === c.dataset.sel));
   el.addEventListener('change', (ev) => {
-    if (ev.target.id === 'sel-todas') el.querySelectorAll('[data-sel]').forEach((c) => { c.checked = ev.target.checked; });
+    if (ev.target.dataset.selCnpj) ev.target.closest('table').querySelectorAll('[data-sel]').forEach((c) => { c.checked = ev.target.checked; });
     else if (!ev.target.matches('[data-sel]')) return;
     const m = marcadas();
     if (el.querySelector('#nota-varias')) el.querySelector('#nota-varias').disabled = m.length < 1;
@@ -383,6 +421,7 @@ function abaEmitir(d, el, recarregar) {
     if (ev.target.id === 'nota-varias') {
       const m = marcadas();
       if (new Set(m.map((l) => l.empresa_id)).size > 1) { avisar('Marque linhas de um cliente só: uma nota é para um cliente.', true); return; }
+      if (new Set(m.map(d.cnpjDe)).size > 1) { avisar('Marque linhas de um CNPJ só: cada CNPJ emite a própria nota.', true); return; }
       janelaNota(d, m, recarregar);
     }
   });
@@ -399,6 +438,7 @@ function janelaNota(d, linhas, recarregar) {
   const uma = linhas.length === 1;
   const j = janela(uma ? 'Nota emitida' : `Nota emitida para ${linhas.length} linhas`, `<form class="grade" style="gap:12px" novalidate>
     <p class="apagado">${esc(d.empresa(linhas[0].empresa_id).nome)} · ${linhas.map((l) => esc(l.descricao)).join(', ')}</p>
+    <p>Nota emitida pelo CNPJ <b>${esc(F.rotuloCnpj(d.cnpjs[d.cnpjDe(linhas[0])]))}</b></p>
     <div class="grade g3" style="gap:10px">
       <div class="campo"><label for="n-num">Número da nota *</label><input type="number" id="n-num" min="1" inputmode="numeric" required></div>
       <div class="campo"><label for="n-em">Emitida em</label><input type="date" id="n-em" value="${hoje}"></div>
@@ -434,6 +474,7 @@ function abaReceber(d, el, recarregar) {
     return [...g.values()];
   };
   const abertas = porNota(d.receber.filter((l) => l.situacao === 'faturado')).sort((a, b) => (a[0].vencimento || '9').localeCompare(b[0].vencimento || '9'));
+  const porCnpjNotas = F.porCnpj(abertas, (g) => d.cnpjDe(g[0]));
   const recentes = porNota(d.receber.filter((l) => l.situacao === 'recebido' && l.recebido_em && l.recebido_em >= F.somarDias(hoje, -60))).sort((a, b) => b[0].recebido_em.localeCompare(a[0].recebido_em));
   const prazo = (g) => {
     const v = g[0].vencimento; if (!v) return '<span class="selo neutro">Sem vencimento</span>';
@@ -446,17 +487,19 @@ function abaReceber(d, el, recarregar) {
     <div class="grade g4" style="margin-bottom:14px">
       <div class="cartao numero"><b>${dinheiro(F.soma(abertas.flat(), (l) => l.valor))}</b><span>a receber em ${abertas.length} nota${abertas.length === 1 ? '' : 's'}</span></div>
       <div class="cartao numero"><b style="color:var(--erro)">${dinheiro(F.soma(abertas.filter((g) => g[0].vencimento && g[0].vencimento < hoje).flat(), (l) => l.valor))}</b><span>atrasado</span></div>
+      ${F.CHAVES_CNPJ.map((k) => { const gs = abertas.filter((g) => d.cnpjDe(g[0]) === k); return `<div class="cartao numero"><b>${dinheiro(F.soma(gs.flat(), (l) => l.valor))}</b><span>a receber · ${esc(d.cnpjs[k].apelido || d.cnpjs[k].nome)}</span></div>`; }).join('')}
     </div>
-    ${abertas.length ? `<div class="tabela cartao" style="padding:0"><table><thead><tr><th>Nota</th><th>Cliente</th><th>O que</th><th>Vencimento</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>
-      ${abertas.map((g) => `<tr><td><b>${g[0].nota_numero || '—'}</b><br><small>${dataBR(g[0].nota_emitida_em)}</small></td>
+    ${abertas.length ? porCnpjNotas.map(([k, gs]) => `${tituloCnpj(d, k, `${gs.length} nota${gs.length > 1 ? 's' : ''} · ${dinheiro(F.soma(gs.flat(), (l) => l.valor))}`)}
+      <div class="tabela cartao" style="padding:0;margin-bottom:16px"><table><thead><tr><th>Nota</th><th>Cliente</th><th>O que</th><th>Vencimento</th><th style="text-align:right">Valor</th><th></th></tr></thead><tbody>
+      ${gs.map((g) => `<tr><td><b>${g[0].nota_numero || '—'}</b><br><small>${dataBR(g[0].nota_emitida_em)}</small></td>
         <td>${esc(d.empresa(g[0].empresa_id).nome)}${d.plano(g[0].plano_id) && d.plano(g[0].plano_id).pagador_nome ? `<br><small>paga: ${esc(d.plano(g[0].plano_id).pagador_nome)}</small>` : ''}</td>
         <td>${g.map((l) => esc(l.descricao)).join('<br>')}</td>
         <td>${dataBR(g[0].vencimento)}<br>${prazo(g)}</td>
         <td class="fn-num" style="text-align:right">${dinheiro(total(g))}</td>
         <td><div class="linha" style="gap:6px;flex-wrap:nowrap"><button class="btn peq escuro" type="button" data-receber="${idsDe(g)}">Recebido</button><button class="btn peq" type="button" data-desfazer-nota="${idsDe(g)}" title="A nota foi cancelada: a linha volta para Emitir nota">Voltar</button></div></td></tr>`).join('')}
-      </tbody></table></div>` : '<div class="vazio">Nenhuma nota esperando pagamento.</div>'}
+      </tbody></table></div>`).join('') : '<div class="vazio">Nenhuma nota esperando pagamento.</div>'}
     ${recentes.length ? `<details class="cartao mt"><summary><b>Recebidos nos últimos 60 dias</b> · ${dinheiro(F.soma(recentes.flat(), (l) => l.valor_recebido ?? l.valor))}</summary>
-      <div class="tabela mt"><table><tbody>${recentes.map((g) => `<tr><td>${dataBR(g[0].recebido_em)}</td><td>Nota ${g[0].nota_numero || '—'}</td><td>${esc(d.empresa(g[0].empresa_id).nome)}</td>
+      <div class="tabela mt"><table><tbody>${recentes.map((g) => `<tr><td>${dataBR(g[0].recebido_em)}</td><td>Nota ${g[0].nota_numero || '—'}</td><td>${esc(d.cnpjs[d.cnpjDe(g[0])].apelido)}</td><td>${esc(d.empresa(g[0].empresa_id).nome)}</td>
         <td class="fn-num" style="text-align:right">${dinheiro(F.soma(g, (l) => l.valor_recebido ?? l.valor))}</td><td><button class="btn peq" type="button" data-desfazer-receb="${idsDe(g)}">Desfazer</button></td></tr>`).join('')}</tbody></table></div></details>` : ''}`;
   const pegar = (ids) => ids.split(',').map((id) => d.receber.find((l) => l.id === id));
   el.addEventListener('click', async (ev) => {
@@ -517,9 +560,10 @@ function abaPlanos(ctx, d, el, recarregar) {
       <div class="tabela mt"><table><tbody>${faltam.map((x) => `<tr><td><b>${esc(d.empresa(x.empresa_id).nome)}</b></td><td>${esc(x.nome)}</td><td>${x.tipo === 'turma' ? 'Turma' : 'Mentoria individual'}</td>
         <td style="text-align:right"><button class="btn peq pri" type="button" data-montar="${x.tipo}:${x.id}">Montar plano</button></td></tr>`).join('')}</tbody></table></div></div>` : ''}
     <div class="linha" style="margin-bottom:10px"><input type="search" id="busca" placeholder="Procurar cliente ou turma…" style="width:auto;min-width:240px" aria-label="Procurar cliente ou turma"><span style="flex:1"></span><button class="btn peq" type="button" id="avulso">+ Plano avulso (palestra, diagnóstico…)</button></div>
-    ${planos.length ? `<div class="tabela cartao" style="padding:0"><table><thead><tr><th>Cliente</th><th>Turma ou mentoria</th><th style="text-align:right">Total</th><th style="text-align:right">Recebido</th><th style="text-align:right">Nota emitida</th><th style="text-align:right">Falta faturar</th><th></th></tr></thead>
+    ${planos.length ? `<div class="tabela cartao" style="padding:0"><table><thead><tr><th>Cliente</th><th>Turma ou mentoria</th><th>CNPJ da nota</th><th style="text-align:right">Total</th><th style="text-align:right">Recebido</th><th style="text-align:right">Nota emitida</th><th style="text-align:right">Falta faturar</th><th></th></tr></thead>
       <tbody>${planos.map((p) => { const r = resumo(p); const novos = modulosSemLinha(d, p).length; return `<tr data-linha="${esc(norm(`${d.empresa(p.empresa_id).nome} ${p.titulo}`))}">
         <td><b>${esc(d.empresa(p.empresa_id).nome)}</b></td><td>${esc(p.titulo)}<br><small class="apagado">${nomeDe(p)} · ${p.modo === 'modulo' ? 'por módulo' : 'por parcela'} · ${r.n} linha${r.n === 1 ? '' : 's'}</small>${novos ? `<br><span class="selo alerta">${novos} módulo${novos > 1 ? 's' : ''} sem linha</span>` : ''}</td>
+        <td>${esc(d.cnpjs[p.emissor || 'principal'].apelido || d.cnpjs[p.emissor || 'principal'].nome)}</td>
         <td class="fn-num" style="text-align:right">${dinheiro(r.total)}</td><td class="fn-num" style="text-align:right">${dinheiro(r.recebido)}</td><td class="fn-num" style="text-align:right">${dinheiro(r.nota)}</td><td class="fn-num" style="text-align:right">${dinheiro(r.aberto)}</td>
         <td><button class="btn peq" type="button" data-abrir="${p.id}">Abrir</button></td></tr>`; }).join('')}</tbody></table></div>`
       : '<div class="vazio">Nenhum plano ainda. Comece pelas turmas e mentorias acima.</div>'}`;
@@ -558,7 +602,6 @@ async function editorPlano(ctx, d, { plano = null, tipo = null, id = null }, rec
   let linhas = plano ? d.receber.filter((l) => l.plano_id === plano.id).map((l) => ({ ...l })).sort((a, b) => (a.data || '9').localeCompare(b.data || '9')) : [];
   const removidas = [];
   const programaParcelas = programa ? Math.max(1, Math.round((F.diasEntre(programa.inicio || hoje, programa.fim_previsto || F.somarDias(programa.inicio || hoje, 180)) || 180) / 30)) : 1;
-  const emissores = d.config.emissores;
   const j = janela(plano ? `Faturamento · ${plano.titulo}` : 'Montar plano de faturamento', `<form class="grade" style="gap:14px" novalidate>
     ${plano && plano.conferir ? `<div class="aviso"><b>Para conferir:</b> ${esc(plano.conferir)} Ao salvar, o plano sai da lista "Conferir".</div>` : ''}
     ${sug.fonte ? `<div class="aviso">De onde veio o valor: <b>${esc(sug.fonte)}</b>${sug.valor_modulo != null ? ` · ${dinheiro(sug.valor_modulo)} por módulo` : sug.valor_total != null ? ` · ${dinheiro(sug.valor_total)}` : ''}. Se a negociação mudou o valor, é só trocar abaixo.</div>`
@@ -581,7 +624,7 @@ async function editorPlano(ctx, d, { plano = null, tipo = null, id = null }, rec
     <div id="linhas"></div>
     <details${plano ? '' : ' open'}><summary><b>Nota fiscal e pagamento</b></summary><div class="grade mt" style="gap:10px">
       <div class="grade g3" style="gap:10px">
-        <div class="campo"><label for="p-emissor">Nota sai por</label><select id="p-emissor"><option value="principal"${p.emissor !== 'outro' ? ' selected' : ''}>${esc(emissores.principal)}</option><option value="outro"${p.emissor === 'outro' ? ' selected' : ''}>${esc(emissores.outro)}</option></select></div>
+        <div class="campo"><label for="p-emissor">CNPJ que emite a nota</label><select id="p-emissor">${F.CHAVES_CNPJ.map((k) => `<option value="${k}"${(p.emissor || 'principal') === k ? ' selected' : ''}>${esc(F.rotuloCnpj(d.cnpjs[k]))}</option>`).join('')}</select></div>
         <div class="campo"><label for="p-prazo">Vence quantos dias depois da nota</label><input type="number" id="p-prazo" min="0" max="180" value="${p.prazo_dias ?? 30}"></div>
       </div>
       <div class="grade g2" style="gap:10px">
@@ -896,10 +939,16 @@ function janelaAjustes(d, recarregar) {
   const j = janela('Ajustes do Financeiro', `<form class="grade" style="gap:12px" novalidate>
     <div class="campo"><label for="a-inicio">A plataforma conta o faturamento a partir de</label><input type="month" id="a-inicio" value="${esc(c.inicio)}">
       <small>Antes deste mês, os números vêm da planilha (fica em "Metas e meses antigos").</small></div>
-    <div class="grade g2" style="gap:10px">
-      <div class="campo"><label for="a-e1">Nome do CNPJ principal</label><input type="text" id="a-e1" value="${esc(c.emissores.principal)}"></div>
-      <div class="campo"><label for="a-e2">Nome do outro CNPJ</label><input type="text" id="a-e2" value="${esc(c.emissores.outro)}"></div>
-    </div>
+    <fieldset class="cartao" style="margin:0;padding:12px 14px"><legend><b>Os CNPJs da Mentorei</b></legend>
+      <p class="peq apagado">Todo o faturamento aparece separado por estes dois CNPJs. Em cada turma ou mentoria você escolhe qual emite a nota.</p>
+      ${F.CHAVES_CNPJ.map((k) => { const x = d.cnpjs[k]; return `<div class="grade g3 mt" style="gap:10px">
+        <div class="campo"><label for="a-${k}-apelido">Nome curto</label><input type="text" id="a-${k}-apelido" maxlength="40" value="${esc(x.apelido || '')}"></div>
+        <div class="campo"><label for="a-${k}-nome">Razão social</label><input type="text" id="a-${k}-nome" maxlength="160" value="${esc(x.nome || '')}"></div>
+        <div class="campo"><label for="a-${k}-cnpj">CNPJ</label><input type="text" id="a-${k}-cnpj" maxlength="20" inputmode="numeric" value="${esc(x.cnpj || '')}"></div>
+        <div class="campo"><label for="a-${k}-emite">Onde a nota é emitida</label><input type="text" id="a-${k}-emite" maxlength="60" placeholder="Ex.: Contabilizei, prefeitura" value="${esc(x.emite_por || '')}"></div>
+        <div class="campo" style="grid-column:span 2"><label for="a-${k}-contas">Contas no banco</label><input type="text" id="a-${k}-contas" maxlength="160" value="${esc(x.contas || '')}"></div>
+      </div>`; }).join('<hr style="margin:12px 0;border:0;border-top:1px solid var(--linha)">')}
+    </fieldset>
     <div class="campo"><label for="a-imp">Imposto estimado sobre o faturamento (%)</label><input type="number" id="a-imp" min="0" max="40" step="0.1" value="${c.imposto_pct}"><small>Vale só quando não há impostos pagos nos últimos 3 meses. Hoje a plataforma usa ${esc(textoAliquota(d))}.</small></div>
     <details><summary><b>Margem e viagem estimada</b></summary><div class="grade g3 mt" style="gap:10px">
       <div class="campo"><label for="a-hora">Hora de referência dos mentores (R$)</label><input type="number" id="a-hora" min="0" step="1" value="${cu.hora_referencia ?? ''}" placeholder="média dos cadastros"><small>Vazio = média dos mentores que recebem por hora.</small></div>
@@ -922,8 +971,10 @@ function janelaAjustes(d, recarregar) {
   const f = j.corpo.querySelector('form');
   f.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    const valor = { ...c, inicio: f.querySelector('#a-inicio').value || c.inicio, emissores: { principal: f.querySelector('#a-e1').value.trim() || 'Contabilizei', outro: f.querySelector('#a-e2').value.trim() || 'Prefeitura' },
-      imposto_pct: Number(f.querySelector('#a-imp').value) || 0 };
+    const cnpjs = Object.fromEntries(F.CHAVES_CNPJ.map((k) => { const v = (x) => f.querySelector(`#a-${k}-${x}`).value.trim();
+      return [k, { apelido: v('apelido') || F.PADRAO_CNPJS[k].apelido, nome: v('nome'), cnpj: F.documentoFormatado(v('cnpj')), emite_por: v('emite'), contas: v('contas') }]; }));
+    const valor = { ...c, inicio: f.querySelector('#a-inicio').value || c.inicio, cnpjs,
+      emissores: { principal: cnpjs.principal.emite_por || 'Contabilizei', outro: cnpjs.outro.emite_por || c.emissores.outro }, imposto_pct: Number(f.querySelector('#a-imp').value) || 0 };
     const n = (id, padrao) => { const i = f.querySelector(id); return !i || i.value === '' ? padrao : Number(i.value); };
     const participacao = { ...cu.participacao };
     f.querySelectorAll('[data-socia]').forEach((i) => { participacao[i.dataset.socia] = Number(i.value) || 0; });
