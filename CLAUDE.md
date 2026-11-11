@@ -1100,6 +1100,14 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 `node --check` e para rodar módulos puros como o motor das propostas. Funções com Supabase/Claude continuam sendo testadas no navegador.
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
+- CAMPOS DE ESCOLHA COM PESQUISA (2026-11-11, pedido da Juliana: "quero pesquisar e flegar a empresa em todos os campos"):
+  `public/assets/busca-select.js`, ligado uma vez em app.js (`ligarBuscaNosSelects`). Todo `<select>` de empresa/cliente (id terminado
+  em -emp, -empresa, -cliente ou aria-label com Empresa/Cliente) e todo select com 12 opções ou mais (menos listas de texto curto:
+  hora, UF) vira um botão que abre a lista com "Digite para procurar" (sem acento, várias palavras) e a escolhida marcada (✓);
+  setas, Enter e Esc funcionam. O select de verdade continua na página, invisível (`.bs-escondido`): as telas leem `.value` e ouvem
+  `change` como antes, e `sel.value = x` por código atualiza o botão. Deixar de fora: `data-busca="nao"`; forçar: `data-busca="sim"`.
+  Tela nova com select de empresa não precisa fazer nada. Testado no Chrome sem janela com página de teste (não com login real).
+
 ## Pendências conhecidas
 - CONFERIDO EM 09/11 (select de verdade pelo login dela): existem as tabelas dos scripts 32, 37, 44, 46, 48, 49, 54 a 61, 63, 66, 67
   e 68, e `configuracoes.avaliacoes_escala` = 10 (script 64). Os avisos "falta rodar o script N" desses não valem mais.

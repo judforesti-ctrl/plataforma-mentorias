@@ -1,11 +1,13 @@
 // Navegação da plataforma: confere o login, monta o menu de cada papel e abre a tela pedida no endereço (#/...).
 import { sb, sessaoAtual, meuPerfil, registrarAcesso, sair, esc, explicarErro, verComo, sairDoVerComo } from './base.js';
 import { montarMenu } from './menu.js';
+import { ligarBuscaNosSelects } from './busca-select.js';
 import { temMarca } from './marca.js';
 import { aplicarMarca } from './telas/area-aluno.js';
 import { VERSAO as CONTRATO_VERSAO, LIBERADO as CONTRATO_LIBERADO, liberadoSemAssinar } from './contrato-mentor.js';
 
 const tela = document.getElementById('tela');
+ligarBuscaNosSelects();   // caixas de empresa e listas compridas ganham pesquisa (busca-select.js)
 
 const sessao = await sessaoAtual();
 if (!sessao) {
