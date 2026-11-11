@@ -1,4 +1,4 @@
-// Reembolsos (script 70, pedido da Juliana em 11/11/2026): a Cintia importa a planilha de reembolso de uma sócia ou de um mentor.
+// Reembolsos (script 71, pedido da Juliana em 11/11/2026): a Cintia importa a planilha de reembolso de uma sócia ou de um mentor.
 // Cada gasto vira uma despesa ligada ao cliente, à turma e ao módulo (o "centro de custo" do cliente, para a margem), e o PIX do
 // reembolso no extrato é reconhecido sozinho pelo total, sem a Cintia precisar dizer do que se trata.
 // Regras puras, sem banco e sem tela (testáveis no Node): ler a planilha (qualquer arrumação de colunas com cabeçalho), adivinhar

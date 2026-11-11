@@ -49,7 +49,7 @@ export async function abaPagamentos(ctx, d, el, recarregar, mentores) {
       itens.push({ tipo: 'fixa', f, desp, mes, venc, dia, valor: Number((desp || f).valor) });
     }
   }
-  // reembolsos das sócias e dos mentores (script 70): uma linha por planilha, no próximo dia de pagamento depois do envio
+  // reembolsos das sócias e dos mentores (script 71): uma linha por planilha, no próximo dia de pagamento depois do envio
   const RB = await import('./financeiro-reembolsos.js');
   const reembolsos = (await RB.carregarReembolsos().catch(() => null)) || [];
   for (const r of reembolsos.filter((y) => y.situacao !== 'pago')) {

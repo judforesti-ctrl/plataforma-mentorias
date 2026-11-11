@@ -1,4 +1,4 @@
--- 70 · Pedidos da Cintia (11/11/2026, pelo WhatsApp, com a Juliana):
+-- 71 · Pedidos da Cintia (11/11/2026, pelo WhatsApp, com a Juliana):
 -- 1. fin_despesas.grupo: um pagamento dividido entre vários programas vira várias linhas com o mesmo grupo
 --    (ex.: o mentor recebe de uma vez por três turmas).
 -- 2. fin_receber.nota_arquivo: o PDF da nota emitida, na pasta privada "financeiro" (notas/<cnpj>/<arquivo>).
@@ -52,7 +52,7 @@ update storage.buckets set allowed_mime_types = array(select distinct unnest(coa
   'application/vnd.oasis.opendocument.spreadsheet']))
 where id = 'financeiro';
 
-select 'script 70 ok' as resultado,
+select 'script 71 ok' as resultado,
   (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'fin_despesas' and column_name in ('grupo', 'reembolso_id')) as colunas_despesas,
   (select count(*) from information_schema.columns where table_schema = 'public' and table_name = 'fin_receber' and column_name = 'nota_arquivo') as coluna_nota,
   (select count(*) from information_schema.tables where table_schema = 'public' and table_name = 'fin_reembolsos') as tabela_reembolsos;

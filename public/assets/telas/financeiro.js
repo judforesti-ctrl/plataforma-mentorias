@@ -54,7 +54,7 @@ async function carregar() {
     recadosNovos: recadosNovos.error ? 0 : (recadosNovos.data || []).length,
   };
   d.config.emissores = { ...PADRAO_CONFIG.emissores, ...(d.config.emissores || {}) };
-  F.usarCategoriasExtras(d.config.categorias);   // categorias criadas pela Cintia (script 70)
+  F.usarCategoriasExtras(d.config.categorias);   // categorias criadas pela Cintia (script 71)
   // os dois CNPJs da Mentorei: cada linha a receber é de um deles (o do plano; a avulsa diz na própria linha)
   d.cnpjs = F.cnpjs(d.config);
   d.cnpjDe = (l) => F.cnpjDaLinha(l, d.plano(l.plano_id));

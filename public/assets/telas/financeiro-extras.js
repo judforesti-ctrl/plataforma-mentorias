@@ -1,4 +1,4 @@
-// Pedidos da Cintia no Financeiro (11/11/2026, pelo WhatsApp; script 70):
+// Pedidos da Cintia no Financeiro (11/11/2026, pelo WhatsApp; script 71):
 // 1. Categorias de despesa novas ("Despesas digital", por exemplo): guardadas em configuracoes.financeiro.categorias.
 // 2. Dividir um pagamento entre vários programas (o mentor recebe de uma vez por várias turmas): várias despesas com o mesmo grupo.
 // 3. PDF da nota emitida guardado na linha a receber (pasta privada financeiro/notas/...).

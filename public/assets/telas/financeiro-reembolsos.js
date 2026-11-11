@@ -1,4 +1,4 @@
-// Financeiro → Despesas → Reembolsos (script 70, pedido da Juliana em 11/11/2026).
+// Financeiro → Despesas → Reembolsos (script 71, pedido da Juliana em 11/11/2026).
 // A Cintia importa a planilha de reembolso de uma sócia ou de um mentor (Excel, CSV ou PDF). Cada gasto vira uma despesa ligada
 // ao cliente, à turma e ao módulo (pelo texto da planilha e pela agenda de quem gastou), que é o centro de custo do cliente para
 // a margem. O PIX do reembolso no extrato é reconhecido sozinho pelo total (financeiro-extratos.js chama `sugestaoReembolso` antes
@@ -60,7 +60,7 @@ export async function ligarMovimento(mov, reembolsos, eu) {
 
 // ---------- bloco na aba Despesas ----------
 export function blocoReembolsos(d, reembolsos) {
-  if (reembolsos == null) return '<div class="aviso" style="margin-bottom:14px">Falta rodar o script <b>70</b> no Supabase para importar as planilhas de reembolso.</div>';
+  if (reembolsos == null) return '<div class="aviso" style="margin-bottom:14px">Falta rodar o script <b>71</b> no Supabase para importar as planilhas de reembolso.</div>';
   const abertos = reembolsos.filter((r) => r.situacao !== 'pago');
   const pagos = reembolsos.filter((r) => r.situacao === 'pago').slice(0, 12);
   const nome = (r) => esc((d.pessoa(r.pessoa_id) || {}).nome || '—');

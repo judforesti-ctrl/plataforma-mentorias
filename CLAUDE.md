@@ -1161,7 +1161,7 @@ Não há Node instalado, mas o Photoshop traz um (`C:\Program Files\Adobe\Adobe 
 `node --check` e para rodar módulos puros como o motor das propostas. Funções com Supabase/Claude continuam sendo testadas no navegador.
 Não trabalhar em duas conversas ao mesmo tempo nesta pasta (uma desfaz a outra): antes de editar, `git pull` e ler o arquivo atual.
 
-- PEDIDOS DA CINTIA NO FINANCEIRO + REEMBOLSOS (2026-11-11, script 70, rodado pelo conector no mesmo dia). Feedback dela pelo
+- PEDIDOS DA CINTIA NO FINANCEIRO + REEMBOLSOS (2026-11-11, script 71 (o 70 é o dos contatos do site), rodado pelo conector no mesmo dia). Feedback dela pelo
   WhatsApp, repassado pela Juliana. (1) CATEGORIAS NOVAS: "+ Nova" ao lado de Tipo (despesa e extrato), guardadas em
   `configuracoes.financeiro.categorias` [{k: 'x_…', nome}] e aplicadas por `F.usarCategoriasExtras` (mexe no próprio F.CATEGORIAS)
   ao carregar; o campo da despesa virou "Para que foi essa despesa?". (2) DIVIDIR ENTRE VÁRIOS PROGRAMAS (`divisao()` em
