@@ -1079,7 +1079,13 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   `#jornada/<parte>/<n>` (um por tela) ou `/lista` (todas na mesma página), `#jornada/fim` (concluir), `#meu-relatorio` (imprimir em
   PDF), `#relatorio-geral[/<item>]` (só administração: quem participa, convergência = 75% ou mais na mesma opção com 2+ respostas,
   divergência = nenhuma opção acima de 50%, ranking das vertentes e dos temas, detalhe com nomes e comentários). "Quem participa"
-  agora diz "Participa: faz a jornada e comenta". Teste local: /home/claude/teste-plan (t2.py testa a jornada; `&semente=1` põe
+  agora diz "Participa: faz a jornada e comenta". Decisões dela (11/11, ao publicar): por enquanto SÓ as sócias e a Cintia (a
+  administração) entram; mentor só quando ela liberar à mão em "Quem participa" (planejamento_membros começou vazia). O obrigada e
+  cada introdução dizem que não existe certo nem errado (é para enxergar o que cada um pensa e achar as convergências; cada um escolhe
+  o que achar melhor). TODA escolha pode ser justificada: o campo "Quer justificar a sua escolha?" abre sozinho depois de escolher
+  (`textoHtml`, `respostas[chave].texto`) e aparece no Meu relatório ("Sua justificativa") e no geral ("Justificativas e observações",
+  com o nome). O conteúdo do plano e as 3 finpremissas foram gravados no banco em 11/11 (conferido: 43 decisões, 6 vertentes).
+  Teste local: /home/claude/teste-plan (t2.py e t4.py testam a jornada; `&semente=1` põe
   jornadas de Cintia, Viviane e Cláudio no banco falso). Teste local: /home/claude/teste-plan
   (cópia de public/ com import map para `teste/base-falso.js`, `?quem=admin|colab|leitora|nada|semlogin`), fora do git.
 

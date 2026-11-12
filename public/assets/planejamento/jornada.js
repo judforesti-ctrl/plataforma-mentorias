@@ -245,12 +245,14 @@ export function criarJornada(ctx) {
       return `<button type="button" class="jop${on ? " on" : ""}${id === "naosei" ? " fraca" : ""}" data-acao="j-escolher" data-chave="${esc(it.chave)}" data-op="${esc(id)}" aria-pressed="${on}"><b>${on ? "✓ " : ""}${esc(rot)}</b>${grande && desc ? `<span>${esc(desc)}</span>` : ""}</button>`;
     }).join("")}</div>`;
   }
+  // Toda escolha pode ser justificada (pedido dela): o campo abre sozinho depois que a pessoa escolhe e aparece no relatório.
+  const ROT_JUSTIFICAR = "Quer justificar a sua escolha? Escreva o porquê ou uma observação (se quiser)";
   function textoHtml(it, r) {
     const pede = it.kind !== "texto" && r && PEDE_TEXTO[it.kind] && PEDE_TEXTO[it.kind][r.escolha];
-    const aberto = it.kind === "texto" || pede || (r && r.texto) || J.abertos.has(it.chave);
-    if (!aberto) return `<button type="button" class="jlink" data-acao="j-comentar" data-chave="${esc(it.chave)}">+ Escrever um comentário</button>`;
-    const rot = it.kind === "texto" ? "Sua resposta" : pede || "Seu comentário (se quiser)";
-    return `<label class="rot jtexto">${esc(rot)}<textarea data-jtexto="${esc(it.chave)}" maxlength="4000" id="jt-${slug(it.chave)}">${esc((r && r.texto) || "")}</textarea></label>`;
+    const aberto = it.kind === "texto" || pede || (r && (r.escolha || r.texto)) || J.abertos.has(it.chave);
+    if (!aberto) return `<button type="button" class="jlink" data-acao="j-comentar" data-chave="${esc(it.chave)}">+ Justificar ou deixar uma observação</button>`;
+    const rot = it.kind === "texto" ? "Sua resposta" : pede || ROT_JUSTIFICAR;
+    return `<label class="rot jtexto${it.kind === "texto" ? "" : " just"}">${esc(rot)}<textarea data-jtexto="${esc(it.chave)}" maxlength="4000" id="jt-${slug(it.chave)}"${it.kind === "texto" ? "" : ' placeholder="Por que você escolheu isso? Alguma observação?"'}>${esc((r && r.texto) || "")}</textarea></label>`;
   }
   function corpoItem(it, r, emLista) {
     if (it.kind === "prio") return `<div class="jcab">${chipV(it.v.id)}<b>${esc(it.v.nome)}</b></div><p class="jsub">${esc(it.v.papel)}</p>${opcoesHtml(it, r)}${textoHtml(it, r)}`;
@@ -303,6 +305,8 @@ export function criarJornada(ctx) {
       <h1>Obrigada${primeiro ? `, ${esc(primeiro)}` : ""}, por fazer parte da construção do futuro da Mentorei!</h1>
       <p>${msg}</p>
       <p>Esta jornada percorre as vertentes, as decisões, as metas e os temas do planejamento em ${minhasPartes().length} partes. Antes de cada parte você vê o que vai escolher, por que isso importa e quanto tempo leva. No total, cerca de ${totalMin()} minutos.</p>
+      <p class="jdestaque"><b>Aqui não existe resposta certa ou errada.</b> A jornada serve para a gente enxergar o que cada pessoa da Mentorei pensa e encontrar os pontos em que concordamos. Você tem todo o direito de escolher o que achar melhor para o futuro da Mentorei.</p>
+      <p class="jdestaque"><b>Toda escolha pode ser justificada.</b> Depois de escolher, abre um campo para você contar o porquê ou deixar uma observação, se quiser. Tudo isso aparece no relatório final.</p>
       <p class="jdestaque"><b>Pode parar quando quiser.</b> Cada clique fica salvo na hora, e quando você voltar eu te levo direto para onde parou. Dá para fazer em vários dias, no computador ou no celular.</p>
       <p class="jpeq">Suas escolhas ficam no seu nome. No fim você recebe o seu relatório; quando todas as pessoas terminarem, a administração junta tudo num relatório geral com os pontos em que a equipe concorda e os que pedem conversa.</p>
       <div class="btns"><button type="button" class="btn grande claro-esc" data-acao="j-comecar">Começar a jornada</button></div>
@@ -369,6 +373,7 @@ export function criarJornada(ctx) {
         <div class="jexp"><div><div class="h4">O que você vai escolher</div><p>${esc(p.oque)}</p></div>
           <div><div class="h4">Por que isso importa</div><p>${esc(p.porque)}</p></div></div>
         ${p.dica ? `<p class="jdica">${esc(p.dica)}</p>` : ""}
+        <p class="jlembra">Não tem certo nem errado: escolha o que você acha melhor para o futuro da Mentorei. Em cada escolha dá para justificar ou deixar uma observação.</p>
         <div class="btns"><a class="btn grande claro-esc" href="${comecar}">${f === t ? "Rever esta parte" : f ? "Continuar esta parte" : "Começar esta parte"}</a>
           ${prox ? `<a class="btn grande contorno" href="#jornada/${prox.id}">Pular por agora</a>` : ""}</div>
       </section>`;
@@ -397,7 +402,7 @@ export function criarJornada(ctx) {
       return `${cab}<article class="jitem cartao${respondido(it) ? " feito" : ""}" id="ji-${slug(it.chave)}">${corpoItem(it, resp(it.chave), true)}</article>`;
     }).join("");
     return `${cabParte(p)}
-      <details class="jexp-mini"><summary>O que escolher aqui e por que importa</summary><p><b>O que você vai escolher:</b> ${esc(p.oque)}</p><p><b>Por que importa:</b> ${esc(p.porque)}</p></details>
+      <details class="jexp-mini"><summary>O que escolher aqui e por que importa</summary><p><b>O que você vai escolher:</b> ${esc(p.oque)}</p><p><b>Por que importa:</b> ${esc(p.porque)}</p><p>Não tem certo nem errado. Em cada escolha dá para justificar ou deixar uma observação.</p></details>
       ${nMax > 3 ? `<p class="jdica">Você marcou ${nMax} vertentes como prioridade máxima. Se tudo é prioridade, nada é: tente deixar no máximo duas ou três.</p>` : ""}
       <div class="jlista">${itens}</div>
       <div class="jnav">
@@ -427,7 +432,7 @@ export function criarJornada(ctx) {
     const partes = [];
     if (r.escolha) partes.push(`<b>${esc(rotOp(it, r.escolha))}</b>${it.kind === "dec" && r.escolha === it.d.rec[0] ? ' <span class="selo rec">igual à recomendação do estudo</span>' : ""}`);
     if (r.meta) partes.push(`Meta sugerida: <b>${esc(r.meta)}</b>`);
-    if (r.texto) partes.push(`<span class="jcita">${esc(r.texto)}</span>`);
+    if (r.texto) partes.push(it.kind === "texto" ? `<span class="jcita">${esc(r.texto)}</span>` : `<span class="jjust">Sua justificativa: <span class="jcita">${esc(r.texto)}</span></span>`);
     return partes.join("<br>");
   }
   function pagMeuRelatorio() {
@@ -440,7 +445,8 @@ export function criarJornada(ctx) {
       if (p.id === "energia" || p.id === "temas") {
         const ops = OP[p.itens[0].kind];
         corpo = ops.map(([id, rot]) => { const l = p.itens.filter((it) => (resp(it.chave) || {}).escolha === id); return l.length ? `<p><b>${esc(rot)}:</b> ${l.map((it) => esc(it.titulo)).join(", ")}</p>` : ""; }).join("")
-          + p.itens.filter((it) => (resp(it.chave) || {}).texto).map((it) => `<p class="jcom"><b>${esc(it.titulo)}:</b> <span class="jcita">${esc(resp(it.chave).texto)}</span></p>`).join("");
+          + (p.itens.some((it) => (resp(it.chave) || {}).texto) ? `<div class="h4" style="margin-top:10px">Suas justificativas e observações</div>` : "")
+          + p.itens.filter((it) => (resp(it.chave) || {}).texto).map((it) => `<p class="jcom"><b>${esc(it.titulo)}</b> (${esc(rotOp(it, resp(it.chave).escolha) || "sem escolha")}): <span class="jcita">${esc(resp(it.chave).texto)}</span></p>`).join("");
         const sem = p.itens.filter((it) => !respondido(it)).length;
         if (sem) corpo += `<p class="sem">${plural(sem, "item ficou", "itens ficaram")} sem resposta.</p>`;
       } else {
@@ -553,7 +559,7 @@ export function criarJornada(ctx) {
           ctx = `<p class="jpeq">Decidido: <b>${esc((it.d.op.find((o) => o[0] === it.d.padrao.escolha) || [])[1] || "")}</b></p>`;
         }
         const sinal = c.sinal === "converge" ? '<span class="jsinal conv">Convergência</span>' : c.sinal === "diverge" ? '<span class="jsinal div">Divergência</span>' : c.sinal === "maioria" ? '<span class="jsinal mai">Maioria</span>' : "";
-        const textos = c.textos.length ? `<div class="jtextos">${c.textos.map((t) => `<div class="com"><span style="white-space:pre-wrap">${esc(t.texto)}</span><small><span>${esc(t.q.nome)}${t.escolha ? `, escolheu ${esc(rotOp(it, t.escolha))}` : ""}</span></small></div>`).join("")}</div>` : "";
+        const textos = c.textos.length ? `<div class="jtextos">${it.kind === "texto" ? "" : `<div class="h4">Justificativas e observações (${c.textos.length})</div>`}${c.textos.map((t) => `<div class="com"><span style="white-space:pre-wrap">${esc(t.texto)}</span><small><span>${esc(t.q.nome)}${t.escolha ? `, escolheu ${esc(rotOp(it, t.escolha))}` : ""}</span></small></div>`).join("")}</div>` : "";
         const metas = c.metas.length ? `<p class="jpeq"><b>Metas sugeridas:</b> ${c.metas.map((x) => `${esc(x.meta)} (${esc(primeiroNome(x.q.nome))})`).join("; ")}</p>` : "";
         const corpo = it.kind === "texto" ? (textos || '<p class="sem">Ninguém respondeu ainda.</p>') : `${barrasHtml(it, c)}${metas}${textos}`;
         return `<article class="cartao jrg" id="rg-${slug(it.chave)}"><div class="jrg-cab"><b>${esc(it.kind === "dec" || it.kind === "ok" ? `${it.d.id}: ${it.d.titulo}` : it.titulo)}</b>${sinal}</div>${ctx}${corpo}</article>`;
