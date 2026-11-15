@@ -263,6 +263,7 @@
 
   /* ---------- Arquivo de slides ---------- */
   let importando = false;
+  let soNotas = false;   // "+ Notas do PowerPoint": só traz as anotações, não troca os slides
   function desenharArquivo(progresso) {
     const box = $('caixaArquivo');
     const nSlides = rascunho.itens.filter(i => i.tipo === 'slide').length;
@@ -272,13 +273,9 @@
         '<div class="barra-progresso"><i style="width:' + Math.round(progresso.parte * 100) + '%"></i></div><span class="dica">Pode continuar mexendo no resto da aula enquanto isso.</span></div></div>';
       return;
     }
-    if (!nSlides && pptxGuardado) {
-      box.innerHTML = '<div class="ed-soltar" id="zonaSoltar"><b>Arraste aqui o PDF de ' + esc(pptxGuardado.name.replace(/\.pptx$/i, '')) + '</b>' +
-        '<span class="dica">As anotações e o texto do PowerPoint do módulo já estão guardados e entram junto com o PDF. No PowerPoint: Arquivo, Salvar como, PDF.</span>' +
-        '<button class="btn btn-secundario" id="btnEscolherArquivo">Escolher o PDF</button></div>';
-    } else if (!nSlides) {
-      box.innerHTML = '<div class="ed-soltar" id="zonaSoltar"><b>Arraste aqui o PDF da sua apresentação</b>' +
-        '<span class="dica">No PowerPoint, Google Slides ou Canva, salve a apresentação como PDF. Quer trazer também as anotações do apresentador? Escolha o PDF e o arquivo .pptx juntos.</span>' +
+    if (!nSlides) {
+      box.innerHTML = '<div class="ed-soltar" id="zonaSoltar"><b>Arraste aqui a sua apresentação</b>' +
+        '<span class="dica">Pode ser o arquivo do PowerPoint (.pptx) do jeito que está: o Ao Vivo transforma em slides sozinho e traz as anotações do apresentador. Também aceita PDF (do Google Slides ou do Canva, por exemplo).</span>' +
         '<button class="btn btn-secundario" id="btnEscolherArquivo">Escolher arquivo</button>' +
         '<span class="dica">Sem slides? Tudo bem: dá para usar só as atividades, como antes.</span></div>';
     } else {
@@ -287,10 +284,10 @@
         '<span class="espaco"></span><button class="btn btn-secundario btn-pequeno" id="btnNotasPptx" title="Traz as anotações do apresentador de um arquivo .pptx">+ Notas do PowerPoint</button>' +
         (doModulo ? '<button class="btn btn-secundario btn-pequeno" id="btnDoModulo" title="Traz de novo os slides que estão no módulo da plataforma">Slides do módulo</button>' : '') +
         '<button class="btn btn-secundario btn-pequeno" id="btnEscolherArquivo">Trocar arquivo</button></div>';
-      $('btnNotasPptx').onclick = () => { $('campoArquivo').accept = '.pptx'; $('campoArquivo').click(); };
+      $('btnNotasPptx').onclick = () => { soNotas = true; $('campoArquivo').accept = '.pptx'; $('campoArquivo').click(); };
       if (doModulo) $('btnDoModulo').onclick = ev => popover(ev, 'Trazer de novo os slides do módulo (' + esc(doModulo.pdf ? doModulo.pdfnome : doModulo.pptxnome) + ')? As atividades e as notas ficam.', 'Trazer', trazerSlidesDoModulo);
     }
-    $('btnEscolherArquivo').onclick = () => { $('campoArquivo').accept = '.pdf,.pptx,application/pdf'; $('campoArquivo').click(); };
+    $('btnEscolherArquivo').onclick = () => { soNotas = false; $('campoArquivo').accept = '.pptx,.ppt,.ppsx,.pps,.odp,.pdf,.key,application/pdf'; $('campoArquivo').click(); };
     const z = $('zonaSoltar');
     ['dragenter', 'dragover'].forEach(t => z.addEventListener(t, ev => { if (arrastandoK != null) return; ev.preventDefault(); z.classList.add('em-cima'); }));
     ['dragleave', 'drop'].forEach(t => z.addEventListener(t, () => z.classList.remove('em-cima')));
@@ -298,6 +295,38 @@
   }
 
   $('campoArquivo').addEventListener('change', e => { const f = Array.from(e.target.files || []); e.target.value = ''; importarArquivos(f); });
+
+  // manda a apresentação para a plataforma, que devolve o PDF (pelo Google Drive da Mentorei; o mentor não precisa fazer nada)
+  async function converterParaPdf(arquivo) {
+    if (arquivo.size > 50 * 1024 * 1024) throw new Error('Esse arquivo tem mais de 50 MB. Diminua as imagens da apresentação e tente de novo.');
+    const nome = arquivo.name.replace(/\.[^.]+$/, '');
+    let parte = 0.02;
+    const passo = txt => desenharArquivo({ texto: txt, parte: Math.min(0.95, parte) });
+    passo('Enviando ' + arquivo.name + '...');
+    const b = await rpc('aovivo_bilhete_arquivo', { p_sessao: atual.id, p_chave: atual.chave, p_nome: arquivo.name });
+    const ext = (arquivo.name.match(/\.([a-z0-9]+)$/i) || [])[1].toLowerCase();
+    const tipos = { pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', ppsx: 'application/vnd.openxmlformats-officedocument.presentationml.slideshow',
+      ppt: 'application/vnd.ms-powerpoint', pps: 'application/vnd.ms-powerpoint', odp: 'application/vnd.oasis.opendocument.presentation' };
+    const { error } = await A.sb.storage.from('aovivo-slides').upload(b.caminho, arquivo, { contentType: tipos[ext] || 'application/octet-stream', upsert: false });
+    if (error) throw new Error('Não consegui enviar a apresentação (' + (error.message || 'erro') + '). Tente de novo.');
+    const c = await rpc('aovivo_pedir_conversao', { p_sessao: atual.id, p_chave: atual.chave, p_caminho: b.caminho });
+    const r = await fetch('/api/converter-slides', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: c.id, sessao: atual.id, chave: atual.chave }) });
+    if (!r.ok && r.status !== 202) throw new Error('Não consegui falar com a plataforma para transformar os slides (' + r.status + '). Tente de novo.');
+    const t0 = Date.now();
+    let v = null;
+    while (Date.now() - t0 < 6 * 60 * 1000) {
+      await espera(2500);
+      parte += (0.6 - parte) * 0.12;
+      passo('Transformando o PowerPoint em slides (leva até 1 minuto)...');
+      v = await rpc('aovivo_ver_conversao', { p_sessao: atual.id, p_chave: atual.chave, p_id: c.id });
+      if (v.status !== 'convertendo') break;
+    }
+    if (!v || v.status === 'convertendo') throw new Error('A conversão demorou demais. Tente de novo.');
+    if (v.status === 'erro') throw new Error(v.erro || 'Não consegui transformar a apresentação em slides.');
+    const pdf = await fetch(v.pdf);
+    if (!pdf.ok) throw new Error('Não consegui baixar os slides convertidos. Tente de novo.');
+    return new File([await pdf.blob()], nome + '.pdf', { type: 'application/pdf' });
+  }
 
   async function trazerSlidesDoModulo() {
     if (!doModulo || importando) return;
@@ -312,14 +341,7 @@
       if (doModulo.pptx) arquivos.push(await baixar(doModulo.pptx, doModulo.pptxnome, 'application/vnd.openxmlformats-officedocument.presentationml.presentation'));
       if (doModulo.pdf) arquivos.push(await baixar(doModulo.pdf, doModulo.pdfnome, 'application/pdf'));
       moduloTrazido = true;
-      if (!doModulo.pdf) {
-        pptxGuardado = arquivos[0];
-        if (rascunho.itens.some(i => i.tipo === 'slide')) { await importarArquivos(arquivos); return; }
-        desenharArquivo();
-        modal('<h2>Falta o PDF dos slides</h2><p class="dica" style="margin-bottom:10px">Os slides deste módulo estão só em PowerPoint (' + esc(doModulo.pptxnome) + '). Para eles aparecerem no telão e no celular, salve a apresentação como PDF (no PowerPoint: Arquivo, Salvar como, PDF) e arraste o PDF aqui.</p>' +
-          '<p class="dica">As anotações do PowerPoint entram junto, sozinhas. Dá também para mandar o PDF no módulo da plataforma, em "Slides dos mentores".</p><div class="acoes"><button class="btn btn-principal" data-fechar>Entendi</button></div>');
-        return;
-      }
+      if (!doModulo.pdf) pptxGuardado = arquivos[0];
       await importarArquivos(arquivos);
     } catch (e) { toast(e.message || 'Não consegui trazer os slides do módulo.', true); desenharArquivo(); }
   }
@@ -484,11 +506,20 @@
   }
   async function carregarJSZip() { if (!window.JSZip) await carregarScript('js/vendor/jszip.min.js'); return window.JSZip; }
 
+  const ehPdf = f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf';
+  const ehApresentacao = f => /\.(pptx|ppsx|ppt|pps|odp)$/i.test(f.name);
+
   async function importarArquivos(arquivos) {
     if (importando) return toast('Espere terminar o envio que está em andamento.', true);
-    const pdf = arquivos.find(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
-    const pptx = arquivos.find(f => /\.pptx$/i.test(f.name)) || (pptxGuardado && arquivos.some(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf') ? pptxGuardado : null);
-    if (!pdf && !pptx) return toast('Escolha um arquivo PDF (e, se quiser, o .pptx para as notas).', true);
+    const notasApenas = soNotas; soNotas = false;
+    let pdf = arquivos.find(ehPdf);
+    const pptx = arquivos.find(f => /\.(pptx|ppsx)$/i.test(f.name)) || (pptxGuardado && pdf ? pptxGuardado : null);
+    const paraConverter = arquivos.find(ehApresentacao);
+    if (!pdf && !paraConverter) {
+      return toast(arquivos.some(f => /\.key$/i.test(f.name))
+        ? 'Arquivo do Keynote: no Keynote, clique em Arquivo, Exportar para, PDF, e envie o PDF.'
+        : 'Envie a apresentação em PowerPoint (.pptx) ou em PDF.', true);
+    }
     importando = true;
     try {
       let notas = null;
@@ -497,9 +528,8 @@
         try { notas = await lerPptx(pptx); }
         catch (e) { toast('Não consegui ler as notas desse PowerPoint. Os slides vêm sem notas.', true); notas = null; }
       }
-      if (!pdf) {
+      if (!pdf && notasApenas && rascunho.itens.some(i => i.tipo === 'slide')) {
         const slides = rascunho.itens.filter(i => i.tipo === 'slide');
-        if (!slides.length) throw new Error('Envie também o PDF da apresentação. No PowerPoint: Arquivo > Salvar como > PDF.');
         if (!notas) throw new Error('Não encontrei notas nesse arquivo.');
         let n = 0;
         slides.forEach((s, j) => {
@@ -513,6 +543,8 @@
         desenharLista(); desenharItem(); mudou();
         return;
       }
+      // PowerPoint (ou OpenOffice) sem PDF: a plataforma transforma em PDF sozinha
+      if (!pdf) pdf = await converterParaPdf(paraConverter);
       await importarPdf(pdf, notas);
     } catch (e) {
       toast(e.message || 'Não deu certo enviar os slides.', true);
@@ -526,7 +558,13 @@
     desenharArquivo({ texto: 'Abrindo o PDF...', parte: 0.03 });
     const lib = await carregarPdfjs();
     const doc = await lib.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()) }).promise;
-    const n = doc.numPages;
+    // páginas que entram: se o PDF veio com os slides escondidos do PowerPoint (a conversão às vezes traz), eles saem
+    let paginas = Array.from({ length: doc.numPages }, (_, i) => i + 1);
+    if (notas && notas.ocultos && notas.ocultos.length && doc.numPages === notas.total) {
+      const fora = new Set(notas.ocultos);
+      paginas = paginas.filter(p => !fora.has(p));
+    }
+    const n = paginas.length;
     if (n > 150) throw new Error('Esse PDF tem ' + n + ' páginas. O limite é 150.');
     const bilhete = await rpc('aovivo_bilhetes_upload', { p_sessao: atual.id, p_chave: atual.chave, p_quantidade: n });
     const titulos = [], textos = [];
@@ -535,7 +573,7 @@
     const prog = () => desenharArquivo({ texto: 'Preparando os slides: ' + enviados + ' de ' + n + ' prontos', parte: 0.05 + 0.95 * enviados / n });
     prog();
     for (let i = 1; i <= n; i++) {
-      const pag = await doc.getPage(i);
+      const pag = await doc.getPage(paginas[i - 1]);
       const vp1 = pag.getViewport({ scale: 1 });
       const escala = Math.min(1600 / vp1.width, 1600 / vp1.height);
       const vp = pag.getViewport({ scale: escala });
@@ -659,7 +697,8 @@
     if (!pres || !rels) throw new Error('Arquivo inválido');
     const mapa = {};
     tags(rels, 'Relationship').forEach(r => { mapa[r.getAttribute('Id')] = r.getAttribute('Target'); });
-    const lista = [];
+    const lista = [], ocultos = [];
+    let todos = 0;
     for (const s of tags(pres, 'sldId')) {
       const rid = s.getAttribute('r:id') || s.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
       const alvo = mapa[rid];
@@ -667,7 +706,8 @@
       const caminho = alvo.charAt(0) === '/' ? alvo.slice(1) : resolver('ppt/presentation.xml', alvo);
       const sld = await xml(caminho);
       if (!sld) continue;
-      if (sld.documentElement.getAttribute('show') === '0') continue; // slide escondido não vai para o PDF
+      todos++;
+      if (sld.documentElement.getAttribute('show') === '0') { ocultos.push(todos); continue; } // slide escondido não vai para o PDF
       const titulo = textoDoMarcador(sld, ['title', 'ctrTitle']);
       let notas = '';
       const relsSlide = await xml(caminho.replace(/([^/]+)$/, '_rels/$1.rels'));
@@ -682,6 +722,7 @@
         .map(p => Array.from(p.getElementsByTagNameNS('*', 't')).map(x => x.textContent).join('')).filter(t => t.trim()).join(' · ');
       lista.push({ titulo: titulo.replace(/\s+/g, ' ').trim(), notas: notas.slice(0, 4000), texto: texto.replace(/\s+/g, ' ').trim().slice(0, 1500) });
     }
+    lista.total = todos; lista.ocultos = ocultos;   // números (1, 2, 3...) dos slides escondidos, na ordem do PowerPoint
     return lista;
   }
 
@@ -716,7 +757,7 @@
   function desenharLista() {
     const l = $('listaRoteiro');
     if (!rascunho.itens.length) {
-      l.innerHTML = '<div class="vazio"><p style="margin-bottom:14px">O roteiro está vazio. Envie o PDF dos slides lá em cima, escolha uma atividade abaixo ou comece com exemplos prontos para testar.</p>' +
+      l.innerHTML = '<div class="vazio"><p style="margin-bottom:14px">O roteiro está vazio. Envie a apresentação (PowerPoint ou PDF) lá em cima, escolha uma atividade abaixo ou comece com exemplos prontos para testar.</p>' +
         '<button class="btn btn-secundario" id="btnExemplos">Adicionar exemplos prontos</button></div>';
       $('btnExemplos').onclick = adicionarExemplos;
       return;

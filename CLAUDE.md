@@ -1131,7 +1131,17 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   lê a temática do módulo e grava em aovivo_sugestoes); a tela acompanha (aovivo_ver_sugestao) e o mentor marca o que entra. Regras do
   prompt: as 4 funções numa aula de 3 h, 1 ou 2 exercícios em grupo (usa o slide de instruções se existir, senão escreve), nada de
   resposta longa no chat, sem travessão. Gravação do Zoom: fica para depois (decisão dela).
-  Testes (fora do git): /home/claude/aovivo/teste/grupo.py e apresentacao.py (Chrome sem janela, servidor de mentira).
+  (8) POWERPOINT VIRA SLIDES SOZINHO (15/11, script 74; pedido dela: "não quero deixar nada para depender do mentor"): no editor
+  do Ao Vivo e no "Abrir aula ao vivo" do módulo, o mentor manda o .pptx/.ppt/.ppsx/.odp como está (sem salvar como PDF). O Ao Vivo
+  envia o original (aovivo_bilhete_arquivo, pasta aovivo-slides, até 50 MB), pede a conversão (aovivo_pedir_conversao → tabela
+  aovivo_conversoes, RLS sem políticas) e chama `/api/converter-slides` (repassado para cá; `netlify/functions/converter-slides.mjs`,
+  background): manda para o Google Drive da conta Google conectada no Painel (contato@, escopo drive.file basta: só mexe no que
+  ela cria) virando Apresentações Google, baixa em PDF (export, ou exportLinks acima de 10 MB), apaga o temporário do Drive e
+  guarda `slides.pdf` ao lado do original; a tela acompanha (aovivo_ver_conversao) e segue como se fosse PDF, com as notas do
+  .pptx. Slide escondido no PowerPoint que o Google ponha no PDF sai (lerPptx devolve `ocultos`/`total`). Keynote não converte:
+  a tela explica como exportar. Se a conta Google desconectar, a mensagem pede para conectar de novo (Painel) ou mandar PDF.
+  Testes (fora do git): /home/claude/aovivo/teste/grupo.py, apresentacao.py e conv.py (Chrome sem janela, servidor de mentira);
+  /home/claude/teste-conv/t.mjs (função com Google e Supabase de mentira).
 
 ## Regras do negócio
 - QUEM VÊ O QUÊ (decisão dela, 31/10/2026): Financeiro, Vendas/comercial, cópias de segurança, Painel, Relatórios e tudo o que é

@@ -10,15 +10,18 @@ const FASE = { lobby: 'Sala de espera aberta', slide: 'Aula em andamento', ativi
   ranking: 'Aula em andamento', sorteio: 'Aula em andamento', encerrada: 'Aula encerrada' };
 const ext = (n) => ((String(n || '').match(/\.([a-z0-9]+)$/i) || [])[1] || '').toLowerCase();
 
-// os slides que vão para o Ao Vivo: o PowerPoint mais novo do mentor (senão o oficial) e um PDF da mesma "família"
+// os slides que vão para o Ao Vivo: a apresentação mais nova do mentor (PowerPoint .pptx/.ppt/.ppsx ou OpenOffice .odp;
+// senão a oficial) e um PDF da mesma "família". Sem PDF, o próprio Ao Vivo transforma a apresentação em slides
+// (/api/converter-slides, 15/11/2026): o mentor não precisa salvar como PDF.
+const APRESENTACAO = ['pptx', 'ppsx', 'ppt', 'pps', 'odp'];
 export function escolherSlides(arquivos, meuId) {
   const lista = (arquivos || []).slice().sort((a, b) => new Date(b.enviado_em) - new Date(a.enviado_em));
-  const primeiro = (filtros, e) => { for (const f of filtros) { const x = lista.find((a) => f(a) && ext(a.nome) === e); if (x) return x; } return null; };
+  const primeiro = (filtros, e) => { for (const f of filtros) { const x = lista.find((a) => f(a) && e.includes(ext(a.nome))); if (x) return x; } return null; };
   const doMentor = [(a) => a.tipo === 'mentor' && a.enviado_por === meuId, (a) => a.tipo === 'mentor'];
-  const pptx = primeiro([...doMentor, (a) => a.tipo === 'oficial'], 'pptx');
+  const pptx = primeiro([...doMentor, (a) => a.tipo === 'oficial'], APRESENTACAO);
   const pdf = pptx && pptx.tipo === 'oficial'
-    ? primeiro([(a) => a.tipo === 'oficial'], 'pdf')
-    : primeiro([...doMentor, (a) => a.tipo === 'aluno', (a) => a.tipo === 'oficial'], 'pdf');
+    ? primeiro([(a) => a.tipo === 'oficial'], ['pdf'])
+    : primeiro([...doMentor, (a) => a.tipo === 'aluno', (a) => a.tipo === 'oficial'], ['pdf']);
   return { pdf, pptx };
 }
 
@@ -59,7 +62,7 @@ export async function ligarAoVivo(ctx, el, m, pode) {
   const { pdf, pptx } = escolherSlides(m.arquivos, ctx.perfil.id);
   const slides = pdf || pptx
     ? `Leva os slides ${[pdf && esc(pdf.nome), pptx && pptx !== pdf && esc(pptx.nome)].filter(Boolean).join(' e ')}.`
-    : 'Ainda não há slides deste módulo aqui: dá para enviar o PDF direto no Ao Vivo.';
+    : 'Ainda não há slides deste módulo aqui: dá para enviar a apresentação (PowerPoint ou PDF) direto no Ao Vivo.';
   box.innerHTML = `
     <div class="linha"><h3 style="flex:1">Aula ao vivo</h3>${s ? `<span class="selo${s.fase === 'encerrada' ? ' neutro' : ''}">${FASE[s.fase] || ''}</span>` : ''}</div>
     <p class="peq">Os slides, o quiz, a nuvem de palavras, a votação, os exercícios em grupo e a avaliação no fim, tudo no celular dos alunos (Mentorei Ao Vivo). Quando a aula termina, a presença volta para este módulo.</p>

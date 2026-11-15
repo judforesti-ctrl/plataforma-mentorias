@@ -13,3 +13,10 @@
   to = "https://plataforma.mentorei.com.br/api/aovivo-sugerir"
   status = 200
   force = true
+
+# O PowerPoint vira PDF na plataforma (pelo Google Drive da Mentorei): o Ao Vivo só repassa o pedido.
+[[redirects]]
+  from = "/api/converter-slides"
+  to = "https://plataforma.mentorei.com.br/api/converter-slides"
+  status = 200
+  force = true
