@@ -1179,6 +1179,21 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   135e8c31-3ab0-4c70-9637-cc5d14de0712, público clientes, criado PARADO em 15/11 com 3 e-mails escritos pelo Claude: 2, 4 e 7 dias;
   ela revisa em Vendas › Funis de e-mail e liga). Testes (fora do git): /home/claude/aovivo/teste/materiais_email.py (telas) e
   /home/claude/teste-email/t.mjs (função com Supabase e Brevo de mentira).
+  (11) QUEM ABRE O AO VIVO (15/11, noite, script 77 rodado pelo conector; decisão dela): o site do Ao Vivo NÃO cria aula
+  sozinho (aovivo_criar_sessao e aovivo_duplicar sem permissão para anon/authenticated; o início do apresentar.html só explica o
+  caminho). MENTOR entra só pelo módulo dele (aovivo_do_modulo, que grava `criado_por`). SÓCIAS E CINTIA (administração): menu
+  Gestão › "Aulas ao vivo" (`#/aulas-ao-vivo`, `telas/aulas-ao-vivo.js`, ícone 'radio'): todas as aulas (rpc aovivo_gestao_lista,
+  só eh_admin) com procura por nome/cliente/turma/mentor/código, filtros Mentor, Cliente e Situação (já aconteceram, começaram e
+  não foram encerradas, ainda não começaram; filtros em localStorage "mentorei.aulasAoVivo"), números (aulas, aconteceram, pessoas,
+  aulas de turma sem percepções) e selo "Sem percepções"/"Percepções ✓" por aula de módulo; "▶ Abrir" (painel numa aba nova; aula
+  de módulo ainda sem slides leva os slides do módulo, `linkDoPainel` em aovivo-modulo.js), "Ver o módulo" e "Mais…": ligar a um
+  módulo / trocar / desligar (aovivo_gestao_ligar: o módulo tem uma aula só, a que era dele fica avulsa), "Fazer uma cópia"
+  (aovivo_gestao_copiar, avulsa com placar zerado) e "Esconder da lista" (`aovivo_sessoes.escondida_em`; nada é apagado).
+  "+ Nova aula avulsa" (aovivo_gestao_nova: nome + cliente opcional em `aovivo_sessoes.empresa_id`). No painel do Ao Vivo,
+  "← Plataforma" volta para o módulo (avulsa: para a lista) e, ao encerrar a aula de um módulo, aparece o LEMBRETE DAS PERCEPÇÕES
+  ("Escrever as percepções agora" abre `app.html#/modulo/<id>/percepcoes`, que rola até o cartão e põe o cursor na caixa; com
+  percepções já feitas, "Quer completar as percepções?"). aovivo_painel devolve modulo_id e percepcoes_em. Testes (fora do git):
+  /home/claude/teste-aav/t.py (tela da Gestão com Supabase de mentira) e /home/claude/aovivo/teste/gestao_aovivo.py.
   Testes (fora do git): /home/claude/aovivo/teste/grupo.py, apresentacao.py e conv.py (Chrome sem janela, servidor de mentira);
   /home/claude/teste-conv/t.mjs (função com Google e Supabase de mentira).
 

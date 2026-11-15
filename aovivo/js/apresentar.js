@@ -3,6 +3,7 @@
   const A = window.AoVivo;
   const { rpc, esc, corEquipe, ALTERNATIVAS, formaSVG, agoraServidor, TIPOS } = A;
   const $ = id => document.getElementById(id);
+  const PLATAFORMA = 'https://plataforma.mentorei.com.br';
   const CHAVE_AULAS = 'aovivo_aulas_v1';
   const NOMES_EQUIPE = ['Menta', 'Coral', 'Azul', 'Dourado', 'Lilás', 'Rosa', 'Limão', 'Ciano'];
   const BASE_SLIDES = 'https://mixnubenhaleohkcanma.supabase.co/storage/v1/object/public/aovivo-slides/';
@@ -95,50 +96,11 @@
   /* =========================================================
      MINHAS AULAS
      ========================================================= */
+  // Início (15/11/2026, decisão da Juliana): o Ao Vivo não cria aula sozinho. Mentor abre pelo módulo dele na plataforma;
+  // sócias e coordenação, por Gestão › Aulas ao vivo. Aqui só fica o caminho.
   function abrirInicio() {
     vista('vistaInicio');
     history.replaceState(null, '', location.pathname);
-    const g = $('gradeAulas');
-    g.innerHTML = '<button class="cartao-aula cartao-nova" id="btnNovaAula">+ Nova aula</button>' + aulas.map(a =>
-      '<div class="cartao-aula" data-id="' + a.id + '"><div><h3>' + esc(a.titulo || 'Aula sem nome') + '</h3>' +
-      '<p class="meta">Código ' + A.formatarCodigo(a.codigo) + ' · ' + new Date(a.em).toLocaleDateString('pt-BR') + (a.arquivo ? ' · ' + esc(a.arquivo) : '') + '</p></div>' +
-      '<div class="acoes"><button class="btn btn-principal btn-pequeno" data-acao="abrir">Abrir</button>' +
-      '<button class="btn btn-secundario btn-pequeno" data-acao="duplicar" title="Cria uma cópia com os mesmos slides e atividades e o placar zerado">Usar com outra turma</button>' +
-      '<button class="btn btn-secundario btn-pequeno" data-acao="tirar" title="Tira da lista deste computador">Tirar da lista</button></div></div>'
-    ).join('');
-    $('btnNovaAula').onclick = novaAula;
-    g.querySelectorAll('.cartao-aula[data-id]').forEach(c => {
-      const a = aulas.find(x => x.id === c.dataset.id);
-      c.querySelector('[data-acao="abrir"]').onclick = () => abrirAula(a);
-      c.querySelector('[data-acao="duplicar"]').onclick = () => duplicarAula(a);
-      c.querySelector('[data-acao="tirar"]').onclick = ev => popover(ev, 'Tirar "' + esc(a.titulo) + '" da lista? (Dá para reabrir pelo link de controle.)', 'Tirar', () => {
-        aulas = aulas.filter(x => x.id !== a.id); salvarAulas(); abrirInicio();
-      });
-    });
-  }
-
-  $('btnAbrirLink').onclick = () => {
-    const v = $('campoLinkControle').value;
-    const m = v.match(/s=([0-9a-f-]{36}).*?k=([0-9a-f]{64})/i);
-    if (!m) return toast('Esse link não parece um link de controle.', true);
-    abrirAula({ id: m[1], chave: m[2] });
-  };
-
-  async function novaAula() {
-    try {
-      const r = await rpc('aovivo_criar_sessao', { p_titulo: 'Nova aula', p_modo_equipes: false, p_equipes: [] });
-      lembrarAula({ id: r.id, chave: r.chave, codigo: r.codigo, titulo: 'Nova aula' });
-      await abrirAula({ id: r.id, chave: r.chave }, true);
-    } catch (e) { toast(e.message, true); }
-  }
-
-  async function duplicarAula(a) {
-    try {
-      const r = await rpc('aovivo_duplicar', { p_sessao: a.id, p_chave: a.chave, p_titulo: a.titulo });
-      lembrarAula({ id: r.id, chave: r.chave, codigo: r.codigo, titulo: a.titulo, arquivo: a.arquivo, notasPptx: a.notasPptx });
-      toast('Cópia criada com placar zerado.');
-      await abrirAula({ id: r.id, chave: r.chave });
-    } catch (e) { toast(e.message, true); }
   }
 
   async function abrirAula(a, nova) {
@@ -1357,9 +1319,10 @@
     if ((sujo || salvando) && !(await salvar(false))) return;
     abrirPainel();
   };
+  // ← Plataforma: volta para o módulo da aula (avulsa: para Gestão › Aulas ao vivo)
   $('btnVoltarInicio').onclick = async () => {
     if (sujo && !(await salvar(false))) return;
-    abrirInicio();
+    location.href = PLATAFORMA + (painel && painel.modulo_id ? '/app.html#/modulo/' + painel.modulo_id : '/app.html#/aulas-ao-vivo');
   };
   window.addEventListener('beforeunload', e => { if (sujo || importando) { e.preventDefault(); e.returnValue = ''; } });
 
@@ -1525,8 +1488,22 @@
       '<div class="acoes"><button class="btn btn-secundario" data-fechar>Cancelar</button><button class="btn btn-principal" data-ok>Encerrar e mostrar o resultado</button></div>', (f, fechar) => {
       f.querySelector('[data-ok]').onclick = async () => {
         fechar();
-        if (await acao('aovivo_mudar_fase', { p_fase: 'encerrada' })) mandarEmailsDosAlunos();
+        if (await acao('aovivo_mudar_fase', { p_fase: 'encerrada' })) { mandarEmailsDosAlunos(); lembrarPercepcoes(); }
       };
+    });
+  }
+
+  // Lembrete no fim da aula (pedido da Juliana, 15/11/2026): o mentor coloca as percepções no módulo, na plataforma
+  function lembrarPercepcoes() {
+    if (!painel || !painel.modulo_id) return;
+    const url = PLATAFORMA + '/app.html#/modulo/' + painel.modulo_id + '/percepcoes';
+    const ja = !!painel.percepcoes_em;
+    modal('<div class="lembrete-percepcoes"><div class="emoji-grande">📝</div><h2>' + (ja ? 'Quer completar as percepções?' : 'Aula encerrada! Agora, as percepções') + '</h2>' +
+      '<p class="dica">' + (ja ? 'As percepções deste módulo já estão na plataforma. Se quiser, acrescente o que aconteceu hoje.'
+        : 'Enquanto está fresquinho, conte como foi a aula: engajamento da turma, o que funcionou, pontos de atenção e sugestões para os próximos módulos. Leva 2 minutos e dá para falar em vez de digitar (botão 🎤 Falar).') + '</p>' +
+      '<div class="acoes"><button class="btn btn-secundario" data-fechar>Faço depois</button>' +
+      '<a class="btn btn-principal" href="' + esc(url) + '" target="_blank" rel="noopener" data-ir>' + (ja ? 'Abrir as percepções' : 'Escrever as percepções agora') + '</a></div></div>', (f, fechar) => {
+      f.querySelector('[data-ir]').addEventListener('click', () => setTimeout(fechar, 300));
     });
   }
 

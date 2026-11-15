@@ -12,7 +12,7 @@
 </head>
 <body>
 
-<!-- ============ Minhas aulas ============ -->
+<!-- ============ Início: como abrir uma aula (só pela plataforma) ============ -->
 <div id="vistaInicio" class="painel oculto">
   <header class="barra-topo">
     <img src="img/logo-branco.png" alt="Mentorei">
@@ -20,16 +20,15 @@
     <span class="espaco"></span>
   </header>
   <main class="conteudo">
-    <h1>Minhas aulas</h1>
-    <p class="sub">Monte a aula com os seus slides e as atividades. Na hora, abra o telão, compartilhe só ele no Zoom ou no Meet e conduza tudo pelo painel. Os alunos participam pelo celular.</p>
-    <div class="grade-aulas" id="gradeAulas"></div>
-    <div class="secao" style="margin-top:28px">
-      <h2>Abrir uma aula criada em outro computador</h2>
-      <p class="dica" style="margin-bottom:12px">Cole aqui o link de controle da aula (ele fica em "Links da aula", dentro de cada aula).</p>
-      <div class="caixa-link">
-        <input class="entrada" id="campoLinkControle" placeholder="Cole o link de controle">
-        <button class="btn btn-secundario" id="btnAbrirLink">Abrir</button>
-      </div>
+    <h1>Como abrir uma aula ao vivo</h1>
+    <p class="sub">As aulas do Mentorei Ao Vivo abrem pela plataforma da Mentorei. Assim cada aula fica ligada ao módulo da turma: os slides do módulo já vêm, a presença e a avaliação voltam para a plataforma.</p>
+    <div class="grade-aulas" style="margin-top:22px">
+      <div class="cartao-aula"><div><h3>Sou mentor ou mentora</h3>
+        <p class="meta" style="line-height:1.65">1. Entre na plataforma da Mentorei.<br>2. Abra a sua turma e clique no módulo da aula.<br>3. Clique em <b>▶ Abrir aula ao vivo</b>.</p></div>
+        <div class="acoes"><a class="btn btn-principal btn-pequeno" href="https://plataforma.mentorei.com.br/app.html#/turmas">Abrir a plataforma</a></div></div>
+      <div class="cartao-aula"><div><h3>Sócias e coordenação</h3>
+        <p class="meta" style="line-height:1.65">Na plataforma: <b>Gestão › Aulas ao vivo</b>. Lá estão todas as aulas, com busca por mentor e por cliente, e o botão para criar uma aula avulsa.</p></div>
+        <div class="acoes"><a class="btn btn-secundario btn-pequeno" href="https://plataforma.mentorei.com.br/app.html#/aulas-ao-vivo">Ver todas as aulas</a></div></div>
     </div>
   </main>
 </div>
@@ -37,7 +36,7 @@
 <!-- ============ Montar a aula ============ -->
 <div id="vistaEditor" class="painel oculto">
   <header class="barra-topo">
-    <button class="btn btn-secundario btn-pequeno" id="btnVoltarInicio">← Minhas aulas</button>
+    <button class="btn btn-secundario btn-pequeno" id="btnVoltarInicio" title="Volta para o módulo na plataforma">← Plataforma</button>
     <img src="img/logo-branco.png" alt="Mentorei" class="some-celular">
     <span class="nome-app some-celular">Ao Vivo</span>
     <span class="status-salvar" id="statusSalvar">Tudo salvo</span>

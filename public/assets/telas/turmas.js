@@ -42,9 +42,9 @@ export async function gravarTurma(dados, id = null) {
   return r;
 }
 
-export async function render(ctx, el, [id]) {
+export async function render(ctx, el, [id, parte]) {
   if (ctx.rota === 'turma' && id) return paginaTurma(ctx, el, id);
-  if (ctx.rota === 'modulo' && id) return paginaModulo(ctx, el, id);
+  if (ctx.rota === 'modulo' && id) return paginaModulo(ctx, el, id, parte);
   return lista(ctx, el);
 }
 
@@ -530,7 +530,7 @@ const TIPO_POR_EXT = { pdf: 'application/pdf', ppt: 'application/vnd.ms-powerpoi
 const textoAula = (t) => esc(t).replace(/^(Objetivo|Entrega prática|Período):/gm, '<b>$1:</b>');
 const tamanho = (b) => (b ? (b > 1048576 ? `${(b / 1048576).toFixed(1).replace('.', ',')} MB` : `${Math.max(1, Math.round(b / 1024))} KB`) : '');
 
-async function paginaModulo(ctx, el, id) {
+async function paginaModulo(ctx, el, id, parte) {
   const { data: m, error } = await sb.from('modulos').select(`*, turma:turmas(*, empresa:empresas(nome)),
     mentores:modulo_mentores(mentor:perfis(id, nome, foto_url)), arquivos:modulo_arquivos(id, tipo, nome, caminho, tamanho, enviado_por, enviado_em, autor:perfis(nome))`).eq('id', id).maybeSingle();
   if (error) throw error;
@@ -627,7 +627,7 @@ async function paginaModulo(ctx, el, id) {
         ${cartaoFerramentasTurma()}
         ${cartaoPresenca()}
         ${cartaoEnviosAlunos()}
-        <div class="cartao" style="${podePercepcao ? 'border-color:var(--verde);background:linear-gradient(var(--verde-claro), var(--papel) 90px)' : ''}">
+        <div class="cartao" id="percepcoes-aula" style="${podePercepcao ? 'border-color:var(--verde);background:linear-gradient(var(--verde-claro), var(--papel) 90px)' : ''}">
           <div class="linha"><h3 style="flex:1">Percepções sobre a aula</h3>${podePercepcao ? '<button type="button" class="btn peq" id="perc-voz" title="Fale e o texto entra na caixa">🎤 Falar</button>' : ''}</div>
           <p class="peq">${podePercepcao ? 'Depois da aula, conte como foi: engajamento, o que funcionou, pontos de atenção e sugestões para os próximos módulos. Pode escrever ou clicar em 🎤 Falar e contar em voz alta. Só a equipe da Mentorei lê.' : 'Escritas pelo mentor depois da aula.'}</p>
           <div class="campo mt" style="max-width:220px"><label>Participantes presentes</label><input type="number" min="0" data-perc="participantes_presentes" value="${esc(m.participantes_presentes ?? '')}"${podePercepcao ? '' : ' disabled'}></div>
@@ -676,6 +676,11 @@ async function paginaModulo(ctx, el, id) {
   // percepções por voz (o mesmo "🎤 Falar" das anotações da sessão individual)
   const voz = ditado({ avisar });
   if (podePercepcao) voz.ligar(el.querySelector('#perc-voz'), el.querySelector('[data-perc="percepcoes"]'), el.querySelector('#perc-ouvindo'));
+  // vindo do lembrete do fim da aula ao vivo (#/modulo/<id>/percepcoes): vai direto para a caixa das percepções
+  if (parte === 'percepcoes') {
+    const cp = el.querySelector('#percepcoes-aula');
+    if (cp) setTimeout(() => { cp.scrollIntoView({ behavior: 'smooth', block: 'center' }); const t = cp.querySelector('textarea:not([disabled])'); if (t) t.focus({ preventScroll: true }); }, 300);
+  }
 
   // descritivo automático (2026-11-09): se a plataforma está trazendo a temática da proposta, mostra e coloca no campo
   let pararAuto = null;

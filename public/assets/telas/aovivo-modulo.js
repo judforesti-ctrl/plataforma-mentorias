@@ -25,6 +25,20 @@ export function escolherSlides(arquivos, meuId) {
   return { pdf, pptx };
 }
 
+// endereço do painel do Ao Vivo para a aula { id, chave }; com o módulo, leva junto os slides dele (links de 3 h)
+export async function linkDoPainel(ctx, m, aula) {
+  const p = new URLSearchParams({ s: aula.id, k: aula.chave });
+  if (m) {
+    const { pdf, pptx } = escolherSlides(m.arquivos, ctx.perfil.id);
+    for (const [nome, a] of [['pdf', pdf], ['pptx', pptx]]) {
+      if (!a) continue;
+      const { data: u } = await sb.storage.from('turmas').createSignedUrl(a.caminho, 3 * 3600);
+      if (u && u.signedUrl) { p.set(nome, u.signedUrl); p.set(`${nome}nome`, a.nome); }
+    }
+  }
+  return `${AOVIVO}/apresentar.html#${p.toString()}`;
+}
+
 // abre o painel do Ao Vivo numa aba nova (a aba nasce no clique, para o navegador não bloquear)
 export async function abrirAoVivo(ctx, m, botao) {
   const aba = window.open('', '_blank');
@@ -33,14 +47,7 @@ export async function abrirAoVivo(ctx, m, botao) {
   try {
     const { data, error } = await sb.rpc('aovivo_do_modulo', { p_modulo: m.id });
     if (error) throw error;
-    const p = new URLSearchParams({ s: data.id, k: data.chave });
-    const { pdf, pptx } = escolherSlides(m.arquivos, ctx.perfil.id);
-    for (const [nome, a] of [['pdf', pdf], ['pptx', pptx]]) {
-      if (!a) continue;
-      const { data: u } = await sb.storage.from('turmas').createSignedUrl(a.caminho, 3 * 3600);
-      if (u && u.signedUrl) { p.set(nome, u.signedUrl); p.set(`${nome}nome`, a.nome); }
-    }
-    const url = `${AOVIVO}/apresentar.html#${p.toString()}`;
+    const url = await linkDoPainel(ctx, m, data);
     if (aba) aba.location.href = url; else window.location.href = url;
     return data;
   } catch (e) {

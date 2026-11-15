@@ -825,3 +825,13 @@ body.lendo { overflow: hidden; }
 .marcar-email input { width: 22px; height: 22px; flex: none; margin-top: 1px; accent-color: var(--menta); }
 @media (min-width: 700px) { .janela-email { align-items: center; } }
 .janela-email-caixa .centro { text-align: center; }
+
+/* =========================================================
+   PAINEL · lembrete das percepções no fim da aula
+   ========================================================= */
+.lembrete-percepcoes { text-align: center; }
+.lembrete-percepcoes .emoji-grande { font-size: 46px; line-height: 1; margin-bottom: 10px; }
+.lembrete-percepcoes h2 { margin-bottom: 10px; }
+.lembrete-percepcoes .acoes { justify-content: center; flex-wrap: wrap; }
+.lembrete-percepcoes a.btn { text-decoration: none; }
+.lembrete-percepcoes .dica { margin-bottom: 18px; line-height: 1.55; }
