@@ -18,6 +18,19 @@ const TIPO = {
 };
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
 
+// a frase para o mentor, conforme o motivo que o Google deu (o texto técnico fica em aovivo_conversoes.detalhe)
+function motivoGoogle(status, texto) {
+  let razao = '';
+  try {
+    const e = JSON.parse(texto).error || {};
+    razao = [e.status, ...(e.errors || []).map((x) => x.reason), ...(e.details || []).map((x) => x.reason)].filter(Boolean).join(' ');
+  } catch (_) { /* sem JSON */ }
+  if (/accessNotConfigured|SERVICE_DISABLED/i.test(razao)) return 'A ligação da plataforma com o Google Drive ainda não foi liberada (um ajuste único da administração). Por enquanto, envie a apresentação em PDF.';
+  if (/storageQuotaExceeded/i.test(razao)) return 'O Google Drive da Mentorei está cheio. Libere espaço ou envie a apresentação em PDF.';
+  if (status === 401 || /insufficient|PERMISSION/i.test(razao)) return 'A conta Google da Mentorei precisa ser conectada de novo no Painel. Por enquanto, envie a apresentação em PDF.';
+  return `O Google recusou o arquivo (${status}). Tente de novo ou envie a apresentação em PDF.`;
+}
+
 export default async (req) => {
   let b; try { b = JSON.parse(await req.text()); } catch (_) { return; }
   const id = String(b.id || ''), sessao = String(b.sessao || ''), chave = String(b.chave || '');
@@ -31,7 +44,7 @@ export default async (req) => {
   const conv = cq.ok && cq.dados && cq.dados[0];
   if (!ck.ok || !ck.dados || !ck.dados.length || !conv || conv.status !== 'convertendo') return;
   const marcar = (corpo) => supa(`/rest/v1/aovivo_conversoes?id=eq.${id}`, { metodo: 'PATCH', corpo });
-  const falhar = (erro) => marcar({ status: 'erro', erro });
+  const falhar = (erro, detalhe) => marcar({ status: 'erro', erro, detalhe: detalhe ? String(detalhe).slice(0, 1000) : null });
 
   const origem = String(conv.origem || '');
   const ext = (origem.match(/\.([a-z0-9]+)$/i) || [])[1];
@@ -56,13 +69,11 @@ export default async (req) => {
     const local = ini.ok && ini.headers.get('location');
     if (!local) {
       const t = await ini.text().catch(() => '');
-      return falhar(ini.status === 401 || ini.status === 403
-        ? `O Google não deixou converter (${ini.status}). Conecte a conta Google de novo no Painel ou envie a apresentação em PDF.`
-        : `O Google recusou o arquivo (${ini.status}). ${t.slice(0, 160)}`);
+      return falhar(motivoGoogle(ini.status, t), `${ini.status} ${t}`);
     }
     const up = await fetch(local, { method: 'PUT', headers: { 'Content-Type': TIPO[ext.toLowerCase()] }, body: bytes });
     const ud = await up.json().catch(() => ({}));
-    if (!up.ok || !ud.id) return falhar(`O Google não conseguiu abrir a apresentação (${up.status}). Confira se o arquivo abre no PowerPoint e envie de novo.`);
+    if (!up.ok || !ud.id) return falhar(`O Google não conseguiu abrir a apresentação (${up.status}). Confira se o arquivo abre no PowerPoint e envie de novo.`, `${up.status} ${JSON.stringify(ud).slice(0, 600)}`);
     driveId = ud.id;
 
     // 2) baixa em PDF (o caminho direto tem limite de 10 MB; acima disso, o link de exportação do próprio Google)
@@ -88,7 +99,7 @@ export default async (req) => {
     if (!sv.ok) return falhar(`Não consegui guardar o PDF (${sv.status}). Tente de novo.`);
     await marcar({ status: 'pronto', pdf: destino, erro: null });
   } catch (e) {
-    await falhar('Não foi possível converter agora. Tente de novo ou envie a apresentação em PDF.');
+    await falhar('Não foi possível converter agora. Tente de novo ou envie a apresentação em PDF.', e && e.message);
   } finally {
     // o arquivo temporário sai do Drive (a plataforma só mexe no que ela mesma criou)
     if (driveId) await fetch(`${DRIVE}/${driveId}`, { method: 'DELETE', headers: auth }).catch(() => null);

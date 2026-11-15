@@ -68,3 +68,4 @@ end $$;
 grant execute on function public.aovivo_bilhete_arquivo(uuid, text, text) to anon, authenticated;
 grant execute on function public.aovivo_pedir_conversao(uuid, text, text) to anon, authenticated;
 grant execute on function public.aovivo_ver_conversao(uuid, text, uuid) to anon, authenticated;
+alter table public.aovivo_conversoes add column if not exists detalhe text;   -- motivo técnico do Google (só o servidor lê)
