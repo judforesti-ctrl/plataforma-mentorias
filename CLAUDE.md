@@ -1140,6 +1140,11 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   guarda `slides.pdf` ao lado do original; a tela acompanha (aovivo_ver_conversao) e segue como se fosse PDF, com as notas do
   .pptx. Slide escondido no PowerPoint que o Google ponha no PDF sai (lerPptx devolve `ocultos`/`total`). Keynote não converte:
   a tela explica como exportar. Se a conta Google desconectar, a mensagem pede para conectar de novo (Painel) ou mandar PDF.
+  GOOGLE DRIVE API: estava DESLIGADA no projeto do Google Cloud "Plataforma Mentorei" (id plataforma-mentorei, nº 435624498980,
+  o do GOOGLE_CLIENT_ID); era também por isso que as cópias de segurança para o Drive davam 403 desde outubro. Ligada pelo Claude
+  em 15/11 (console com a contato@; o Google Cloud exige verificação em duas etapas desde 22/10/2026, que a Juliana ativou na
+  contato@ no mesmo dia). Testado com o .pptx oficial da Unicred: 12 slides, fontes, cores e fotos certas, em 4 s. O motivo técnico
+  de cada recusa do Google fica em `aovivo_conversoes.detalhe` (só o servidor lê).
   Testes (fora do git): /home/claude/aovivo/teste/grupo.py, apresentacao.py e conv.py (Chrome sem janela, servidor de mentira);
   /home/claude/teste-conv/t.mjs (função com Google e Supabase de mentira).
 
