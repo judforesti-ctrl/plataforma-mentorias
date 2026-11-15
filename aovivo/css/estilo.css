@@ -418,6 +418,13 @@ select.entrada option { background: var(--fundo-2); }
 .pagina-telao::before { display: none; }
 .pagina-telao #telao { position: fixed; inset: 0; }
 .pagina-telao.sem-cursor, .pagina-telao.sem-cursor * { cursor: none !important; }
+.telao-seta { position: fixed; top: 50%; transform: translateY(-50%); z-index: 60; width: 56px; height: 96px; border-radius: 14px;
+  border: 1px solid rgba(255,255,255,.18); background: rgba(7,31,26,.55); color: #fff; font: 700 52px/1 'Manrope', sans-serif;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; transition: opacity .2s, background .2s; padding: 0 0 6px; }
+.telao-seta:hover { background: rgba(7,31,26,.9); border-color: rgba(63,211,156,.7); }
+.telao-seta.esq { left: 14px; }
+.telao-seta.dir { right: 14px; }
+.telao-seta.oculto { opacity: 0; pointer-events: none; }
 .telao-ajuda { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 50; background: rgba(11,42,35,.94); border: 1px solid var(--borda); color: var(--texto-2); font-size: 13px; padding: 8px 14px; border-radius: 999px; pointer-events: none; white-space: nowrap; }
 .telao-aviso { position: fixed; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px; color: var(--texto-2); font-size: 20px; background: var(--fundo); }
 
@@ -758,3 +765,45 @@ button.pn-nome:hover { background: rgba(255,138,128,.18); text-decoration: line-
 a.btn { text-decoration: none; }
 .toast { pointer-events: none; }
 .escolher-grupo, .meu-grupo { margin-top: 14px; }
+
+/* ---------- Material em PDF (15/11) ---------- */
+.ed-materiais .ed-mat-lista { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.ed-mat { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: var(--fundo-2); border: 1px solid var(--borda); border-radius: 12px; padding: 8px 10px; }
+.ed-mat .ed-pdf { flex: 1; min-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ed-mat select { max-width: 200px; }
+.materiais-aluno { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 4px; }
+.btn-material { justify-content: space-between; text-align: left; white-space: normal; gap: 10px; border-color: rgba(111,227,184,.45); }
+.btn-material small { flex: none; color: var(--menta); font-weight: 700; font-size: 14px; }
+body.lendo { overflow: hidden; }
+.leitor-pdf { position: fixed; inset: 0; z-index: 990; background: #0b1512; display: flex; flex-direction: column; }
+.leitor-topo { display: flex; align-items: center; gap: 6px; padding: 10px 10px calc(10px) 14px; padding-top: max(10px, env(safe-area-inset-top)); background: var(--fundo); border-bottom: 1px solid var(--borda); color: var(--texto); }
+.leitor-topo b { font-family: var(--titulo); font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.leitor-btn { flex: none; background: var(--painel-2); color: var(--texto); border: 1px solid var(--borda); border-radius: 10px; padding: 9px 11px; font: 700 14px var(--corpo); cursor: pointer; }
+.leitor-fechar { background: var(--menta); color: var(--fundo); border-color: var(--menta); }
+.leitor-corpo { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding: 10px 8px calc(24px + env(safe-area-inset-bottom)); }
+.leitor-paginas { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
+.leitor-pagina { width: 100%; height: auto; display: block; border-radius: 6px; background: #fff; box-shadow: 0 4px 18px rgba(0,0,0,.4); }
+.leitor-msg { color: var(--texto-2); text-align: center; padding: 30px 10px; font-size: 15px; }
+.btn-sala { background: #2D8CFF; color: #fff; border: 1px solid #2D8CFF; }
+.btn-sala:hover { filter: brightness(1.08); }
+.btn-sala.chamando { animation: chamar 1.6s ease-in-out infinite; }
+@keyframes chamar { 0%, 100% { box-shadow: 0 0 0 0 rgba(45,140,255,.55); } 50% { box-shadow: 0 0 0 8px rgba(45,140,255,0); } }
+/* ajustes nas sugestões da IA (15/11) */
+.ia-bloco { display: flex; flex-direction: column; gap: 0; }
+.ia-ajustar { margin-top: 8px; }
+.ia-editar { margin: -6px 0 0; padding: 16px 14px 12px; border: 1px solid var(--menta); border-top: none; border-radius: 0 0 14px 14px; background: rgba(111,227,184,.05); display: flex; flex-direction: column; gap: 10px; }
+.ia-editar .alternativa-editor { gap: 8px; }
+.ia-editar .acoes { margin-top: 0; }
+.ia-bloco:has(.ia-editar) .ia-item { border-radius: 14px 14px 0 0; border-color: var(--menta); }
+.ia-refazer { margin-top: 12px; padding: 12px; border-radius: 14px; border: 1px dashed rgba(183,156,255,.5); background: rgba(183,156,255,.06); display: flex; flex-direction: column; gap: 8px; }
+.ia-refazer label { font-size: 14px; color: var(--texto-2); }
+.ia-refazer label b { color: var(--texto); }
+.ia-refazer .linha { gap: 8px; flex-wrap: nowrap; }
+.ia-refazer .entrada { flex: 1; min-width: 0; }
+/* termômetro "do jeito Mentorei" (15/11) */
+.aviso-chato { display: flex; gap: 12px; align-items: flex-start; margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; background: rgba(255,122,89,.1); border: 1px solid rgba(255,122,89,.55); }
+.aviso-chato .ac-icone { font-size: 22px; line-height: 1.2; }
+.aviso-chato b { display: block; color: #FFB39F; font-family: var(--titulo); font-size: 15px; margin-bottom: 3px; }
+.aviso-chato p { color: var(--texto); font-size: 14px; line-height: 1.5; }
+.aviso-chato .btn { margin-top: 8px; display: inline-flex; }
+.aviso-mentorei { margin: 0 0 12px; padding: 8px 12px; border-radius: 12px; background: rgba(111,227,184,.08); border: 1px solid rgba(111,227,184,.35); color: var(--menta); font-size: 14px; font-weight: 600; }

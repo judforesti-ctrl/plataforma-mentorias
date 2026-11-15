@@ -146,7 +146,8 @@
             ((x.membros || []).map(m => esc(m.nome.split(' ')[0])).join(', ') || '—') + '</span></div>').join('') + '</div>'
           : (g.modo === 'escolher' ? '<p class="gt-dica">No celular, marque o número do seu grupo ou da sua sala.</p>' : '')) +
         (comResp ? '<div class="gt-contagem"><b data-r="grp">0</b><span data-r="grptxt">grupos mandaram a resposta</span></div>' : '') +
-        '<p class="gt-dica">📱 As instruções e o cronômetro também estão no seu celular.</p></div></div>';
+        '<p class="gt-dica">📱 As instruções e o cronômetro também estão no seu celular.' +
+          ((c.materiais || []).length || c.pdf ? '<br>📄 ' + ((c.materiais || []).some(m => m.grupo) ? 'O material de cada grupo' : 'O material') + ' abre no celular, no Ao Vivo.' : '') + '</p></div></div>';
       tique();
     }
 

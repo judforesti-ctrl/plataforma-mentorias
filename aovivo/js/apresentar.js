@@ -166,11 +166,20 @@
   let selK = null;
 
   function paraRascunho(a) {
-    return {
+    const it = {
       _k: ++contadorK, id: a.id, tipo: a.tipo, pergunta: a.pergunta || '',
       opcoes: a.tipo === 'quiz' ? padOpcoes(a.opcoes, 4) : (a.opcoes || []).slice(),
       correta: a.correta, tempo: a.tempo, config: JSON.parse(JSON.stringify(a.config || {})), notas: a.notas || ''
     };
+    if (it.tipo === 'slide' || it.tipo === 'grupo') {
+      if (!Array.isArray(it.config.materiais)) it.config.materiais = [];
+      // o "PDF com as instruções" de antes vira o 1º material do exercício
+      if (it.tipo === 'grupo' && it.config.pdf) {
+        it.config.materiais.unshift({ pdf: it.config.pdf, nome: it.config.nome_pdf || 'Instruções', grupo: null });
+        it.config.pdf = ''; it.config.nome_pdf = '';
+      }
+    }
+    return it;
   }
 
   function abrirEditor(nova) {
@@ -194,6 +203,7 @@
     marcarSalvo();
     atualizarBotaoAoVivo();
     desenharAvaliacao();
+    desenharSala();
     if (nova) setTimeout(() => $('campoTitulo').focus(), 100);
     if (doModulo && !moduloTrazido && !rascunho.itens.some(i => i.tipo === 'slide')) setTimeout(trazerSlidesDoModulo, 300);
     if (sel && idAtual) setTimeout(() => { const el = document.querySelector('.ed-item.selecionado'); if (el) el.scrollIntoView({ block: 'center' }); }, 50);
@@ -232,7 +242,7 @@
     if (tipo === 'escala') base.config = { max: 10, rotulo_min: '', rotulo_max: '' };
     if (tipo === 'grupo') {
       base.tempo = 600;
-      base.config = { passos: [], entrega: '', grupos: { modo: 'escolher', quantos: 6, tamanho: 4 }, resposta: { ligada: true, pergunta: '' }, pdf: '', nome_pdf: '' };
+      base.config = { passos: [], entrega: '', grupos: { modo: 'escolher', quantos: 6, tamanho: 4 }, resposta: { ligada: true, pergunta: '' }, pdf: '', nome_pdf: '', materiais: [] };
     }
     if (tipo === 'ferramenta') base.config = { url: '', codigo: '', instrucao: '' };
     return base;
@@ -384,6 +394,40 @@
     });
   }
 
+  /* ---------- Sala da aula (Zoom, Meet, Teams) ---------- */
+  function nomeSala(url) {
+    const u = String(url || '').toLowerCase();
+    return /zoom\.us|zoom\.com/.test(u) ? 'Zoom' : /teams\.(microsoft|live)\.com/.test(u) ? 'Teams' : /meet\.google\.com/.test(u) ? 'Meet' : '';
+  }
+  let timerSala = null;
+  function desenharSala() {
+    const box = $('blocoSala');
+    if (!box) return;
+    const doModulo = painel.sala_modulo, escolhida = painel.sala_escolhida;
+    const valor = escolhida && escolhida !== '-' ? escolhida : '';
+    box.innerHTML = '<div class="campo" style="flex:1;min-width:260px"><label>Sala da aula (link do Zoom, do Meet ou do Teams)</label>' +
+      '<input class="entrada" id="campoSala" maxlength="600" value="' + esc(valor) + '" placeholder="' + esc(doModulo || 'Cole aqui o link da sala: https://...') + '"></div>' +
+      '<p class="dica" style="flex-basis:100%">' + (doModulo && !valor ? 'Já vem o link do módulo da plataforma. ' : '') +
+      'No painel da aula aparece o botão "🎥 Entrar na sala": você abre a sala e projeta o telão sem sair do Ao Vivo.</p>';
+    const be = $('btnSalaEd');
+    if (be) { be.classList.toggle('oculto', !painel.sala); be.textContent = '🎥 Entrar na sala' + (nomeSala(painel.sala) ? ' do ' + nomeSala(painel.sala) : ''); }
+    const c = $('campoSala');
+    c.addEventListener('input', () => {
+      clearTimeout(timerSala);
+      const v = c.value.trim();
+      timerSala = setTimeout(async () => {
+        if (v && !/^https:\/\/\S+$/.test(v)) { $('statusSalvar').textContent = 'O link da sala precisa começar com https://'; return; }
+        try {
+          aceitarPainel(await rpc('aovivo_sala', { p_sessao: atual.id, p_chave: atual.chave, p_link: v }), true);
+          $('statusSalvar').textContent = 'Sala salva';
+          const be2 = $('btnSalaEd');
+          if (be2) { be2.classList.toggle('oculto', !painel.sala); be2.textContent = '🎥 Entrar na sala' + (nomeSala(painel.sala) ? ' do ' + nomeSala(painel.sala) : ''); }
+        }
+        catch (e) { toast(e.message, true); }
+      }, 900);
+    });
+  }
+
   /* ---------- Sugestões da IA ---------- */
   function slidesParaIA() {
     const itens = rascunho.itens, slides = [], roteiro = [];
@@ -410,7 +454,7 @@
     const { slides, roteiro } = slidesParaIA();
     if (!slides.length) return toast('Envie os slides primeiro: a IA lê o texto deles para sugerir as atividades.', true);
     if ((sujo || salvando) && !(await salvar(true))) return toast('Complete o roteiro antes de pedir à IA: ' + (validar() || ''), true);
-    const fechar = modal('<h2>✨ Sugerir atividades com a IA</h2>' +
+    const fechar = modal('<h2>✨ Deixar do jeito Mentorei!</h2>' +
       '<div id="iaCorpo"><p class="dica" style="margin-bottom:12px">A IA lê o texto e as anotações dos ' + slides.length + ' slides e sugere onde entram nuvem de palavras, quiz, votação, escala e exercícios em grupo, já com as perguntas e as instruções. Você marca o que quer e elas entram no roteiro.</p>' +
       '<div class="campo"><label>Quer pedir algo especial? (opcional)</label><textarea class="entrada" id="iaPedido" maxlength="1500" placeholder="Ex.: a turma é de gerentes novos; quero 2 exercícios em grupo; a aula tem 2 horas"></textarea></div>' +
       '<div class="acoes"><button class="btn btn-secundario" data-fechar>Cancelar</button><button class="btn btn-principal" id="iaIr">Pedir sugestões</button></div></div>', f => {
@@ -418,13 +462,13 @@
     });
   }
 
-  async function pedirIA(f, slides, roteiro, pedido, fechar) {
+  async function pedirIA(f, slides, roteiro, pedido, fechar, extra) {
     const corpo = f.querySelector('#iaCorpo');
-    corpo.innerHTML = '<div class="ia-esperando"><span class="girando">✨</span><p><b>A IA está lendo a aula...</b></p><p class="dica">Leva de 1 a 3 minutos. Pode deixar esta janela aberta.</p></div>';
+    corpo.innerHTML = '<div class="ia-esperando"><span class="girando">✨</span><p><b>' + (extra && extra.ajuste ? 'A IA está ajustando as sugestões...' : 'A IA está lendo a aula...') + '</b></p><p class="dica">Leva de 1 a 3 minutos. Pode deixar esta janela aberta.</p></div>';
     try {
       const r = await rpc('aovivo_pedir_sugestao', { p_sessao: atual.id, p_chave: atual.chave });
       const resp = await fetch('/api/aovivo-sugerir', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: r.id, sessao: atual.id, chave: atual.chave, titulo: rascunho.titulo, slides, roteiro, pedido }) });
+        body: JSON.stringify(Object.assign({ id: r.id, sessao: atual.id, chave: atual.chave, titulo: rascunho.titulo, slides, roteiro, pedido }, extra || {})) });
       if (!resp.ok && resp.status !== 202) throw new Error('Não consegui falar com a IA agora (' + resp.status + '). Tente de novo.');
       const t0 = Date.now();
       let g = null;
@@ -436,38 +480,153 @@
       }
       if (!g || g.status === 'gerando') throw new Error('A IA demorou demais. Tente de novo.');
       if (g.status === 'erro') throw new Error(g.erro || 'A IA não conseguiu sugerir.');
-      mostrarSugestoes(f, g.resultado, fechar);
+      mostrarSugestoes(f, g.resultado, fechar, { slides, roteiro, pedido });
     } catch (e) {
       corpo.innerHTML = '<div class="aviso">' + esc(e.message) + '</div><div class="acoes"><button class="btn btn-secundario" data-sair>Fechar</button></div>';
       corpo.querySelector('[data-sair]').onclick = fechar;
     }
   }
 
-  function mostrarSugestoes(f, res, fechar) {
+  function mostrarSugestoes(f, res, fechar, ctx) {
     const corpo = f.querySelector('#iaCorpo');
-    const lista = res.sugestoes || [];
+    const lista = (res.sugestoes || []).map(x => JSON.parse(JSON.stringify(x)));
     const slides = rascunho.itens.filter(i => i.tipo === 'slide');
+    const marcadas = new Set(lista.map((x, i) => i));
+    let editando = -1;
     f.querySelector('.modal').classList.add('modal-largo');
-    corpo.innerHTML = (res.resumo ? '<p class="dica" style="margin-bottom:12px">' + esc(res.resumo) + '</p>' : '') +
-      '<div class="linha" style="margin-bottom:10px"><span class="etiqueta">' + lista.length + ' sugestões</span><span class="espaco"></span>' +
-      '<button class="btn btn-secundario btn-mini" data-todas="1">Marcar todas</button><button class="btn btn-secundario btn-mini" data-todas="0">Desmarcar todas</button></div>' +
-      '<div class="ia-lista">' + lista.map((x, i) => {
-        const sl = x.depois_do_slide > 0 ? slides[x.depois_do_slide - 1] : null;
-        return '<label class="ia-item"><input type="checkbox" data-ia="' + i + '" checked>' +
-          (sl ? '<img src="' + esc(sl.config.imagem) + '" alt="">' : '<span class="ia-inicio">Início</span>') +
-          '<div><span class="dica">' + (x.depois_do_slide > 0 ? 'Depois do slide ' + x.depois_do_slide : 'Antes do primeiro slide') + '</span>' +
-          '<b><span class="tipo-selo tipo-' + x.tipo + '">' + TIPOS[x.tipo].icone + ' ' + TIPOS[x.tipo].nome + '</span> ' + esc(x.pergunta) + '</b>' +
-          descreverSugestao(x) + (x.motivo ? '<p class="dica ia-motivo">💡 ' + esc(x.motivo) + '</p>' : '') + '</div></label>';
-      }).join('') + '</div>' +
-      '<div class="acoes"><button class="btn btn-secundario" data-sair>Desistir</button><button class="btn btn-principal" id="iaAceitar">Colocar as marcadas na aula</button></div>';
-    corpo.querySelectorAll('[data-todas]').forEach(b => b.onclick = () => corpo.querySelectorAll('[data-ia]').forEach(c => c.checked = b.dataset.todas === '1'));
-    corpo.querySelector('[data-sair]').onclick = fechar;
-    corpo.querySelector('#iaAceitar').onclick = () => {
-      const escolhidas = lista.filter((x, i) => corpo.querySelector('[data-ia="' + i + '"]').checked);
-      if (!escolhidas.length) return toast('Marque pelo menos uma sugestão.', true);
-      colocarSugestoes(escolhidas);
-      fechar();
-    };
+
+    const campoTempo = (x, opcoes) => '<div class="campo"><label>Tempo</label><select class="entrada" data-ed-tempo>' + opcoesSelect(x.tempo, opcoes) + '</select></div>';
+    function editorDe(x) {
+      let h = '<div class="config-linha"><div class="campo" style="flex:1;min-width:200px"><label>' + (x.tipo === 'grupo' ? 'Título do exercício' : 'Pergunta') + '</label>' +
+        '<input class="entrada" data-ed="pergunta" maxlength="200" value="' + esc(x.pergunta) + '"></div>' +
+        '<div class="campo"><label>Entra</label><select class="entrada" data-ed-pos>' +
+        opcoesSelect(x.depois_do_slide, [[0, 'Antes do 1º slide']].concat(slides.map((s, k) => [k + 1, 'Depois do slide ' + (k + 1)]))) + '</select></div></div>';
+      if (x.tipo === 'quiz') {
+        h += '<div class="campo"><label>Alternativas (marque a certa)</label>' + [0, 1, 2, 3].map(k =>
+          '<div class="alternativa-editor"><input class="entrada" data-ed-op="' + k + '" maxlength="80" value="' + esc(x.opcoes[k] || '') + '" placeholder="Alternativa ' + 'ABCD'[k] + (k > 1 ? ' (opcional)' : '') + '">' +
+          '<label class="certa"><input type="radio" name="edc" data-ed-certa="' + k + '"' + (x.correta === k ? ' checked' : '') + '>certa</label></div>').join('') + '</div>' +
+          campoTempo(x, [[10, '10 segundos'], [20, '20 segundos'], [30, '30 segundos'], [45, '45 segundos'], [60, '1 minuto'], [90, '1 min e meio'], [120, '2 minutos']]);
+      } else if (x.tipo === 'votacao') {
+        h += '<div class="campo"><label>Opções (uma por linha, de 2 a 8)</label><textarea class="entrada" data-ed-linhas="opcoes" rows="4">' + esc(x.opcoes.join('\n')) + '</textarea></div>' +
+          campoTempo(x, [[0, 'Sem limite (eu encerro)'], [30, '30 segundos'], [60, '1 minuto'], [90, '1 min e meio'], [120, '2 minutos']]);
+      } else if (x.tipo === 'escala') {
+        h += '<div class="config-linha"><div class="campo" style="flex:1"><label>O que significa o 0</label><input class="entrada" data-ed-cfg="rotulo_min" maxlength="40" value="' + esc(x.config.rotulo_min || '') + '"></div>' +
+          '<div class="campo" style="flex:1"><label>O que significa o 10</label><input class="entrada" data-ed-cfg="rotulo_max" maxlength="40" value="' + esc(x.config.rotulo_max || '') + '"></div></div>' +
+          campoTempo(x, [[0, 'Sem limite (eu encerro)'], [30, '30 segundos'], [60, '1 minuto'], [90, '1 min e meio']]);
+      } else if (x.tipo === 'nuvem') {
+        h += campoTempo(x, [[0, 'Sem limite (eu encerro)'], [30, '30 segundos'], [60, '1 minuto'], [90, '1 min e meio'], [120, '2 minutos']]);
+      } else if (x.tipo === 'grupo') {
+        const tempos = TEMPOS_GRUPO.slice();
+        if (!tempos.some(t => t[0] === x.tempo)) tempos.push([x.tempo, Math.round(x.tempo / 60) + ' minutos']);
+        h += '<div class="campo"><label>Passo a passo (um passo por linha, até 8)</label><textarea class="entrada" data-ed-linhas="passos" rows="5">' + esc((x.config.passos || []).join('\n')) + '</textarea></div>' +
+          '<div class="campo"><label>O que cada grupo leva de volta</label><input class="entrada" data-ed-cfg="entrega" maxlength="300" value="' + esc(x.config.entrega || '') + '"></div>' +
+          '<div class="config-linha"><div class="campo" style="flex:1;min-width:200px"><label>O que o grupo escreve no celular</label><input class="entrada" data-ed-resp maxlength="160" value="' + esc((x.config.resposta || {}).pergunta || '') + '"></div>' +
+          campoTempo(x, tempos) + '</div>';
+      }
+      return h + '<div class="acoes"><button class="btn btn-principal btn-pequeno" data-ed-pronto>Pronto</button></div>';
+    }
+
+    function linha(x, i) {
+      const sl = x.depois_do_slide > 0 ? slides[x.depois_do_slide - 1] : null;
+      return '<div class="ia-bloco"><label class="ia-item"><input type="checkbox" data-ia="' + i + '"' + (marcadas.has(i) ? ' checked' : '') + '>' +
+        (sl ? '<img src="' + esc(sl.config.imagem) + '" alt="">' : '<span class="ia-inicio">Início</span>') +
+        '<div><span class="dica">' + (x.depois_do_slide > 0 ? 'Depois do slide ' + x.depois_do_slide : 'Antes do primeiro slide') + '</span>' +
+        '<b><span class="tipo-selo tipo-' + x.tipo + '">' + TIPOS[x.tipo].icone + ' ' + TIPOS[x.tipo].nome + '</span> ' + esc(x.pergunta) + '</b>' +
+        descreverSugestao(x) + (x.motivo ? '<p class="dica ia-motivo">💡 ' + esc(x.motivo) + '</p>' : '') +
+        '<button type="button" class="btn btn-secundario btn-mini ia-ajustar" data-ajustar="' + i + '">' + (editando === i ? 'Fechar o ajuste' : '✎ Ajustar') + '</button></div></label>' +
+        (editando === i ? '<div class="ia-editar">' + editorDe(x) + '</div>' : '') + '</div>';
+    }
+
+    function avisoNaJanela() {
+      const tipos = rascunho.itens.map(i => i.tipo).concat(lista.filter((x, i) => marcadas.has(i)).map(x => x.tipo));
+      const faltam = faltandoNasQuatro(tipos);
+      const box = corpo.querySelector('#iaChato');
+      if (box) box.innerHTML = faltam.length ? avisoChatoHTML(faltam, ' Peça embaixo, em "Quer que a IA ajuste?" (por exemplo: "inclua ' + listaE(faltam.map(t => 'uma ' + NOME_CURTO[t]).map(t => t.replace('uma quiz', 'um quiz'))) + '").') : '';
+    }
+    function desenhar() {
+      const rolagem = corpo.querySelector('.ia-lista') ? corpo.querySelector('.ia-lista').scrollTop : 0;
+      corpo.innerHTML = '<div id="iaChato"></div>' + (res.resumo ? '<p class="dica" style="margin-bottom:12px">' + esc(res.resumo) + '</p>' : '') +
+        '<div class="linha" style="margin-bottom:10px"><span class="etiqueta">' + lista.length + ' sugestões · ' + marcadas.size + ' marcadas</span><span class="espaco"></span>' +
+        '<button class="btn btn-secundario btn-mini" data-todas="1">Marcar todas</button><button class="btn btn-secundario btn-mini" data-todas="0">Desmarcar todas</button></div>' +
+        '<p class="dica" style="margin-bottom:8px">Clique em "✎ Ajustar" para mudar uma sugestão aqui mesmo. Depois de colocar na aula, dá para mudar tudo de novo clicando no item do roteiro.</p>' +
+        '<div class="ia-lista">' + lista.map(linha).join('') + '</div>' +
+        '<div class="ia-refazer"><label for="iaAjuste"><b>Quer que a IA ajuste?</b> Escreva o que mudar e ela refaz a lista (o que você ajustou à mão vai junto).</label>' +
+        '<div class="linha"><input class="entrada" id="iaAjuste" maxlength="1000" placeholder="Ex.: troque a votação por um quiz; o exercício em grupo com 15 minutos; perguntas mais curtas">' +
+        '<button class="btn btn-ia btn-pequeno" id="iaRefazer">✨ Refazer</button></div></div>' +
+        '<div class="acoes"><button class="btn btn-secundario" data-sair>Desistir</button><button class="btn btn-principal" id="iaAceitar">Colocar as marcadas na aula</button></div>';
+      const L = corpo.querySelector('.ia-lista');
+      L.scrollTop = rolagem;
+      avisoNaJanela();
+      corpo.querySelectorAll('[data-ia]').forEach(c => c.addEventListener('change', () => {
+        if (c.checked) marcadas.add(Number(c.dataset.ia)); else marcadas.delete(Number(c.dataset.ia));
+        corpo.querySelector('.etiqueta').textContent = lista.length + ' sugestões · ' + marcadas.size + ' marcadas';
+        avisoNaJanela();
+      }));
+      corpo.querySelectorAll('[data-todas]').forEach(b => b.onclick = () => {
+        marcadas.clear(); if (b.dataset.todas === '1') lista.forEach((x, i) => marcadas.add(i));
+        desenhar();
+      });
+      corpo.querySelectorAll('[data-ajustar]').forEach(b => b.addEventListener('click', ev => {
+        ev.preventDefault(); ev.stopPropagation();
+        const i = Number(b.dataset.ajustar);
+        editando = editando === i ? -1 : i;
+        desenhar();
+        const ed = corpo.querySelector('.ia-editar');
+        if (ed) { ed.scrollIntoView({ block: 'nearest' }); const p = ed.querySelector('[data-ed="pergunta"]'); if (p) p.focus(); }
+      }));
+      const ed = corpo.querySelector('.ia-editar');
+      if (ed) {
+        const x = lista[editando];
+        ed.querySelector('[data-ed="pergunta"]').addEventListener('input', e => { x.pergunta = e.target.value; });
+        ed.querySelector('[data-ed-pos]').addEventListener('change', e => { x.depois_do_slide = Number(e.target.value); });
+        ed.querySelectorAll('[data-ed-op]').forEach(el => el.addEventListener('input', () => { x.opcoes[Number(el.dataset.edOp)] = el.value; }));
+        ed.querySelectorAll('[data-ed-certa]').forEach(el => el.addEventListener('change', () => { x.correta = Number(el.dataset.edCerta); }));
+        ed.querySelectorAll('[data-ed-linhas]').forEach(el => el.addEventListener('input', () => {
+          const v = el.value.split('\n').map(t => t.trim()).filter(Boolean).slice(0, 8);
+          if (el.dataset.edLinhas === 'opcoes') x.opcoes = v; else x.config.passos = v;
+        }));
+        ed.querySelectorAll('[data-ed-cfg]').forEach(el => el.addEventListener('input', () => { x.config[el.dataset.edCfg] = el.value; }));
+        const rp = ed.querySelector('[data-ed-resp]');
+        if (rp) rp.addEventListener('input', () => { x.config.resposta = Object.assign({}, x.config.resposta, { pergunta: rp.value }); });
+        const tp = ed.querySelector('[data-ed-tempo]');
+        if (tp) tp.addEventListener('change', () => { x.tempo = Number(tp.value); });
+        ed.querySelector('[data-ed-pronto]').onclick = () => {
+          const erro = conferirSugestao(x);
+          if (erro) return toast(erro, true);
+          editando = -1; marcadas.add(lista.indexOf(x)); desenhar();
+        };
+      }
+      corpo.querySelector('[data-sair]').onclick = fechar;
+      corpo.querySelector('#iaRefazer').onclick = () => {
+        const ajuste = corpo.querySelector('#iaAjuste').value.trim();
+        if (!ajuste) return toast('Escreva o que a IA deve mudar.', true);
+        if (editando >= 0) { const erro = conferirSugestao(lista[editando]); if (erro) return toast(erro, true); }
+        pedirIA(f, ctx.slides, ctx.roteiro, ctx.pedido, fechar, { anterior: lista, ajuste });
+      };
+      corpo.querySelector('#iaAceitar').onclick = () => {
+        if (editando >= 0) { const erro = conferirSugestao(lista[editando]); if (erro) return toast(erro, true); }
+        const escolhidas = lista.filter((x, i) => marcadas.has(i));
+        if (!escolhidas.length) return toast('Marque pelo menos uma sugestão.', true);
+        const ruim = escolhidas.map(conferirSugestao).find(Boolean);
+        if (ruim) return toast(ruim, true);
+        colocarSugestoes(escolhidas);
+        fechar();
+      };
+    }
+    desenhar();
+  }
+
+  // a sugestão ajustada à mão continua valendo?
+  function conferirSugestao(x) {
+    if (!String(x.pergunta || '').trim()) return x.tipo === 'grupo' ? 'O exercício em grupo precisa de um título.' : 'A pergunta não pode ficar vazia.';
+    if (x.tipo === 'quiz') {
+      const ops = x.opcoes.map(o => String(o || '').trim());
+      if (ops.filter(Boolean).length < 2) return 'O quiz precisa de pelo menos 2 alternativas.';
+      if (x.correta == null || !ops[x.correta]) return 'Marque a alternativa certa do quiz (ela precisa ter texto).';
+    }
+    if (x.tipo === 'votacao' && x.opcoes.filter(o => String(o || '').trim()).length < 2) return 'A votação precisa de pelo menos 2 opções.';
+    if (x.tipo === 'grupo' && !(x.config.passos || []).some(t => String(t).trim())) return 'Escreva o passo a passo do exercício em grupo.';
+    return null;
   }
 
   function colocarSugestoes(lista) {
@@ -477,8 +636,12 @@
     lista.slice().sort((a, b) => a.depois_do_slide - b.depois_do_slide).forEach(x => {
       const it = novoItem(x.tipo);
       it.pergunta = x.pergunta;
-      if (x.tipo === 'quiz') { it.opcoes = padOpcoes(x.opcoes, 4); it.correta = x.correta; }
-      if (x.tipo === 'votacao') it.opcoes = x.opcoes.slice();
+      if (x.tipo === 'quiz') {
+        const ops = [], certa = x.opcoes[x.correta];
+        x.opcoes.forEach(o => { if (String(o || '').trim()) ops.push(String(o).trim()); });
+        it.opcoes = padOpcoes(ops, 4); it.correta = Math.max(0, ops.indexOf(String(certa || '').trim()));
+      }
+      if (x.tipo === 'votacao') it.opcoes = x.opcoes.map(o => String(o).trim()).filter(Boolean);
       it.tempo = x.tempo;
       it.config = Object.assign(it.config, JSON.parse(JSON.stringify(x.config || {})));
       it.notas = 'Sugestão da IA' + (x.motivo ? ': ' + x.motivo : '.');
@@ -641,25 +804,55 @@
     }
   }
 
-  function enviarPdfInstrucoes(a) {
+  // material em PDF para os alunos: abre no celular, dentro do Ao Vivo (vários de uma vez; no exercício, para todos ou um grupo)
+  function enviarMaterial(a) {
     const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = '.pdf,application/pdf';
+    inp.type = 'file'; inp.accept = '.pdf,application/pdf'; inp.multiple = true;
     inp.onchange = async () => {
-      const f = inp.files && inp.files[0];
-      if (!f) return;
-      if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') return toast('Escolha um arquivo PDF.', true);
-      if (f.size > 10 * 1024 * 1024) return toast('Esse PDF tem mais de 10 MB. Diminua o arquivo e tente de novo.', true);
-      try {
-        toast('Enviando o PDF...');
-        const b = await rpc('aovivo_bilhete_pdf', { p_sessao: atual.id, p_chave: atual.chave });
-        const { error } = await A.sb.storage.from('aovivo-slides').upload(b.caminho, f, { contentType: 'application/pdf', cacheControl: '31536000', upsert: false });
-        if (error) throw new Error('Não consegui enviar o PDF (' + (error.message || 'erro') + ').');
-        a.config.pdf = b.base + b.caminho; a.config.nome_pdf = f.name.slice(0, 80);
-        desenharItem(); atualizarLinha(a); mudou();
-        toast('PDF anexado ao exercício.');
-      } catch (e) { toast(e.message, true); }
+      const arquivos = Array.from(inp.files || []);
+      if (!arquivos.length) return;
+      const lista = a.config.materiais || (a.config.materiais = []);
+      let ok = 0;
+      for (const f of arquivos) {
+        if (lista.length >= 12) { toast('Cabem até 12 materiais por item.', true); break; }
+        if (!/\.pdf$/i.test(f.name) && f.type !== 'application/pdf') { toast(f.name + ' não é PDF. No PowerPoint ou no Word: Arquivo, Salvar como, PDF.', true); continue; }
+        if (f.size > 15 * 1024 * 1024) { toast(f.name + ' tem mais de 15 MB. Diminua o arquivo e tente de novo.', true); continue; }
+        try {
+          toast('Enviando ' + f.name + '...');
+          const b = await rpc('aovivo_bilhete_pdf', { p_sessao: atual.id, p_chave: atual.chave });
+          const { error } = await A.sb.storage.from('aovivo-slides').upload(b.caminho, f, { contentType: 'application/pdf', cacheControl: '31536000', upsert: false });
+          if (error) throw new Error('Não consegui enviar ' + f.name + ' (' + (error.message || 'erro') + ').');
+          // nome do arquivo com "grupo 2" (ou "G2") já vai para o grupo 2
+          const g = a.tipo === 'grupo' ? (f.name.match(/(?:grupo|equipe|sala|\bg)\s*0?(\d{1,2})\b/i) || [])[1] : null;
+          lista.push({ pdf: b.base + b.caminho, nome: f.name.replace(/\.pdf$/i, '').slice(0, 80), grupo: g ? Number(g) : null });
+          ok++;
+        } catch (e) { toast(e.message, true); }
+      }
+      if (ok) { desenharItem(); atualizarLinha(a); mudou(); toast(ok === 1 ? 'Material anexado.' : ok + ' materiais anexados.'); }
     };
     inp.click();
+  }
+
+  function opcoesGrupoMaterial(a) {
+    const g = a.config.grupos || {}, modo = g.modo || 'escolher';
+    if (a.tipo !== 'grupo' || modo === 'nenhum') return null;
+    if (modo === 'equipes' && rascunho.modo_equipes) return rascunho.equipes.map((e, i) => [i + 1, 'Equipe ' + (e || i + 1)]);
+    const n = modo === 'sortear' ? 20 : (g.quantos || 6);
+    return Array.from({ length: n }, (_, i) => [i + 1, 'Grupo ' + (i + 1)]);
+  }
+
+  function blocoMateriais(a) {
+    const lista = a.config.materiais || [], grupos = opcoesGrupoMaterial(a);
+    return '<div class="campo ed-materiais"><label>📎 Material em PDF para os alunos (opcional)</label>' +
+      (lista.length ? '<div class="ed-mat-lista">' + lista.map((m, j) =>
+        '<div class="ed-mat"><a class="ed-pdf" href="' + esc(m.pdf) + '" target="_blank" rel="noopener">📄 ' + esc(m.nome || 'material') + '</a>' +
+        (grupos ? '<select class="entrada entrada-mini" data-mat-grupo="' + j + '" title="Quem vê este material"><option value="">Todos os grupos</option>' +
+          grupos.map(([n, t]) => '<option value="' + n + '"' + (m.grupo === n ? ' selected' : '') + '>Só ' + esc(t) + '</option>').join('') + '</select>' : '') +
+        '<button class="btn btn-secundario btn-icone" data-mat-tirar="' + j + '" title="Tirar este material">✕</button></div>').join('') + '</div>' : '') +
+      '<div class="linha"><button class="btn btn-secundario btn-pequeno" data-mat-enviar>+ Anexar PDF</button></div>' +
+      '<span class="dica">' + (a.tipo === 'grupo'
+        ? 'O aluno abre o PDF dentro do Ao Vivo, no celular, sem baixar nada. Cada grupo com um caso diferente? Anexe um PDF por grupo e escolha "Só Grupo 1", "Só Grupo 2"... (se o nome do arquivo tiver "grupo 2", ele já vai para o Grupo 2).'
+        : 'Aparece no celular enquanto este slide estiver no telão: o aluno abre e lê dentro do Ao Vivo, sem baixar nada.') + '</span></div>';
   }
 
   // todo o texto da página (vai para a IA ler a aula e sugerir as atividades)
@@ -754,7 +947,30 @@
     return '<b>' + TIPOS[it.tipo].nome + ' · ' + resumoTempo(it) + '</b><span>' + (it.pergunta.trim() ? esc(it.pergunta) : '<i>Sem pergunta ainda</i>') + '</span>';
   }
 
+  // as quatro funções que deixam a aula do jeito Mentorei (nuvem, quiz, votação e escala)
+  const QUATRO = ['nuvem', 'quiz', 'votacao', 'escala'];
+  const NOME_CURTO = { nuvem: 'nuvem de palavras', quiz: 'quiz', votacao: 'votação', escala: 'escala' };
+  function faltandoNasQuatro(tipos) { return QUATRO.filter(t => !tipos.includes(t)); }
+  function listaE(nomes) { return nomes.length <= 1 ? nomes.join('') : nomes.slice(0, -1).join(', ') + ' e ' + nomes[nomes.length - 1]; }
+  function avisoChatoHTML(faltam, extra) {
+    return '<div class="aviso-chato"><span class="ac-icone">⚠️</span><div><b>Seu módulo está na zona de risco de ser bem chato!</b>' +
+      '<p>Falta' + (faltam.length > 1 ? 'm' : '') + ' ' + listaE(faltam.map(t => NOME_CURTO[t])) + '. Numa aula de 3 horas, use as quatro funções (nuvem, quiz, votação e escala) pelo menos uma vez cada.' + (extra || '') + '</p></div></div>';
+  }
+  function desenharAvisoChato() {
+    const box = $('avisoChato');
+    if (!box) return;
+    const temSlides = rascunho.itens.some(i => i.tipo === 'slide');
+    const faltam = faltandoNasQuatro(rascunho.itens.map(i => i.tipo));
+    if (!temSlides || !rascunho.itens.length) { box.innerHTML = ''; return; }
+    box.innerHTML = faltam.length
+      ? avisoChatoHTML(faltam, ' <button class="btn btn-ia btn-mini" type="button" id="btnIA2">✨ Deixar do jeito Mentorei!</button>')
+      : '<div class="aviso-mentorei">✓ Do jeito Mentorei: a aula tem nuvem, quiz, votação e escala.</div>';
+    const b = $('btnIA2');
+    if (b) b.onclick = sugerirComIA;
+  }
+
   function desenharLista() {
+    desenharAvisoChato();
     const l = $('listaRoteiro');
     if (!rascunho.itens.length) {
       l.innerHTML = '<div class="vazio"><p style="margin-bottom:14px">O roteiro está vazio. Envie a apresentação (PowerPoint ou PDF) lá em cima, escolha uma atividade abaixo ou comece com exemplos prontos para testar.</p>' +
@@ -862,10 +1078,7 @@
       '<label class="interruptor"><input type="checkbox" data-resp' + (r.ligada !== false ? ' checked' : '') + '><span class="trilho"></span>Um do grupo manda a resposta do grupo pelo celular</label>' +
       (r.ligada !== false ? '<div class="campo"><label>O que o grupo escreve</label><input class="entrada" data-resp-perg maxlength="160" value="' + esc(r.pergunta || '') + '" placeholder="Ex.: Qual foi a resposta escolhida pelo grupo?"></div>' +
         '<p class="dica">As respostas aparecem para você no painel durante o exercício e no telão quando você clicar em "Ver as respostas dos grupos".</p>' : '') +
-      '<div class="campo"><label>PDF com as instruções (opcional)</label>' +
-      (c.pdf ? '<div class="linha"><a class="ed-pdf" href="' + esc(c.pdf) + '" target="_blank" rel="noopener">📄 ' + esc(c.nome_pdf || 'instrucoes.pdf') + '</a><button class="btn btn-secundario btn-pequeno" data-tirar-pdf>Tirar</button></div>'
-        : '<div class="linha"><button class="btn btn-secundario btn-pequeno" data-enviar-pdf>Enviar PDF</button></div>') +
-      '<span class="dica">Não é obrigatório: o passo a passo acima já aparece no celular. O PDF fica num botão para quem quiser baixar.</span></div>';
+      blocoMateriais(a);
   }
 
   function corpoFerramenta(a) {
@@ -952,7 +1165,8 @@
     html += '<div class="campo"><label>Suas notas para ' + (it.tipo === 'slide' ? 'este slide' : 'esta atividade') + ' (só você vê durante a aula)</label>' +
       '<textarea class="entrada ed-notas" data-campo="notas" maxlength="4000" placeholder="Ex.: Abra com uma pergunta para a turma.">' + esc(it.notas) + '</textarea></div>';
     if (it.tipo === 'slide') {
-      html += '<label class="interruptor"><input type="checkbox" data-celular' + (it.config.celular !== false ? ' checked' : '') + '><span class="trilho"></span>Mostrar este slide também no celular dos alunos</label>';
+      html += '<label class="interruptor"><input type="checkbox" data-celular' + (it.config.celular !== false ? ' checked' : '') + '><span class="trilho"></span>Mostrar este slide também no celular dos alunos</label>' +
+        blocoMateriais(it);
     }
     html += '<div class="ed-inserir"><span class="dica">Inserir logo depois deste item:</span><div class="linha">' +
       ['nuvem', 'quiz', 'votacao', 'escala', 'grupo', 'ferramenta'].map(t => '<button class="btn btn-secundario btn-pequeno" data-inserir="' + t + '">' + TIPOS[t].icone + ' ' + TIPOS[t].curto + '</button>').join('') + '</div></div>';
@@ -990,10 +1204,12 @@
     if (resp) resp.addEventListener('change', () => { a.config.resposta = Object.assign({}, a.config.resposta, { ligada: resp.checked }); desenharItem(); tocou(); });
     const respP = c.querySelector('[data-resp-perg]');
     if (respP) respP.addEventListener('input', () => { a.config.resposta = Object.assign({}, a.config.resposta, { pergunta: respP.value }); tocou(); });
-    const envPdf = c.querySelector('[data-enviar-pdf]');
-    if (envPdf) envPdf.onclick = () => enviarPdfInstrucoes(a);
-    const tirarPdf = c.querySelector('[data-tirar-pdf]');
-    if (tirarPdf) tirarPdf.onclick = () => { a.config.pdf = ''; a.config.nome_pdf = ''; desenharItem(); tocou(); };
+    const envMat = c.querySelector('[data-mat-enviar]');
+    if (envMat) envMat.onclick = () => enviarMaterial(a);
+    c.querySelectorAll('[data-mat-tirar]').forEach(b => b.onclick = () => { a.config.materiais.splice(Number(b.dataset.matTirar), 1); desenharItem(); tocou(); });
+    c.querySelectorAll('[data-mat-grupo]').forEach(el => el.addEventListener('change', () => {
+      a.config.materiais[Number(el.dataset.matGrupo)].grupo = el.value ? Number(el.value) : null; tocou();
+    }));
     const ferr = c.querySelector('[data-ferr]');
     if (ferr) ferr.addEventListener('change', () => {
       const f = A.FERRAMENTAS.find(x => x.codigo === ferr.value);
@@ -1071,7 +1287,7 @@
     return rascunho.itens.map(a => {
       const o = { id: a.id || null, tipo: a.tipo, pergunta: a.pergunta, tempo: a.tempo || 0, config: Object.assign({}, a.config), notas: a.notas || '' };
       if (a.tipo === 'slide') {
-        o.opcoes = []; o.config = { imagem: a.config.imagem, celular: a.config.celular !== false, texto: a.config.texto || '' };
+        o.opcoes = []; o.config = { imagem: a.config.imagem, celular: a.config.celular !== false, texto: a.config.texto || '', materiais: a.config.materiais || [] };
       } else if (a.tipo === 'grupo') {
         o.opcoes = [];
         o.config = Object.assign({}, a.config, { passos: (a.config.passos || []).map(x => x.trim()).filter(Boolean) });
@@ -1180,6 +1396,7 @@
       if (d.tipo === 'ping') {
         const novo = !telaoVivo();
         ultimoPing = Date.now();
+        try { bc.postMessage({ tipo: 'pong' }); } catch (e) {}
         if (novo) { enviarAoTelao(); atualizarStatusTelao(); }
       } else if (d.tipo === 'tchau') {
         ultimoPing = 0; atualizarStatusTelao();
@@ -1362,6 +1579,14 @@
   $('pEncerrar').onclick = encerrar;
   $('pConvite').onclick = () => copiar(textoConvite(), 'Convite copiado. Cole no chat do Zoom ou do Meet.');
   $('pCodigo').onclick = () => copiar(textoConvite(), 'Convite copiado. Cole no chat do Zoom ou do Meet.');
+  let salaAberta = false;
+  $('btnSalaEd').onclick = () => $('pSala').onclick();
+  $('pSala').onclick = () => {
+    if (!painel || !painel.sala) return;
+    window.open(painel.sala, '_blank', 'noopener');
+    salaAberta = true; $('pSala').classList.remove('chamando');
+    toast('A sala abriu numa aba nova. Na sala, compartilhe a janela "Telão" (Compartilhar tela, depois Janela).');
+  };
   document.querySelectorAll('#vistaPainel button').forEach(b => b.addEventListener('click', () => b.blur()));
 
   /* ---------- Teclado e passador de slides ---------- */
@@ -1430,6 +1655,13 @@
     $('pTitulo').textContent = p.titulo;
     $('pCodigo').querySelector('b').textContent = A.formatarCodigo(p.codigo);
     $('pPessoas').textContent = '👤 ' + p.participantes.length + ' na sala';
+    const ps = $('pSala');
+    ps.classList.toggle('oculto', !p.sala);
+    if (p.sala) {
+      const nome = nomeSala(p.sala);
+      ps.textContent = '🎥 Entrar na sala' + (nome ? ' do ' + nome : '');
+      ps.classList.toggle('chamando', !p.comecou_em && !salaAberta);
+    }
 
     // rótulo de cima da prévia
     const it = i >= 0 ? L[i] : null;
@@ -1461,8 +1693,8 @@
     const p = painel;
     if (p.tela_preta) return 'A tela preta está ligada. Os alunos só veem preto até você clicar em "Voltar a mostrar" (ou apertar B).';
     switch (p.fase) {
-      case 'lobby': return 'O telão mostra o QR code e o código. Cole o convite no chat para quem está só no celular.';
-      case 'slide': return 'Avance com a seta do teclado ou com o passador de slides. Quando chega numa atividade, o celular dos alunos vibra e apita sozinho.';
+      case 'lobby': return (p.sala && !p.comecou_em ? 'Para começar: clique em "🎥 Entrar na sala" e, na sala, compartilhe a janela "Telão". ' : '') + 'O telão mostra o QR code e o código. Cole o convite no chat para quem está só no celular.';
+      case 'slide': return 'Avance com a seta do teclado, com o passador de slides ou com as setas que aparecem nas laterais do telão quando o mouse chega perto. Quando chega numa atividade, o celular dos alunos vibra e apita sozinho.';
       case 'atividade':
         if (p.atividade.tipo === 'grupo') return 'O telão e o celular mostram as instruções e o cronômetro. Quando o tempo acaba, o celular de todos vibra para voltar. Dê +1 min se precisar e clique em "Ver as respostas dos grupos" quando todos voltarem.';
         if (p.atividade.tipo === 'ferramenta') return 'O celular mostra o botão "Abrir a ferramenta" e o telão mostra o QR code dela. Acompanhe ao lado quantos já terminaram.';

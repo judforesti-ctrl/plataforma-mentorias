@@ -39,6 +39,7 @@
     bc.onmessage = ev => {
       const d = ev.data || {};
       if (d.tipo === 'estado') { ultimoDoPainel = Date.now(); aplicar(d.estado); }
+      else if (d.tipo === 'pong') ultimoDoPainel = Date.now();
       else if (d.tipo === 'precarregar') telao.precarregar(d.urls);
     };
     const ping = () => { try { bc.postMessage({ tipo: 'ping' }); } catch (e) {} };
@@ -71,15 +72,45 @@
     }
   });
 
-  // esconde o cursor parado e mostra a dica só quando o mouse mexe
+  // setas nas laterais: passar os slides com o mouse (aparecem quando o mouse chega perto da borda)
+  const setaAnt = document.getElementById('setaAnt'), setaProx = document.getElementById('setaProx');
+  function setaClicada(ev, k) {
+    ev.preventDefault(); ev.stopPropagation();
+    if (!bc || Date.now() - ultimoDoPainel > 4000) {
+      mostrarAviso('Para passar os slides, deixe o painel da aula aberto neste computador.');
+      return;
+    }
+    bc.postMessage({ tipo: 'tecla', tecla: k });
+  }
+  [[setaAnt, 'arrowleft'], [setaProx, 'arrowright']].forEach(([b, k]) => {
+    b.addEventListener('click', ev => setaClicada(ev, k));
+    b.addEventListener('dblclick', ev => { ev.preventDefault(); ev.stopPropagation(); });
+  });
+  let tAviso = null, avisoAte = 0;
+  const AJUDA = 'Clique duas vezes para tela cheia · Compartilhe esta janela no Zoom, no Meet ou no Teams';
+  function mostrarAviso(t) {
+    const a = document.getElementById('ajuda');
+    a.textContent = t; a.classList.remove('oculto');
+    avisoAte = Date.now() + 3500;
+    clearTimeout(tAviso);
+    tAviso = setTimeout(() => { a.classList.add('oculto'); a.textContent = AJUDA; }, 3500);
+  }
+
+  // esconde o cursor parado e mostra a dica e as setas só quando o mouse mexe
   let tCursor = null;
-  document.addEventListener('mousemove', () => {
+  document.addEventListener('mousemove', ev => {
     document.body.classList.remove('sem-cursor');
-    document.getElementById('ajuda').classList.toggle('oculto', !!document.fullscreenElement);
+    if (Date.now() > avisoAte) document.getElementById('ajuda').classList.toggle('oculto', !!document.fullscreenElement);
+    const w = window.innerWidth, perto = Math.max(110, w * 0.16);
+    setaAnt.classList.toggle('oculto', ev.clientX > perto);
+    setaProx.classList.toggle('oculto', ev.clientX < w - perto);
     clearTimeout(tCursor);
     tCursor = setTimeout(() => {
+      if (setaAnt.matches(':hover') || setaProx.matches(':hover')) return;
       document.body.classList.add('sem-cursor');
-      document.getElementById('ajuda').classList.add('oculto');
+      if (Date.now() > avisoAte) document.getElementById('ajuda').classList.add('oculto');
+      setaAnt.classList.add('oculto'); setaProx.classList.add('oculto');
     }, 2200);
   });
+  document.addEventListener('mouseleave', () => { setaAnt.classList.add('oculto'); setaProx.classList.add('oculto'); });
 })();

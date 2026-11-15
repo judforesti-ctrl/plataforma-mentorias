@@ -1145,6 +1145,24 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   em 15/11 (console com a contato@; o Google Cloud exige verificação em duas etapas desde 22/10/2026, que a Juliana ativou na
   contato@ no mesmo dia). Testado com o .pptx oficial da Unicred: 12 slides, fontes, cores e fotos certas, em 4 s. O motivo técnico
   de cada recusa do Google fica em `aovivo_conversoes.detalhe` (só o servidor lê).
+  (9) DEPOIS DO 1º TESTE DELA (15/11, noite, script 75 rodado pelo conector): SETAS no telão (aparecem quando o mouse chega
+  perto da borda; clicar manda a tecla para o painel pelo BroadcastChannel; o painel responde 'pong' ao ping do telão para ele
+  saber que o painel está aberto). MATERIAL EM PDF no slide ou no exercício em grupo (`config.materiais` [{pdf, nome, grupo}],
+  até 12, conferidos por `aovivo_materiais`; no exercício, "Só Grupo N" ou todos; nome do arquivo com "grupo 2" já vai para o
+  Grupo 2; o "PDF com as instruções" antigo vira o 1º material ao abrir o editor): o aluno abre num leitor dentro do Ao Vivo
+  (pdf.js em canvas, A−/A+, até 40 páginas), sem baixar; o leitor fecha sozinho quando começa outra atividade que não é o grupo.
+  SALA DA AULA: `aovivo_sessoes.sala_link` (rpc `aovivo_sala`; vazio = `modulos.link`; '-' = sem sala), campo no editor e botão
+  azul "🎥 Entrar na sala do Teams/Zoom/Meet" no editor e no painel (pisca até ela abrir; dois pop-ups no mesmo clique o
+  navegador bloqueia, por isso são dois botões). IA: botão "✨ Deixar do jeito Mentorei!" (pedido dela); cada sugestão tem
+  "✎ Ajustar" (pergunta, posição, alternativas, tempo, passos) e "Quer que a IA ajuste?" manda `anterior` + `ajuste` para
+  `/api/aovivo-sugerir` (refaz a lista inteira mantendo o resto); aviso "Seu módulo está na zona de risco de ser bem chato!"
+  quando faltam nuvem, quiz, votação ou escala (na janela da IA, pelo que está marcado, e no alto do roteiro). A IA nunca
+  manda procurar material no chat. SLIDES NO CELULAR: o aviso do tempo real (`aovivo_avisar`) já leva a `atividade` do slide
+  (o celular troca na hora, sem esperar a consulta; resposta mais velha que a versão atual é ignorada); cada slide traz
+  `proximas` (3 seguintes + o anterior, `aovivo_proximas`) que o celular carrega antes; a tela só troca quando a imagem nova
+  chegou (segura até 1,5 s, sem tela em branco). As imagens já eram pequenas (média 75 KB, cache de 1 ano) e o
+  `aovivo_estado` leva 0,3 ms no banco: o atraso era a corrente aviso → espera → consulta → baixar a imagem.
+  Teste: /home/claude/aovivo/teste/novidades.py.
   Testes (fora do git): /home/claude/aovivo/teste/grupo.py, apresentacao.py e conv.py (Chrome sem janela, servidor de mentira);
   /home/claude/teste-conv/t.mjs (função com Google e Supabase de mentira).
 

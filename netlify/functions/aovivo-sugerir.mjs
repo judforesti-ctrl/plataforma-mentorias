@@ -64,7 +64,8 @@ Regras:
 7. Pergunta com até 120 caracteres; alternativas e opções com até 60; o significado do 0 e do 10 da escala com até 35 (curto, como "Nada preparado" e "Totalmente preparado").
 8. Tempo: quiz de 20 a 45 segundos; nuvem, votação e escala de 60 a 90 segundos; exercício em grupo de 5 a 20 minutos (informe em segundos).
 9. depois_do_slide vai de 0 (antes do primeiro slide) até o número do último slide.
-10. Baseie tudo no conteúdo dos slides: o quiz testa o que foi ensinado, a nuvem e a votação conversam com o tema do slide.`;
+10. Baseie tudo no conteúdo dos slides: o quiz testa o que foi ensinado, a nuvem e a votação conversam com o tema do slide.
+11. Quando o exercício em grupo usa um material para ler (caso, carta, texto, roteiro), diga nos passos que ele está no celular, no Ao Vivo (por exemplo "Abram no celular o material do grupo e leiam juntos"). Nunca mande procurar o material no chat: a mentora anexa o PDF no exercício e ele abre no celular de cada um.`;
 
 // corta no fim de uma palavra (nunca no meio dela) quando passa do tamanho
 const limpo = (t, n) => {
@@ -119,7 +120,25 @@ export default async (req) => {
   const pedidoMentor = limpo(b.pedido, 1500);
   if (pedidoMentor) contexto += `\nPedido do mentor: ${pedidoMentor}`;
 
-  const pedido = `${contexto}\n\nSlides (JSON):\n${JSON.stringify(slides)}\n\nAtividades que já estão no roteiro (JSON):\n${JSON.stringify(roteiro)}`;
+  // ajuste: a mentora já viu uma lista (talvez mexida à mão) e pede para a IA refazer com uma mudança
+  const ajuste = limpo(b.ajuste, 1000);
+  const anterior = ajuste && Array.isArray(b.anterior) ? b.anterior.slice(0, 25).map((x) => ({
+    depois_do_slide: Number(x && x.depois_do_slide) || 0, tipo: limpo(x && x.tipo, 20), pergunta: limpo(x && x.pergunta, 200),
+    opcoes: (Array.isArray(x && x.opcoes) ? x.opcoes : []).slice(0, 8).map((o) => limpo(o, 80)),
+    correta: Number.isInteger(x && x.correta) ? x.correta : -1, tempo_segundos: Number(x && x.tempo) || 0,
+    rotulo_min: limpo(x && x.config && x.config.rotulo_min, 40), rotulo_max: limpo(x && x.config && x.config.rotulo_max, 40),
+    passos: (Array.isArray(x && x.config && x.config.passos) ? x.config.passos : []).slice(0, 8).map((o) => limpo(o, 300)),
+    entrega: limpo(x && x.config && x.config.entrega, 300),
+    pergunta_resposta: limpo(x && x.config && x.config.resposta && x.config.resposta.pergunta, 160),
+    slide_instrucao: Number(x && x.slide_instrucao) || 0,
+  })).filter((x) => TIPOS.includes(x.tipo)) : null;
+
+  let pedido = `${contexto}\n\nSlides (JSON):\n${JSON.stringify(slides)}\n\nAtividades que já estão no roteiro (JSON):\n${JSON.stringify(roteiro)}`;
+  if (anterior && anterior.length) {
+    pedido += `\n\nSugestões que você já fez e que o mentor está revendo (JSON; ele pode ter mudado algumas à mão):\n${JSON.stringify(anterior)}`
+      + `\n\nO mentor pediu este ajuste: ${ajuste}`
+      + '\nDevolva a lista COMPLETA de sugestões já com o ajuste. Mantenha exatamente igual (mesmo texto, mesma posição) tudo o que o pedido não manda mudar, inclusive o que ele mudou à mão. No resumo, diga em uma frase o que mudou.';
+  }
 
   let gerado;
   try {

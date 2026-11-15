@@ -44,6 +44,7 @@
     <span class="espaco"></span>
     <button class="btn btn-secundario btn-pequeno" id="btnLinks">Links da aula</button>
     <button class="btn btn-secundario btn-pequeno" id="btnSalvar">Salvar</button>
+    <button class="btn btn-sala btn-pequeno oculto" id="btnSalaEd" type="button" title="Abre a sala da aula numa aba nova">🎥 Entrar na sala</button>
     <button class="btn btn-principal btn-pequeno" id="btnAoVivo">▶ Começar a aula</button>
   </header>
   <main class="conteudo largo">
@@ -59,6 +60,7 @@
         </div>
       </div>
       <div id="blocoAvaliacao" class="config-linha" style="margin-top:14px"></div>
+      <div id="blocoSala" class="config-linha" style="margin-top:6px"></div>
       <div id="blocoEquipes" class="oculto">
         <p class="dica" style="margin-top:12px">Cada aluno escolhe a equipe ao entrar. A pontuação da equipe é a média dos pontos de quem está nela, para ser justo com equipes de tamanhos diferentes.</p>
         <div class="lista-nomes-equipe" id="listaNomesEquipe"></div>
@@ -79,9 +81,10 @@
         <div class="ed-lista-cab">
           <span class="etiqueta">Roteiro · slides e atividades na ordem da aula</span>
           <span class="espaco"></span>
-          <button class="btn btn-ia btn-pequeno" id="btnIA" title="A IA lê os slides e sugere as atividades">✨ Sugerir atividades com a IA</button>
+          <button class="btn btn-ia btn-pequeno" id="btnIA" title="A IA lê os slides e sugere nuvem, quiz, votação, escala e exercícios em grupo">✨ Deixar do jeito Mentorei!</button>
         </div>
         <p class="dica" style="margin:6px 0 14px">Arraste os itens para mudar a ordem. Clique num item para editar.</p>
+        <div id="avisoChato"></div>
         <div id="listaRoteiro" class="ed-lista"></div>
         <div class="botoes-adicionar">
           <button class="btn-adicionar" data-novo="nuvem"><b>☁️</b>Nuvem de palavras</button>
@@ -109,7 +112,8 @@
     <button class="pn-chip" id="pCodigo" type="button" title="Copiar convite para o chat">Código <b></b></button>
     <span class="pn-chip" id="pPessoas" title="Pessoas na aula"></span>
     <span class="pn-chip" id="pRelogio" title="Tempo de aula"></span>
-    <button class="btn btn-secundario btn-pequeno" id="pConvite">Copiar convite para o chat</button>
+    <button class="btn btn-sala btn-pequeno oculto" id="pSala" type="button" title="Abre a sala da aula numa aba nova">🎥 Entrar na sala</button>
+    <button class="btn btn-secundario btn-pequeno oculto" id="pConvite">Copiar convite para o chat</button>
     <button class="btn btn-secundario btn-pequeno" id="pEditar">Editar aula</button>
     <button class="btn btn-perigo btn-pequeno" id="pEncerrar">Encerrar aula</button>
   </header>

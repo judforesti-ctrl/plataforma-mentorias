@@ -183,7 +183,7 @@
   function conectar() {
     if (canal) sb.removeChannel(canal);
     canal = sb.channel('aovivo-' + eu.sessao_id)
-      .on('broadcast', { event: 'estado' }, () => buscar(true))
+      .on('broadcast', { event: 'estado' }, msg => { aplicarAviso(msg && msg.payload); buscar(true); })
       .subscribe(status => { canalOk = status === 'SUBSCRIBED'; });
     buscar();
     clearInterval(timerPoll);
@@ -198,6 +198,15 @@
 
   document.addEventListener('visibilitychange', () => { if (!document.hidden && eu) buscar(); });
 
+  // slide novo direto do aviso: troca na hora, sem esperar a consulta (a consulta vem logo depois, para os pontos)
+  function aplicarAviso(p) {
+    if (!p || !estado || p.fase !== 'slide' || !p.atividade) return;
+    if (Number(p.versao) <= Number(estado.versao || 0)) return;
+    estado = Object.assign({}, estado, { fase: 'slide', atividade: p.atividade, extra: null, versao: p.versao,
+      tela_preta: !!p.tela_preta, grupo_respostas: null });
+    desenhar();
+  }
+
   async function buscar(espalhar) {
     if (!eu) return;
     if (buscando) { pendente = true; return; }
@@ -206,6 +215,8 @@
       if (espalhar) await new Promise(r => setTimeout(r, Math.random() * 500));
       const e = await rpc('aovivo_estado', { p_sessao: eu.sessao_id, p_participante: eu.participante_id, p_token: eu.token });
       if (!e.eu) { toast('Você saiu da sala. Entre de novo.', true); sair(); return; }
+      // resposta atrasada (de antes de uma troca rápida de slide) não volta a tela para trás
+      if (estado && Number(e.versao) < Number(estado.versao || 0)) return;
       estado = e;
       desenhar();
     } catch (err) {
@@ -237,8 +248,41 @@
     setTimeout(() => { desenharRodape(); if (somLigado) bip([[880, 0, 0.12]]); }, 60);
   });
 
+  // imagens dos slides: carrega antes (os próximos) e só troca a tela quando a nova já chegou
+  const imagens = new Map();   // url → 'ok' | Promise
+  function carregarImagem(url) {
+    if (!url) return Promise.resolve();
+    const j = imagens.get(url);
+    if (j === 'ok') return Promise.resolve();
+    if (j) return j;
+    const pr = new Promise(ok => {
+      const im = new Image();
+      im.decoding = 'async';
+      im.onload = () => { (im.decode ? im.decode() : Promise.resolve()).catch(() => {}).then(() => { imagens.set(url, 'ok'); ok(); }); };
+      im.onerror = () => { imagens.delete(url); ok(); };
+      im.src = url;
+    });
+    imagens.set(url, pr);
+    if (imagens.size > 80) imagens.delete(imagens.keys().next().value);
+    return pr;
+  }
+  function precarregar(lista) { (lista || []).forEach(u => carregarImagem(u)); }
+  let esperandoImagem = null;
+
   function desenhar() {
     const e = estado, me = e.eu, a = e.atividade;
+    if (a && a.proximas) setTimeout(() => precarregar(a.proximas), 50);
+    // slide novo ainda carregando: segura a tela anterior por até 1,5 s (sem tela em branco)
+    if (e.fase === 'slide' && a && a.imagem && a.celular !== false && imagens.get(a.imagem) !== 'ok') {
+      const url = a.imagem;
+      if (esperandoImagem !== url) {
+        esperandoImagem = url;
+        const pronto = () => { if (esperandoImagem === url) { esperandoImagem = null; imagens.set(url, 'ok'); if (estado && estado.atividade && estado.atividade.imagem === url) desenhar(); } };
+        carregarImagem(url).then(pronto);
+        setTimeout(pronto, 1500);
+      }
+      if (ultimaChave) return;   // na primeira vez desenha logo
+    }
     $('chipPontos').textContent = me.pontos.toLocaleString('pt-BR') + ' pts';
     $('chipPontos').classList.remove('oculto');
     desenharRodape();
@@ -254,6 +298,7 @@
 
     if (e.fase === 'atividade' && a && ultimaAtividadeVibrada !== a.id + a.iniciada_em) {
       ultimaAtividadeVibrada = a.id + a.iniciada_em;
+      if (a.tipo !== 'grupo') fecharMaterial();
       alertaAtividade();
     }
     if (e.fase === 'encerrada' && e.avaliacao && avaliacaoAvisada !== e.id) {
@@ -351,7 +396,7 @@
     }
     html += '<ol class="passos-aluno">' + (c.passos || []).map(x => '<li>' + esc(x) + '</li>').join('') + '</ol>';
     if (c.entrega) html += '<div class="entrega-aluno"><b>O que o grupo leva de volta</b><span>' + esc(c.entrega) + '</span></div>';
-    if (c.pdf) html += '<a class="btn btn-secundario btn-bloco" href="' + esc(c.pdf) + '" target="_blank" rel="noopener">📄 Abrir as instruções em PDF</a>';
+    html += botoesMateriais(materiaisDe(a, g), modo !== 'nenhum' && !g && (c.materiais || []).some(m => m.grupo));
     if (comResp && g) {
       const r = respostaDoGrupo(g.n);
       html += (r ? '<div class="resp-enviada"><span class="etiqueta">✅ Resposta do grupo enviada</span><p>' + esc(r.texto) + '</p><small>por ' + esc(r.nome) + '</small></div>' : '') +
@@ -391,7 +436,81 @@
     const aviso = a.a_seguir
       ? '<div class="aviso-seguir"><span>🔔</span><p><b>Daqui a pouco: ' + nomeTipo(a.a_seguir.tipo).toLowerCase() + '.</b> Deixe o celular por perto.</p></div>'
       : (mostrar ? '<p class="dica centro">Quando tiver atividade, ela aparece aqui sozinha.</p>' : '');
-    return '<div class="tela-slide">' + topo + corpo + aviso + '</div>';
+    return '<div class="tela-slide">' + topo + corpo + botoesMateriais(materiaisDe(a, null), false) + aviso + '</div>';
+  }
+
+  /* ---------- Material em PDF: abre aqui dentro, sem baixar ---------- */
+  function materiaisDe(a, g) {
+    const c = a.config || {};
+    const lista = (a.materiais || c.materiais || []).slice();
+    if (c.pdf && !lista.some(m => m.pdf === c.pdf)) lista.unshift({ pdf: c.pdf, nome: c.nome_pdf || 'Instruções', grupo: null });
+    return lista.filter(m => m && m.pdf && (!m.grupo || (g && Number(m.grupo) === Number(g.n))));
+  }
+  function botoesMateriais(lista, faltaGrupo) {
+    let h = '';
+    if (lista.length) h += '<div class="materiais-aluno">' + lista.map(m =>
+      '<button class="btn btn-secundario btn-bloco btn-material" type="button" data-material="' + esc(m.pdf) + '" data-nome="' + esc(m.nome || 'Material') + '"><span>📄 ' + esc(m.nome || 'Material') + '</span><small>Abrir ›</small></button>').join('') + '</div>';
+    if (faltaGrupo) h += '<p class="dica centro">Escolha o seu grupo para ver o material do seu grupo.</p>';
+    return h;
+  }
+
+  let pdfjs = null;
+  async function carregarPdfjs() {
+    if (pdfjs) return pdfjs;
+    pdfjs = await import(new URL('js/vendor/pdf.min.mjs', location.href).href);
+    pdfjs.GlobalWorkerOptions.workerSrc = new URL('js/vendor/pdf.worker.min.mjs', location.href).href;
+    return pdfjs;
+  }
+  let leitura = null;   // { url, doc, zoom }
+  function fecharMaterial() {
+    document.querySelectorAll('.leitor-pdf').forEach(x => x.remove());
+    document.body.classList.remove('lendo');
+    if (leitura && leitura.doc) try { leitura.doc.destroy(); } catch (e) {}
+    leitura = null;
+  }
+  async function abrirMaterial(url, nome) {
+    fecharMaterial();
+    const o = document.createElement('div');
+    o.className = 'leitor-pdf';
+    o.innerHTML = '<div class="leitor-topo"><b>' + esc(nome) + '</b><span class="espaco"></span>' +
+      '<button type="button" class="leitor-btn" data-zoom="-1" aria-label="Diminuir">A−</button><button type="button" class="leitor-btn" data-zoom="1" aria-label="Aumentar">A+</button>' +
+      '<button type="button" class="leitor-btn leitor-fechar" data-fechar-leitor>✕ Fechar</button></div>' +
+      '<div class="leitor-corpo"><div class="leitor-paginas"><p class="leitor-msg">Abrindo o material...</p></div></div>';
+    document.body.appendChild(o);
+    document.body.classList.add('lendo');
+    const minha = leitura = { url, doc: null, zoom: 1 };
+    const pags = o.querySelector('.leitor-paginas');
+    o.querySelector('[data-fechar-leitor]').addEventListener('click', fecharMaterial);
+    o.querySelectorAll('[data-zoom]').forEach(b => b.addEventListener('click', () => {
+      minha.zoom = Math.max(1, Math.min(2.5, minha.zoom + Number(b.dataset.zoom) * 0.5));
+      pags.style.width = (minha.zoom * 100) + '%';
+    }));
+    try {
+      const lib = await carregarPdfjs();
+      const doc = await lib.getDocument({ url, isEvalSupported: false }).promise;
+      if (leitura !== minha) { doc.destroy(); return; }
+      minha.doc = doc;
+      pags.innerHTML = '';
+      const largura = Math.min(1500, Math.round(Math.min(window.innerWidth, 900) * Math.min(window.devicePixelRatio || 1, 2) * 1.5));
+      for (let i = 1; i <= Math.min(doc.numPages, 40); i++) {
+        if (leitura !== minha) return;
+        const pag = await doc.getPage(i);
+        const vp1 = pag.getViewport({ scale: 1 });
+        const vp = pag.getViewport({ scale: largura / vp1.width });
+        const c = document.createElement('canvas');
+        c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+        c.className = 'leitor-pagina';
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+        pags.appendChild(c);
+        await pag.render({ canvasContext: ctx, viewport: vp, intent: 'print' }).promise;
+        pag.cleanup();
+      }
+      if (doc.numPages > 40) pags.insertAdjacentHTML('beforeend', '<p class="leitor-msg">O material tem ' + doc.numPages + ' páginas: aqui aparecem as 40 primeiras.</p>');
+    } catch (e) {
+      try { console.error('Material não abriu:', e && e.message); } catch (x) {}
+      if (leitura === minha) pags.innerHTML = '<p class="leitor-msg">Não consegui abrir o material agora. Toque em ✕ Fechar e tente de novo.</p>';
+    }
   }
 
   function abrirAmpliado(src) {
@@ -606,6 +725,7 @@
     if (s) s.addEventListener('click', sair);
     const sl = $('btnSlide');
     if (sl) sl.addEventListener('click', () => abrirAmpliado(estado.atividade.imagem));
+    tela.querySelectorAll('[data-material]').forEach(b => b.addEventListener('click', () => abrirMaterial(b.dataset.material, b.dataset.nome)));
     const d = $('btnDicaOk');
     if (d) d.addEventListener('click', () => {
       try { localStorage.setItem('aovivo_dica_v1', '1'); } catch (e) {}
