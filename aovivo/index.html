@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#071F1A">
+<title>Mentorei Ao Vivo</title>
+<meta name="description" content="Participe da aula ao vivo da Mentorei pelo celular.">
+<link rel="icon" href="img/icone.svg" type="image/svg+xml">
+<link rel="preload" href="fontes/manrope-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+<main class="aluno">
+  <header class="aluno-topo">
+    <img src="img/logo-branco.png" alt="Mentorei">
+    <span class="chip-pontos oculto" id="chipPontos">0 pts</span>
+  </header>
+
+  <section class="aluno-corpo" id="corpo" aria-live="polite">
+    <!-- Tela de entrada -->
+    <div id="telaEntrada" class="oculto">
+      <div class="boas-vindas">
+        <span class="etiqueta">Aula ao vivo</span>
+        <h1>Bora participar?</h1>
+        <p>Digite o código que aparece na tela da aula e o seu nome.</p>
+      </div>
+      <form id="formEntrada" class="cartao" style="display:flex;flex-direction:column;gap:16px;margin-top:20px" novalidate>
+        <div class="campo">
+          <label for="campoCodigo">Código da aula</label>
+          <input id="campoCodigo" class="entrada entrada-codigo" inputmode="numeric" autocomplete="off" maxlength="7" placeholder="000000">
+        </div>
+        <div class="campo">
+          <label for="campoNome">Seu nome</label>
+          <input id="campoNome" class="entrada" maxlength="24" autocomplete="given-name" placeholder="Como quer aparecer no ranking">
+        </div>
+        <div id="erroEntrada" class="aviso oculto"></div>
+        <button class="btn btn-principal btn-bloco" id="btnEntrar" type="submit">Entrar na aula</button>
+      </form>
+    </div>
+
+    <!-- Escolha de equipe -->
+    <div id="telaEquipe" class="oculto">
+      <div class="boas-vindas">
+        <span class="etiqueta" id="tituloAulaEquipe">Aula ao vivo</span>
+        <h1>Qual é a sua equipe?</h1>
+        <p>Os pontos de todo mundo da equipe contam juntos.</p>
+      </div>
+      <div class="cartao" style="display:flex;flex-direction:column;gap:16px;margin-top:20px">
+        <div class="lista-equipes" id="listaEquipes"></div>
+        <div id="erroEquipe" class="aviso oculto"></div>
+        <button class="btn btn-principal btn-bloco" id="btnConfirmarEquipe" disabled>Entrar na aula</button>
+        <button class="btn btn-secundario btn-bloco" id="btnVoltarCodigo" type="button">Voltar</button>
+      </div>
+    </div>
+
+    <!-- Jogo -->
+    <div id="telaJogo" class="oculto"></div>
+  </section>
+
+  <footer class="aluno-rodape" id="rodape"></footer>
+</main>
+
+<script src="js/supabase.js"></script>
+<script src="js/config.js"></script>
+<script src="js/comum.js"></script>
+<script src="js/aluno.js"></script>
+</body>
+</html>

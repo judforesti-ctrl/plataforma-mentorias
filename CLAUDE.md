@@ -1100,6 +1100,39 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   contato@). WhatsApp automático: decisão dela, só quando contratarem um serviço de API (ex.: Z-API); até lá, nada de WhatsApp sozinho.
   O site também grava o envio no Netlify Forms (formulário "conversa" do projeto mentoreitreinamentos) como reserva.
 
+- MENTOREI AO VIVO LIGADO À PLATAFORMA (2026-11-15, script 73 rodado pelo conector no mesmo dia; pedido da Juliana). O Ao Vivo
+  (https://mentorei-aovivo.netlify.app, site Netlify "mentorei-aovivo", id f23b6a91-ef9f-42eb-9124-f2b4a6aec101, deploy MANUAL) é a
+  ferramenta das aulas: slides no telão e no celular, nuvem, quiz, votação, escala, sorteio, ranking. Usa o MESMO Supabase (tabelas
+  aovivo_*, RLS sem políticas, tudo por rpc security definer com a chave da aula). CÓDIGO-FONTE em `aovivo/` deste repositório
+  (html, css, js, sql; os js/vendor pdf.js 4.10.38 e jszip 3.10.2 ficam só no site no ar). A plataforma NÃO publica essa pasta: para
+  pôr o Ao Vivo no ar, montar o zip (arquivos de `aovivo/` + js/vendor do site no ar) no navegador do Claude e mandar pelo deploy do
+  conector da Netlify. CUIDADO no SQL do Ao Vivo: migração com "delete from" é cancelada pelo conector (usar arquivar).
+  Novidades de 15/11: (1) EXERCÍCIO EM GRUPO (tipo 'grupo'): título, passo a passo (até 8), o que o grupo leva de volta, tempo de
+  3 min a 1 h (+1 min na hora), grupos (cada um marca o número da sala/grupo, o Ao Vivo sorteia por tamanho, as equipes da aula ou
+  sem grupos; sorteio guardado em aovivo_atividades.estado), resposta do grupo pelo celular (a última de cada grupo vale) e PDF
+  opcional (aovivo_bilhete_pdf). Telão: instruções + cronômetro grande (no fim "Tempo! Voltem para a sala principal") e, ao clicar
+  "Ver as respostas dos grupos", os cartões das respostas. Celular: instruções, cronômetro, vibra no fim, escolhe o grupo, manda a
+  resposta. Não fecha sozinho quando o tempo acaba. Substitui o PDF de instruções mandado no chat. (2) FERRAMENTA (tipo 'ferramenta'):
+  as ferramentas on-line da plataforma (lista em aovivo/js/comum.js FERRAMENTAS, a mesma de ferramentas-online.js) ou outro link;
+  celular "Abrir a ferramenta" e "Terminei", telão com o QR code dela e quantos abriram/terminaram. (3) AVALIAÇÃO NO FIM: ao encerrar,
+  o celular vibra com "Avaliar a aula" e o telão mostra o QR; link = avaliar.html?m=<módulo> (aula do módulo) ou o colado no editor
+  (aovivo_ajustes; '-' = sem avaliação). (4) MÓDULO DA TURMA: botão "▶ Abrir aula ao vivo" no alto do módulo e cartão "Aula ao vivo"
+  (`telas/aovivo-modulo.js`, só administração e mentor do módulo): rpc aovivo_do_modulo cria/reabre a aula do módulo (uma por módulo,
+  aovivo_sessoes.modulo_id) e abre o painel com links de 3 h dos slides do módulo (PowerPoint mais novo do mentor, senão o oficial, e um
+  PDF da mesma família); na 1ª vez o Ao Vivo importa sozinho (só PowerPoint: pede o PDF e guarda as anotações). (5) ALUNO
+  IDENTIFICADO: na área do aluno (`minha-trilha.js`), no dia do encontro ou com a aula começada, "▶ Entrar na aula ao vivo"
+  (aovivo_aulas_abertas → aovivo_convite_aluno → `?c=<código>&k=<convite>` → aovivo_entrar_convite: nome do cadastro, sem digitar).
+  (6) PRESENÇA: ao encerrar, aovivo_gravar_presenca grava em presencas (origem 'aovivo', só PRESENTES, nunca por cima de chamada já
+  feita) quem foi ligado a turma_alunos (convite ou nome e sobrenome iguais a um aluno só); presente = tempo (entrada até a última vez
+  visto) ≥ metade do módulo ou respondeu metade das atividades. No cartão "Presença dos alunos", "Puxar do Ao Vivo"
+  (aovivo_presenca_modulo) usa a mesma janela de conferir do Zoom. (7) IA: no editor, "✨ Sugerir atividades com a IA": o Ao Vivo manda
+  o texto e as anotações de cada slide (guardados em config.texto na importação) para `/api/aovivo-sugerir` (a Netlify do Ao Vivo
+  repassa para cá; função de fundo `netlify/functions/aovivo-sugerir.mjs`, claude-opus-5-5 com json_schema; confere a chave da aula,
+  lê a temática do módulo e grava em aovivo_sugestoes); a tela acompanha (aovivo_ver_sugestao) e o mentor marca o que entra. Regras do
+  prompt: as 4 funções numa aula de 3 h, 1 ou 2 exercícios em grupo (usa o slide de instruções se existir, senão escreve), nada de
+  resposta longa no chat, sem travessão. Gravação do Zoom: fica para depois (decisão dela).
+  Testes (fora do git): /home/claude/aovivo/teste/grupo.py e apresentacao.py (Chrome sem janela, servidor de mentira).
+
 ## Regras do negócio
 - QUEM VÊ O QUÊ (decisão dela, 31/10/2026): Financeiro, Vendas/comercial, cópias de segurança, Painel, Relatórios e tudo o que é
   da Mentorei só a administração (sócias + Cintia; a distribuição só as sócias). O mentor vê só o que é dele: os mentorados, as

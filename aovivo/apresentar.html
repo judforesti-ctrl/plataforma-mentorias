@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#071F1A">
+<meta name="robots" content="noindex">
+<title>Mentorei Ao Vivo · Apresentar</title>
+<link rel="icon" href="img/icone.svg" type="image/svg+xml">
+<link rel="preload" href="fontes/manrope-latin-800-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+<!-- ============ Minhas aulas ============ -->
+<div id="vistaInicio" class="painel oculto">
+  <header class="barra-topo">
+    <img src="img/logo-branco.png" alt="Mentorei">
+    <span class="nome-app">Ao Vivo</span>
+    <span class="espaco"></span>
+  </header>
+  <main class="conteudo">
+    <h1>Minhas aulas</h1>
+    <p class="sub">Monte a aula com os seus slides e as atividades. Na hora, abra o telão, compartilhe só ele no Zoom ou no Meet e conduza tudo pelo painel. Os alunos participam pelo celular.</p>
+    <div class="grade-aulas" id="gradeAulas"></div>
+    <div class="secao" style="margin-top:28px">
+      <h2>Abrir uma aula criada em outro computador</h2>
+      <p class="dica" style="margin-bottom:12px">Cole aqui o link de controle da aula (ele fica em "Links da aula", dentro de cada aula).</p>
+      <div class="caixa-link">
+        <input class="entrada" id="campoLinkControle" placeholder="Cole o link de controle">
+        <button class="btn btn-secundario" id="btnAbrirLink">Abrir</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ Montar a aula ============ -->
+<div id="vistaEditor" class="painel oculto">
+  <header class="barra-topo">
+    <button class="btn btn-secundario btn-pequeno" id="btnVoltarInicio">← Minhas aulas</button>
+    <img src="img/logo-branco.png" alt="Mentorei" class="some-celular">
+    <span class="nome-app some-celular">Ao Vivo</span>
+    <span class="status-salvar" id="statusSalvar">Tudo salvo</span>
+    <span class="espaco"></span>
+    <button class="btn btn-secundario btn-pequeno" id="btnLinks">Links da aula</button>
+    <button class="btn btn-secundario btn-pequeno" id="btnSalvar">Salvar</button>
+    <button class="btn btn-principal btn-pequeno" id="btnAoVivo">▶ Começar a aula</button>
+  </header>
+  <main class="conteudo largo">
+    <div class="secao">
+      <div class="ed-sobre">
+        <div class="campo" style="flex:1;min-width:260px">
+          <label for="campoTitulo">Nome da aula (aparece no telão e no celular dos alunos)</label>
+          <input class="entrada" id="campoTitulo" maxlength="80" placeholder="Ex.: Comunicação Influente · Encontro 2">
+        </div>
+        <div class="campo">
+          <label>&nbsp;</label>
+          <label class="interruptor"><input type="checkbox" id="chkEquipes"><span class="trilho"></span>Jogar em equipes</label>
+        </div>
+      </div>
+      <div id="blocoAvaliacao" class="config-linha" style="margin-top:14px"></div>
+      <div id="blocoEquipes" class="oculto">
+        <p class="dica" style="margin-top:12px">Cada aluno escolhe a equipe ao entrar. A pontuação da equipe é a média dos pontos de quem está nela, para ser justo com equipes de tamanhos diferentes.</p>
+        <div class="lista-nomes-equipe" id="listaNomesEquipe"></div>
+        <div class="linha" style="margin-top:12px">
+          <button class="btn btn-secundario btn-pequeno" id="btnMaisEquipe">+ Equipe</button>
+          <button class="btn btn-secundario btn-pequeno" id="btnMenosEquipe">− Equipe</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="secao" id="secaoSlides">
+      <div id="caixaArquivo"></div>
+      <input type="file" id="campoArquivo" accept=".pdf,.pptx,application/pdf" multiple hidden>
+    </div>
+
+    <div class="ed-roteiro">
+      <div class="secao ed-lista-sec">
+        <div class="ed-lista-cab">
+          <span class="etiqueta">Roteiro · slides e atividades na ordem da aula</span>
+          <span class="espaco"></span>
+          <button class="btn btn-ia btn-pequeno" id="btnIA" title="A IA lê os slides e sugere as atividades">✨ Sugerir atividades com a IA</button>
+        </div>
+        <p class="dica" style="margin:6px 0 14px">Arraste os itens para mudar a ordem. Clique num item para editar.</p>
+        <div id="listaRoteiro" class="ed-lista"></div>
+        <div class="botoes-adicionar">
+          <button class="btn-adicionar" data-novo="nuvem"><b>☁️</b>Nuvem de palavras</button>
+          <button class="btn-adicionar" data-novo="quiz"><b>⚡</b>Quiz</button>
+          <button class="btn-adicionar" data-novo="votacao"><b>🗳️</b>Votação</button>
+          <button class="btn-adicionar" data-novo="escala"><b>📊</b>Escala 0 a 10</button>
+          <button class="btn-adicionar" data-novo="grupo"><b>👥</b>Exercício em grupo</button>
+          <button class="btn-adicionar" data-novo="ferramenta"><b>🧭</b>Ferramenta da plataforma</button>
+        </div>
+        <p class="dica" style="margin-top:12px">Os botões acima colocam a atividade no fim. Para colocar no meio, selecione um slide e use "Inserir logo depois". O sorteio e o ranking ficam disponíveis a qualquer momento durante a aula.</p>
+      </div>
+      <div class="secao ed-item-sec" id="editorItem"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ============ Painel da apresentadora (ao vivo) ============ -->
+<div id="vistaPainel" class="pn oculto">
+  <header class="pn-topo">
+    <img src="img/logo-branco.png" alt="Mentorei">
+    <span class="nome-app">Ao Vivo</span>
+    <span class="pn-titulo" id="pTitulo"></span>
+    <span class="espaco"></span>
+    <button class="pn-status" id="pStatusTelao" type="button"><i></i><span>Telão</span></button>
+    <button class="pn-chip" id="pCodigo" type="button" title="Copiar convite para o chat">Código <b></b></button>
+    <span class="pn-chip" id="pPessoas" title="Pessoas na aula"></span>
+    <span class="pn-chip" id="pRelogio" title="Tempo de aula"></span>
+    <button class="btn btn-secundario btn-pequeno" id="pConvite">Copiar convite para o chat</button>
+    <button class="btn btn-secundario btn-pequeno" id="pEditar">Editar aula</button>
+    <button class="btn btn-perigo btn-pequeno" id="pEncerrar">Encerrar aula</button>
+  </header>
+  <main class="pn-grade">
+    <section class="pn-esq">
+      <div class="pn-rotulo"><span class="etiqueta" id="pAgoraRotulo">Agora no telão</span><span class="pn-pos" id="pAgoraPos"></span></div>
+      <div class="pn-previa-caixa"><div class="pn-previa"><div id="pPrevia"></div></div></div>
+      <div class="pn-controles">
+        <button class="btn btn-secundario" id="pAnterior">‹ Anterior</button>
+        <button class="btn btn-principal pn-proximo" id="pProximo">Começar a aula</button>
+        <button class="btn btn-secundario oculto" id="pMaisTempo" title="Dar mais tempo">+15 s</button>
+      </div>
+      <div class="pn-ferramentas">
+        <button class="btn btn-secundario btn-pequeno" id="pRanking" title="Tecla R">🏆 Ranking</button>
+        <button class="btn btn-secundario btn-pequeno" id="pSorteio" title="Tecla S">🎲 Sorteio</button>
+        <button class="btn btn-secundario btn-pequeno" id="pQR" title="Tecla Q">▦ QR code (sala de espera)</button>
+        <button class="btn btn-secundario btn-pequeno" id="pPreta" title="Tecla B">◼ Tela preta</button>
+      </div>
+      <p class="dica pn-dica" id="pDica"></p>
+    </section>
+    <aside class="pn-dir" id="pLateral"></aside>
+  </main>
+  <footer class="pn-roteiro">
+    <div class="pn-roteiro-cab"><span class="etiqueta">Roteiro da aula</span><span class="dica">Clique em qualquer item para pular até ele</span></div>
+    <div class="pn-trilha" id="pTrilha"></div>
+  </footer>
+</div>
+
+<script src="js/supabase.js"></script>
+<script src="js/qrcode.js"></script>
+<script src="js/config.js"></script>
+<script src="js/comum.js"></script>
+<script src="js/telao-render.js"></script>
+<script src="js/apresentar.js"></script>
+</body>
+</html>

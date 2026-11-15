@@ -6,7 +6,7 @@
 import { sb, esc, avisar, explicarErro, dataHoraBR } from '../base.js';
 import { minimoMinutos, lerArquivoPresenca, juntarParticipantes, casarParticipantes } from '../presenca-regras.js';
 
-const ORIGEM = { zoom: 'Zoom', arquivo: 'arquivo', manual: 'à mão' };
+const ORIGEM = { zoom: 'Zoom', arquivo: 'arquivo', manual: 'à mão', aovivo: 'Ao Vivo' };
 const faltaScript = (e) => /presencas|schema cache|42P01|PGRST20/.test(`${e && e.code} ${e && e.message}`);
 const ehZoom = (m) => m.formato === 'zoom' || /zoom\.us\//i.test(m.link || '');
 
@@ -19,10 +19,12 @@ export async function ligarPresenca(ctx, el, m, pode) {
   velho.replaceWith(box);
   const recarregar = () => ligarPresenca(ctx, el, m, pode);
 
-  const [al, pr] = await Promise.all([
+  const [al, pr, av] = await Promise.all([
     sb.from('turma_alunos').select('id, nome, email, cargo, ativo').eq('turma_id', m.turma.id).order('nome'),
     sb.from('presencas').select('*').eq('modulo_id', m.id),
+    pode ? sb.rpc('aovivo_situacao_modulo', { p_modulo: m.id }) : Promise.resolve({ data: null }),
   ]);
+  const aoVivo = av && !av.error && av.data && av.data.participantes > 0 ? av.data : null;   // aula no Mentorei Ao Vivo com gente
   if (al.error || pr.error) {
     const e = al.error || pr.error;
     box.innerHTML = `<h3>Presença dos alunos</h3>${faltaScript(e) ? `<div class="aviso mt peq">${ctx.ehAdmin ? 'Para a lista de chamada, falta rodar o script <b>49-presenca-rh-envios-lembretes.sql</b> no Supabase.' : 'A lista de chamada ainda não foi liberada na plataforma. Avise a Cintia.'}</div>`
@@ -41,7 +43,8 @@ export async function ligarPresenca(ctx, el, m, pode) {
     ${!alunos.length ? `<p class="peq apagado mt">${ctx.ehAdmin ? 'Para fazer a chamada, cadastre os alunos na página da turma ("Alunos da trilha").' : 'A coordenação ainda não cadastrou os alunos desta turma.'}</p>`
     : `<p class="peq apagado">${pode ? (passou ? 'Depois da aula, puxe a lista do Zoom (ou importe o arquivo de presença) e confira. Também dá para marcar cada um à mão.' : 'A chamada abre depois do início da aula.') : 'Quem esteve no encontro.'}</p>
       ${pode && passou ? `<div class="linha mt" style="gap:6px">
-        ${ehZoom(m) ? '<button class="btn peq pri" type="button" id="pr-zoom">Puxar do Zoom</button>' : ''}
+        ${aoVivo ? '<button class="btn peq pri" type="button" id="pr-aovivo">Puxar do Ao Vivo</button>' : ''}
+        ${ehZoom(m) ? `<button class="btn peq${aoVivo ? '' : ' pri'}" type="button" id="pr-zoom">Puxar do Zoom</button>` : ''}
         <label class="btn peq${ehZoom(m) ? '' : ' pri'}" style="cursor:pointer">Importar lista de presença (arquivo)<input type="file" id="pr-arquivo" accept=".csv,.xlsx,.xls,.ods,.txt" hidden></label>
         ${feitas < alunos.length ? '<button class="btn peq" type="button" id="pr-todos">Marcar os que faltam como presentes</button>' : ''}</div>
         <p class="peq apagado" id="pr-msg" role="status"></p>` : ''}
@@ -82,6 +85,18 @@ export async function ligarPresenca(ctx, el, m, pode) {
       const faltam = alunos.filter((a) => a.ativo && !marcadas.has(a.id));
       if (!window.confirm(`Marcar ${faltam.length} aluno${faltam.length > 1 ? 's' : ''} como presente${faltam.length > 1 ? 's' : ''}?`)) return;
       if (await gravar(faltam.map((a) => ({ turma_aluno_id: a.id, presente: true, origem: 'manual' })))) { avisar('Chamada atualizada.'); recarregar(); }
+      return;
+    }
+    if (ev.target.id === 'pr-aovivo') {
+      ev.target.disabled = true;
+      msg.textContent = 'Lendo quem entrou na aula ao vivo…';
+      const { data, error } = await sb.rpc('aovivo_presenca_modulo', { p_modulo: m.id });
+      ev.target.disabled = false;
+      if (error) { msg.textContent = explicarErro(error); return; }
+      const lista = (data.participantes || []).map((p) => ({ nome: p.nome, email: p.email || '', minutos: p.minutos }));
+      if (!lista.length) { msg.textContent = 'Ninguém entrou na aula ao vivo deste módulo ainda.'; return; }
+      msg.textContent = '';
+      conferir(juntarParticipantes(lista), 'aovivo', `${lista.length} pessoa${lista.length > 1 ? 's' : ''} entr${lista.length > 1 ? 'aram' : 'ou'} pelo celular no Mentorei Ao Vivo. O tempo é do momento em que entrou até a última vez que o celular falou com a aula.`);
       return;
     }
     if (ev.target.id === 'pr-zoom') {

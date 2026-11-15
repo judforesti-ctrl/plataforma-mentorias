@@ -10,6 +10,7 @@ import { cartaoFerramentasTurma, ligarFerramentasTurma } from './ferramentas-tur
 import { cartaoMarca, ligarMarca } from './marca-cliente.js';
 import { cartaoParaAlunos, ligarParaAlunos } from './alunos-modulo.js';
 import { cartaoPresenca, ligarPresenca } from './presenca-modulo.js';
+import { cartaoAoVivo, ligarAoVivo, abrirAoVivo } from './aovivo-modulo.js';
 import { cartaoEnviosAlunos, ligarEnviosAlunos, enviosNovosAlunos } from './envios-alunos.js';
 import { ditado } from '../voz.js';
 
@@ -564,6 +565,7 @@ async function paginaModulo(ctx, el, id) {
       </div>
       <div class="linha">
         ${ehUrl ? `<a class="btn escuro" href="${esc(linkSala)}" target="_blank" rel="noopener">Link para entrar na aula</a>` : ''}
+        ${adm || souMentor ? '<button class="btn pri" type="button" id="abrir-aovivo" title="Slides, quiz, nuvem, exercícios em grupo e avaliação no celular dos alunos">▶ Abrir aula ao vivo</button>' : ''}
         <button class="btn" id="cintia">Falar com a Cintia</button>
         <span class="salvo" id="indicador"></span>
       </div>
@@ -607,6 +609,7 @@ async function paginaModulo(ctx, el, id) {
       </div>
 
       <div class="sessao-col">
+        ${adm || souMentor ? cartaoAoVivo() : ''}
         <div class="cartao"><h3>Slides oficiais da Mentorei</h3>
           <p class="peq apagado">O material base do módulo, para baixar e adaptar.</p>
           ${listaArquivos(oficiais, 'Os slides oficiais ainda não foram enviados.')}
@@ -766,6 +769,9 @@ async function paginaModulo(ctx, el, id) {
   ligarFerramentasTurma(ctx, el, m.turma, { modulo: m, souMentor });
   // lista de chamada (Zoom, arquivo ou à mão) e envios dos alunos (script 49)
   ligarPresenca(ctx, el, m, adm || souMentor);
+  ligarAoVivo(ctx, el, m, adm || souMentor);
+  const btAoVivo = el.querySelector('#abrir-aovivo');
+  if (btAoVivo) btAoVivo.addEventListener('click', () => abrirAoVivo(ctx, m, btAoVivo));
   ligarEnviosAlunos(ctx, el, { modulo: m, souMentor });
   el.querySelector('[data-ir-qr]')?.addEventListener('click', (ev) => { ev.preventDefault(); el.querySelector('#avaliacao-turma').scrollIntoView({ behavior: 'smooth', block: 'center' }); });
 

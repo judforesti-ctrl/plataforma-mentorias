@@ -1,0 +1,15 @@
+[build]
+  publish = "."
+  command = ""
+
+[[headers]]
+  for = "/*.mjs"
+  [headers.values]
+    Content-Type = "text/javascript; charset=utf-8"
+
+# As sugestões da IA rodam na plataforma da Mentorei (onde fica a chave do Claude): o Ao Vivo só repassa o pedido.
+[[redirects]]
+  from = "/api/aovivo-sugerir"
+  to = "https://plataforma.mentorei.com.br/api/aovivo-sugerir"
+  status = 200
+  force = true

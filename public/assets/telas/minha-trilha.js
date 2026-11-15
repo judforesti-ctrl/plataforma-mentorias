@@ -318,7 +318,35 @@ export async function render(ctx, el, [turmaId]) {
       } catch (_) { caixaAgenda.innerHTML = '<span class="peq apagado">Não consegui preparar o link agora. Use "Pôr no Google Agenda" em cada aula.</span>'; }
     })();
   }
+  // aula aberta no Mentorei Ao Vivo: o aluno entra já identificado, sem digitar código nem nome (script 73)
+  if (!previa) {
+    sb.rpc('aovivo_aulas_abertas').then(({ data }) => {
+      (data || []).forEach((av) => {
+        const mod = mods.find((m) => m.id === av.modulo_id);
+        // só no dia do encontro (ou se a aula já começou), para o botão não aparecer dias antes
+        if (!mod || (av.fase === 'lobby' && !(mod.data_hora && diaISO(Date.parse(mod.data_hora)) === diaISO(agora)))) return;
+        const botao = `<button class="btn pri tr-aovivo" type="button" data-aovivo="${mod.id}">▶ Entrar na aula ao vivo</button>`;
+        const cartao = el.querySelector(`#tr-mod-${mod.id} .tr-cab`);
+        if (cartao) cartao.insertAdjacentHTML('afterend', `<div class="tr-corpo"><div class="linha">${botao}<span class="peq apagado">Quiz, nuvem de palavras e exercícios da aula, pelo celular.</span></div></div>`);
+        if (proxima && proxima.id === mod.id) {
+          const prox = el.querySelector('.aa-prox h3');
+          if (prox) prox.insertAdjacentHTML('afterend', `<div class="linha">${botao}</div>`);
+          const heroi = el.querySelector('.aa-heroi-texto .linha');
+          if (heroi) heroi.insertAdjacentHTML('afterbegin', botao);
+        }
+      });
+    }, () => {});
+  }
   el.addEventListener('click', async (ev) => {
+    const av = ev.target.closest('[data-aovivo]');
+    if (av) {
+      const aba = window.open('', '_blank');   // abre já no clique, para o navegador não bloquear
+      const { data, error } = await sb.rpc('aovivo_convite_aluno', { p_modulo: av.dataset.aovivo });
+      if (error) { if (aba) aba.close(); avisar(explicarErro(error), true); return; }
+      const url = `https://mentorei-aovivo.netlify.app/?c=${data.codigo}&k=${data.convite}`;
+      if (aba) aba.location = url; else location.href = url;
+      return;
+    }
     const et = ev.target.closest('[data-enviar-tarefa]');
     if (et) {
       const a = arquivos.find((x) => x.id === et.dataset.enviarTarefa);
