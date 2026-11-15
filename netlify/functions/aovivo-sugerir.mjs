@@ -32,8 +32,8 @@ const ESQUEMA = {
           opcoes: { type: 'array', items: { type: 'string' }, description: 'Quiz: 2 a 4 alternativas. Votação: 2 a 6 opções. Nos outros tipos, lista vazia.' },
           correta: { type: 'integer', description: 'Quiz: posição da alternativa certa (começa em 0). Nos outros tipos, -1.' },
           tempo_segundos: { type: 'integer' },
-          rotulo_min: { type: 'string', description: 'Escala: o que significa o 0. Nos outros tipos, vazio.' },
-          rotulo_max: { type: 'string', description: 'Escala: o que significa o 10. Nos outros tipos, vazio.' },
+          rotulo_min: { type: 'string', description: 'Escala: o que significa o 0, com até 35 caracteres. Nos outros tipos, vazio.' },
+          rotulo_max: { type: 'string', description: 'Escala: o que significa o 10, com até 35 caracteres. Nos outros tipos, vazio.' },
           passos: { type: 'array', items: { type: 'string' }, description: 'Exercício em grupo: 3 a 6 passos curtos, na ordem. Nos outros tipos, lista vazia.' },
           entrega: { type: 'string', description: 'Exercício em grupo: o que cada grupo leva de volta para a sala. Nos outros tipos, vazio.' },
           pergunta_resposta: { type: 'string', description: 'Exercício em grupo: o que um do grupo escreve no celular para mandar a resposta do grupo. Nos outros tipos, vazio.' },
@@ -61,12 +61,19 @@ Regras:
 4. Espalhe as interações pela aula: um aquecimento no começo (nuvem ou escala), quiz logo depois de um conceito importante, votação para escolher ou priorizar, escala para a pessoa se avaliar, exercício em grupo depois de explicar um método, e algo para fechar no fim.
 5. Não repita uma atividade que já está no roteiro (a lista vem junto) e não coloque duas atividades seguidas sem slide entre elas, a não ser no exercício em grupo seguido de votação ou escala.
 6. Linguagem simples, português do Brasil, frases curtas e tom acolhedor. Nada de jargão em inglês de coaching. Não use travessão nem hífen como pontuação.
-7. Pergunta com até 120 caracteres; alternativas e opções com até 60.
+7. Pergunta com até 120 caracteres; alternativas e opções com até 60; o significado do 0 e do 10 da escala com até 35 (curto, como "Nada preparado" e "Totalmente preparado").
 8. Tempo: quiz de 20 a 45 segundos; nuvem, votação e escala de 60 a 90 segundos; exercício em grupo de 5 a 20 minutos (informe em segundos).
 9. depois_do_slide vai de 0 (antes do primeiro slide) até o número do último slide.
 10. Baseie tudo no conteúdo dos slides: o quiz testa o que foi ensinado, a nuvem e a votação conversam com o tema do slide.`;
 
-const limpo = (t, n) => String(t == null ? '' : t).replace(/\s+/g, ' ').trim().slice(0, n);
+// corta no fim de uma palavra (nunca no meio dela) quando passa do tamanho
+const limpo = (t, n) => {
+  const s = String(t == null ? '' : t).replace(/\s+/g, ' ').trim();
+  if (s.length <= n) return s;
+  const c = s.slice(0, n + 1);
+  const i = c.lastIndexOf(' ');
+  return (i > n * 0.5 ? c.slice(0, i) : s.slice(0, n)).replace(/[\s,;:.]+$/, '');
+};
 
 export default async (req) => {
   const chaveClaude = env('ANTHROPIC_API_KEY');
