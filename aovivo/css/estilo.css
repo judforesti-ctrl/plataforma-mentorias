@@ -807,3 +807,21 @@ body.lendo { overflow: hidden; }
 .aviso-chato p { color: var(--texto); font-size: 14px; line-height: 1.5; }
 .aviso-chato .btn { margin-top: 8px; display: inline-flex; }
 .aviso-mentorei { margin: 0 0 12px; padding: 8px 12px; border-radius: 12px; background: rgba(111,227,184,.08); border: 1px solid rgba(111,227,184,.35); color: var(--menta); font-size: 14px; font-weight: 600; }
+
+/* =========================================================
+   ALUNO · materiais da aula por e-mail
+   ========================================================= */
+.btn-som.ok { background: rgba(111,227,184,.16); color: var(--menta); }
+.caixa-email { background: rgba(111,227,184,.08); border: 1px solid rgba(111,227,184,.35); border-radius: 24px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; margin: 18px 0; text-align: left; }
+.caixa-email h2 { font-size: 20px; line-height: 1.25; }
+.caixa-email p { color: var(--texto-2); line-height: 1.5; font-size: 15px; }
+.caixa-email.feito p b { color: var(--texto); word-break: break-all; }
+.btn-link { align-self: flex-start; background: none; padding: 4px 0; color: var(--menta); font-weight: 700; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; }
+.janela-email { position: fixed; inset: 0; z-index: 980; background: rgba(3,14,11,.78); display: flex; align-items: flex-end; justify-content: center; padding: 12px; }
+.janela-email-caixa { width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto; background: var(--fundo-2); border: 1px solid var(--borda); border-radius: 24px; padding: 22px 20px 18px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 -10px 40px rgba(0,0,0,.4); }
+.janela-email-caixa h2 { font-size: 21px; line-height: 1.25; }
+.janela-email-caixa .peq { font-size: 12.5px; }
+.marcar-email { display: flex; gap: 12px; align-items: flex-start; font-size: 14.5px; line-height: 1.45; color: var(--texto-2); cursor: pointer; }
+.marcar-email input { width: 22px; height: 22px; flex: none; margin-top: 1px; accent-color: var(--menta); }
+@media (min-width: 700px) { .janela-email { align-items: center; } }
+.janela-email-caixa .centro { text-align: center; }

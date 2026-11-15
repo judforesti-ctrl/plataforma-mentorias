@@ -20,3 +20,10 @@
   to = "https://plataforma.mentorei.com.br/api/converter-slides"
   status = 200
   force = true
+
+# O e-mail com os materiais da aula sai pela plataforma (Brevo da Mentorei): o Ao Vivo só repassa o pedido.
+[[redirects]]
+  from = "/api/aovivo-email"
+  to = "https://plataforma.mentorei.com.br/api/aovivo-email"
+  status = 200
+  force = true

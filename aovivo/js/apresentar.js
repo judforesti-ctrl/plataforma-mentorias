@@ -1519,11 +1519,21 @@
 
   function encerrar() {
     const extra = (painel.avaliacao ? ' O celular de cada aluno vibra e mostra o botão "Avaliar a aula", e o telão mostra o QR code da avaliação.' : '') +
-      (painel.modulo ? ' A presença de quem entrou pela plataforma (ou com o nome igual ao da lista de alunos) vai para o módulo.' : '');
+      (painel.modulo ? ' A presença de quem entrou pela plataforma (ou com o nome igual ao da lista de alunos) vai para o módulo.' : '') +
+      ' Quem pediu os materiais pelo celular recebe o e-mail com os PDFs da aula e o que fez.';
     modal('<h2>Encerrar a aula?</h2><p class="dica">O telão mostra o resultado final e o celular dos alunos mostra a posição de cada um.' + extra + ' Dá para reabrir depois, se precisar.</p>' +
       '<div class="acoes"><button class="btn btn-secundario" data-fechar>Cancelar</button><button class="btn btn-principal" data-ok>Encerrar e mostrar o resultado</button></div>', (f, fechar) => {
-      f.querySelector('[data-ok]').onclick = () => { fechar(); acao('aovivo_mudar_fase', { p_fase: 'encerrada' }); };
+      f.querySelector('[data-ok]').onclick = async () => {
+        fechar();
+        if (await acao('aovivo_mudar_fase', { p_fase: 'encerrada' })) mandarEmailsDosAlunos();
+      };
     });
+  }
+
+  // e-mail com os materiais para quem não está na plataforma e pediu pelo celular (a plataforma manda; cada um recebe uma vez)
+  function mandarEmailsDosAlunos() {
+    fetch('/api/aovivo-email', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessao: atual.id, chave: atual.chave }) }).catch(() => {});
   }
 
   function proximoPasso() {

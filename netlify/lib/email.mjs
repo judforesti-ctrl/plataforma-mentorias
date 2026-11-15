@@ -51,7 +51,7 @@ export async function diagnosticarEmail() {
 }
 
 // Modelo com a identidade da Mentorei. Blocos (texto puro, a função protege):
-// { p }, { titulo }, { lista: [...] }, { botao: { texto, link } }, { nota }
+// { p }, { titulo }, { lista: [...] }, { botao: { texto, link } }, { nota }, { links: [{ texto, link, detalhe? }] }
 // logo = { url, alt }: logo do cliente acima do título (convite dos alunos de uma trilha)
 export function modeloEmail({ assunto, titulo, blocos = [], rodape = 'Mensagem automática da plataforma de mentorias da Mentorei.', logo = null }) {
   const P = (t) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#2B3538">${esc(t).replace(/\n/g, '<br>')}</p>`;
@@ -69,6 +69,7 @@ ${blocos.map((b) => {
     if (b.botao) return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:6px 0 20px"><tr><td style="background:#C8F04A;border-radius:999px">
 <a href="${esc(b.botao.link)}" style="display:inline-block;padding:13px 24px;font-size:15px;font-weight:bold;color:#091216;text-decoration:none">${esc(b.botao.texto)}</a></td></tr></table>`;
     if (b.nota) return `<p style="margin:0 0 14px;padding:12px 14px;background:#F3F5F4;border-radius:10px;font-size:13px;line-height:1.55;color:#2B3538">${esc(b.nota)}</p>`;
+    if (b.links) return `<ul style="margin:0 0 14px;padding-left:20px;font-size:15px;line-height:1.7;color:#2B3538">${b.links.map((x) => `<li><a href="${esc(x.link)}" style="color:#0E5A6B;font-weight:bold">${esc(x.texto)}</a>${x.detalhe ? ` <span style="color:#7A8487">${esc(x.detalhe)}</span>` : ''}</li>`).join('')}</ul>`;
     return '';
   }).join('\n')}
 </td></tr>
@@ -80,6 +81,7 @@ ${blocos.map((b) => {
     if (b.lista) return `${b.lista.map((x) => `• ${x}`).join('\n')}\n`;
     if (b.botao) return `${b.botao.texto}: ${b.botao.link}\n`;
     if (b.nota) return `${b.nota}\n`;
+    if (b.links) return `${b.links.map((x) => `• ${x.texto}: ${x.link}`).join('\n')}\n`;
     return '';
   }), rodape].join('\n');
   return { assunto, html, texto };

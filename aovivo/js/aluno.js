@@ -18,6 +18,7 @@
   let ultimoAvisoSeguir = '';
   let fimAvisado = '';
   let avaliacaoAvisada = '';
+  let emailCobrado = '';
   let textoGrupo = '';           // o que o aluno está escrevendo na resposta do grupo (não some quando a tela redesenha)
 
   /* ---------- Aviso de atividade: vibração, som e flash ---------- */
@@ -234,12 +235,14 @@
     const som = !somLigado ? '<button class="btn-som" id="btnSom" type="button">🔕 Som desligado</button>'
       : somPronto() ? '<button class="btn-som" id="btnSom" type="button">🔔 Som ligado</button>'
       : '<button class="btn-som atencao" id="btnSom" type="button">🔔 Toque para ativar o som</button>';
+    const mail = me.identificado ? '' : '<button class="btn-som' + (me.email ? ' ok' : '') + '" id="btnEmail" type="button">📩 ' + (me.email ? 'E-mail ✓' : 'Materiais por e-mail') + '</button>';
     const html = '<span>' + esc(me.nome) + '</span>' + (me.equipe
-      ? '<span class="selo-equipe"><i style="background:' + corEquipe(e.equipes, me.equipe) + '"></i>' + esc(me.equipe) + '</span>' : '') + som;
+      ? '<span class="selo-equipe"><i style="background:' + corEquipe(e.equipes, me.equipe) + '"></i>' + esc(me.equipe) + '</span>' : '') + som + mail;
     if ($('rodape')._html !== html) { $('rodape').innerHTML = html; $('rodape')._html = html; }
   }
 
   $('rodape').addEventListener('click', ev => {
+    if (ev.target.closest('#btnEmail')) return abrirEmail();
     if (!ev.target.closest('#btnSom')) return;
     prepararAudio();
     if (somLigado && !somPronto()) { setTimeout(() => { desenharRodape(); bip([[880, 0, 0.12]]); }, 60); return; }
@@ -292,7 +295,7 @@
 
     const longo = a && (a.tipo === 'grupo' || a.tipo === 'ferramenta');
     const chave = [e.fase, a && a.id, a && a.iniciada_em, longo ? '' : a && a.tempo, me.respostas, e.extra && e.extra.em, dicaVisivel(),
-      a && a.tipo === 'grupo' ? assinaturaGrupo() : '', e.fase === 'encerrada' ? e.avaliacao : ''].join('|');
+      a && a.tipo === 'grupo' ? assinaturaGrupo() : '', e.fase === 'encerrada' ? e.avaliacao : '', me.email, me.email_enviado, me.identificado].join('|');
     if (chave === ultimaChave) { atualizarRelogio(); return; }
     ultimaChave = chave;
 
@@ -300,6 +303,11 @@
       ultimaAtividadeVibrada = a.id + a.iniciada_em;
       if (a.tipo !== 'grupo') fecharMaterial();
       alertaAtividade();
+    }
+    // a mentora encerrou: a plataforma já manda os e-mails; se em 20 s ainda não foi, o próprio celular pede de novo (nunca repete)
+    if (e.fase === 'encerrada' && me.email && !me.email_enviado && !me.identificado && emailCobrado !== e.id) {
+      emailCobrado = e.id;
+      setTimeout(() => { if (estado && estado.fase === 'encerrada' && estado.eu && !estado.eu.email_enviado) pedirEnvioEmail(); }, 20000);
     }
     if (e.fase === 'encerrada' && e.avaliacao && avaliacaoAvisada !== e.id) {
       avaliacaoAvisada = e.id;
@@ -527,7 +535,73 @@
   function telaEspera() {
     return '<div class="espera"><div class="pulso"><span>👀</span></div>' +
       '<h2>Você está dentro, ' + esc(primeiroNome(estado.eu.nome)) + '!</h2>' +
-      '<p>Olhe para a tela da aula.<br>A próxima atividade aparece aqui sozinha.</p></div>';
+      '<p>Olhe para a tela da aula.<br>A próxima atividade aparece aqui sozinha.</p></div>' + caixaEmail(false);
+  }
+
+  /* ---------- Materiais da aula por e-mail (para quem não entrou pela plataforma) ---------- */
+  function caixaEmail(fim) {
+    const me = estado && estado.eu;
+    if (!me || me.identificado) return '';
+    if (me.email) {
+      const txt = me.email_enviado ? 'Os materiais foram para <b>' + esc(me.email) + '</b>. Não chegou? Olhe também o spam e a aba Promoções.'
+        : fim ? 'Mandando os materiais para <b>' + esc(me.email) + '</b>. Chega em alguns minutos.'
+        : 'Combinado! Quando a aula terminar, os materiais vão para <b>' + esc(me.email) + '</b>.';
+      return '<div class="caixa-email feito"><span class="etiqueta">📩 Materiais da aula</span><p>' + txt + '</p>' +
+        '<button class="btn-link" type="button" data-email>Trocar o e-mail</button></div>';
+    }
+    return '<div class="caixa-email"><span class="etiqueta">📩 Materiais da aula</span><h2>' + (fim ? 'Quer os materiais no seu e-mail?' : 'Quer receber os materiais desta aula?') + '</h2>' +
+      '<p>Os PDFs da aula e o que você fez aqui (palavras, acertos, a resposta do seu grupo) chegam no seu e-mail' + (fim ? '.' : ' quando a aula terminar.') + '</p>' +
+      '<button class="btn btn-principal btn-bloco" type="button" data-email>Quero receber por e-mail</button></div>';
+  }
+  function fecharEmail() { document.querySelectorAll('.janela-email').forEach(x => x.remove()); }
+  function abrirEmail() {
+    if (!estado || !estado.eu || estado.eu.identificado) return;
+    fecharEmail();
+    const me = estado.eu, fim = estado.fase === 'encerrada';
+    const o = document.createElement('div');
+    o.className = 'janela-email';
+    o.innerHTML = '<form class="janela-email-caixa" novalidate>' +
+      '<h2>📩 Materiais da aula no seu e&#8209;mail</h2>' +
+      '<p class="dica">' + (fim ? 'Mandamos agora:' : 'Quando a aula terminar, mandamos:') + ' os PDFs da aula, o que você fez aqui (palavras, acertos, a resposta do seu grupo) e os links das ferramentas usadas.</p>' +
+      '<div class="campo"><label for="campoEmail">Seu e-mail</label>' +
+      '<input id="campoEmail" class="entrada" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="160" placeholder="nome@exemplo.com.br" value="' + esc(me.email || '') + '"></div>' +
+      '<label class="marcar-email"><input type="checkbox" id="campoConteudos"' + (me.quer_conteudos ? ' checked' : '') + '>' +
+      '<span>Quero receber também conteúdos e ferramentas práticas da Mentorei. Dá para sair quando quiser.</span></label>' +
+      '<div class="aviso oculto" id="erroEmail"></div>' +
+      '<button class="btn btn-principal btn-bloco" type="submit" id="btnMandarEmail">' + (fim ? 'Mandar para o meu e-mail' : 'Combinado, quero receber') + '</button>' +
+      '<button class="btn btn-secundario btn-bloco" type="button" data-fechar-email>Agora não</button>' +
+      '<p class="dica centro peq">A Mentorei usa o seu e-mail só para mandar os materiais desta aula' + ' e, se você marcar a caixinha, os conteúdos.</p></form>';
+    document.body.appendChild(o);
+    const f = o.querySelector('form'), erro = o.querySelector('#erroEmail'), btn = o.querySelector('#btnMandarEmail');
+    o.addEventListener('click', ev => { if (ev.target === o || ev.target.closest('[data-fechar-email]')) fecharEmail(); });
+    setTimeout(() => { const c = o.querySelector('#campoEmail'); if (c && !c.value) c.focus(); }, 80);
+    f.addEventListener('submit', async ev => {
+      ev.preventDefault();
+      const email = o.querySelector('#campoEmail').value.trim().toLowerCase();
+      const conteudos = o.querySelector('#campoConteudos').checked;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { erro.textContent = 'Confira o e-mail: falta algum pedaço (exemplo: nome@empresa.com.br).'; erro.classList.remove('oculto'); return; }
+      btn.disabled = true; erro.classList.add('oculto');
+      try {
+        const r = await rpc('aovivo_pedir_email', { p_sessao: eu.sessao_id, p_participante: eu.participante_id, p_token: eu.token, p_email: email, p_conteudos: conteudos });
+        if (estado.eu.email !== email) estado.eu.email_enviado = false;
+        estado.eu.email = email; estado.eu.quer_conteudos = conteudos;
+        fecharEmail();
+        if (r && r.encerrada) {
+          pedirEnvioEmail();
+          toast('Pronto! Os materiais estão a caminho do seu e-mail.');
+        } else toast('Combinado! Quando a aula terminar, os materiais vão para o seu e-mail.');
+        ultimaChave = ''; desenhar();
+      } catch (e) {
+        btn.disabled = false;
+        erro.textContent = e.message || 'Não deu certo agora. Tente de novo.'; erro.classList.remove('oculto');
+      }
+    });
+  }
+  // com a aula encerrada, pede para a plataforma mandar já (e confere depois se foi)
+  function pedirEnvioEmail() {
+    fetch('/api/aovivo-email', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessao: eu.sessao_id, participante: eu.participante_id, token: eu.token }) }).catch(() => {});
+    [10000, 25000, 60000].forEach(t => setTimeout(() => { if (estado && estado.fase === 'encerrada' && estado.eu && !estado.eu.email_enviado) buscar(); }, t));
   }
 
   function cabecalho(tipoTxt) {
@@ -666,7 +740,7 @@
     const aval = estado.avaliacao ? '<div class="caixa-avaliar"><span class="etiqueta">⭐ Antes de sair</span><h2>Como foi a aula para você?</h2>' +
       '<a class="btn btn-principal btn-bloco btn-avaliar" href="' + esc(estado.avaliacao) + '" target="_blank" rel="noopener">Avaliar a aula</a>' +
       '<p class="dica centro">Leva 1 minuto e é anônimo.</p></div>' : '';
-    return aval + '<div class="feedback neutro"><div class="emoji">💚</div><h2>Aula encerrada</h2><p>Obrigado por participar, ' + esc(primeiroNome(me.nome)) + '!</p>' +
+    return aval + caixaEmail(true) + '<div class="feedback neutro"><div class="emoji">💚</div><h2>Aula encerrada</h2><p>Obrigado por participar, ' + esc(primeiroNome(me.nome)) + '!</p>' +
       '<p style="margin-top:14px">Você terminou em <b>' + ordinal(me.posicao) + ' lugar</b> com <b>' + me.pontos.toLocaleString('pt-BR') + ' pontos</b>.</p></div>' +
       '<button class="btn btn-secundario btn-bloco" id="btnSair" style="margin-top:16px">Entrar em outra aula</button>';
   }
@@ -726,6 +800,7 @@
     const sl = $('btnSlide');
     if (sl) sl.addEventListener('click', () => abrirAmpliado(estado.atividade.imagem));
     tela.querySelectorAll('[data-material]').forEach(b => b.addEventListener('click', () => abrirMaterial(b.dataset.material, b.dataset.nome)));
+    tela.querySelectorAll('[data-email]').forEach(b => b.addEventListener('click', abrirEmail));
     const d = $('btnDicaOk');
     if (d) d.addEventListener('click', () => {
       try { localStorage.setItem('aovivo_dica_v1', '1'); } catch (e) {}

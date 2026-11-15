@@ -1163,6 +1163,22 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   chegou (segura até 1,5 s, sem tela em branco). As imagens já eram pequenas (média 75 KB, cache de 1 ano) e o
   `aovivo_estado` leva 0,3 ms no banco: o atraso era a corrente aviso → espera → consulta → baixar a imagem.
   Teste: /home/claude/aovivo/teste/novidades.py.
+  (10) MATERIAIS POR E-MAIL (15/11, script 76 rodado pelo conector; pedido dela: "e quando o aluno não está na plataforma?").
+  Só para quem NÃO entrou pela plataforma (`turma_aluno_id` vazio): caixa "📩 Materiais da aula" na espera e no fim, e botão
+  "📩 Materiais por e-mail" no rodapé do celular (vira "E-mail ✓"). Janela com o e-mail e a caixa DESMARCADA "Quero receber também
+  conteúdos e ferramentas práticas da Mentorei" (LGPD) → rpc `aovivo_pedir_email` (colunas email, quer_conteudos, email_pedido_em,
+  email_enviado_em, email_trocas em aovivo_participantes; depois de enviado troca o e-mail no máximo 2 vezes; `aovivo_estado` devolve
+  eu.email/email_enviado/quer_conteudos). Ao "Encerrar e mostrar o resultado" o painel chama `/api/aovivo-email` com a chave (o Ao
+  Vivo repassa para cá; `netlify/functions/aovivo-email.mjs`, background); quem pede com a aula já encerrada chama com o próprio
+  token, e o celular pede de novo 20 s depois se ainda não foi. Cada um recebe UMA vez (o PATCH "email_enviado_em is null" separa
+  antes de mandar; Brevo falhou = volta para a fila). O e-mail (Brevo, conta principal, `modeloEmail` com o bloco novo `links`):
+  materiais em PDF da aula sem repetir (só os guardados em aovivo-slides; os de um grupo com "(do Grupo N)"), o que ele fez (palavras
+  da nuvem, acerto ou a resposta certa do quiz, voto, nota da escala, a resposta do grupo dele), pontos e lugar, links das
+  ferramentas da aula. SEM slides (decisão dela). O contato vai para Vendas › Pessoa física (ferramenta "Ao Vivo · <título>",
+  com quer_conteudos) e, se marcou a caixa e não está em `descadastros`, entra no funil "Alunos das aulas ao vivo" (id
+  135e8c31-3ab0-4c70-9637-cc5d14de0712, público clientes, criado PARADO em 15/11 com 3 e-mails escritos pelo Claude: 2, 4 e 7 dias;
+  ela revisa em Vendas › Funis de e-mail e liga). Testes (fora do git): /home/claude/aovivo/teste/materiais_email.py (telas) e
+  /home/claude/teste-email/t.mjs (função com Supabase e Brevo de mentira).
   Testes (fora do git): /home/claude/aovivo/teste/grupo.py, apresentacao.py e conv.py (Chrome sem janela, servidor de mentira);
   /home/claude/teste-conv/t.mjs (função com Google e Supabase de mentira).
 
@@ -1234,7 +1250,7 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   DESMARCADA "Quero receber ferramentas práticas e conteúdos") → "Como responder" (régua, por que ser sincero, 3 dicas) → frases → resultado.
   PÚBLICA: a promessa da tela é que respostas e resultado NÃO são guardados: fora da plataforma só o contato sai (`/api/contato-ferramenta`
   com `receber`), nada de Netlify Forms; só "Baixar em PDF". Na plataforma, resultado para `testes` (com `respostas_por_frase`).
-  `receber` → rpc `registrar_pessoa_fisica(..., p_conteudos)` → `pessoas_fisicas.quer_conteudos` (antes do script 42 grava sem ele);
+  `receber` → rpc `registrar_pessoa_fisica(..., p_conteudos)` → `pessoas_fisicas.quer_conteudos` (o script 42 só foi rodado em 15/11/2026, pelo Claude: até ali a resposta "quer conteúdos" se perdia);
   em Pessoa física aparece "📩 Quer receber conteúdos", filtro e coluna no Excel; quem disse NÃO não entra no funil.
   PLANO DE AÇÃO: MEU PRÓXIMO PASSO (MNT-LID-10, 2026-11-03, ficha no script 65; pedido dela: a folha impressa "PLANO DE ACAO - MEU
   PROXIMO PASSO.pdf" automatizada e aberta ao público). `public/ferramentas/meu-proximo-passo/`, mesmo visual e mesmo esqueleto da
