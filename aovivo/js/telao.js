@@ -66,7 +66,7 @@
   document.addEventListener('keydown', e => {
     const k = e.key.toLowerCase();
     if (k === 'f') { telaCheia(); return; }
-    if ([' ', 'arrowright', 'arrowleft', 'arrowdown', 'arrowup', 'pagedown', 'pageup', 'enter', 'b', '.', 'r', 's', 'q'].includes(k)) {
+    if ([' ', 'arrowright', 'arrowleft', 'arrowdown', 'arrowup', 'pagedown', 'pageup', 'enter', 'b', '.', 'r', 's', 'q', 'm', 'i'].includes(k)) {
       e.preventDefault();
       if (bc) bc.postMessage({ tipo: 'tecla', tecla: k });
     }

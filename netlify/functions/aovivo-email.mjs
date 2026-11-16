@@ -2,6 +2,7 @@
 // No celular, o aluno pede "Quero receber os materiais por e-mail" (aovivo_pedir_email). Quando a mentora encerra a aula, o painel
 // chama esta função com a chave da aula; quem pede depois que a aula acabou chama com o próprio token. Vai: os PDFs da aula, o que
 // ele fez em cada atividade (palavras, acertos, voto, nota, resposta do grupo), os pontos e os links das ferramentas usadas. Sem slides.
+// Desde 16/11: a frase do check-out ("o que você leva desta aula"), as ideias do mural, as perguntas, a rodada relâmpago e as medalhas.
 // Cada um recebe uma vez (email_enviado_em). O contato vai para Vendas › Pessoa física e, se marcou "Quero receber conteúdos da
 // Mentorei", entra no funil "Alunos das aulas ao vivo" (que começa parado até a Juliana revisar e ligar).
 import { supa, env, SUPABASE_URL } from '../lib/google.mjs';
@@ -37,8 +38,23 @@ function linhaDaAtividade(a, resp, respostasGrupo) {
     const r = meu ? respostasGrupo.get(`${a.id}:${meu}`) : null;
     return r ? `Exercício em grupo · ${p}: a resposta do Grupo ${meu} foi: ${corta(r, 300)}` : null;
   }
+  if (a.tipo === 'mural') {
+    const ideias = resp.filter((r) => r.valor && r.valor.texto);
+    if (!ideias.length) return null;
+    return `Mural de ideias · ${p}: você sugeriu ${ideias.map((r) => `"${corta(r.valor.texto, 100)}" (${votosDe.get(r.id) || 0} ${(votosDe.get(r.id) || 0) === 1 ? 'voto' : 'votos'})`).join(', ')}.`;
+  }
+  if (a.tipo === 'perguntas') {
+    const ps = resp.filter((r) => r.valor && r.valor.texto);
+    return ps.length ? `Mural de perguntas: você perguntou ${ps.map((r) => `"${corta(r.valor.texto, 120)}"`).join(', ')}.` : null;
+  }
+  if (a.tipo === 'relampago') {
+    if (!resp.length) return null;
+    const n = ((a.config || {}).perguntas || []).length, certos = resp.filter((r) => r.correta).length;
+    return `${/^rodada rel[aâ]mpago$/i.test(p) ? 'Rodada relâmpago' : `Rodada relâmpago · ${p}`}: você acertou ${certos} de ${n} ${n === 1 ? 'pergunta' : 'perguntas'}.`;
+  }
   return null;
 }
+let votosDe = new Map();   // ideia do mural → votos que ela recebeu
 
 export default async (req) => {
   let b; try { b = JSON.parse(await req.text()); } catch (_) { return; }
@@ -92,6 +108,9 @@ export default async (req) => {
   // a última resposta de cada grupo em cada exercício
   const respostasGrupo = new Map();
   respostas.forEach((r) => { if (r.valor && typeof r.valor === 'object' && r.valor.grupo) respostasGrupo.set(`${r.atividade_id}:${r.valor.grupo}`, r.valor.texto); });
+  votosDe = new Map();
+  respostas.forEach((r) => { if (r.valor && typeof r.valor === 'object' && r.valor.curte) { const k = Number(r.valor.curte); votosDe.set(k, (votosDe.get(k) || 0) + 1); } });
+  const checkout = new Set(atividades.filter((a) => a.tipo === 'checkout').map((a) => a.id));
 
   let funilId = null;
   if (pegos.some((p) => p.quer_conteudos)) {
@@ -103,13 +122,19 @@ export default async (req) => {
     const minhas = respostas.filter((r) => r.participante_id === p.id);
     const feitas = atividades.filter((a) => a.tipo !== 'slide' && a.tipo !== 'ferramenta')
       .map((a) => linhaDaAtividade(a, minhas.filter((r) => r.atividade_id === a.id), respostasGrupo)).filter(Boolean);
+    // a frase do check-out abre o e-mail; as medalhas vêm depois dos pontos
+    const leva = minhas.filter((r) => checkout.has(r.atividade_id) && typeof r.valor === 'string').map((r) => r.valor).pop();
+    const mq = await supa('/rest/v1/rpc/aovivo_medalhas', { metodo: 'POST', corpo: { p_sessao: sessao, p_participante: p.id } });
+    const medalhas = mq && mq.ok && Array.isArray(mq.dados) ? mq.dados : [];
     const pos = participantes.filter((x) => (x.pontos || 0) > (p.pontos || 0)).length + 1;
     const blocos = [
       { p: `Olá, ${primeiro(p.nome)}! Obrigada por participar da aula ao vivo. Como você pediu, aqui estão os materiais e o que você fez hoje.` },
     ];
+    if (leva) blocos.push({ titulo: 'O que você leva desta aula' }, { p: `"${corta(leva, 200)}"` });
     if (materiais.length) blocos.push({ titulo: 'Materiais da aula' }, { links: materiais });
     if (feitas.length) blocos.push({ titulo: 'O que você fez na aula' }, { lista: feitas });
     if ((p.pontos || 0) > 0) blocos.push({ p: `Você fez ${Number(p.pontos).toLocaleString('pt-BR')} pontos e terminou em ${ordinal(pos)} lugar entre ${participantes.length} pessoas.` });
+    if (medalhas.length) blocos.push({ titulo: 'Suas medalhas' }, { lista: medalhas.map((m) => `${m.icone} ${m.nome}: ${m.texto}`) });
     if (ferramentas.length) blocos.push({ titulo: 'Ferramentas que você usou' }, { links: ferramentas });
     if (!materiais.length && !feitas.length && !ferramentas.length) blocos.push({ p: 'Desta vez a aula não teve materiais em PDF nem atividades respondidas por você. Na próxima, participe pelo celular: tudo o que você fizer chega por aqui.' });
     blocos.push({ nota: p.quer_conteudos

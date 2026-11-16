@@ -1228,6 +1228,30 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   "O que cada grupo leva de volta", área "Arraste o PDF aqui / Escolher o PDF" (`enviarArquivosMaterial`). Painel: "Encerrar aula"
   vira "✓ Aula encerrada" (cinza, desligado) e o relógio para; botão do editor "▶ Projetar os slides". Teste (fora do git):
   /home/claude/aovivo/teste/novidades16.py; música: /home/claude/aovivo/teste/musica/t.py.
+  (14) ATIVIDADES NOVAS E A MEDIDA CERTA (16/11/2026, noite, script 80 rodado pelo conector; pedido dela: "pode fazer todos esses
+  que você sugeriu" + uma explicação curtinha em cada botão + a IA não sugerir uma interação por slide). Tipos novos em
+  aovivo_atividades: `reacao` (Reações ao vivo: 6 emojis `REACOES`, toques à vontade até 80 por pessoa, voam no telão pela diferença
+  da contagem), `checkin` (5 carinhas `HUMORES`), `checkout` ("o que você leva desta aula", uma frase; aceita depois que a aula
+  seguiu; vai no e-mail dos materiais), `perguntas` (mural de perguntas sem nome, até N por pessoa, curtir/descurtir; no painel
+  "✓ Respondida" e "Esconder" = rpc `aovivo_marcar_texto`, guardado em aovivo_atividades.estado {respondidas, ocultas}), `mural`
+  (mural de ideias: etapa escrever → "Abrir a votação ▶" = rpc `aovivo_mural_etapa`, que reinicia o relógio; votos até N, não vale
+  a própria, tocar de novo tira; resultado com 🥇🥈🥉) e `relampago` (rodada relâmpago: 2 a 10 perguntas em config.perguntas, N
+  segundos cada + 4 s mostrando a certa e o placar; o tempo é contado pelo relógio dos dois lados, `faseRelampago` em comum.js =
+  mesma conta do servidor; o celular NÃO recebe a resposta certa (aovivo_iniciar tira `correta`); pontos escondidos até revelar;
+  no fim o placar aparece sozinho). Curtida desfeita vira valor {desfeito: …} (o conector cancela migração com "delete from").
+  ESCALA ANTES E DEPOIS: botão "📈 Repetir no fim e comparar" (config.par igual + papel antes/depois; aovivo_resultado devolve
+  `antes` com a média do começo; telão mostra "No começo da aula: 3,5 ▲ +4,5"). INTERVALO: botão "☕ Intervalo" no painel (tecla I),
+  rpc `aovivo_intervalo` (fase 'intervalo', extra {fim}); telão e celular com "Voltamos às 15h40" e contagem; a música toca
+  sozinha; "Voltar para a aula ▶" volta ao slide (ou ao item seguinte, se parou numa atividade). MEDALHAS: `aovivo_medalhas`
+  (só o servidor; pódio, mais rápido, 3 acertos seguidos, voz do grupo, ideia campeã, boa pergunta, mão na massa, participação
+  total/ativa) no aovivo_estado da aula encerrada e no e-mail; no celular, "📸 Criar o meu cartão para compartilhar" desenha um
+  PNG 1080×1350 (canvas, logo branco) com Compartilhar (navigator.share), Baixar e "Copiar um texto para o post". Zerar a aula
+  limpa o estado do mural/perguntas/check-out. EDITOR: botões gerados de `TIPOS` (comum.js, campo `desc` = a explicação curtinha;
+  ordem `ORDEM_ATIVIDADES`); o item selecionado mostra a mesma explicação no alto; "Inserir logo depois" tem a explicação no
+  title. IA NA MEDIDA CERTA: `faixa(n)` = de max(2, ⌊n/5⌋) a max(3, ⌈n/4⌉) interações no total (20 slides → 4 a 5), contando as que já
+  estão no roteiro, e pelo menos 3 slides entre uma e outra; o prompt diz isso e `escolherNaMedida` (aovivo-sugerir.mjs) confere
+  depois da IA (prioridade: exercício em grupo, uma de cada uma das quatro funções, depois o resto; empurra 1 ou 2 slides se colar
+  em outra). Testes (fora do git): /home/claude/aovivo/teste/novas17.py (telas) e /home/claude/teste-email/t2.mjs (e-mail).
   Testes (fora do git): /home/claude/aovivo/teste/grupo.py, apresentacao.py e conv.py (Chrome sem janela, servidor de mentira);
   /home/claude/teste-conv/t.mjs (função com Google e Supabase de mentira).
 

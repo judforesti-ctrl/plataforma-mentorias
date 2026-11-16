@@ -3,7 +3,8 @@
    e a prévia "Agora no telão" do painel da apresentadora. */
 (function () {
   const A = window.AoVivo;
-  const { esc, corEquipe, ALTERNATIVAS, formaSVG, agoraServidor } = A;
+  const { esc, corEquipe, ALTERNATIVAS, formaSVG, agoraServidor, REACOES, HUMORES } = A;
+  const CORES_POSTIT = ['#FFE08A', '#9FE8C8', '#A9D1FF', '#FFC2A8', '#D5C7FF', '#FFB3D9'];
 
   const SVG_PESSOA = '<svg viewBox="0 0 24 24"><path d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v2h16v-2c0-2.8-3.6-5-8-5z"/></svg>';
 
@@ -56,13 +57,13 @@
 
       const a = e.atividade;
       const k = [e.fase, a && a.id, a && a.iniciada_em, e.extra && e.extra.em, e.fase === 'ranking' || e.fase === 'encerrada' ? e.versao : '',
-        a && a.grupos ? JSON.stringify(a.grupos) : '', e.fase === 'encerrada' ? e.avaliacao : '',
+        a && a.grupos ? JSON.stringify(a.grupos) : '', e.fase === 'encerrada' ? e.avaliacao : '', a && a.etapa || '',
         e.fase === 'lobby' ? [e.comecou_em ? 1 : 0, e.titulo, e.inicio, e.empresa, e.turma].join('~') : ''].join('|');
       if (k !== chave) {
         chave = k;
         palco.className = 'tt-palco';
         palco.innerHTML = '';
-        const montar = { lobby: montarLobby, atividade: montarAtividade, resultado: montarResultado, ranking: montarRanking, sorteio: montarSorteio, encerrada: montarFinal }[e.fase];
+        const montar = { lobby: montarLobby, atividade: montarAtividade, resultado: montarResultado, ranking: montarRanking, sorteio: montarSorteio, encerrada: montarFinal, intervalo: montarIntervalo }[e.fase];
         if (montar) montar();
       }
       const atualizar = { lobby: atualizarLobby, atividade: atualizarAtividade, resultado: atualizarResultado }[e.fase];
@@ -119,6 +120,23 @@
         : 'Já vamos começar';
     }
 
+    /* ---------- Intervalo (com a contagem para voltar) ---------- */
+    function montarIntervalo() {
+      const x = e.extra || {};
+      palco.innerHTML = '<div class="intervalo-telao"><div class="it-emoji">☕</div><span class="etiqueta">Intervalo</span>' +
+        '<h1>Voltamos às ' + esc(A.horaDe(x.fim)) + '</h1><div class="it-tempo" data-it="tempo"></div>' +
+        '<p>Aproveite para pegar um café, alongar e beber água. Deixe o celular por perto: ele avisa quando for hora de voltar.</p></div>';
+      contagemIntervalo();
+    }
+    function contagemIntervalo() {
+      const t = palco.querySelector('[data-it="tempo"]');
+      if (!t || !e || !e.extra) return;
+      const resta = Math.ceil((Date.parse(e.extra.fim) - agoraServidor()) / 1000);
+      t.textContent = resta > 0 ? A.mmss(resta) : 'Hora de voltar! 🚀';
+      t.classList.toggle('acabou', resta <= 0);
+      t.classList.toggle('acabando', resta > 0 && resta <= 60);
+    }
+
     /* ---------- Sala de espera ---------- */
     function montarLobby() {
       const p = e;
@@ -152,10 +170,11 @@
     }
 
     /* ---------- Atividade ---------- */
-    function cabecalho(a, comResp) {
+    function cabecalho(a, comResp, sub) {
       const tipo = A.TIPOS[a.tipo];
       return '<div class="cab-telao">' + (a.tempo > 0 ? anelHTML() : '') +
-        '<div class="esq"><span class="etiqueta">' + tipo.icone + ' ' + tipo.nome + ' · ' + a.numero + ' de ' + a.total + '</span><h1>' + esc(a.pergunta) + '</h1></div>' +
+        '<div class="esq"><span class="etiqueta">' + tipo.icone + ' ' + tipo.nome + ' · ' + a.numero + ' de ' + a.total + '</span><h1>' + esc(a.pergunta) + '</h1>' +
+        (sub ? '<p class="cab-sub">' + sub + '</p>' : '') + '</div>' +
         (comResp ? '<div class="respostas"><b data-r="qtd">0</b><span data-r="txt">respostas</span></div>' : '') + '</div>';
     }
     function anelHTML() {
@@ -195,10 +214,149 @@
       tique();
     }
 
+    /* ---------- Atividades novas (16/11/2026) ---------- */
+    function reacoesHTML() {
+      return '<div class="reacoes-telao">' + REACOES.map((x, i) => '<div class="reacao-col" data-i="' + i + '"><span class="em">' + x + '</span><b>0</b></div>').join('') + '</div>';
+    }
+    function atualizarReacao(r, voar) {
+      const cont = r.contagem || [], max = Math.max(1, ...cont);
+      palco.querySelectorAll('.reacao-col').forEach(el => {
+        const n = cont[Number(el.dataset.i)] || 0;
+        el.querySelector('b').textContent = n;
+        el.classList.toggle('topo', n > 0 && n === max);
+      });
+      const antes = palco._reac;
+      if (voar && antes && !op.previa) cont.forEach((n, i) => {
+        const d = Math.min(14, n - (antes[i] || 0));
+        for (let k = 0; k < d; k++) setTimeout(() => soltarEmoji(i), Math.random() * 1200);
+      });
+      if (voar && antes && op.previa) cont.forEach((n, i) => { if (n > (antes[i] || 0)) soltarEmoji(i); });
+      palco._reac = cont.slice();
+    }
+    function soltarEmoji(i) {
+      const voo = palco.querySelector('.reacoes-voo');
+      if (!voo) return;
+      const el = document.createElement('span');
+      el.className = 'voa'; el.textContent = REACOES[i];
+      el.style.left = (6 + Math.random() * 88) + '%';
+      el.style.setProperty('--dx', ((Math.random() - .5) * 14).toFixed(1) + 'cqw');
+      el.style.animationDuration = (2.6 + Math.random() * 1.6).toFixed(2) + 's';
+      el.style.fontSize = (5 + Math.random() * 4).toFixed(1) + 'cqh';
+      voo.appendChild(el);
+      setTimeout(() => el.remove(), 4600);
+    }
+
+    function humorHTML() {
+      return '<div class="humor-telao">' + HUMORES.map((h, i) => '<div class="humor-col" data-i="' + i + '"><span class="qtd">0</span><div class="pilar"></div>' +
+        '<span class="em">' + h.e + '</span><span class="rot">' + esc(h.t) + '</span></div>').join('') + '</div>';
+    }
+    function atualizarHumor(r) {
+      const cont = r.contagem || [], max = Math.max(1, ...cont);
+      palco.querySelectorAll('.humor-col').forEach(el => {
+        const n = cont[Number(el.dataset.i)] || 0;
+        el.querySelector('.qtd').textContent = n;
+        el.querySelector('.pilar').style.height = (n / max * 52) + '%';
+        el.classList.toggle('topo', n > 0 && n === max);
+      });
+    }
+
+    function atualizarFrases(lista, max) {
+      const box = palco.querySelector('.frases-telao');
+      if (!box) return;
+      const fr = (lista || []).slice(0, max || 15);
+      const sig = fr.map(x => x.id).join(',');
+      if (box._sig === sig) return;
+      const vistos = box._vistos || new Set();
+      box.innerHTML = fr.length ? fr.map((x, k) => '<div class="frase' + (box._sig != null && !vistos.has(x.id) ? ' nova' : '') + '" style="--c:' + CORES_POSTIT[x.id % CORES_POSTIT.length] + '">' + esc(x.texto) + '</div>').join('')
+        : '<div class="vazio-telao grande">As frases vão aparecendo aqui ✨</div>';
+      fr.forEach(x => vistos.add(x.id));
+      box._vistos = vistos; box._sig = sig;
+      box.classList.toggle('muitas', fr.length > 8);
+    }
+
+    function atualizarPerguntas(r) {
+      const box = palco.querySelector('.perguntas-telao');
+      if (!box) return;
+      const L = r.itens || [];
+      const sig = L.map(x => x.id + ':' + x.n + ':' + (x.respondida ? 1 : 0)).join(',');
+      if (box._sig === sig) return;
+      box._sig = sig;
+      const mostra = L.slice(0, 7);
+      box.innerHTML = L.length ? mostra.map((x, k) => '<div class="pergunta-t' + (x.respondida ? ' respondida' : '') + (k === 0 && !x.respondida && x.n > 0 ? ' topo' : '') + '">' +
+          '<span class="coracao">' + (x.respondida ? '✓' : '♥ ' + x.n) + '</span><p>' + esc(x.texto) + '</p></div>').join('') +
+          (L.length > mostra.length ? '<p class="mais-perg">e mais ' + (L.length - mostra.length) + (L.length - mostra.length === 1 ? ' pergunta' : ' perguntas') + ' no celular</p>' : '')
+        : '<div class="vazio-telao grande">🙋 Mande a sua pergunta pelo celular.<br><span>Ninguém vê o seu nome.</span></div>';
+    }
+
+    function atualizarMural(r, final) {
+      const box = palco.querySelector('.postits');
+      if (!box) return;
+      let L = (r.itens || []).slice();
+      const votar = final || r.etapa === 'votar';
+      L = final ? L.sort((x, y) => y.n - x.n || x.id - y.id) : L.sort((x, y) => x.id - y.id);
+      const sig = L.map(x => x.id + ':' + (votar ? x.n : '')).join(',') + (final ? 'f' : '');
+      if (box._sig === sig) return;
+      const vistos = box._vistos || new Set(), primeira = box._sig == null;
+      box._sig = sig;
+      const medalha = ['🥇', '🥈', '🥉'];
+      box.innerHTML = L.length ? L.slice(0, 30).map((x, k) => '<div class="postit' + (!primeira && !vistos.has(x.id) ? ' nova' : '') + (final && k < 3 && x.n > 0 ? ' campea' : '') +
+          '" style="--c:' + CORES_POSTIT[x.id % CORES_POSTIT.length] + ';--r:' + (((x.id * 37) % 7) - 3) + 'deg">' +
+          (final && k < 3 && x.n > 0 ? '<span class="medalha">' + medalha[k] + '</span>' : '') + '<p>' + esc(x.texto) + '</p>' +
+          (votar ? '<span class="votos">★ ' + x.n + '</span>' : '') + '</div>').join('')
+        : '<div class="vazio-telao grande">💡 Escreva a sua ideia pelo celular.</div>';
+      L.forEach(x => vistos.add(x.id));
+      box._vistos = vistos;
+      box.classList.toggle('muitos', L.length > 12);
+    }
+
+    // Rodada relâmpago: o telão troca de pergunta sozinho, pelo relógio (o servidor faz a mesma conta)
+    function tiqueRelampago(forcar) {
+      const box = palco.querySelector('.relampago-telao');
+      if (!box || !e || !e.atividade) return;
+      const a = e.atividade, c = a.config || {}, f = A.faseRelampago(a, agoraServidor());
+      const r = e.ao_vivo || {}, qs = r.questoes || [], qd = qs[f.q] || {};
+      const pl = (r.placar || []).slice(0, 5);
+      const k = f.q + '|' + f.fase + (f.fase === 'pergunta' ? '' : '|' + JSON.stringify(qd) + '|' + JSON.stringify(pl));
+      if (forcar || box._k !== k) {
+        box._k = k;
+        const q = (c.perguntas || [])[f.q] || { pergunta: '', opcoes: [] };
+        const placar = '<div class="rl-placar"><span class="etiqueta">🏆 Placar</span>' + (pl.length ? pl.map((x, i) =>
+          '<div><span>' + (i + 1) + 'º</span><b>' + esc(x.nome) + '</b><em>' + Number(x.pontos).toLocaleString('pt-BR') + '</em></div>').join('') : '<p class="dica">Ninguém pontuou ainda.</p>') + '</div>';
+        if (f.fase === 'fim') {
+          box.innerHTML = '<div class="rl-fim"><span class="etiqueta">🏁 ' + esc(a.pergunta || 'Rodada relâmpago') + '</span><h1>Fim da rodada!</h1>' + placar + '</div>';
+        } else {
+          const revela = f.fase === 'revela', cont = qd.contagem || [], certa = qd.correta;
+          box.innerHTML = '<div class="rl-cab"><span class="etiqueta">🏁 ' + esc(a.pergunta || 'Rodada relâmpago') + ' · Pergunta ' + (f.q + 1) + ' de ' + f.n + '</span>' +
+            '<div class="rl-barra"><i></i></div></div><div class="rl-corpo' + (revela ? ' revela' : '') + '"><div class="rl-esq"><h1>' + esc(q.pergunta) + '</h1>' +
+            '<div class="grade-telao-quiz rl-alts">' + (q.opcoes || []).map((o, i) => '<div class="alt-telao' + (revela && certa != null ? (i === certa ? ' certa' : ' errada') : '') +
+              '" style="background:' + ALTERNATIVAS[i].cor + '">' + formaSVG(ALTERNATIVAS[i].forma) + '<span class="texto">' + esc(o) + '</span>' +
+              (revela ? '<span class="qtd">' + (cont[i] || 0) + '</span>' : '') + (revela && i === certa ? '<span class="check">✓</span>' : '') + '</div>').join('') + '</div></div>' +
+            (revela ? placar : '') + '</div>';
+        }
+      }
+      const barra = box.querySelector('.rl-barra i');
+      if (barra) {
+        const total = f.fase === 'pergunta' ? f.seg : 4;
+        barra.style.width = Math.max(0, Math.min(100, f.resta / total * 100)) + '%';
+        barra.parentElement.classList.toggle('revela', f.fase === 'revela');
+      }
+    }
+
     function montarAtividade() {
       const a = e.atividade;
       if (a.tipo === 'grupo') return montarGrupo();
       if (a.tipo === 'ferramenta') return montarFerramenta();
+      if (a.tipo === 'reacao') { palco.innerHTML = cabecalho(a, true, 'Toque nos emojis no celular, quantas vezes quiser!') + reacoesHTML() + '<div class="reacoes-voo"></div>'; palco._reac = null; return tique(); }
+      if (a.tipo === 'checkin') { palco.innerHTML = cabecalho(a, true, 'Escolha a sua carinha no celular.') + humorHTML(); return tique(); }
+      if (a.tipo === 'checkout') { palco.innerHTML = cabecalho(a, true, 'Escreva no celular, numa frase. Ninguém vê o seu nome.') + '<div class="frases-telao"></div>'; return tique(); }
+      if (a.tipo === 'perguntas') { palco.innerHTML = cabecalho(a, true, 'Mande pelo celular e curta as perguntas que você também quer saber.') + '<div class="perguntas-telao"></div>'; return tique(); }
+      if (a.tipo === 'mural') {
+        const votar = a.etapa === 'votar', c = a.config || {};
+        palco.innerHTML = cabecalho(a, true, votar ? '⭐ Votação aberta: vote no celular nas ' + (c.votos || 3) + ' melhores ideias dos colegas.'
+          : '✍️ Escreva no celular até ' + (c.ideias || 2) + ((c.ideias || 2) === 1 ? ' ideia.' : ' ideias.') + ' Depois a turma vota nas melhores.') + '<div class="postits"></div>';
+        return tique();
+      }
+      if (a.tipo === 'relampago') { palco.innerHTML = '<div class="relampago-telao"></div>'; return tiqueRelampago(true); }
       let corpo = '';
       if (a.tipo === 'quiz') {
         corpo = '<div class="grade-telao-quiz">' + a.opcoes.map((o, i) =>
@@ -229,7 +387,8 @@
       for (let n = 0; n <= max; n++) cols += '<div class="coluna" data-v="' + n + '"><span class="qtd">0</span><div class="pilar" style="height:0%"></div><span class="rot">' + n + '</span></div>';
       return '<div class="escala-telao"><div class="escala-esq"><div class="histograma">' + cols + '</div>' +
         ((c.rotulo_min || c.rotulo_max) ? '<div class="rotulos-telao"><span>0 = ' + esc(c.rotulo_min) + '</span><span>' + max + ' = ' + esc(c.rotulo_max) + '</span></div>' : '') +
-        '</div><div class="media-box"><span class="etiqueta">Média da turma</span><b data-r="media">…</b><span data-r="mediaTotal">0 respostas</span></div></div>';
+        '</div><div class="media-box"><span class="etiqueta">Média da turma</span><b data-r="media">…</b><span data-r="mediaTotal">0 respostas</span>' +
+        '<div class="antes-depois oculto" data-r="antes"></div></div></div>';
     }
 
     function atualizarAtividade() {
@@ -251,6 +410,12 @@
       if (a.tipo === 'nuvem') atualizarNuvem(r);
       if (a.tipo === 'votacao') atualizarBarras(r, false);
       if (a.tipo === 'escala') atualizarEscala(r);
+      if (a.tipo === 'reacao') atualizarReacao(r, true);
+      if (a.tipo === 'checkin') atualizarHumor(r);
+      if (a.tipo === 'checkout') atualizarFrases(r.frases);
+      if (a.tipo === 'perguntas') atualizarPerguntas(r);
+      if (a.tipo === 'mural') atualizarMural(r, false);
+      if (a.tipo === 'relampago') tiqueRelampago();
     }
 
     function atualizarNuvem(r) {
@@ -287,12 +452,26 @@
         m.textContent = r.media == null ? '…' : String(r.media).replace('.', ',');
         palco.querySelector('[data-r="mediaTotal"]').textContent = (r.total || 0) + ((r.total || 0) === 1 ? ' resposta' : ' respostas');
       }
+      // antes e depois: a média da mesma escala no começo da aula
+      const ad = palco.querySelector('[data-r="antes"]');
+      if (ad) {
+        const an = r.antes && r.antes.media != null ? Number(r.antes.media) : null;
+        ad.classList.toggle('oculto', an == null);
+        if (an != null) {
+          const agora = r.media == null ? null : Number(r.media), dif = agora == null ? null : Math.round((agora - an) * 10) / 10;
+          const fmt = v => String(v).replace('.', ',');
+          ad.innerHTML = '<span>No começo da aula: <b>' + fmt(an) + '</b></span>' +
+            (dif != null ? '<span class="dif ' + (dif > 0 ? 'subiu' : dif < 0 ? 'desceu' : '') + '">' + (dif > 0 ? '▲ +' : dif < 0 ? '▼ ' : '= ') + fmt(dif) + '</span>' : '');
+        }
+      }
     }
 
     function tique() {
       if (e && e.fase === 'lobby') { contagem(); return; }
+      if (e && e.fase === 'intervalo') { contagemIntervalo(); return; }
       if (!e || e.fase !== 'atividade') return;
       const a = e.atividade;
+      if (a && a.tipo === 'relampago') { tiqueRelampago(); return; }
       if (!a || !a.tempo) return;
       const fim = Date.parse(a.iniciada_em) + a.tempo * 1000;
       const restam = Math.max(0, (fim - agoraServidor()) / 1000);
@@ -331,6 +510,42 @@
           '<small>' + (x.abriram || 0) + ' abriram</small></div>';
         return;
       }
+      if (a.tipo === 'reacao') {
+        palco.innerHTML = cabecalhoResultado(a, (x.toques || 0) + ' reações de ' + (x.total || 0) + ((x.total || 0) === 1 ? ' pessoa' : ' pessoas')) + reacoesHTML();
+        palco._reac = null; atualizarReacao(x, false);
+        return;
+      }
+      if (a.tipo === 'checkin') {
+        palco.innerHTML = cabecalhoResultado(a, (x.total || 0) + ((x.total || 0) === 1 ? ' pessoa respondeu' : ' pessoas responderam')) + humorHTML();
+        setTimeout(() => atualizarHumor(x), 80);
+        return;
+      }
+      if (a.tipo === 'checkout') {
+        palco.innerHTML = cabecalhoResultado(a, (x.total || 0) + ((x.total || 0) === 1 ? ' frase' : ' frases')) + '<div class="frases-telao"></div>';
+        atualizarFrases(x.frases, 18);
+        return;
+      }
+      if (a.tipo === 'perguntas') {
+        palco.innerHTML = cabecalhoResultado(a, ((x.itens || []).length) + ((x.itens || []).length === 1 ? ' pergunta' : ' perguntas')) + '<div class="perguntas-telao"></div>';
+        atualizarPerguntas(x);
+        return;
+      }
+      if (a.tipo === 'mural') {
+        palco.innerHTML = cabecalhoResultado(a, 'as ideias mais votadas') + '<div class="postits"></div>';
+        atualizarMural(x, true);
+        return;
+      }
+      if (a.tipo === 'relampago') {
+        const membros = {};
+        (e.participantes || []).forEach(p => { if (p.equipe) membros[p.equipe] = (membros[p.equipe] || 0) + 1; });
+        const eqs = (x.equipes || []).map(q => ({ equipe: q.equipe, membros: membros[q.equipe] || 1, pontos: Math.round(q.pontos / (membros[q.equipe] || 1)) }))
+          .sort((p, q) => q.pontos - p.pontos);
+        palco.innerHTML = rankingHTML({ top: x.placar || [], equipes: eqs }, true, true);
+        const h = palco.querySelector('.rank-col h2');
+        if (h) h.textContent = '🏁 Placar da ' + (a.pergunta && a.pergunta !== 'Rodada relâmpago' ? a.pergunta : 'rodada relâmpago');
+        if (!op.previa) A.confete(2500);
+        return;
+      }
       if (a.tipo === 'quiz') {
         const cont = x.contagem || [], soma = cont.reduce((s, n) => s + n, 0), max = Math.max(1, ...cont);
         const corpo = '<div class="grade-telao-quiz">' + a.opcoes.map((o, i) => {
@@ -364,6 +579,10 @@
     }
 
     function atualizarResultado() {
+      const t = e.atividade && e.atividade.tipo, x = e.extra || {};
+      if (t === 'checkout') atualizarFrases(x.frases, 18);
+      if (t === 'perguntas') atualizarPerguntas(x);
+      if (t === 'mural') atualizarMural(x, true);
       if (e.atividade && e.atividade.tipo === 'nuvem') {
         const n = palco.querySelector('.nuvem');
         const pal = (e.extra || {}).palavras || [];

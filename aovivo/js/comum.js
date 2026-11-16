@@ -190,16 +190,47 @@
 
   function ordinal(n) { return n + 'º'; }
 
+  // desc: a explicação curtinha que aparece embaixo de cada botão do editor (pedido da Juliana, 16/11/2026)
   const TIPOS = {
     slide: { nome: 'Slide', icone: '🖼️' },
-    nuvem: { nome: 'Nuvem de palavras', icone: '☁️', curto: 'Nuvem' },
-    quiz: { nome: 'Quiz', icone: '⚡', curto: 'Quiz' },
-    votacao: { nome: 'Votação', icone: '🗳️', curto: 'Votação' },
-    escala: { nome: 'Escala', icone: '📊', curto: 'Escala' },
-    grupo: { nome: 'Exercício em grupo', icone: '👥', curto: 'Grupo' },
-    ferramenta: { nome: 'Ferramenta', icone: '🧭', curto: 'Ferramenta' },
-    entrada: { nome: 'QR code de novo', icone: '📱', curto: 'QR code' }
+    nuvem: { nome: 'Nuvem de palavras', icone: '☁️', curto: 'Nuvem', desc: 'Cada um manda até 3 palavras e elas formam uma nuvem no telão. Boa para abrir um tema.' },
+    quiz: { nome: 'Quiz', icone: '⚡', curto: 'Quiz', desc: 'Pergunta com uma resposta certa; quem acerta rápido ganha mais pontos. Use logo depois de um conceito.' },
+    votacao: { nome: 'Votação', icone: '🗳️', curto: 'Votação', desc: 'A turma escolhe uma opção e o telão mostra as barras. Boa para priorizar.' },
+    escala: { nome: 'Escala', botao: 'Escala 0 a 10', icone: '📊', curto: 'Escala', desc: 'Cada um dá uma nota. Repita no fim da aula para comparar o antes e o depois.' },
+    grupo: { nome: 'Exercício em grupo', icone: '👥', curto: 'Grupo', desc: 'Passo a passo e cronômetro no celular de cada um. O grupo manda a resposta.' },
+    mural: { nome: 'Mural de ideias', icone: '💡', curto: 'Mural', desc: 'Cada um escreve ideias para um desafio. Tem votação depois: a turma escolhe as melhores.' },
+    perguntas: { nome: 'Mural de perguntas', icone: '🙋', curto: 'Perguntas', desc: 'Perguntas sem nome; a turma curte as que também quer saber. Abra antes de um momento de dúvidas.' },
+    relampago: { nome: 'Rodada relâmpago', icone: '🏁', curto: 'Relâmpago', desc: 'Perguntas rápidas uma atrás da outra, com placar ao vivo. Boa para revisar antes do intervalo.' },
+    reacao: { nome: 'Reações ao vivo', icone: '😮', curto: 'Reações', desc: 'Emojis voando no telão. Insira depois de um slide polêmico ou de uma história forte.' },
+    checkin: { nome: 'Check-in de humor', icone: '🌡️', curto: 'Check-in', desc: 'Cada um escolhe uma carinha de como está chegando. Use no começo da aula.' },
+    checkout: { nome: 'Check-out', icone: '🎒', curto: 'Check-out', desc: '"O que eu levo desta aula" numa frase. Use no fim; a frase vai no e-mail dos materiais.' },
+    ferramenta: { nome: 'Ferramenta', botao: 'Ferramenta da plataforma', icone: '🧭', curto: 'Ferramenta', desc: 'Abre no celular uma ferramenta da Mentorei (teste, roda, plano de ação).' },
+    entrada: { nome: 'QR code de novo', icone: '📱', curto: 'QR code', desc: 'Mostra o QR code no meio da aula, para quem chegou depois (por exemplo, na volta do intervalo).' }
   };
+  // ordem dos botões no editor
+  const ORDEM_ATIVIDADES = ['nuvem', 'quiz', 'votacao', 'escala', 'grupo', 'mural', 'perguntas', 'relampago', 'reacao', 'checkin', 'checkout', 'ferramenta', 'entrada'];
+  const REACOES = ['👏', '❤️', '😂', '😮', '🤔', '🔥'];
+  const HUMORES = [{ e: '😴', t: 'Cansado(a)' }, { e: '😐', t: 'Mais ou menos' }, { e: '🙂', t: 'Bem' }, { e: '😄', t: 'Animado(a)' }, { e: '🚀', t: 'Pronto(a) para tudo' }];
+
+  // Rodada relâmpago: cada pergunta tem N segundos para responder e 4 segundos para mostrar a certa (o servidor faz a mesma conta)
+  function faseRelampago(a, agora) {
+    const c = (a && a.config) || {}, n = (c.perguntas || []).length;
+    const seg = Math.min(30, Math.max(5, Number(c.segundos) || 12)), slot = (seg + 4) * 1000;
+    const ms = (agora || agoraServidor()) - Date.parse(a && a.iniciada_em);
+    if (!isFinite(ms) || !n) return { q: 0, n, seg, fase: 'fim', resta: 0 };
+    const q = Math.floor(Math.max(0, ms) / slot);
+    if (q >= n) return { q: n - 1, n, seg, fase: 'fim', resta: 0 };
+    const dentro = Math.max(0, ms) - q * slot;
+    return dentro < seg * 1000 ? { q, n, seg, fase: 'pergunta', resta: seg - dentro / 1000 } : { q, n, seg, fase: 'revela', resta: (slot - dentro) / 1000 };
+  }
+
+  // "15h40" no horário de Brasília
+  function horaDe(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const [h, m] = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Sao_Paulo' }).split(':');
+    return Number(h) + 'h' + (m === '00' ? '' : m);
+  }
 
   /* Ferramentas on-line da plataforma Mentorei que abrem no celular do aluno */
   const PLATAFORMA = 'https://plataforma.mentorei.com.br';
@@ -235,6 +266,7 @@
 
   window.AoVivo = {
     sb, rpc, agoraServidor, esc, corEquipe, CORES_EQUIPE, ALTERNATIVAS, formaSVG,
-    desenharNuvem, confete, qrSVG, enderecoAluno, formatarCodigo, ordinal, TIPOS, FERRAMENTAS, mmss, quandoComeca
+    desenharNuvem, confete, qrSVG, enderecoAluno, formatarCodigo, ordinal, TIPOS, FERRAMENTAS, mmss, quandoComeca,
+    ORDEM_ATIVIDADES, REACOES, HUMORES, faseRelampago, horaDe
   };
 })();

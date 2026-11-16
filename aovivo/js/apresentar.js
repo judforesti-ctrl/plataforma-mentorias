@@ -1,7 +1,7 @@
 /* Mentorei Ao Vivo · montar a aula e conduzir pelo painel da apresentadora */
 (function () {
   const A = window.AoVivo;
-  const { rpc, esc, corEquipe, ALTERNATIVAS, formaSVG, agoraServidor, TIPOS } = A;
+  const { rpc, esc, corEquipe, ALTERNATIVAS, formaSVG, agoraServidor, TIPOS, REACOES, HUMORES } = A;
   const $ = id => document.getElementById(id);
   const PLATAFORMA = 'https://plataforma.mentorei.com.br';
   const CHAVE_AULAS = 'aovivo_aulas_v1';
@@ -133,6 +133,9 @@
       opcoes: a.tipo === 'quiz' ? padOpcoes(a.opcoes, 4) : (a.opcoes || []).slice(),
       correta: a.correta, tempo: a.tempo, config: JSON.parse(JSON.stringify(a.config || {})), notas: a.notas || ''
     };
+    if (it.tipo === 'relampago') {
+      it.config.perguntas = (it.config.perguntas || []).map(q => ({ pergunta: q.pergunta || '', opcoes: padOpcoes(q.opcoes, 4), correta: q.correta == null ? 0 : q.correta }));
+    }
     if (it.tipo === 'slide' || it.tipo === 'grupo') {
       if (!Array.isArray(it.config.materiais)) it.config.materiais = [];
       // o "PDF com as instruções" de antes vira o 1º material do exercício
@@ -220,6 +223,15 @@
       base.config = { passos: [], entrega: '', grupos: { modo: 'escolher', quantos: 6, tamanho: 4 }, resposta: { ligada: true, pergunta: '' }, pdf: '', nome_pdf: '', materiais: [] };
     }
     if (tipo === 'ferramenta') base.config = { url: '', codigo: '', instrucao: '' };
+    if (tipo === 'reacao') base.pergunta = 'O que você achou disso?';
+    if (tipo === 'checkin') base.pergunta = 'Como você está chegando para a aula?';
+    if (tipo === 'checkout') base.pergunta = 'O que você leva desta aula?';
+    if (tipo === 'perguntas') { base.pergunta = 'Qual é a sua dúvida?'; base.config = { max: 3 }; }
+    if (tipo === 'mural') { base.config = { ideias: 2, votos: 3 }; base.tempo = 180; }
+    if (tipo === 'relampago') {
+      base.pergunta = 'Rodada relâmpago';
+      base.config = { segundos: 12, perguntas: [0, 1, 2].map(() => ({ pergunta: '', opcoes: ['', '', '', ''], correta: 0 })) };
+    }
     return base;
   }
 
@@ -241,12 +253,16 @@
     setTimeout(() => { const c = document.querySelector('#editorItem [data-campo="pergunta"]'); if (c) c.focus(); }, 250);
   }
 
+  // botões de atividade com uma explicação curtinha embaixo de cada um (pedido da Juliana, 16/11/2026)
+  $('botoesAdicionar').innerHTML = A.ORDEM_ATIVIDADES.map(t => '<button class="btn-adicionar" type="button" data-novo="' + t + '"><b>' + TIPOS[t].icone + '</b>' +
+    '<span>' + esc(TIPOS[t].botao || TIPOS[t].nome) + '</span><small>' + esc(TIPOS[t].desc) + '</small></button>').join('');
   document.querySelectorAll('[data-novo]').forEach(b => b.addEventListener('click', () => inserirItem(b.dataset.novo, null)));
 
   function itemSel() { return rascunho.itens.find(i => i._k === selK) || null; }
   function numeroSlideRascunho(it) { let n = 0; for (const x of rascunho.itens) { if (x.tipo === 'slide') n++; if (x === it) return n; } return n; }
 
   function resumoTempo(it) {
+    if (it.tipo === 'relampago') { const n = ((it.config || {}).perguntas || []).length; return n + (n === 1 ? ' pergunta' : ' perguntas') + ' de ' + ((it.config || {}).segundos || 12) + ' s'; }
     if (it.tipo === 'quiz') return (it.tempo || 30) + ' segundos';
     if (it.tipo === 'grupo') return Math.round((it.tempo || 600) / 60) + ' min';
     if (!it.tempo) return 'sem limite de tempo';
@@ -429,15 +445,21 @@
     else if (x.tipo === 'grupo') d = '<ol class="ia-ops">' + x.config.passos.map(o => '<li>' + esc(o) + '</li>').join('') + '</ol>' +
       (x.config.entrega ? '<p class="dica"><b>Leva de volta:</b> ' + esc(x.config.entrega) + '</p>' : '') +
       (x.slide_instrucao ? '<p class="dica">Usa as instruções que já estão no slide ' + x.slide_instrucao + '.</p>' : '<p class="dica">A IA escreveu as instruções (não havia slide com elas).</p>');
+    else if (x.tipo === 'relampago') d = '<ol class="ia-ops">' + ((x.config || {}).perguntas || []).map(q => '<li>' + esc(q.pergunta) +
+      ' <span class="dica">(certa: ' + esc((q.opcoes || [])[q.correta] || '') + ')</span></li>').join('') + '</ol>';
+    else if (TIPOS[x.tipo] && TIPOS[x.tipo].desc) d = '<p class="dica">' + esc(TIPOS[x.tipo].desc) + '</p>';
     return d;
   }
+
+  // quantas interações uma aula com N slides comporta (pedido da Juliana: até 20 slides, de 4 a 5; uma a cada 3 ou 4 slides)
+  function faixaInteracoes(n) { return [Math.max(2, Math.floor(n / 5)), Math.max(3, Math.ceil(n / 4))]; }
 
   async function sugerirComIA() {
     const { slides, roteiro } = slidesParaIA();
     if (!slides.length) return toast('Envie os slides primeiro: a IA lê o texto deles para sugerir as atividades.', true);
     if ((sujo || salvando) && !(await salvar(true))) return toast('Complete o roteiro antes de pedir à IA: ' + (validar() || ''), true);
     const fechar = modal('<h2>✨ Deixar do jeito Mentorei!</h2>' +
-      '<div id="iaCorpo"><p class="dica" style="margin-bottom:12px">A IA lê o texto e as anotações dos ' + slides.length + ' slides e sugere onde entram nuvem de palavras, quiz, votação, escala e exercícios em grupo, já com as perguntas e as instruções. Você marca o que quer e elas entram no roteiro.</p>' +
+      '<div id="iaCorpo"><p class="dica" style="margin-bottom:12px">A IA lê o texto e as anotações dos ' + slides.length + ' slides e sugere as interações na medida certa: mais ou menos uma a cada 3 ou 4 slides de conteúdo, nunca duas seguidas (com ' + slides.length + ' slides, de ' + faixaInteracoes(slides.length)[0] + ' a ' + faixaInteracoes(slides.length)[1] + ' no total, contando as que já estão no roteiro). Já vêm com as perguntas e as instruções. Você marca o que quer e elas entram no roteiro.</p>' +
       '<div class="campo"><label>Quer pedir algo especial? (opcional)</label><textarea class="entrada" id="iaPedido" maxlength="1500" placeholder="Ex.: a turma é de gerentes novos; quero 2 exercícios em grupo; a aula tem 2 horas"></textarea></div>' +
       '<div class="acoes"><button class="btn btn-secundario" data-fechar>Cancelar</button><button class="btn btn-principal" id="iaIr">Pedir sugestões</button></div></div>', f => {
       f.querySelector('#iaIr').onclick = () => pedirIA(f, slides, roteiro, f.querySelector('#iaPedido').value.trim(), () => fechar());
@@ -497,6 +519,8 @@
           campoTempo(x, [[0, 'Sem limite (eu encerro)'], [30, '30 segundos'], [60, '1 minuto'], [90, '1 min e meio']]);
       } else if (x.tipo === 'nuvem') {
         h += campoTempo(x, [[0, 'Sem limite (eu encerro)'], [30, '30 segundos'], [60, '1 minuto'], [90, '1 min e meio'], [120, '2 minutos']]);
+      } else if (x.tipo === 'relampago') {
+        h += '<p class="dica">Para mudar as perguntas da rodada, coloque na aula e edite no roteiro.</p>';
       } else if (x.tipo === 'grupo') {
         const tempos = TEMPOS_GRUPO.slice();
         if (!tempos.some(t => t[0] === x.tempo)) tempos.push([x.tempo, Math.round(x.tempo / 60) + ' minutos']);
@@ -600,7 +624,9 @@
 
   // a sugestão ajustada à mão continua valendo?
   function conferirSugestao(x) {
-    if (!String(x.pergunta || '').trim()) return x.tipo === 'grupo' ? 'O exercício em grupo precisa de um título.' : 'A pergunta não pode ficar vazia.';
+    if (!String(x.pergunta || '').trim() && !['reacao', 'checkin', 'checkout', 'perguntas', 'relampago'].includes(x.tipo))
+      return x.tipo === 'grupo' ? 'O exercício em grupo precisa de um título.' : 'A pergunta não pode ficar vazia.';
+    if (x.tipo === 'relampago' && ((x.config || {}).perguntas || []).length < 2) return 'A rodada relâmpago precisa de pelo menos 2 perguntas.';
     if (x.tipo === 'quiz') {
       const ops = x.opcoes.map(o => String(o || '').trim());
       if (ops.filter(Boolean).length < 2) return 'O quiz precisa de pelo menos 2 alternativas.';
@@ -629,6 +655,8 @@
       if (x.tipo === 'votacao') it.opcoes = x.opcoes.map(o => String(o).trim()).filter(Boolean);
       it.tempo = x.tempo;
       it.config = Object.assign(it.config, JSON.parse(JSON.stringify(x.config || {})));
+      if (x.tipo === 'relampago') it.config.perguntas = (it.config.perguntas || []).map(q => ({ pergunta: q.pergunta || '', opcoes: padOpcoes(q.opcoes, 4), correta: q.correta || 0 }));
+      if (!String(it.pergunta || '').trim() && PADRAO_PERGUNTA[x.tipo]) it.pergunta = PADRAO_PERGUNTA[x.tipo];
       it.notas = 'Sugestão da IA' + (x.motivo ? ': ' + x.motivo : '.');
       const d = Math.max(Number(x.depois_do_slide) || 0, antesDoQR);
       const ref = qr && d === antesDoQR ? qr : (d > 0 ? slides[d - 1] : null);
@@ -999,7 +1027,7 @@
           '<img class="ed-mini" src="' + esc(it.config.imagem) + '" alt="" loading="lazy" draggable="false"><div class="ed-txt">' + txtLinha(it, nSlide) + '</div>' +
           (it.config.celular === false ? '<span class="ed-flag" title="Este slide não aparece no celular">📵</span>' : '') + '</div>';
       }
-      const ti = it.tipo === 'entrada' ? null : tempoInfo(it.tipo);
+      const ti = it.tipo === 'entrada' || it.tipo === 'relampago' ? null : tempoInfo(it.tipo);
       return '<div class="ed-item ed-ativ' + sel + '" data-k="' + it._k + '" draggable="true"><span class="ed-pos">' + (i + 1) + '</span>' +
         '<span class="ed-mini-ativ tipo-' + it.tipo + '">' + TIPOS[it.tipo].icone + '</span><div class="ed-txt">' + txtLinha(it, 0) + '</div>' +
         (ti ? '<label class="ed-tempo-linha" title="Tempo desta atividade (' + ti.unLonga + (ti.semLimite ? '; 0 = sem limite' : '') + ')"><span aria-hidden="true">⏱</span>' +
@@ -1082,7 +1110,12 @@
       votacao: 'Ex.: Qual desafio mais aparece na sua equipe?',
       escala: 'Ex.: Quanto você se sente preparado para dar um feedback difícil?',
       grupo: 'Ex.: Desafio do cliente difícil',
-      ferramenta: 'Nome da ferramenta'
+      ferramenta: 'Nome da ferramenta',
+      mural: 'Ex.: Como deixar as reuniões da equipe mais curtas?',
+      perguntas: 'Ex.: Qual é a sua dúvida sobre feedback?',
+      reacao: 'Ex.: O que você achou dessa história?',
+      checkin: 'Ex.: Como você está chegando para a aula?',
+      checkout: 'Ex.: O que você leva desta aula?'
     }[tipo];
   }
 
@@ -1158,8 +1191,67 @@
       'O telão já começa com o QR code na tela de boas-vindas. Use este item se quiser mostrar o QR code de novo no meio da aula (por exemplo, depois do intervalo).</p>';
   }
 
+  /* ---------- Atividades novas (16/11/2026): reações, check-in, check-out, perguntas, mural e rodada relâmpago ---------- */
+  function corpoSimples(a) {
+    const rot = { reacao: 'Frase no telão', checkin: 'Pergunta', checkout: 'Pergunta', perguntas: 'Frase no telão' }[a.tipo];
+    let h = '<div class="campo"><label>' + rot + '</label><input class="entrada" data-campo="pergunta" maxlength="200" value="' + esc(a.pergunta) + '" placeholder="' + placeholderPergunta(a.tipo) + '"></div>';
+    if (a.tipo === 'reacao') h += '<div class="previa-emojis">' + REACOES.map(x => '<span>' + x + '</span>').join('') + '</div>' +
+      '<p class="dica">Cada um toca nos emojis quantas vezes quiser e eles voam no telão. Não tem resposta certa: é para sentir a turma.</p>';
+    if (a.tipo === 'checkin') h += '<div class="previa-emojis com-texto">' + HUMORES.map(x => '<span>' + x.e + '<small>' + esc(x.t) + '</small></span>').join('') + '</div>' +
+      '<p class="dica">O telão mostra quantas pessoas escolheram cada carinha. Bom para saber como a turma chega e ajustar o ritmo.</p>';
+    if (a.tipo === 'checkout') h += '<p class="dica">Cada um escreve uma frase (até 160 letras). O telão mostra as frases sem o nome. Quem pediu os materiais por e-mail recebe a própria frase junto.</p>';
+    if (a.tipo === 'perguntas') h += '<div class="config-linha"><div class="campo"><label>Perguntas por pessoa</label><select class="entrada" data-cfg="max">' +
+      opcoesSelect(a.config.max || 3, [[1, '1 pergunta'], [2, '2 perguntas'], [3, '3 perguntas'], [4, '4 perguntas'], [5, '5 perguntas']]) + '</select></div></div>' +
+      '<p class="dica">As perguntas aparecem sem o nome de quem mandou. A turma curte as que também quer saber e as mais curtidas sobem. No painel, você marca "Respondida" ou esconde a que não deve aparecer.</p>';
+    return h + '<div class="config-linha">' + campoTempo(a, 'Tempo') + '</div>';
+  }
+
+  function corpoMural(a) {
+    const c = a.config, n = (de, ate, s, p) => { const l = []; for (let k = de; k <= ate; k++) l.push([k, k + ' ' + (k === 1 ? s : p)]); return l; };
+    return '<div class="campo"><label>Desafio do mural</label><input class="entrada" data-campo="pergunta" maxlength="200" value="' + esc(a.pergunta) + '" placeholder="' + placeholderPergunta('mural') + '"></div>' +
+      '<div class="config-linha"><div class="campo"><label>Ideias por pessoa</label><select class="entrada" data-cfg="ideias">' + opcoesSelect(c.ideias || 2, n(1, 5, 'ideia', 'ideias')) + '</select></div>' +
+      '<div class="campo"><label>Votos por pessoa</label><select class="entrada" data-cfg="votos">' + opcoesSelect(c.votos || 3, n(1, 5, 'voto', 'votos')) + '</select></div>' +
+      campoTempo(a, 'Tempo para escrever') + '</div>' +
+      '<p class="dica">Duas etapas: primeiro todo mundo escreve; depois você clica em "Abrir a votação" e cada um vota nas melhores ideias dos colegas (não vale votar na própria). A votação ganha o mesmo tempo. O telão mostra as ideias como post-its e, no fim, as mais votadas.</p>';
+  }
+
+  function duracaoTexto(s) {
+    if (s < 60) return s + ' segundos';
+    const m = Math.round(s / 30) / 2;
+    return String(m).replace('.', ',') + (m === 1 ? ' minuto' : ' minutos');
+  }
+  function corpoRelampago(a) {
+    const c = a.config, ps = c.perguntas || [], seg = c.segundos || 12;
+    return '<div class="campo"><label>Nome no telão</label><input class="entrada" data-campo="pergunta" maxlength="200" value="' + esc(a.pergunta) + '" placeholder="Rodada relâmpago"></div>' +
+      '<div class="config-linha"><div class="campo"><label>Segundos para cada pergunta</label><select class="entrada" data-cfg="segundos">' +
+      opcoesSelect(seg, [[8, '8 segundos'], [10, '10 segundos'], [12, '12 segundos'], [15, '15 segundos'], [20, '20 segundos'], [30, '30 segundos']]) + '</select></div>' +
+      '<p class="dica" style="flex:1;min-width:200px">As perguntas passam sozinhas. Depois de cada uma, o telão mostra a certa por 4 segundos e o placar. ' +
+      ps.length + ' perguntas levam cerca de ' + duracaoTexto(ps.length * (seg + 4)) + '. Quem acerta rápido ganha mais pontos; vale também para as equipes.</p></div>' +
+      ps.map((q, k) => '<div class="rq"><div class="rq-cab"><b>Pergunta ' + (k + 1) + '</b><span class="espaco"></span>' +
+        (ps.length > 2 ? '<button class="btn btn-secundario btn-mini" type="button" data-rq-tirar="' + k + '">Tirar</button>' : '') + '</div>' +
+        '<input class="entrada" data-rq="' + k + '" maxlength="160" value="' + esc(q.pergunta) + '" placeholder="' + (k === 0 ? 'Ex.: Qual é o primeiro passo do feedback?' : 'Pergunta ' + (k + 1)) + '">' +
+        [0, 1, 2, 3].map(j => '<div class="alternativa-editor"><span class="marca" style="background:' + ALTERNATIVAS[j].cor + '">' + formaSVG(ALTERNATIVAS[j].forma) + '</span>' +
+          '<input class="entrada" data-rq-op="' + k + ':' + j + '" maxlength="60" value="' + esc(q.opcoes[j] || '') + '" placeholder="Alternativa ' + ALTERNATIVAS[j].letra + (j > 1 ? ' (opcional)' : '') + '">' +
+          '<label class="certa"><input type="radio" name="rq' + a._k + '_' + k + '" data-rq-certa="' + k + ':' + j + '"' + (q.correta === j ? ' checked' : '') + '>certa</label></div>').join('') + '</div>').join('') +
+      (ps.length < 10 ? '<button class="btn btn-secundario btn-pequeno" type="button" data-rq-mais style="align-self:flex-start">+ Pergunta</button>' : '');
+  }
+
+  // escala de antes e depois: a mesma escala no começo e no fim, e o telão compara as médias
+  function blocoAntesDepois(a) {
+    const par = a.config.par;
+    if (!par) return '<div class="ed-par"><button class="btn btn-secundario btn-pequeno" type="button" data-par-criar>📈 Repetir no fim e comparar o antes e o depois</button>' +
+      '<span class="dica">Cria a mesma escala no fim do roteiro. Lá, o telão mostra a média do começo e a de agora.</span></div>';
+    const outro = rascunho.itens.find(x => x !== a && x.tipo === 'escala' && x.config && x.config.par === par);
+    return '<div class="ed-par ligado"><b>📈 Antes e depois: esta é a escala do ' + (a.config.papel === 'depois' ? 'depois' : 'antes') + '.</b>' +
+      '<span class="dica">' + (outro ? 'A outra é o item ' + (rascunho.itens.indexOf(outro) + 1) + ' do roteiro.' : 'A outra escala saiu do roteiro.') + '</span>' +
+      '<button class="btn btn-secundario btn-mini" type="button" data-par-tirar>Desfazer a comparação</button></div>';
+  }
+
   function corpoAtividade(a) {
     if (a.tipo === 'entrada') return corpoEntrada(a);
+    if (['reacao', 'checkin', 'checkout', 'perguntas'].includes(a.tipo)) return corpoSimples(a);
+    if (a.tipo === 'mural') return corpoMural(a);
+    if (a.tipo === 'relampago') return corpoRelampago(a);
     if (a.tipo === 'grupo') return corpoGrupo(a);
     if (a.tipo === 'ferramenta') return corpoFerramenta(a);
     let corpo = '<div class="campo"><label>Pergunta</label><input class="entrada" data-campo="pergunta" maxlength="200" value="' + esc(a.pergunta) + '" placeholder="' + placeholderPergunta(a.tipo) + '"></div>';
@@ -1196,7 +1288,8 @@
         opcoesSelect(a.config.max || 10, [[10, 'De 0 a 10'], [5, 'De 0 a 5']]) + '</select></div>' +
         campoTempo(a, 'Tempo') + '</div>' +
         '<div class="config-linha"><div class="campo" style="flex:1"><label>O que significa o 0</label><input class="entrada" data-cfgtxt="rotulo_min" maxlength="40" value="' + esc(a.config.rotulo_min || '') + '" placeholder="Ex.: Nada preparado"></div>' +
-        '<div class="campo" style="flex:1"><label>O que significa a nota máxima</label><input class="entrada" data-cfgtxt="rotulo_max" maxlength="40" value="' + esc(a.config.rotulo_max || '') + '" placeholder="Ex.: Totalmente preparado"></div></div>';
+        '<div class="campo" style="flex:1"><label>O que significa a nota máxima</label><input class="entrada" data-cfgtxt="rotulo_max" maxlength="40" value="' + esc(a.config.rotulo_max || '') + '" placeholder="Ex.: Totalmente preparado"></div></div>' +
+        blocoAntesDepois(a);
     }
     return corpo;
   }
@@ -1215,6 +1308,7 @@
       '<button class="btn btn-secundario btn-icone" data-mover="1" title="Descer"' + (i === total - 1 ? ' disabled' : '') + '>↓</button>' +
       (it.tipo === 'entrada' ? '' : '<button class="btn btn-secundario btn-icone" data-copiar title="Duplicar">⧉</button>') +
       '<button class="btn btn-secundario btn-icone" data-apagar title="Tirar do roteiro">🗑</button></div>';
+    if (it.tipo !== 'slide' && TIPOS[it.tipo].desc) html += '<p class="ed-desc">' + TIPOS[it.tipo].icone + ' ' + esc(TIPOS[it.tipo].desc) + '</p>';
     if (it.tipo === 'slide') {
       html += '<img class="ed-grande" src="' + esc(it.config.imagem) + '" alt="Slide ' + numeroSlideRascunho(it) + '">' +
         '<div class="campo"><label>Nome no roteiro (só você vê)</label><input class="entrada" data-campo="pergunta" maxlength="200" value="' + esc(it.pergunta) + '" placeholder="Ex.: Os 3 níveis da escuta"></div>';
@@ -1228,7 +1322,8 @@
         blocoMateriais(it);
     }
     html += '<div class="ed-inserir"><span class="dica">Inserir logo depois deste item:</span><div class="linha">' +
-      ['nuvem', 'quiz', 'votacao', 'escala', 'grupo', 'ferramenta'].concat(rascunho.itens.some(x => x.tipo === 'entrada') ? [] : ['entrada']).map(t => '<button class="btn btn-secundario btn-pequeno" data-inserir="' + t + '">' + TIPOS[t].icone + ' ' + TIPOS[t].curto + '</button>').join('') + '</div></div>';
+      A.ORDEM_ATIVIDADES.filter(t => t !== 'entrada' || !rascunho.itens.some(x => x.tipo === 'entrada')).map(t =>
+        '<button class="btn btn-secundario btn-pequeno" data-inserir="' + t + '" title="' + esc(TIPOS[t].desc) + '">' + TIPOS[t].icone + ' ' + TIPOS[t].curto + '</button>').join('') + '</div></div>';
     box.innerHTML = html;
     ligarItem(box, it);
   }
@@ -1301,6 +1396,40 @@
       else { a._outra = false; a.pergunta = ''; a.config.url = ''; a.config.codigo = ''; }
       desenharItem(); tocou();
     });
+    // rodada relâmpago
+    c.querySelectorAll('[data-rq]').forEach(el => el.addEventListener('input', () => { a.config.perguntas[Number(el.dataset.rq)].pergunta = el.value; tocou(); }));
+    c.querySelectorAll('[data-rq-op]').forEach(el => el.addEventListener('input', () => {
+      const [k, j] = el.dataset.rqOp.split(':').map(Number); a.config.perguntas[k].opcoes[j] = el.value; tocou();
+    }));
+    c.querySelectorAll('[data-rq-certa]').forEach(el => el.addEventListener('change', () => {
+      const [k, j] = el.dataset.rqCerta.split(':').map(Number); a.config.perguntas[k].correta = j; tocou();
+    }));
+    c.querySelectorAll('[data-rq-tirar]').forEach(b => b.onclick = () => { a.config.perguntas.splice(Number(b.dataset.rqTirar), 1); desenharItem(); tocou(); });
+    const rqMais = c.querySelector('[data-rq-mais]');
+    if (rqMais) rqMais.onclick = () => {
+      a.config.perguntas.push({ pergunta: '', opcoes: ['', '', '', ''], correta: 0 }); desenharItem(); tocou();
+      const ult = c.querySelectorAll('[data-rq]'); if (ult.length) ult[ult.length - 1].focus();
+    };
+    if (a.tipo === 'relampago') { const sg = c.querySelector('[data-cfg="segundos"]'); if (sg) sg.addEventListener('change', () => desenharItem()); }
+    // escala de antes e depois
+    const parCriar = c.querySelector('[data-par-criar]');
+    if (parCriar) parCriar.onclick = () => {
+      const par = 'p' + Math.random().toString(36).slice(2, 10);
+      a.config.par = par; a.config.papel = 'antes';
+      const depois = novoItem('escala');
+      depois.pergunta = a.pergunta;
+      depois.config = Object.assign({}, a.config, { papel: 'depois' });
+      depois.notas = 'A mesma escala do começo da aula: o telão compara a média de antes com a de agora.';
+      rascunho.itens.push(depois);
+      desenharLista(); desenharItem(); mudou();
+      toast('A escala do "depois" entrou no fim do roteiro. Arraste se quiser mudar o lugar.');
+    };
+    const parTirar = c.querySelector('[data-par-tirar]');
+    if (parTirar) parTirar.onclick = () => {
+      const par = a.config.par;
+      rascunho.itens.forEach(x => { if (x.tipo === 'escala' && x.config && x.config.par === par) { delete x.config.par; delete x.config.papel; } });
+      desenharItem(); mudou();
+    };
     const mais = c.querySelector('[data-mais-opcao]');
     if (mais) mais.onclick = () => { a.opcoes.push(''); desenharItem(); tocou(); };
     c.querySelectorAll('[data-tirar-opcao]').forEach(b => b.onclick = () => { a.opcoes.splice(Number(b.dataset.tirarOpcao), 1); desenharItem(); tocou(); });
@@ -1314,6 +1443,7 @@
     const btnCopiar = c.querySelector('[data-copiar]');
     if (btnCopiar) btnCopiar.onclick = () => {
       const copia = JSON.parse(JSON.stringify(a)); copia._k = ++contadorK; delete copia.id;
+      if (copia.config) { delete copia.config.par; delete copia.config.papel; }   // a cópia não entra na comparação de antes e depois
       rascunho.itens.splice(rascunho.itens.indexOf(a) + 1, 0, copia);
       selK = copia._k;
       desenharLista(); desenharItem(); mudou();
@@ -1350,6 +1480,19 @@
         if (!(a.config.passos || []).some(x => x.trim())) return n + ' está sem o passo a passo.';
         continue;
       }
+      if (a.tipo === 'relampago') {
+        const ps = a.config.perguntas || [];
+        if (ps.filter(q => (q.pergunta || '').trim()).length < 2) return n + ' precisa de pelo menos 2 perguntas.';
+        for (let k = 0; k < ps.length; k++) {
+          const q = ps[k];
+          if (!(q.pergunta || '').trim()) continue;
+          if (q.opcoes.filter(o => (o || '').trim()).length < 2) return n + ': a pergunta ' + (k + 1) + ' precisa de pelo menos 2 alternativas.';
+          if (q.correta == null || !(q.opcoes[q.correta] || '').trim()) return n + ': marque a alternativa certa da pergunta ' + (k + 1) + '.';
+        }
+        continue;
+      }
+      if (['reacao', 'checkin', 'checkout', 'perguntas'].includes(a.tipo)) continue;   // a frase é opcional
+      if (a.tipo === 'mural' && !a.pergunta.trim()) return n + ' está sem o desafio.';
       if (a.tipo === 'ferramenta') {
         if (!a.pergunta.trim()) return n + ': escolha a ferramenta.';
         if (!/^https:\/\/\S+$/.test((a.config.url || '').trim())) return n + ': o link precisa começar com https://';
@@ -1367,9 +1510,11 @@
     return null;
   }
 
+  const PADRAO_PERGUNTA = { reacao: 'O que você achou disso?', checkin: 'Como você está chegando para a aula?', checkout: 'O que você leva desta aula?',
+    perguntas: 'Qual é a sua dúvida?', relampago: 'Rodada relâmpago' };
   function paraEnviar() {
     return rascunho.itens.map(a => {
-      const o = { id: a.id || null, tipo: a.tipo, pergunta: a.pergunta, tempo: a.tempo || 0, config: Object.assign({}, a.config), notas: a.notas || '' };
+      const o = { id: a.id || null, tipo: a.tipo, pergunta: a.pergunta.trim() || PADRAO_PERGUNTA[a.tipo] || a.pergunta, tempo: a.tempo || 0, config: Object.assign({}, a.config), notas: a.notas || '' };
       if (a.tipo === 'slide') {
         o.opcoes = []; o.config = { imagem: a.config.imagem, celular: a.config.celular !== false, texto: a.config.texto || '', materiais: a.config.materiais || [] };
       } else if (a.tipo === 'grupo') {
@@ -1379,6 +1524,19 @@
         o.opcoes = []; o.config = {}; o.tempo = 0;
       } else if (a.tipo === 'ferramenta') {
         o.opcoes = []; o.config = { url: (a.config.url || '').trim(), codigo: a.config.codigo || '', instrucao: a.config.instrucao || '' };
+      } else if (a.tipo === 'relampago') {
+        o.opcoes = []; o.tempo = 0;
+        o.config = { segundos: a.config.segundos || 12, perguntas: (a.config.perguntas || []).filter(q => (q.pergunta || '').trim()).map(q => {
+          const ops = []; let certa = null;
+          q.opcoes.forEach((t, j) => { if ((t || '').trim()) { if (j === q.correta) certa = ops.length; ops.push(t.trim()); } });
+          return { pergunta: q.pergunta.trim(), opcoes: ops, correta: certa };
+        }) };
+      } else if (['reacao', 'checkin', 'checkout'].includes(a.tipo)) {
+        o.opcoes = []; o.config = {};
+      } else if (a.tipo === 'perguntas') {
+        o.opcoes = []; o.config = { max: a.config.max || 3 };
+      } else if (a.tipo === 'mural') {
+        o.opcoes = []; o.config = { ideias: a.config.ideias || 2, votos: a.config.votos || 3 };
       } else if (a.tipo === 'quiz') {
         const lista = [];
         let certa = null;
@@ -1662,6 +1820,14 @@
           return { rotulo: comResp ? 'Ver as respostas dos grupos' : 'Encerrar o exercício', fn: () => acao('aovivo_mostrar_resultado') };
         }
         if (tipo === 'ferramenta') return { rotulo: 'Encerrar a ferramenta', fn: () => acao('aovivo_mostrar_resultado') };
+        if (tipo === 'mural') return (p.atividade.etapa || 'escrever') === 'escrever'
+          ? { rotulo: 'Abrir a votação ▶', fn: () => acao('aovivo_mural_etapa', { p_etapa: 'votar' }, 'Votação aberta: os celulares mostram as ideias para votar.') }
+          : { rotulo: 'Mostrar as ideias mais votadas', fn: () => acao('aovivo_mostrar_resultado') };
+        if (tipo === 'relampago') {
+          const f = A.faseRelampago(p.atividade, agoraServidor());
+          return { rotulo: f.fase === 'fim' ? 'Mostrar o placar final 🏁' : 'Encerrar a rodada e mostrar o placar', fn: () => acao('aovivo_mostrar_resultado') };
+        }
+        if (tipo === 'perguntas') return { rotulo: 'Fechar o mural de perguntas', fn: () => acao('aovivo_mostrar_resultado') };
         return { rotulo: 'Mostrar resultado', fn: () => acao('aovivo_mostrar_resultado') };
       case 'resultado':
         if (tipo === 'quiz') return { rotulo: 'Ver ranking 🏆', fn: () => acao('aovivo_mostrar_ranking') };
@@ -1673,6 +1839,13 @@
         return { rotulo: 'Encerrar a aula', fn: encerrar };
       case 'encerrada':
         return { rotulo: 'Reabrir a aula', fn: () => acao('aovivo_mudar_fase', { p_fase: 'lobby' }) };
+      case 'intervalo': {
+        // volta para o slide em que parou; se parou numa atividade, segue para o item seguinte
+        const it = L[i];
+        if (!it) return { rotulo: 'Voltar para a aula ▶', fn: () => irPara(0), k: 0 };
+        if (it.tipo === 'slide' || it.tipo === 'entrada') return { rotulo: 'Voltar para a aula ▶', fn: () => irPara(i), k: i };
+        return L[i + 1] ? { rotulo: 'Voltar para a aula ▶', fn: () => irPara(i + 1), k: i + 1 } : fim();
+      }
     }
     return { rotulo: 'Começar', fn: () => {} };
   }
@@ -1714,6 +1887,7 @@
     else if (k === 's') abrirSorteio();
     else if (k === 'q') acao('aovivo_mudar_fase', { p_fase: 'lobby' });
     else if (k === 'm') alternarMusica();
+    else if (k === 'i') abrirIntervalo();
   }
   document.addEventListener('keydown', e => {
     if ($('vistaPainel').classList.contains('oculto')) return;
@@ -1722,7 +1896,7 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
     if (window.MusicaEspera) MusicaEspera.preparar();   // qualquer tecla libera o som no navegador
-    if ([' ', 'arrowright', 'arrowleft', 'arrowdown', 'arrowup', 'pagedown', 'pageup', 'enter', 'b', '.', 'r', 's', 'q', 'm'].includes(k)) {
+    if ([' ', 'arrowright', 'arrowleft', 'arrowdown', 'arrowup', 'pagedown', 'pageup', 'enter', 'b', '.', 'r', 's', 'q', 'm', 'i'].includes(k)) {
       e.preventDefault();
       if (document.activeElement.tagName === 'BUTTON') document.activeElement.blur();
       tecla(k);
@@ -1786,9 +1960,10 @@
     if (p.tela_preta) rot += ' · tela preta';
     else if (p.fase === 'slide' && it) rot += ' · Slide ' + numeroSlide(i) + ' de ' + totalSlides();
     else if (p.fase === 'atividade' && it) rot += ' · ' + TIPOS[it.tipo].nome + ' ao vivo';
-    else if (p.fase === 'resultado' && it) rot += ' · resultado ' + ({ quiz: 'do quiz', nuvem: 'da nuvem de palavras', votacao: 'da votação', escala: 'da escala', grupo: 'dos grupos', ferramenta: 'da ferramenta' }[it.tipo] || '');
+    else if (p.fase === 'resultado' && it) rot += ' · resultado ' + ({ quiz: 'do quiz', nuvem: 'da nuvem de palavras', votacao: 'da votação', escala: 'da escala', grupo: 'dos grupos', ferramenta: 'da ferramenta',
+      reacao: 'das reações', checkin: 'do check-in', checkout: 'do check-out', perguntas: 'do mural de perguntas', mural: 'do mural de ideias', relampago: 'da rodada relâmpago' }[it.tipo] || '');
     else if (emBoasVindas(p)) rot += ' · boas-vindas com o QR code';
-    else rot += ' · ' + ({ lobby: 'QR code para entrar', ranking: 'ranking', sorteio: 'sorteio', encerrada: 'aula encerrada' }[p.fase] || '');
+    else rot += ' · ' + ({ lobby: 'QR code para entrar', ranking: 'ranking', sorteio: 'sorteio', encerrada: 'aula encerrada', intervalo: 'intervalo' }[p.fase] || '');
     $('pAgoraRotulo').textContent = rot;
     $('pAgoraPos').textContent = i >= 0 ? 'Item ' + (i + 1) + ' de ' + L.length : '';
 
@@ -1828,12 +2003,23 @@
         if (p.atividade.tipo === 'grupo') return 'O telão e o celular mostram as instruções e o cronômetro. Quando o tempo acaba, o celular de todos vibra para voltar. Dê +1 min se precisar e clique em "Ver as respostas dos grupos" quando todos voltarem.';
         if (p.atividade.tipo === 'ferramenta') return 'O celular mostra o botão "Abrir a ferramenta" e o telão mostra o QR code dela. Acompanhe ao lado quantos já terminaram.';
         if (p.atividade.tipo === 'quiz') return 'Quando todo mundo responde ou o tempo acaba, o resultado aparece sozinho no telão.';
+        if (p.atividade.tipo === 'reacao') return 'Os emojis voam no telão enquanto a turma toca. Comente o que apareceu e siga quando quiser.';
+        if (p.atividade.tipo === 'checkin') return 'O telão mostra como a turma está chegando. Use para ajustar o ritmo da aula.';
+        if (p.atividade.tipo === 'checkout') return 'As frases aparecem no telão sem o nome. Leia algumas em voz alta para fechar a aula. Ao lado, dá para esconder alguma.';
+        if (p.atividade.tipo === 'perguntas') return 'As perguntas chegam sem o nome e as mais curtidas sobem. Ao lado, marque "Respondida" depois de responder ou esconda a que não deve aparecer.';
+        if (p.atividade.tipo === 'mural') return (p.atividade.etapa || 'escrever') === 'escrever'
+          ? 'Etapa 1: todos escrevem as ideias, que aparecem como post-its no telão. Quando quiser, clique em "Abrir a votação".'
+          : 'Etapa 2: cada um vota nas melhores ideias dos colegas. Depois, mostre as mais votadas.';
+        if (p.atividade.tipo === 'relampago') return 'As perguntas passam sozinhas, com a resposta certa e o placar entre uma e outra. No fim, mostre o placar final (ou ele aparece sozinho).';
         if (p.atividade.tempo > 0) return 'Quando o tempo acabar, quem ainda não respondeu continua conseguindo responder. Aí você escolhe: dar mais tempo, mostrar o resultado ou seguir para o próximo slide.';
         return 'Sem limite de tempo. Clique em "Mostrar resultado" quando quiser fechar.';
-      case 'resultado': return it && it.tipo === 'quiz' ? 'Comente o resultado e depois mostre o ranking.' : 'Comente o resultado com a turma e siga para o próximo item.';
+      case 'resultado': return it && it.tipo === 'quiz' ? 'Comente o resultado e depois mostre o ranking.'
+        : it && it.tipo === 'mural' ? 'As ideias mais votadas estão no telão. Comente com a turma e siga.'
+        : 'Comente o resultado com a turma e siga para o próximo item.';
       case 'ranking': return 'Ranking no telão. Os alunos veem a própria posição no celular.';
       case 'sorteio': return 'O nome aparece no telão em 4 segundos.';
       case 'encerrada': return 'Aula encerrada. O telão mostra o resultado final.';
+      case 'intervalo': return 'Intervalo: o telão e o celular mostram a contagem e a hora da volta, com música pelo painel (no Zoom, marque "Compartilhar som"). Para voltar, clique em "Voltar para a aula".';
     }
     return '';
   }
@@ -1857,6 +2043,7 @@
     const it = i >= 0 ? L[i] : null;
     let html = '';
     if (p.fase === 'lobby') html += cardSala();
+    if (p.fase === 'intervalo') html += cardIntervalo();
     if ((p.fase === 'atividade' || p.fase === 'resultado') && it && it.tipo !== 'slide') html += cardRespostas(it);
     if (p.fase === 'sorteio') html += cardSorteado();
     if (it && (p.fase !== 'lobby' || it.tipo === 'entrada')) {
@@ -1897,6 +2084,14 @@
         popover(ev, 'Apagar "' + esc(t) + '" da nuvem?', 'Apagar', () => acao('aovivo_remover_palavra', { p_atividade: painel.atividade.id, p_palavra: t }, 'Palavra apagada.'));
       });
       lat.querySelectorAll('[data-convite]').forEach(b => b.onclick = () => copiar(textoConvite(), 'Convite copiado. Cole no chat do Zoom ou do Meet.'));
+      lat.querySelectorAll('[data-txt-resp]').forEach(b => b.onclick = () => acao('aovivo_marcar_texto', { p_resposta: Number(b.dataset.txtResp), p_acao: 'respondida' }));
+      lat.querySelectorAll('[data-txt-ocultar]').forEach(b => b.onclick = ev => popover(ev, 'Esconder do telão e dos celulares?', 'Esconder',
+        () => acao('aovivo_marcar_texto', { p_resposta: Number(b.dataset.txtOcultar), p_acao: 'ocultar' }, 'Escondido.')));
+      lat.querySelectorAll('[data-int-mais]').forEach(b => b.onclick = () => {
+        const fim = Date.parse((painel.extra || {}).fim), resta = Math.max(0, Math.ceil((fim - agoraServidor()) / 60000));
+        acao('aovivo_intervalo', { p_minutos: Math.min(60, resta + 5) }, '+5 minutos de intervalo');
+      });
+      lat.querySelectorAll('[data-int-mudar]').forEach(b => b.onclick = abrirIntervalo);
       lat.querySelectorAll('[data-sortear-grupos]').forEach(b => b.onclick = ev => popover(ev, 'Sortear os grupos de novo? Os alunos veem os grupos novos no celular.', 'Sortear', () => acao('aovivo_sortear_grupos', {}, 'Grupos sorteados de novo.')));
       lat.querySelectorAll('[data-copiar-grupos]').forEach(b => b.onclick = () => copiar(textoGrupos(painel.atividade.grupos || []), 'Lista dos grupos copiada. Cole no chat ou use para montar as salas do Zoom.'));
     }
@@ -1971,9 +2166,60 @@
     $('pnRelogioTxt').textContent = resta > 0 ? 'para acabar' : 'tempo esgotado: chame a turma de volta';
   }
 
+  function cardIntervalo() {
+    const x = painel.extra || {};
+    return '<div class="pn-card"><div class="pn-card-cab"><span class="etiqueta">☕ Intervalo</span></div>' +
+      '<p class="pn-grande"><b id="pnIntervalo">…</b></p><p class="dica">Volta às ' + esc(A.horaDe(x.fim)) + '. O telão e o celular mostram a contagem.</p>' +
+      '<div class="linha" style="margin-top:8px"><button class="btn btn-secundario btn-mini" data-int-mais>+5 min</button><button class="btn btn-secundario btn-mini" data-int-mudar>Mudar o tempo</button></div></div>';
+  }
+  function atualizarIntervaloPainel() {
+    const el = $('pnIntervalo');
+    if (!el || !painel || painel.fase !== 'intervalo') return;
+    const resta = Math.ceil((Date.parse((painel.extra || {}).fim) - agoraServidor()) / 1000);
+    el.textContent = resta > 0 ? A.mmss(resta) + ' para voltar' : 'Hora de voltar!';
+  }
+
+  function cardRelampago(it) {
+    const p = painel, r = p.ao_vivo || {}, aoVivo = p.fase === 'atividade';
+    const f = aoVivo ? A.faseRelampago(p.atividade, agoraServidor()) : null;
+    const qs = r.questoes || [], q = f ? f.q : 0;
+    const resp = qs[q] ? (qs[q].contagem || []).reduce((s, n) => s + n, 0) : 0;
+    const pl = r.placar || [];
+    return '<div class="pn-card"><div class="pn-card-cab"><span class="etiqueta">🏁 ' + esc(it.pergunta || 'Rodada relâmpago') + '</span></div>' +
+      (aoVivo ? '<p class="pn-grande"><b id="pnRelampago">…</b></p><p class="dica">' + resp + ' de ' + p.participantes.length + ' responderam esta pergunta.</p>' : '') +
+      (pl.length ? '<div class="pn-turma" style="margin-top:10px">' + pl.slice(0, 6).map((x, k) => '<div><i style="background:' + (x.equipe ? corEquipe(p.equipes, x.equipe) : 'var(--menta)') + '"></i><span>' +
+        (k + 1) + 'º ' + esc(x.nome) + '</span><b>' + Number(x.pontos).toLocaleString('pt-BR') + '</b></div>').join('') + '</div>' +
+        '<p class="dica">Placar da rodada. O telão mostra entre as perguntas.</p>' : '') + '</div>';
+  }
+  function atualizarRelampagoPainel() {
+    const el = $('pnRelampago');
+    if (!el || !painel || painel.fase !== 'atividade' || !painel.atividade || painel.atividade.tipo !== 'relampago') return;
+    const f = A.faseRelampago(painel.atividade, agoraServidor());
+    el.textContent = f.fase === 'fim' ? 'A rodada acabou' : 'Pergunta ' + (f.q + 1) + ' de ' + f.n + (f.fase === 'pergunta' ? ' · ' + Math.ceil(f.resta) + ' s' : ' · mostrando a certa');
+  }
+
+  function cardTextos(it) {
+    const p = painel, r = p.ao_vivo || (p.fase === 'resultado' ? p.extra : null) || {};
+    if (it.tipo === 'checkout') {
+      const fr = r.frases || [];
+      return fr.length ? '<div class="pn-textos">' + fr.slice(0, 40).map(x => '<div class="pn-texto"><p>' + esc(x.texto) + '</p><div class="pn-texto-acoes">' +
+        '<button class="btn btn-secundario btn-mini" data-txt-ocultar="' + x.id + '">Esconder</button></div></div>').join('') + '</div>' : '<p class="dica">As frases aparecem aqui.</p>';
+    }
+    const L = r.itens || [], mural = it.tipo === 'mural';
+    const votos = !mural || r.etapa === 'votar' || p.fase === 'resultado';
+    return (mural ? '<p class="dica">' + (r.etapa === 'votar' ? 'Etapa 2: votação aberta · ' + (r.votantes || 0) + (r.votantes === 1 ? ' pessoa votou' : ' pessoas votaram')
+        : 'Etapa 1: escrevendo · ' + (r.autores || 0) + (r.autores === 1 ? ' pessoa mandou ideia' : ' pessoas mandaram ideias')) + '</p>' : '') +
+      (L.length ? '<div class="pn-textos">' + L.slice(0, 60).map(x => '<div class="pn-texto' + (x.respondida ? ' feita' : '') + '"><p>' + esc(x.texto) + '</p><div class="pn-texto-acoes">' +
+        (votos ? '<span class="pn-curtidas">' + (mural ? '★ ' : '♥ ') + x.n + '</span>' : '') +
+        (!mural ? '<button class="btn btn-secundario btn-mini" data-txt-resp="' + x.id + '">' + (x.respondida ? 'Desmarcar' : '✓ Respondida') + '</button>' : '') +
+        '<button class="btn btn-secundario btn-mini" data-txt-ocultar="' + x.id + '">Esconder</button></div></div>').join('') + '</div>'
+        : '<p class="dica">' + (mural ? 'As ideias aparecem aqui.' : 'As perguntas aparecem aqui.') + '</p>');
+  }
+
   function cardRespostas(it) {
     if (it.tipo === 'grupo') return cardGrupo(it);
     if (it.tipo === 'ferramenta') return cardFerramenta(it);
+    if (it.tipo === 'relampago') return cardRelampago(it);
     const p = painel, r = p.ao_vivo || {};
     const total = r.total || 0, n = p.participantes.length;
     const aoVivo = p.fase === 'atividade';
@@ -1991,6 +2237,14 @@
       const d = r.distribuicao || [], max = Math.max(1, ...d);
       corpo = '<div class="pn-escala"><div class="pn-escala-media"><b>' + (r.media == null ? '…' : String(r.media).replace('.', ',')) + '</b><span>média</span></div><div class="pn-escala-cols">' +
         d.map((x, j) => '<span title="' + j + ': ' + x + '"><i style="height:' + (x / max * 100) + '%"></i><small>' + j + '</small></span>').join('') + '</div></div>';
+    } else if (it.tipo === 'reacao' || it.tipo === 'checkin') {
+      const cont = r.contagem || [], max = Math.max(1, ...cont);
+      const rots = it.tipo === 'reacao' ? REACOES : HUMORES.map(h => h.e + ' ' + h.t);
+      corpo = '<div class="pn-dist">' + rots.map((o, j) => '<div class="pn-dist-linha"><span class="pn-dist-txt">' + esc(o) + '</span><span class="pn-dist-barra"><i style="width:' +
+        ((cont[j] || 0) / max * 100) + '%;background:var(--menta)"></i></span><b>' + (cont[j] || 0) + '</b></div>').join('') + '</div>' +
+        (it.tipo === 'reacao' ? '<p class="dica">' + (r.toques || 0) + ' toques no total.</p>' : '');
+    } else if (it.tipo === 'checkout' || it.tipo === 'perguntas' || it.tipo === 'mural') {
+      corpo = cardTextos(it);
     } else if (it.tipo === 'nuvem') {
       const pal = r.palavras || [];
       corpo = pal.length ? '<div class="pn-palavras">' + pal.slice(0, 60).map(w => '<button class="pn-palavra" data-palavra="' + esc(w.t) + '" title="Clique para apagar da nuvem">' + esc(w.t) + ' <small>' + w.n + '</small></button>').join('') + '</div>' +
@@ -2041,6 +2295,8 @@
     const p = painel;
     if (!p || p.fase !== 'atividade' || !p.atividade) return;
     const a = p.atividade;
+    // rodada relâmpago: quando a última pergunta termina, o placar final aparece sozinho
+    if (a.tipo === 'relampago') { if (A.faseRelampago(a, agoraServidor()).fase === 'fim') autoResultado(a, 1500); return; }
     if (a.tipo === 'grupo' || a.tipo === 'ferramenta') return;   // aqui quem encerra é a apresentadora
     const total = (p.ao_vivo || {}).total || 0;
     if (a.tipo === 'quiz' && p.participantes.length > 0 && total >= p.participantes.length) autoResultado(a, 900);
@@ -2076,6 +2332,8 @@
     }
     atualizarStatusTelao();
     atualizarRelogioGrupo();
+    atualizarRelampagoPainel();
+    atualizarIntervaloPainel();
     verificarAuto();
     tempoEsgotado();
     musicaAutomatica();
@@ -2087,7 +2345,7 @@
     const p = painel, b = $('pSeguir');
     if (!b) return;
     const a = p && p.fase === 'atividade' && p.atividade;
-    const acabou = !!a && a.tipo !== 'quiz' && a.tempo > 0 && agoraServidor() >= Date.parse(a.iniciada_em) + a.tempo * 1000;
+    const acabou = !!a && a.tipo !== 'quiz' && a.tipo !== 'relampago' && a.tempo > 0 && agoraServidor() >= Date.parse(a.iniciada_em) + a.tempo * 1000;
     b.classList.toggle('oculto', !acabou);
     if (acabou && !p.tela_preta) {
       $('pDica').textContent = '⏰ O tempo acabou, mas quem ainda não terminou continua conseguindo responder. Dê +1 min, ' +
@@ -2099,19 +2357,40 @@
     if (L[i + 1]) irPara(i + 1); else proximoPasso().fn();
   };
 
-  /* ---------- Música da sala de espera ---------- */
+  /* ---------- Música da sala de espera (e do intervalo) ---------- */
   let musicaDesligada = false, musicaAuto = false;
+  function querMusica(p) { return emBoasVindas(p) || (!!p && p.fase === 'intervalo'); }
+
+  /* ---------- Intervalo ---------- */
+  function abrirIntervalo() {
+    if (document.querySelector('.fundo-modal')) return;
+    let min = 10;
+    modal('<h2>☕ Intervalo</h2><p class="dica">O telão e o celular dos alunos mostram a contagem e a hora da volta. A música toca pelo painel (no Zoom, marque "Compartilhar som"). Quando quiser, clique em "Voltar para a aula".</p>' +
+      '<div class="campo"><label>Quanto tempo?</label><div class="segmentado">' + [5, 10, 15, 20, 30].map(n => '<button type="button" data-min="' + n + '"' + (n === min ? ' class="ativo"' : '') + '>' + n + ' min</button>').join('') + '</div></div>' +
+      '<div class="acoes"><button class="btn btn-secundario" data-fechar>Cancelar</button><button class="btn btn-principal" id="btnIntervaloIr">Começar o intervalo</button></div>', (f, fechar) => {
+      f.querySelectorAll('[data-min]').forEach(b => b.onclick = () => {
+        f.querySelectorAll('[data-min]').forEach(x => x.classList.remove('ativo')); b.classList.add('ativo'); min = Number(b.dataset.min);
+      });
+      f.querySelector('#btnIntervaloIr').onclick = () => {
+        fechar();
+        if (window.MusicaEspera) MusicaEspera.preparar();
+        musicaDesligada = false;
+        acao('aovivo_intervalo', { p_minutos: min }, 'Intervalo de ' + min + ' minutos. Bom café!');
+      };
+    });
+  }
+  $('pIntervalo').onclick = abrirIntervalo;
   function desenharMusica() {
     const b = $('pMusica'), M = window.MusicaEspera;
     if (!b || !M) return;
     b.textContent = M.tocando ? '🔇 Parar a música' : '🎵 Música';
     b.classList.toggle('ligado', M.tocando);
-    b.classList.toggle('chamando', !M.tocando && !musicaDesligada && emBoasVindas(painel));
+    b.classList.toggle('chamando', !M.tocando && !musicaDesligada && querMusica(painel));
   }
   function musicaAutomatica() {
     const M = window.MusicaEspera;
     if (!M || !painel || $('vistaPainel').classList.contains('oculto')) return;
-    if (emBoasVindas(painel)) {
+    if (querMusica(painel)) {
       if (!M.tocando && !musicaDesligada && M.liberada) { musicaAuto = true; M.tocar(); }
     } else if (M.tocando && musicaAuto) { musicaAuto = false; M.parar(); }
     desenharMusica();
@@ -2120,7 +2399,7 @@
     const M = window.MusicaEspera;
     if (!M) return;
     if (M.tocando) { musicaDesligada = true; musicaAuto = false; M.parar(true); }
-    else { musicaDesligada = false; musicaAuto = emBoasVindas(painel); M.preparar(); M.tocar().then(ok => { if (!ok) toast('Clique de novo em "Música" para o navegador liberar o som.', true); }); }
+    else { musicaDesligada = false; musicaAuto = querMusica(painel); M.preparar(); M.tocar().then(ok => { if (!ok) toast('Clique de novo em "Música" para o navegador liberar o som.', true); }); }
     desenharMusica();
   }
   if (window.MusicaEspera) MusicaEspera.aoMudar(desenharMusica);
