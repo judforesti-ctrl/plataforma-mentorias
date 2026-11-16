@@ -1,0 +1,20 @@
+-- 79 · Mentorei Ao Vivo: depois da aula de 16/11/2026 (pedidos da Juliana). Já rodado pelo Claude no banco
+-- (migração aovivo_23_tempo_flexivel_e_boas_vindas). Registro do que mudou; as funções no banco são a versão que vale.
+--
+-- 1) aovivo_publico devolve 'inicio' (modulos.data_hora), 'duracao_min', 'turma' e 'empresa' (da turma do módulo ou
+--    aovivo_sessoes.empresa_id): a tela de boas-vindas do telão mostra o nome da aula, o horário e a contagem até começar.
+-- 2) aovivo_responder: só o quiz tem corte de tempo (jogo de rapidez). Nuvem, votação e escala aceitam resposta depois que
+--    o tempo acaba, até a professora seguir. Era:
+--      if a.tipo not in ('grupo', 'ferramenta') and v_tempo > 0 and v_ms > v_tempo * 1000 + 2000 then raise exception 'O tempo acabou!';
+--    ficou:
+--      if v_atrasado then v_ms := 0; end if;
+--      if a.tipo = 'quiz' and v_tempo > 0 and v_ms > v_tempo * 1000 + 2000 then raise exception 'O tempo acabou!';
+-- 3) aovivo_responder: exercício em grupo e ferramenta aceitam resposta ATRASADA (a aula já seguiu) quando a atividade já
+--    passou (encerrada_em, aula encerrada/ranking/sorteio, alguém já respondeu ou ordem <= a do item atual); aula precisa ter
+--    começado. A conferência "atividade atual" virou:
+--      select * into a from aovivo_atividades where id = p_atividade and sessao_id = s.id and not arquivada;
+--      v_atrasado := s.fase <> 'atividade' or (s.atividade->>'id')::uuid is distinct from p_atividade;
+--      if v_atrasado and (a.tipo not in ('grupo','ferramenta') or s.comecou_em is null or not (...)) then raise 'Essa atividade já foi encerrada.';
+-- 4) aovivo_estado: eu.pendentes = ferramentas que o aluno abriu e ainda não marcou "Terminei" (menos a que está no ar):
+--    o celular mostra "Ainda na ferramenta X? ... Terminei ✓".
+-- 5) aovivo_salvar_roteiro: tempo de nuvem, votação e escala até 3600 s (era 600). Quiz continua 5 a 180 s; grupo 60 a 3600 s.

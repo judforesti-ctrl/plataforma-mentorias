@@ -1206,6 +1206,28 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   do QR code (regra 12 do prompt e `colocarSugestoes`). Aula ENCERRADA (ensaio) abre no editor com "Zerar para a próxima aula"
   (aovivo_reiniciar com p_remover_participantes: tira pessoas, respostas e pontos; comecou_em volta a vazio). Testes (fora do git):
   /home/claude/aovivo/teste/qr_roteiro.py e qr_zerar.py.
+  MUDOU NA TARDE DE 16/11 (depois da aula dela, item 13): o QR code VOLTOU a ser a 1ª tela, agora como BOAS-VINDAS; a capa
+  antes de começar e o item automático saíram (`tirarQRAutomatico` tira o item que a plataforma tinha posto logo depois do 1º
+  slide, sem frase, em aula não começada). O item 'entrada' ficou como "📱 QR code de novo" (opcional, no fim da lista).
+  (13) DEPOIS DA 1ª AULA DE VERDADE (16/11/2026, tarde, script 79 rodado pelo conector; Sicredi Expansão, 33 pessoas).
+  BOAS-VINDAS NO TELÃO (antes de começar = lobby sem comecou_em): QR code grande, "ou acesse… e digite o código", empresa ·
+  turma, "Seja bem-vindo(a)!", nome da aula, "A aula começa às 14h" (`quandoComeca` em comum.js; outro dia = "no dia 18/11,
+  às 14h"; vem de modulos.data_hora pelo aovivo_publico), recado dos materiais pelo celular, nomes de quem entrou e a CONTAGEM
+  no canto (`contagem()` no tique do telão; "Está na hora! Já vamos começar"). Enter/"Começar a aula: ir para a capa" vai para o
+  1º slide. O celular mostra "A aula começa às…". MÚSICA DA ESPERA (`aovivo/js/musica.js`, `window.MusicaEspera`): composta no
+  navegador (sem arquivo nem direito autoral: Fmaj9-Em7-Dm9-Cmaj9 a 80 bpm, piano elétrico, baixo, bateria leve e melodia,
+  16 compassos ≈ 48 s em laço, montada uma vez com OfflineAudioContext a 24 kHz); toca NO PAINEL (o clique em "Projetar os
+  slides" libera o som), começa sozinha nas boas-vindas e para sozinha ao começar; botão "🎵 Música" (tecla M) liga e desliga a
+  qualquer hora. No Zoom ela marca "Compartilhar som" (Teams: "Incluir som"). TEMPO: só o QUIZ fecha sozinho quando o tempo
+  acaba; nuvem, votação e escala continuam aceitando resposta (celular: "O tempo acabou, mas ainda dá para responder") e o painel
+  mostra "Seguir para o próximo slide ›" (`pSeguir`) + "+1 min" (+15 s só no quiz). Quem estava no meio TERMINA DEPOIS que a aula
+  seguiu: ferramenta aberta sem "Terminei" vira aviso no celular com "Terminei ✓" (aovivo_estado → eu.pendentes) e a resposta do
+  grupo que estava sendo escrita vira "Enviar a resposta do grupo" (aovivo_responder aceita grupo/ferramenta atrasados). TEMPO
+  DIGITADO: no editor, campo "minutos" (aceita 1,5; quiz em segundos; 0 = sem limite) e o mesmo campo ⏱ na linha de cada
+  atividade do roteiro (`tempoInfo`/`tempoDoCampo`); nuvem/votação/escala até 60 min. PDF DO EXERCÍCIO EM GRUPO: logo depois de
+  "O que cada grupo leva de volta", área "Arraste o PDF aqui / Escolher o PDF" (`enviarArquivosMaterial`). Painel: "Encerrar aula"
+  vira "✓ Aula encerrada" (cinza, desligado) e o relógio para; botão do editor "▶ Projetar os slides". Teste (fora do git):
+  /home/claude/aovivo/teste/novidades16.py; música: /home/claude/aovivo/teste/musica/t.py.
   Testes (fora do git): /home/claude/aovivo/teste/grupo.py, apresentacao.py e conv.py (Chrome sem janela, servidor de mentira);
   /home/claude/teste-conv/t.mjs (função com Google e Supabase de mentira).
 

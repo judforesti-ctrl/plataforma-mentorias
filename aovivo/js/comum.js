@@ -198,7 +198,7 @@
     escala: { nome: 'Escala', icone: '📊', curto: 'Escala' },
     grupo: { nome: 'Exercício em grupo', icone: '👥', curto: 'Grupo' },
     ferramenta: { nome: 'Ferramenta', icone: '🧭', curto: 'Ferramenta' },
-    entrada: { nome: 'QR code para entrar', icone: '📱', curto: 'QR code' }
+    entrada: { nome: 'QR code de novo', icone: '📱', curto: 'QR code' }
   };
 
   /* Ferramentas on-line da plataforma Mentorei que abrem no celular do aluno */
@@ -217,6 +217,17 @@
     { codigo: 'MNT-JOR-06', nome: 'Radar da Liderança', url: 'https://radardalideranca.netlify.app/radar/' }
   ];
 
+  // hora de início da aula, em Brasília: "às 14h" / "às 14h30" (outro dia: "no dia 18/11, às 14h")
+  function quandoComeca(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    const fuso = { timeZone: 'America/Sao_Paulo' };
+    const [h, m] = d.toLocaleTimeString('pt-BR', Object.assign({ hour: '2-digit', minute: '2-digit', hour12: false }, fuso)).split(':');
+    const hora = 'às ' + Number(h) + 'h' + (m === '00' ? '' : m);
+    const dia = x => x.toLocaleDateString('pt-BR', Object.assign({ day: '2-digit', month: '2-digit' }, fuso));
+    return dia(d) === dia(new Date(agoraServidor())) ? hora : 'no dia ' + dia(d) + ', ' + hora;
+  }
+
   function mmss(s) {
     s = Math.max(0, Math.round(s || 0));
     return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
@@ -224,6 +235,6 @@
 
   window.AoVivo = {
     sb, rpc, agoraServidor, esc, corEquipe, CORES_EQUIPE, ALTERNATIVAS, formaSVG,
-    desenharNuvem, confete, qrSVG, enderecoAluno, formatarCodigo, ordinal, TIPOS, FERRAMENTAS, mmss
+    desenharNuvem, confete, qrSVG, enderecoAluno, formatarCodigo, ordinal, TIPOS, FERRAMENTAS, mmss, quandoComeca
   };
 })();

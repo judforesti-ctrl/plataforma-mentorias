@@ -43,24 +43,21 @@
       selo.classList.toggle('oculto', e.fase === 'lobby');
       q('.tt-preta').classList.toggle('oculto', !e.tela_preta);
 
-      // antes de começar, com o QR code no roteiro: o telão mostra a capa (o 1º slide do mentor), não o QR
-      const capa = e.fase === 'lobby' && !e.atividade && !e.comecou_em && !(e.extra && e.extra.qr) && e.capa && e.entrada_ordem != null ? e.capa : null;
-      const ehSlide = capa || (e.fase === 'slide' && e.atividade && e.atividade.imagem);
-      // a faixinha com o código só aparece depois do QR code do roteiro (antes, o mentor ainda está explicando)
-      const antesDoQR = !!capa || (e.entrada_ordem != null && e.atividade && e.atividade.ordem != null && e.atividade.ordem < e.entrada_ordem);
+      const ehSlide = e.fase === 'slide' && e.atividade && e.atividade.imagem;
       raiz.classList.toggle('modo-slide', !!ehSlide);
       q('.tt-slide').classList.toggle('oculto', !ehSlide);
-      q('.tt-cod').classList.toggle('oculto', !ehSlide || antesDoQR);
+      q('.tt-cod').classList.toggle('oculto', !ehSlide);
       if (ehSlide) {
-        trocarImagem(capa || e.atividade.imagem);
-        chave = 'slide|' + (capa ? 'capa' : e.atividade.id);
+        trocarImagem(e.atividade.imagem);
+        chave = 'slide|' + e.atividade.id;
         palco.innerHTML = '';
         return;
       }
 
       const a = e.atividade;
       const k = [e.fase, a && a.id, a && a.iniciada_em, e.extra && e.extra.em, e.fase === 'ranking' || e.fase === 'encerrada' ? e.versao : '',
-        a && a.grupos ? JSON.stringify(a.grupos) : '', e.fase === 'encerrada' ? e.avaliacao : ''].join('|');
+        a && a.grupos ? JSON.stringify(a.grupos) : '', e.fase === 'encerrada' ? e.avaliacao : '',
+        e.fase === 'lobby' ? [e.comecou_em ? 1 : 0, e.titulo, e.inicio, e.empresa, e.turma].join('~') : ''].join('|');
       if (k !== chave) {
         chave = k;
         palco.className = 'tt-palco';
@@ -87,16 +84,49 @@
       (lista || []).forEach(u => { if (u) { const im = new Image(); im.src = u; } });
     }
 
+    /* ---------- Boas-vindas (antes de começar; pedido da Juliana, 16/11/2026) ---------- */
+    function bolhasHTML(p) {
+      return p.modo_equipes ? '<div class="equipes-lobby" style="grid-template-columns:repeat(' + Math.min(p.equipes.length, 4) + ',1fr)">' +
+          p.equipes.map(eq => '<div class="equipe-col" style="border-color:' + corEquipe(p.equipes, eq) + '"><h3><span>' + esc(eq) + '</span><span data-qtd></span></h3><div class="bolhas" data-eq="' + esc(eq) + '"></div></div>').join('') + '</div>'
+        : '<div class="bolhas" data-todos></div>';
+    }
+    function montarBoasVindas() {
+      const p = e, quando = p.inicio ? A.quandoComeca(p.inicio) : '';
+      const quem = [p.empresa, p.turma].filter(Boolean).join(' · ');
+      palco.innerHTML = '<div class="boas-vindas">' +
+        '<div class="bv-qr"><div class="qr-grande">' + A.qrSVG(A.enderecoAluno(p.codigo)) + '</div>' +
+          '<p class="bv-cod">ou acesse <b>' + esc(dominio()) + '</b><br>e digite o código <b class="cod">' + A.formatarCodigo(p.codigo) + '</b></p></div>' +
+        '<div class="bv-txt">' + (quem ? '<span class="etiqueta">' + esc(quem) + '</span>' : '') +
+          '<h1>Seja bem-vindo(a)!</h1><h2>' + esc(p.titulo || '') + '</h2>' +
+          (quando ? '<p class="bv-hora"><span aria-hidden="true">🕑</span> A aula começa ' + esc(quando) + '</p>' : '') +
+          '<p class="bv-recado">Esta aula tem materiais de apoio que você vai acompanhar pelo celular. <b>Escaneie o QR code</b> e fique pronto para entrar na aula.</p>' +
+          bolhasHTML(p) + '</div>' +
+        '<div class="bv-contagem oculto"><span data-bv="txt">Começa em</span><b data-bv="num"></b></div></div>';
+      contagem();
+    }
+    function contagem() {
+      const box = palco.querySelector('.bv-contagem');
+      if (!box || !e) return;
+      const ini = e.inicio ? Date.parse(e.inicio) : NaN;
+      const falta = Math.ceil((ini - agoraServidor()) / 1000);
+      if (!isFinite(falta) || falta > 86400 || falta < -1800) { box.classList.add('oculto'); return; }
+      box.classList.remove('oculto');
+      box.classList.toggle('agora', falta <= 0);
+      box.classList.toggle('acabando', falta > 0 && falta <= 60);
+      box.querySelector('[data-bv="txt"]').textContent = falta > 0 ? 'Começa em' : 'Está na hora!';
+      box.querySelector('[data-bv="num"]').textContent = falta > 0
+        ? (falta >= 3600 ? Math.floor(falta / 3600) + 'h' + String(Math.floor(falta / 60) % 60).padStart(2, '0') : A.mmss(falta))
+        : 'Já vamos começar';
+    }
+
     /* ---------- Sala de espera ---------- */
     function montarLobby() {
       const p = e;
+      if (!p.comecou_em) return montarBoasVindas();
       palco.innerHTML = '<div class="lobby"><div class="qr-grande">' + A.qrSVG(A.enderecoAluno(p.codigo)) + '</div>' +
         '<div style="min-width:0"><h1>' + esc((p.atividade && p.atividade.tipo === 'entrada' && p.atividade.pergunta) || 'Pegue o celular e entre na aula!') + '</h1>' +
         '<p class="passos">Aponte a câmera para o QR code<br>ou acesse <b>' + esc(dominio()) + '</b> e digite o código:</p>' +
-        '<div class="codigo-gigante">' + A.formatarCodigo(p.codigo) + '</div>' +
-        (p.modo_equipes ? '<div class="equipes-lobby" style="grid-template-columns:repeat(' + Math.min(p.equipes.length, 4) + ',1fr)">' +
-          p.equipes.map(eq => '<div class="equipe-col" style="border-color:' + corEquipe(p.equipes, eq) + '"><h3><span>' + esc(eq) + '</span><span data-qtd></span></h3><div class="bolhas" data-eq="' + esc(eq) + '"></div></div>').join('') + '</div>'
-          : '<div class="bolhas" data-todos></div>') +
+        '<div class="codigo-gigante">' + A.formatarCodigo(p.codigo) + '</div>' + bolhasHTML(p) +
         '</div></div>';
     }
 
@@ -260,6 +290,7 @@
     }
 
     function tique() {
+      if (e && e.fase === 'lobby') { contagem(); return; }
       if (!e || e.fase !== 'atividade') return;
       const a = e.atividade;
       if (!a || !a.tempo) return;
@@ -434,7 +465,7 @@
       id: p.id, codigo: p.codigo, titulo: p.titulo, modo_equipes: p.modo_equipes, equipes: p.equipes,
       fase: p.fase, atividade: p.atividade, extra: p.extra, versao: p.versao, tela_preta: p.tela_preta,
       comecou_em: p.comecou_em, agora: p.agora, ao_vivo: ao, avaliacao: p.avaliacao, modulo: p.modulo,
-      capa: p.capa, entrada_ordem: p.entrada_ordem,
+      inicio: p.inicio, empresa: p.empresa, turma: p.turma,
       participantes: (p.participantes || []).map(x => ({ id: x.id, nome: x.nome, equipe: x.equipe }))
     };
   }

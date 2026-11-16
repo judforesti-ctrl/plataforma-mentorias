@@ -840,3 +840,57 @@ body.lendo { overflow: hidden; }
 .lembrete-percepcoes .acoes { justify-content: center; flex-wrap: wrap; }
 .lembrete-percepcoes a.btn { text-decoration: none; }
 .lembrete-percepcoes .dica { margin-bottom: 18px; line-height: 1.55; }
+
+/* ===== 16/11 (tarde): boas-vindas no telão, tempo digitado, PDF do grupo, terminar depois, música ===== */
+.boas-vindas { flex: 1; display: grid; grid-template-columns: auto 1fr; gap: 5cqw; align-items: center; min-height: 0; position: relative; }
+.boas-vindas .bv-qr { display: flex; flex-direction: column; align-items: center; gap: 2.4cqh; }
+.boas-vindas .qr-grande { background: #fff; border-radius: 2.8cqh; padding: 2cqh; box-shadow: 0 2cqh 5cqh rgba(0,0,0,.35); }
+.boas-vindas .qr-grande .qr { width: min(44cqh, 30cqw); height: auto; display: block; }
+.boas-vindas .bv-cod { color: var(--texto-2); font-size: 2.3cqh; line-height: 1.5; text-align: center; }
+.boas-vindas .bv-cod b { color: var(--texto); }
+.boas-vindas .bv-cod .cod { display: inline-block; font-family: var(--titulo); font-weight: 800; color: var(--menta); font-size: 3.6cqh; letter-spacing: .04em; margin-left: .4cqw; }
+.boas-vindas .bv-txt { min-width: 0; display: flex; flex-direction: column; gap: 1.6cqh; }
+.boas-vindas .etiqueta { font-size: 2cqh; }
+.boas-vindas h1 { font-size: 7.2cqh; line-height: 1.05; }
+.boas-vindas h2 { font-family: var(--titulo); font-weight: 800; font-size: 4.2cqh; line-height: 1.2; color: var(--menta-clara); }
+.boas-vindas .bv-hora { font-family: var(--titulo); font-weight: 800; font-size: 3.4cqh; color: var(--dourado); }
+.boas-vindas .bv-recado { font-size: 2.7cqh; line-height: 1.5; color: var(--texto-2); max-width: 60cqw; }
+.boas-vindas .bv-recado b { color: var(--texto); }
+.boas-vindas .bolhas { max-height: 20cqh; margin-top: 1cqh; }
+.bv-contagem { position: absolute; right: 0; bottom: 0; background: rgba(255,255,255,.06); border: 1px solid rgba(207,247,232,.18); border-radius: 2.4cqh; padding: 1.6cqh 2.4cqw; display: flex; flex-direction: column; align-items: flex-end; gap: .4cqh; }
+.bv-contagem span { font-size: 2cqh; color: var(--texto-2); text-transform: uppercase; letter-spacing: .12em; font-weight: 700; }
+.bv-contagem b { font-family: var(--titulo); font-weight: 800; font-size: 6.4cqh; line-height: 1; color: var(--texto); font-variant-numeric: tabular-nums; }
+.bv-contagem.acabando b { color: var(--dourado); }
+.bv-contagem.agora { border-color: var(--menta); }
+.bv-contagem.agora b { font-size: 3.8cqh; color: var(--menta); }
+.hora-aula { font-family: var(--titulo); font-weight: 800; color: var(--dourado); font-size: 18px; margin: 6px 0 4px; }
+
+/* tempo digitado */
+.tempo-dig { display: flex; align-items: center; gap: 8px; }
+.tempo-dig .entrada { width: 90px; text-align: center; font-family: var(--titulo); font-weight: 800; font-size: 18px; }
+.tempo-dig span { color: var(--texto-2); font-size: 14px; }
+.campo-tempo small { display: block; margin-top: 4px; }
+.ed-tempo-linha { display: inline-flex; align-items: center; gap: 4px; flex: none; padding: 4px 8px; border-radius: 10px; background: rgba(255,255,255,.06); border: 1px solid rgba(207,247,232,.18); font-size: 12px; color: var(--texto-2); cursor: text; }
+.ed-tempo-linha input { width: 42px; background: transparent; border: none; border-bottom: 1px dashed rgba(207,247,232,.4); color: var(--texto); font: 800 14px var(--titulo); text-align: center; padding: 2px 0; outline: none; }
+.ed-tempo-linha input:focus { border-bottom-color: var(--menta); }
+.ed-tempo-linha:focus-within { border-color: var(--menta); }
+
+/* PDF para os grupos: área para soltar o arquivo */
+.ed-soltar { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 10px; padding: 16px; border: 2px dashed rgba(111,227,184,.45); border-radius: 16px; background: rgba(111,227,184,.05); text-align: center; color: var(--texto-2); font-size: 14px; transition: background .15s, border-color .15s; }
+.ed-soltar .ic { font-size: 22px; }
+.ed-soltar b { color: var(--texto); }
+.ed-soltar.ativo { background: rgba(111,227,184,.16); border-color: var(--menta); }
+
+/* celular: terminar depois que a aula seguiu */
+.pendente { display: flex; gap: 12px; align-items: flex-start; text-align: left; background: rgba(242,193,78,.10); border: 1px solid rgba(242,193,78,.55); border-radius: 18px; padding: 14px 16px; margin-bottom: 14px; }
+.pendente .ic { font-size: 24px; line-height: 1; }
+.pendente b { display: block; font-family: var(--titulo); font-size: 16px; margin-bottom: 4px; }
+.pendente p { color: var(--texto-2); font-size: 14px; margin-bottom: 10px; }
+.acoes-pendente { display: flex; flex-wrap: wrap; gap: 8px; }
+.acoes-pendente .btn { padding: 10px 14px; font-size: 14px; }
+
+/* painel: aula encerrada, música e "seguir" */
+#pEncerrar.btn-encerrada { background: rgba(255,255,255,.06); color: var(--texto-2); border: 1px solid rgba(207,247,232,.18); cursor: default; opacity: 1; }
+#pMusica.chamando { animation: chamar-musica 1.6s ease-in-out infinite; border-color: var(--menta); }
+@keyframes chamar-musica { 0%, 100% { box-shadow: 0 0 0 0 rgba(111,227,184,.5); } 50% { box-shadow: 0 0 0 8px rgba(111,227,184,0); } }
+#pSeguir { border-color: var(--dourado); color: var(--dourado); }

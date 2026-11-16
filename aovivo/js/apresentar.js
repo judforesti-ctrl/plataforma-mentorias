@@ -151,7 +151,7 @@
       equipes: painel.equipes && painel.equipes.length ? painel.equipes.slice() : NOMES_EQUIPE.slice(0, 3),
       itens: painel.atividades.map(paraRascunho)
     };
-    const ganhouQR = garantirQR();
+    const tirouQR = tirarQRAutomatico();
     const idAtual = painel.atividade && painel.atividade.id;
     const sel = rascunho.itens.find(i => i.id === idAtual) || rascunho.itens[0];
     selK = sel ? sel._k : null;
@@ -170,22 +170,17 @@
     if (nova) setTimeout(() => $('campoTitulo').focus(), 100);
     if (doModulo && !moduloTrazido && !rascunho.itens.some(i => i.tipo === 'slide')) setTimeout(trazerSlidesDoModulo, 300);
     if (sel && idAtual) setTimeout(() => { const el = document.querySelector('.ed-item.selecionado'); if (el) el.scrollIntoView({ block: 'center' }); }, 50);
-    if (ganhouQR) { mudou(); toast('Coloquei o "📱 QR code para entrar" logo depois da capa. Arraste para depois da sua explicação, se quiser.'); }
+    if (tirouQR) mudou();
   }
 
-  // QR code para entrar = item do roteiro (pedido da Juliana, 16/11/2026). Aula com slides e ainda sem ele ganha um logo
-  // depois do 1º slide (a capa); o mentor arrasta para onde quiser. Aula que já começou não muda sozinha.
-  function lembrarSemQR(sim) {   // o mentor tirou o QR code de propósito: não volta sozinho
-    try { if (sim) localStorage.setItem('aovivo_semqr_' + atual.id, '1'); else localStorage.removeItem('aovivo_semqr_' + atual.id); } catch (e) {}
-  }
-  function garantirQR() {
+  // 16/11/2026 (de manhã) o QR code entrou como item logo depois da capa; à tarde, depois da aula, a Juliana pediu de volta o
+  // QR code como a 1ª tela (agora a tela de boas-vindas). Este tira o item que a plataforma tinha posto sozinha (logo depois do
+  // 1º slide e sem frase), em aula que ainda não começou. O item "QR code para entrar" continua existindo para mostrar de novo no meio.
+  function tirarQRAutomatico() {
     if (!rascunho || (painel && painel.comecou_em)) return false;
-    try { if (localStorage.getItem('aovivo_semqr_' + atual.id)) return false; } catch (e) {}
     const L = rascunho.itens;
-    if (L.some(i => i.tipo === 'entrada')) return false;
-    const pos = L.findIndex(i => i.tipo === 'slide');
-    if (pos < 0) return false;
-    L.splice(pos + 1, 0, novoItem('entrada'));
+    if (L.length < 2 || L[0].tipo !== 'slide' || L[1].tipo !== 'entrada' || (L[1].pergunta || '').trim()) return false;
+    L.splice(1, 1);
     return true;
   }
 
@@ -229,7 +224,6 @@
   }
 
   function inserirItem(tipo, depoisDe) {
-    if (tipo === 'entrada') lembrarSemQR(false);
     const ja = tipo === 'entrada' && rascunho.itens.find(i => i.tipo === 'entrada');
     if (ja) {   // um QR code por aula: mostra o que já está no roteiro
       selK = ja._k; desenharLista(); desenharItem();
@@ -776,7 +770,6 @@
     }
     if (primeiraVez) rascunho.itens = novos.concat(rascunho.itens);
     else rascunho.itens = rascunho.itens.concat(novos);
-    garantirQR();
     if (!selK || !itemSel()) selK = rascunho.itens[0] && rascunho.itens[0]._k;
     lembrarAula({ id: atual.id, arquivo: arquivo.name, notasPptx: !!(notas && notas.some(x => x.notas)) || (!primeiraVez && infoAula().notasPptx) });
     desenharLista(); desenharItem();
@@ -801,8 +794,11 @@
   function enviarMaterial(a) {
     const inp = document.createElement('input');
     inp.type = 'file'; inp.accept = '.pdf,application/pdf'; inp.multiple = true;
-    inp.onchange = async () => {
-      const arquivos = Array.from(inp.files || []);
+    inp.onchange = () => enviarArquivosMaterial(a, Array.from(inp.files || []));
+    inp.click();
+  }
+
+  async function enviarArquivosMaterial(a, arquivos) {
       if (!arquivos.length) return;
       const lista = a.config.materiais || (a.config.materiais = []);
       let ok = 0;
@@ -822,8 +818,6 @@
         } catch (e) { toast(e.message, true); }
       }
       if (ok) { desenharItem(); atualizarLinha(a); mudou(); toast(ok === 1 ? 'Material anexado.' : ok + ' materiais anexados.'); }
-    };
-    inp.click();
   }
 
   function opcoesGrupoMaterial(a) {
@@ -836,13 +830,14 @@
 
   function blocoMateriais(a) {
     const lista = a.config.materiais || [], grupos = opcoesGrupoMaterial(a);
-    return '<div class="campo ed-materiais"><label>📎 Material em PDF para os alunos (opcional)</label>' +
+    return '<div class="campo ed-materiais"><label>' + (a.tipo === 'grupo' ? '📄 PDF para os grupos abrirem no celular (opcional)' : '📎 Material em PDF para os alunos (opcional)') + '</label>' +
       (lista.length ? '<div class="ed-mat-lista">' + lista.map((m, j) =>
         '<div class="ed-mat"><a class="ed-pdf" href="' + esc(m.pdf) + '" target="_blank" rel="noopener">📄 ' + esc(m.nome || 'material') + '</a>' +
         (grupos ? '<select class="entrada entrada-mini" data-mat-grupo="' + j + '" title="Quem vê este material"><option value="">Todos os grupos</option>' +
           grupos.map(([n, t]) => '<option value="' + n + '"' + (m.grupo === n ? ' selected' : '') + '>Só ' + esc(t) + '</option>').join('') + '</select>' : '') +
         '<button class="btn btn-secundario btn-icone" data-mat-tirar="' + j + '" title="Tirar este material">✕</button></div>').join('') + '</div>' : '') +
-      '<div class="linha"><button class="btn btn-secundario btn-pequeno" data-mat-enviar>+ Anexar PDF</button></div>' +
+      '<div class="ed-soltar" data-mat-soltar><span class="ic" aria-hidden="true">📄</span><b>' + (lista.length ? 'Mais um PDF? Arraste aqui' : 'Arraste o PDF aqui') + '</b><span>ou</span>' +
+        '<button class="btn btn-secundario btn-pequeno" type="button" data-mat-enviar>Escolher o PDF</button></div>' +
       '<span class="dica">' + (a.tipo === 'grupo'
         ? 'O aluno abre o PDF dentro do Ao Vivo, no celular, sem baixar nada. Cada grupo com um caso diferente? Anexe um PDF por grupo e escolha "Só Grupo 1", "Só Grupo 2"... (se o nome do arquivo tiver "grupo 2", ele já vai para o Grupo 2).'
         : 'Aparece no celular enquanto este slide estiver no telão: o aluno abre e lê dentro do Ao Vivo, sem baixar nada.') + '</span></div>';
@@ -937,7 +932,7 @@
     if (it.tipo === 'slide') {
       return '<b>Slide ' + nSlide + (it.pergunta ? ' · ' + esc(it.pergunta) : '') + '</b><span>' + (it.notas ? esc(it.notas.slice(0, 140)) : '<i>Sem notas</i>') + '</span>';
     }
-    if (it.tipo === 'entrada') return '<b>QR code para entrar</b><span>' + esc(it.pergunta.trim() || 'Pegue o celular e entre na aula!') + ' · o telão mostra o QR code e o código</span>';
+    if (it.tipo === 'entrada') return '<b>QR code de novo</b><span>' + esc(it.pergunta.trim() || 'Pegue o celular e entre na aula!') + ' · o telão mostra o QR code e o código</span>';
     return '<b>' + TIPOS[it.tipo].nome + ' · ' + resumoTempo(it) + '</b><span>' + (it.pergunta.trim() ? esc(it.pergunta) : '<i>Sem pergunta ainda</i>') + '</span>';
   }
 
@@ -956,17 +951,13 @@
     const temSlides = rascunho.itens.some(i => i.tipo === 'slide');
     const faltam = faltandoNasQuatro(rascunho.itens.map(i => i.tipo));
     if (!temSlides || !rascunho.itens.length) { box.innerHTML = ''; return; }
-    const semQR = !rascunho.itens.some(i => i.tipo === 'entrada');
     // aula já encerrada (ensaio ou aula anterior): zerar para usar de novo, com a capa e o QR code no lugar certo
     const usada = painel && painel.fase === 'encerrada';
     const nPessoas = usada ? (painel.participantes || []).length : 0;
     box.innerHTML = (usada ? '<div class="aviso-qr"><span class="ac-icone">🔄</span><div><b>Esta aula já foi encerrada (ensaio ou aula anterior).</b>' +
         '<p>Para usar de novo do zero, clique em "Zerar para a próxima aula". Saem ' + (nPessoas === 1 ? 'a pessoa que entrou' : 'as ' + nPessoas + ' pessoas que entraram') +
-        ', as respostas e os pontos. Os slides e as atividades ficam. Aí o telão começa pela capa dos slides.</p>' +
+        ', as respostas e os pontos. Os slides e as atividades ficam. Aí o telão volta para a tela de boas-vindas com o QR code.</p>' +
         '<button class="btn btn-secundario btn-mini" type="button" id="btnZerar">Zerar para a próxima aula</button></div></div>' : '') +
-      (semQR ? '<div class="aviso-qr"><span class="ac-icone">📱</span><div><b>Falta o QR code para os alunos entrarem.</b>' +
-        '<p>Coloque o "QR code para entrar" no roteiro, depois dos slides em que você explica a aula. Sem ele, o QR code só aparece pelo botão "QR code" do painel.</p>' +
-        '<button class="btn btn-secundario btn-mini" type="button" id="btnPorQR">Pôr depois da capa</button></div></div>' : '') +
       (faltam.length
         ? avisoChatoHTML(faltam, ' <button class="btn btn-ia btn-mini" type="button" id="btnIA2">✨ Deixar do jeito Mentorei!</button>')
         : '<div class="aviso-mentorei">✓ Do jeito Mentorei: a aula tem nuvem, quiz, votação e escala.</div>');
@@ -974,14 +965,6 @@
     if (b) b.onclick = sugerirComIA;
     const z = $('btnZerar');
     if (z) z.onclick = ev => popover(ev, 'Zerar a aula? Saem as pessoas, as respostas e os pontos (não dá para desfazer). Os slides e as atividades ficam.', 'Zerar', zerarAula);
-    const q = $('btnPorQR');
-    if (q) q.onclick = () => {
-      const pos = rascunho.itens.findIndex(i => i.tipo === 'slide');
-      const novo = novoItem('entrada');
-      lembrarSemQR(false);
-      rascunho.itens.splice(pos + 1, 0, novo);
-      selK = novo._k; desenharLista(); desenharItem(); mudou();
-    };
   }
 
   async function zerarAula() {
@@ -990,11 +973,11 @@
       painel = await rpc('aovivo_reiniciar', { p_sessao: atual.id, p_chave: atual.chave, p_remover_participantes: true });
       ultVersao = -1; ultimaPos = -1;
       try { localStorage.removeItem('aovivo_pos_' + atual.id); } catch (e) {}
-      const ganhou = garantirQR();
+      const tirou = tirarQRAutomatico();
       desenharLista(); desenharItem();
-      if (ganhou) mudou();
+      if (tirou) mudou();
       if (typeof atualizarBotaoAoVivo === 'function') atualizarBotaoAoVivo();
-      toast('Pronto: a aula está zerada' + (painel.codigo ? ' (código ' + A.formatarCodigo(painel.codigo) + ')' : '') + '. O telão começa pela capa dos slides.');
+      toast('Pronto: a aula está zerada' + (painel.codigo ? ' (código ' + A.formatarCodigo(painel.codigo) + ')' : '') + '. O telão começa pela tela de boas-vindas com o QR code.');
     } catch (e) { toast(e.message, true); }
   }
 
@@ -1016,9 +999,28 @@
           '<img class="ed-mini" src="' + esc(it.config.imagem) + '" alt="" loading="lazy" draggable="false"><div class="ed-txt">' + txtLinha(it, nSlide) + '</div>' +
           (it.config.celular === false ? '<span class="ed-flag" title="Este slide não aparece no celular">📵</span>' : '') + '</div>';
       }
+      const ti = it.tipo === 'entrada' ? null : tempoInfo(it.tipo);
       return '<div class="ed-item ed-ativ' + sel + '" data-k="' + it._k + '" draggable="true"><span class="ed-pos">' + (i + 1) + '</span>' +
-        '<span class="ed-mini-ativ tipo-' + it.tipo + '">' + TIPOS[it.tipo].icone + '</span><div class="ed-txt">' + txtLinha(it, 0) + '</div></div>';
+        '<span class="ed-mini-ativ tipo-' + it.tipo + '">' + TIPOS[it.tipo].icone + '</span><div class="ed-txt">' + txtLinha(it, 0) + '</div>' +
+        (ti ? '<label class="ed-tempo-linha" title="Tempo desta atividade (' + ti.unLonga + (ti.semLimite ? '; 0 = sem limite' : '') + ')"><span aria-hidden="true">⏱</span>' +
+          '<input data-tempo-linha inputmode="decimal" maxlength="5" value="' + tempoParaCampo(it) + '" aria-label="Tempo em ' + ti.unLonga + '"><span>' + ti.un + '</span></label>' : '') + '</div>';
     }).join('');
+    l.querySelectorAll('[data-tempo-linha]').forEach(inp => {
+      const it = rascunho.itens.find(x => x._k === Number(inp.closest('.ed-item').dataset.k));
+      ['click', 'mousedown', 'dragstart'].forEach(ev => inp.addEventListener(ev, e => e.stopPropagation()));
+      inp.closest('.ed-item').addEventListener('dragstart', e => { if (document.activeElement === inp) e.preventDefault(); });
+      inp.addEventListener('input', () => {
+        if (!it || inp.value.trim() === '') return;
+        it.tempo = tempoDoCampo(it.tipo, inp.value);
+        const ed = document.querySelector('#editorItem [data-tempo-ed]');
+        if (ed && it._k === selK) ed.value = tempoParaCampo(it);
+        const txt = inp.closest('.ed-item').querySelector('.ed-txt');
+        if (txt) txt.innerHTML = txtLinha(it, 0);
+        mudou();
+      });
+      inp.addEventListener('blur', () => { if (it) inp.value = tempoParaCampo(it); });
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+    });
     l.querySelectorAll('.ed-item').forEach(el => {
       const k = Number(el.dataset.k);
       el.addEventListener('click', () => { selK = k; marcarSelecao(); desenharItem(); });
@@ -1087,17 +1089,43 @@
   const TEMPOS_GRUPO = [[180, '3 minutos'], [300, '5 minutos'], [420, '7 minutos'], [600, '10 minutos'], [720, '12 minutos'], [900, '15 minutos'],
     [1200, '20 minutos'], [1500, '25 minutos'], [1800, '30 minutos'], [2700, '45 minutos'], [3600, '1 hora']];
 
+  // Tempo digitado (pedido da Juliana, 16/11/2026): quiz em segundos; o resto em minutos (aceita 1,5). O servidor confere de novo.
+  function tempoInfo(tipo) {
+    if (tipo === 'quiz') return { mult: 1, un: 'seg', unLonga: 'segundos', padrao: 30, semLimite: false };
+    if (tipo === 'grupo') return { mult: 60, un: 'min', unLonga: 'minutos', padrao: 600, semLimite: false };
+    return { mult: 60, un: 'min', unLonga: 'minutos', padrao: 0, semLimite: true };
+  }
+  function tempoParaCampo(it) {
+    const t = tempoInfo(it.tipo), s = it.tempo || t.padrao;
+    if (t.mult === 1) return String(s);
+    return s ? String(Math.round(s / 60 * 10) / 10).replace('.', ',') : '0';
+  }
+  function tempoDoCampo(tipo, valor) {
+    const t = tempoInfo(tipo);
+    let n = Number(String(valor || '').trim().replace(',', '.'));
+    if (!isFinite(n) || n < 0) n = 0;
+    let seg = Math.round(n * t.mult);
+    if (tipo === 'quiz') return Math.min(180, Math.max(5, seg || 30));
+    if (tipo === 'grupo') return Math.min(3600, Math.max(60, seg || 600));
+    return Math.min(3600, Math.max(0, seg));
+  }
+  function campoTempo(a, rotulo) {
+    const t = tempoInfo(a.tipo);
+    return '<div class="campo campo-tempo"><label>' + rotulo + '</label><div class="tempo-dig"><input class="entrada" data-tempo-ed inputmode="decimal" maxlength="5" value="' + tempoParaCampo(a) + '" aria-label="' + rotulo + ' em ' + t.unLonga + '"><span>' + t.unLonga + '</span></div>' +
+      (t.semLimite ? '<small class="dica">0 = sem limite (você encerra)</small>' : a.tipo === 'quiz' ? '<small class="dica">De 5 a 180 segundos</small>' : '<small class="dica">De 1 a 60 minutos. Dá para usar 1,5</small>') + '</div>';
+  }
+
   function corpoGrupo(a) {
     const c = a.config, g = c.grupos || {}, r = c.resposta || {};
     const nums = (de, ate) => { const l = []; for (let n = de; n <= ate; n++) l.push([n, String(n)]); return l; };
     const radio = (v, txt, extra, desligado) => '<label class="ed-radio' + (desligado ? ' desligado' : '') + '"><input type="radio" name="modo' + a._k + '" value="' + v + '"' +
       ((g.modo || 'escolher') === v ? ' checked' : '') + (desligado ? ' disabled' : '') + '><span>' + txt + (extra && (g.modo || 'escolher') === v ? extra : '') + '</span></label>';
-    if (!(TEMPOS_GRUPO.some(t => t[0] === a.tempo))) TEMPOS_GRUPO.push([a.tempo, Math.round(a.tempo / 60) + ' minutos']);
     return '<div class="campo"><label>Título do exercício</label><input class="entrada" data-campo="pergunta" maxlength="200" value="' + esc(a.pergunta) + '" placeholder="Ex.: Desafio do cliente difícil"></div>' +
       '<div class="campo"><label>Passo a passo (um passo por linha, até 8)</label><textarea class="entrada ed-passos" data-passos maxlength="2400" placeholder="Ex.: Leiam o caso em voz alta&#10;Cada pessoa conta como agiria&#10;Escolham juntos a melhor resposta">' + esc((c.passos || []).join('\n')) + '</textarea>' +
       '<span class="dica">Escreva de um jeito que ninguém precise voltar à sala principal para perguntar o que fazer. Aparece no telão e no celular de cada aluno, com o cronômetro.</span></div>' +
       '<div class="campo"><label>O que cada grupo leva de volta</label><input class="entrada" data-cfgtxt="entrega" maxlength="300" value="' + esc(c.entrega || '') + '" placeholder="Ex.: A resposta escolhida e um porta-voz para contar em 1 minuto"></div>' +
-      '<div class="config-linha"><div class="campo"><label>Tempo do exercício</label><select class="entrada" data-campo="tempo">' + opcoesSelect(a.tempo || 600, TEMPOS_GRUPO) + '</select></div>' +
+      blocoMateriais(a) +
+      '<div class="config-linha">' + campoTempo(a, 'Tempo do exercício') +
       '<p class="dica" style="flex:1;min-width:200px">Na hora, dá para dar +1 minuto. Quando o tempo acaba, o celular de todos vibra e avisa para voltar.</p></div>' +
       '<div class="campo"><label>Como formar os grupos</label><div class="ed-radios">' +
       radio('escolher', 'Cada um marca no celular o número do seu grupo ou da sua sala do Zoom', ' · quantos grupos: <select class="entrada entrada-mini" data-grupos="quantos">' + opcoesSelect(g.quantos || 6, nums(2, 20)) + '</select>') +
@@ -1107,7 +1135,7 @@
       '<label class="interruptor"><input type="checkbox" data-resp' + (r.ligada !== false ? ' checked' : '') + '><span class="trilho"></span>Um do grupo manda a resposta do grupo pelo celular</label>' +
       (r.ligada !== false ? '<div class="campo"><label>O que o grupo escreve</label><input class="entrada" data-resp-perg maxlength="160" value="' + esc(r.pergunta || '') + '" placeholder="Ex.: Qual foi a resposta escolhida pelo grupo?"></div>' +
         '<p class="dica">As respostas aparecem para você no painel durante o exercício e no telão quando você clicar em "Ver as respostas dos grupos".</p>' : '') +
-      blocoMateriais(a);
+      '';
   }
 
   function corpoFerramenta(a) {
@@ -1120,15 +1148,14 @@
       (outra ? '<div class="campo"><label>Nome que aparece para os alunos</label><input class="entrada" data-campo="pergunta" maxlength="200" value="' + esc(a.pergunta) + '" placeholder="Ex.: Teste de perfil"></div>' +
         '<div class="campo"><label>Link (começa com https://)</label><input class="entrada" data-cfgtxt="url" maxlength="500" value="' + esc(c.url || '') + '" placeholder="https://"></div>' : '') +
       '<div class="campo"><label>Recado para os alunos (opcional)</label><input class="entrada" data-cfgtxt="instrucao" maxlength="300" value="' + esc(c.instrucao || '') + '" placeholder="Ex.: Responda com calma. Quando terminar, volte aqui e toque em Terminei."></div>' +
-      '<div class="config-linha"><div class="campo"><label>Tempo</label><select class="entrada" data-campo="tempo">' +
-      opcoesSelect(a.tempo, [[0, 'Sem limite (eu encerro)'], [180, '3 minutos'], [300, '5 minutos'], [600, '10 minutos'], [900, '15 minutos'], [1200, '20 minutos'], [1800, '30 minutos']]) + '</select></div></div>' +
+      '<div class="config-linha">' + campoTempo(a, 'Tempo') + '</div>' +
       '<p class="dica">No celular, o aluno toca em "Abrir a ferramenta" e, quando termina, em "Terminei". O telão mostra o QR code da ferramenta para quem não está no Ao Vivo. Você vê no painel quantos já terminaram.</p>';
   }
 
   function corpoEntrada(a) {
     return '<div class="campo"><label>Frase no telão (opcional)</label><input class="entrada" data-campo="pergunta" maxlength="120" value="' + esc(a.pergunta) + '" placeholder="Pegue o celular e entre na aula!"></div>' +
       '<p class="dica">Quando você chega neste item, o telão mostra o QR code e o código da aula, e o nome de cada aluno aparece assim que ele entra. ' +
-      'Antes dele, o telão começa pela capa dos seus slides. Arraste este item para logo depois da sua explicação. Depois dele, o código continua num cantinho dos slides para quem chegar atrasado.</p>';
+      'O telão já começa com o QR code na tela de boas-vindas. Use este item se quiser mostrar o QR code de novo no meio da aula (por exemplo, depois do intervalo).</p>';
   }
 
   function corpoAtividade(a) {
@@ -1141,8 +1168,7 @@
         '<div class="alternativa-editor"><span class="marca" style="background:' + ALTERNATIVAS[j].cor + '">' + formaSVG(ALTERNATIVAS[j].forma) + '</span>' +
         '<input class="entrada" data-opcao="' + j + '" maxlength="80" value="' + esc(o) + '" placeholder="Alternativa ' + ALTERNATIVAS[j].letra + (j > 1 ? ' (opcional)' : '') + '">' +
         '<label class="certa"><input type="radio" name="certa' + a._k + '" data-certa="' + j + '"' + (a.correta === j ? ' checked' : '') + '>certa</label></div>').join('') + '</div>';
-      corpo += '<div class="config-linha"><div class="campo"><label>Tempo para responder</label><select class="entrada" data-campo="tempo">' +
-        opcoesSelect(a.tempo || 30, [[10, '10 segundos'], [20, '20 segundos'], [30, '30 segundos'], [45, '45 segundos'], [60, '1 minuto'], [90, '1 min e meio'], [120, '2 minutos']]) + '</select></div>' +
+      corpo += '<div class="config-linha">' + campoTempo(a, 'Tempo para responder') +
         '<p class="dica" style="flex:1;min-width:200px">Acertou rápido ganha até 1.000 pontos. Acertos seguidos dão bônus. Na hora, dá para dar +15 segundos.</p></div>';
     } else if (a.tipo === 'votacao') {
       const entre = !!(a.config && a.config.entre_equipes);
@@ -1159,19 +1185,16 @@
           (a.opcoes.length > 2 ? '<button class="btn btn-secundario btn-icone" data-tirar-opcao="' + j + '" title="Tirar opção">✕</button>' : '') + '</div>').join('') +
           (a.opcoes.length < 8 ? '<button class="btn btn-secundario btn-pequeno" data-mais-opcao style="align-self:flex-start">+ Opção</button>' : '') + '</div>';
       }
-      corpo += '<div class="config-linha"><div class="campo"><label>Tempo</label><select class="entrada" data-campo="tempo">' +
-        opcoesSelect(a.tempo, [[0, 'Sem limite (eu encerro)'], [30, '30 segundos'], [60, '1 minuto'], [90, '1 min e meio'], [120, '2 minutos']]) + '</select></div></div>';
+      corpo += '<div class="config-linha">' + campoTempo(a, 'Tempo') + '</div>';
     } else if (a.tipo === 'nuvem') {
       corpo += '<div class="config-linha"><div class="campo"><label>Palavras por pessoa</label><select class="entrada" data-cfg="max_respostas">' +
         opcoesSelect(a.config.max_respostas || 3, [[1, '1 palavra'], [2, '2 palavras'], [3, '3 palavras'], [4, '4 palavras'], [5, '5 palavras']]) + '</select></div>' +
-        '<div class="campo"><label>Tempo</label><select class="entrada" data-campo="tempo">' +
-        opcoesSelect(a.tempo, [[0, 'Sem limite (eu encerro)'], [30, '30 segundos'], [60, '1 minuto'], [90, '1 min e meio'], [120, '2 minutos']]) + '</select></div></div>' +
+        campoTempo(a, 'Tempo') + '</div>' +
         '<p class="dica">Durante a aula, dá para apagar uma palavra pelo painel, se precisar.</p>';
     } else {
       corpo += '<div class="config-linha"><div class="campo"><label>Escala</label><select class="entrada" data-cfg="max">' +
         opcoesSelect(a.config.max || 10, [[10, 'De 0 a 10'], [5, 'De 0 a 5']]) + '</select></div>' +
-        '<div class="campo"><label>Tempo</label><select class="entrada" data-campo="tempo">' +
-        opcoesSelect(a.tempo, [[0, 'Sem limite (eu encerro)'], [30, '30 segundos'], [60, '1 minuto'], [90, '1 min e meio']]) + '</select></div></div>' +
+        campoTempo(a, 'Tempo') + '</div>' +
         '<div class="config-linha"><div class="campo" style="flex:1"><label>O que significa o 0</label><input class="entrada" data-cfgtxt="rotulo_min" maxlength="40" value="' + esc(a.config.rotulo_min || '') + '" placeholder="Ex.: Nada preparado"></div>' +
         '<div class="campo" style="flex:1"><label>O que significa a nota máxima</label><input class="entrada" data-cfgtxt="rotulo_max" maxlength="40" value="' + esc(a.config.rotulo_max || '') + '" placeholder="Ex.: Totalmente preparado"></div></div>';
     }
@@ -1215,6 +1238,17 @@
     c.querySelectorAll('[data-campo]').forEach(el => el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
       a[el.dataset.campo] = el.dataset.campo === 'tempo' ? Number(el.value) : el.value; tocou();
     }));
+    const te = c.querySelector('[data-tempo-ed]');
+    if (te) {
+      te.addEventListener('input', () => {
+        if (te.value.trim() === '') return;
+        a.tempo = tempoDoCampo(a.tipo, te.value);
+        const linha = document.querySelector('.ed-item[data-k="' + a._k + '"] [data-tempo-linha]');
+        if (linha && document.activeElement !== linha) linha.value = tempoParaCampo(a);
+        tocou();
+      });
+      te.addEventListener('blur', () => { te.value = tempoParaCampo(a); });
+    }
     c.querySelectorAll('[data-opcao]').forEach(el => el.addEventListener('input', () => { a.opcoes[Number(el.dataset.opcao)] = el.value; tocou(); }));
     c.querySelectorAll('[data-certa]').forEach(el => el.addEventListener('change', () => { a.correta = Number(el.dataset.certa); tocou(); }));
     c.querySelectorAll('[data-cfg]').forEach(el => el.addEventListener('change', () => { a.config[el.dataset.cfg] = Number(el.value); tocou(); }));
@@ -1242,6 +1276,19 @@
     if (respP) respP.addEventListener('input', () => { a.config.resposta = Object.assign({}, a.config.resposta, { pergunta: respP.value }); tocou(); });
     const envMat = c.querySelector('[data-mat-enviar]');
     if (envMat) envMat.onclick = () => enviarMaterial(a);
+    const solta = c.querySelector('[data-mat-soltar]');
+    if (solta) {
+      ['dragenter', 'dragover'].forEach(ev => solta.addEventListener(ev, e => {
+        if (!e.dataTransfer || !Array.from(e.dataTransfer.types || []).includes('Files')) return;
+        e.preventDefault(); solta.classList.add('ativo');
+      }));
+      ['dragleave', 'drop'].forEach(ev => solta.addEventListener(ev, () => solta.classList.remove('ativo')));
+      solta.addEventListener('drop', e => {
+        if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+        e.preventDefault();
+        enviarArquivosMaterial(a, Array.from(e.dataTransfer.files));
+      });
+    }
     c.querySelectorAll('[data-mat-tirar]').forEach(b => b.onclick = () => { a.config.materiais.splice(Number(b.dataset.matTirar), 1); desenharItem(); tocou(); });
     c.querySelectorAll('[data-mat-grupo]').forEach(el => el.addEventListener('change', () => {
       a.config.materiais[Number(el.dataset.matGrupo)].grupo = el.value ? Number(el.value) : null; tocou();
@@ -1272,7 +1319,6 @@
       desenharLista(); desenharItem(); mudou();
     };
     c.querySelector('[data-apagar]').onclick = ev => popover(ev, a.tipo === 'slide' ? 'Tirar este slide do roteiro?' : a.tipo === 'entrada' ? 'Tirar o QR code do roteiro? Aí o QR code só aparece pelo botão "QR code" do painel.' : 'Tirar esta atividade do roteiro?', 'Tirar', () => {
-      if (a.tipo === 'entrada') lembrarSemQR(true);
       const i = rascunho.itens.indexOf(a);
       rascunho.itens.splice(i, 1);
       const viz = rascunho.itens[i] || rascunho.itens[i - 1];
@@ -1393,6 +1439,7 @@
   $('btnSalvar').onclick = () => salvar(false);
   $('btnIA').onclick = sugerirComIA;
   $('btnAoVivo').onclick = async () => {
+    if (window.MusicaEspera) MusicaEspera.preparar();
     if (!telaoVivo()) abrirJanelaTelao();
     if ((sujo || salvando) && !(await salvar(false))) return;
     abrirPainel();
@@ -1406,7 +1453,7 @@
 
   function atualizarBotaoAoVivo() {
     const rolando = painel && painel.comecou_em && painel.fase !== 'encerrada';
-    $('btnAoVivo').textContent = rolando ? '▶ Voltar ao painel' : '▶ Começar a aula';
+    $('btnAoVivo').textContent = rolando ? '▶ Voltar ao painel' : '▶ Projetar os slides';
   }
 
   $('btnLinks').onclick = () => {
@@ -1532,8 +1579,8 @@
     if (!painel.atividade) return -1;   // QR code pelo botão (sem item) = fora do roteiro
     return itens().findIndex(a => a.id === painel.atividade.id);
   }
-  // antes de começar, com o QR code no roteiro, o telão mostra a capa (o 1º slide); o botão "QR code" mostra o QR mesmo assim
-  function emCapa(p) { return p.fase === 'lobby' && !p.atividade && !p.comecou_em && !(p.extra && p.extra.qr) && !!p.capa && p.entrada_ordem != null; }
+  // antes de começar: o telão mostra a tela de boas-vindas (QR code, nome da aula, horário e contagem) com a música
+  function emBoasVindas(p) { return !!p && p.fase === 'lobby' && !p.comecou_em; }
   function posBase() { const i = idxAtual(); return i >= 0 ? i : ultimaPos; }
   function numeroSlide(k) { let n = 0; const L = itens(); for (let j = 0; j <= k && j < L.length; j++) if (L[j].tipo === 'slide') n++; return n; }
   function totalSlides() { return itens().filter(x => x.tipo === 'slide').length; }
@@ -1605,7 +1652,7 @@
       case 'lobby':
         if (tipo === 'entrada' && i >= 0) return L[i + 1] ? irK(i + 1) : fim();
         if (!L.length) return { rotulo: 'Montar a aula', fn: voltarEditor };
-        if (i < 0) return { rotulo: 'Começar a aula ▶', fn: () => irPara(0), k: 0 };
+        if (i < 0) return { rotulo: p.comecou_em ? 'Voltar para o 1º slide ▶' : 'Começar a aula: ir para a capa ▶', fn: () => irPara(0), k: 0 };
         return { rotulo: 'Voltar para: ' + rotuloItem(i), fn: () => irPara(i), k: i };
       case 'slide':
         return L[i + 1] ? irK(i + 1) : fim();
@@ -1636,7 +1683,7 @@
   $('pProximo').onclick = () => proximoPasso().fn();
   $('pAnterior').onclick = () => { const i = posBase(); if (i > 0) irPara(i - 1); };
   $('pMaisTempo').onclick = () => {
-    const longo = painel.atividade && (painel.atividade.tipo === 'grupo' || painel.atividade.tipo === 'ferramenta');
+    const longo = painel.atividade && painel.atividade.tipo !== 'quiz';
     acao('aovivo_mais_tempo', { p_segundos: longo ? 60 : 15 }, longo ? '+1 minuto para todo mundo' : '+15 segundos para todo mundo');
   };
   $('pRanking').onclick = () => acao('aovivo_mostrar_ranking');
@@ -1666,6 +1713,7 @@
     else if (k === 'r') acao('aovivo_mostrar_ranking');
     else if (k === 's') abrirSorteio();
     else if (k === 'q') acao('aovivo_mudar_fase', { p_fase: 'lobby' });
+    else if (k === 'm') alternarMusica();
   }
   document.addEventListener('keydown', e => {
     if ($('vistaPainel').classList.contains('oculto')) return;
@@ -1673,7 +1721,8 @@
     if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
-    if ([' ', 'arrowright', 'arrowleft', 'arrowdown', 'arrowup', 'pagedown', 'pageup', 'enter', 'b', '.', 'r', 's', 'q'].includes(k)) {
+    if (window.MusicaEspera) MusicaEspera.preparar();   // qualquer tecla libera o som no navegador
+    if ([' ', 'arrowright', 'arrowleft', 'arrowdown', 'arrowup', 'pagedown', 'pageup', 'enter', 'b', '.', 'r', 's', 'q', 'm'].includes(k)) {
       e.preventDefault();
       if (document.activeElement.tagName === 'BUTTON') document.activeElement.blur();
       tecla(k);
@@ -1738,7 +1787,7 @@
     else if (p.fase === 'slide' && it) rot += ' · Slide ' + numeroSlide(i) + ' de ' + totalSlides();
     else if (p.fase === 'atividade' && it) rot += ' · ' + TIPOS[it.tipo].nome + ' ao vivo';
     else if (p.fase === 'resultado' && it) rot += ' · resultado ' + ({ quiz: 'do quiz', nuvem: 'da nuvem de palavras', votacao: 'da votação', escala: 'da escala', grupo: 'dos grupos', ferramenta: 'da ferramenta' }[it.tipo] || '');
-    else if (emCapa(p)) rot += ' · capa (o 1º slide), antes de começar';
+    else if (emBoasVindas(p)) rot += ' · boas-vindas com o QR code';
     else rot += ' · ' + ({ lobby: 'QR code para entrar', ranking: 'ranking', sorteio: 'sorteio', encerrada: 'aula encerrada' }[p.fase] || '');
     $('pAgoraRotulo').textContent = rot;
     $('pAgoraPos').textContent = i >= 0 ? 'Item ' + (i + 1) + ' de ' + L.length : '';
@@ -1748,7 +1797,13 @@
     $('pAnterior').disabled = posBase() <= 0;
     const comTempo = p.fase === 'atividade' && p.atividade && p.atividade.tempo > 0;
     $('pMaisTempo').classList.toggle('oculto', !comTempo);
-    $('pMaisTempo').textContent = comTempo && (p.atividade.tipo === 'grupo' || p.atividade.tipo === 'ferramenta') ? '+1 min' : '+15 s';
+    $('pMaisTempo').textContent = comTempo && p.atividade.tipo !== 'quiz' ? '+1 min' : '+15 s';
+    tempoEsgotado();
+    const enc = p.fase === 'encerrada';
+    $('pEncerrar').textContent = enc ? '✓ Aula encerrada' : 'Encerrar aula';
+    $('pEncerrar').disabled = enc;
+    $('pEncerrar').classList.toggle('btn-perigo', !enc);
+    $('pEncerrar').classList.toggle('btn-encerrada', enc);
     $('pPreta').classList.toggle('ligado', !!p.tela_preta);
     $('pPreta').textContent = p.tela_preta ? '◻ Voltar a mostrar' : '◼ Tela preta';
 
@@ -1764,15 +1819,16 @@
     switch (p.fase) {
       case 'lobby': {
         const antes = p.sala && !p.comecou_em ? 'Para começar: clique em "🎥 Entrar na sala" e, na sala, compartilhe a janela "Telão". ' : '';
-        if (emCapa(p))
-          return antes + 'O telão mostra a capa dos seus slides. Clique em "Começar a aula" quando quiser. O QR code para os alunos entrarem aparece quando você chegar no item "📱 QR code para entrar" do roteiro.';
+        if (emBoasVindas(p))
+          return antes + 'O telão mostra as boas-vindas com o QR code, o horário e a contagem até começar, com música (no Zoom, marque "Compartilhar som" ao compartilhar o telão; no Teams, "Incluir som"). Na hora, aperte Enter (ou "Começar a aula") e o telão vai para a capa dos seus slides.';
         return antes + 'O telão mostra o QR code e o código, e o nome de cada aluno aparece quando ele entra. Cole o convite no chat para quem está só no celular.';
       }
       case 'slide': return 'Avance com a seta do teclado, com o passador de slides ou com as setas que aparecem nas laterais do telão quando o mouse chega perto. Quando chega numa atividade, o celular dos alunos vibra e apita sozinho.';
       case 'atividade':
         if (p.atividade.tipo === 'grupo') return 'O telão e o celular mostram as instruções e o cronômetro. Quando o tempo acaba, o celular de todos vibra para voltar. Dê +1 min se precisar e clique em "Ver as respostas dos grupos" quando todos voltarem.';
         if (p.atividade.tipo === 'ferramenta') return 'O celular mostra o botão "Abrir a ferramenta" e o telão mostra o QR code dela. Acompanhe ao lado quantos já terminaram.';
-        if (p.atividade.tempo > 0) return 'Quando todo mundo responde ou o tempo acaba, o resultado aparece sozinho no telão.';
+        if (p.atividade.tipo === 'quiz') return 'Quando todo mundo responde ou o tempo acaba, o resultado aparece sozinho no telão.';
+        if (p.atividade.tempo > 0) return 'Quando o tempo acabar, quem ainda não respondeu continua conseguindo responder. Aí você escolhe: dar mais tempo, mostrar o resultado ou seguir para o próximo slide.';
         return 'Sem limite de tempo. Clique em "Mostrar resultado" quando quiser fechar.';
       case 'resultado': return it && it.tipo === 'quiz' ? 'Comente o resultado e depois mostre o ranking.' : 'Comente o resultado com a turma e siga para o próximo item.';
       case 'ranking': return 'Ranking no telão. Os alunos veem a própria posição no celular.';
@@ -1851,7 +1907,7 @@
     return '<div class="pn-card"><div class="pn-card-cab"><span class="etiqueta">Na sala agora · ' + gente.length + '</span></div>' +
       (gente.length ? '<div class="pn-nomes">' + gente.slice().reverse().map(x =>
         '<button class="pn-nome" data-remover="' + x.id + '" title="Clique para tirar da aula">' + (x.equipe ? '<i style="background:' + corEquipe(painel.equipes, x.equipe) + '"></i>' : '') + esc(x.nome) + '</button>').join('') + '</div>'
-        : '<p class="dica">' + (emCapa(painel) ? 'Ninguém entrou ainda. O telão está na capa: o QR code aparece no item "📱 QR code para entrar".' : 'Ninguém entrou ainda. O QR code está no telão.') + '</p>') +
+        : '<p class="dica">Ninguém entrou ainda. O QR code está no telão.</p>') +
       '<button class="btn btn-secundario btn-pequeno btn-bloco" data-convite style="margin-top:12px">Copiar convite para o chat</button></div>';
   }
 
@@ -1988,7 +2044,8 @@
     if (a.tipo === 'grupo' || a.tipo === 'ferramenta') return;   // aqui quem encerra é a apresentadora
     const total = (p.ao_vivo || {}).total || 0;
     if (a.tipo === 'quiz' && p.participantes.length > 0 && total >= p.participantes.length) autoResultado(a, 900);
-    if (a.tempo > 0) {
+    // só o quiz fecha sozinho quando o tempo acaba; nas outras, quem atrasou ainda responde (pedido da Juliana, 16/11/2026)
+    if (a.tipo === 'quiz' && a.tempo > 0) {
       const fim = Date.parse(a.iniciada_em) + a.tempo * 1000;
       if (agoraServidor() >= fim) autoResultado(a, 1200);
     }
@@ -2007,7 +2064,11 @@
   function relogio() {
     if (!painel || $('vistaPainel').classList.contains('oculto')) return;
     const c = painel.comecou_em;
-    if (!c) { $('pRelogio').textContent = '⏱ ainda não começou'; }
+    if (painel.fase === 'encerrada') { $('pRelogio').textContent = '⏱ aula encerrada'; }
+    else if (!c) {
+      const ini = painel.inicio ? Date.parse(painel.inicio) : NaN, falta = Math.ceil((ini - agoraServidor()) / 1000);
+      $('pRelogio').textContent = isFinite(falta) && falta > 0 && falta < 86400 ? '⏱ começa em ' + A.mmss(falta) : '⏱ ainda não começou';
+    }
     else {
       const s = Math.max(0, Math.floor((agoraServidor() - Date.parse(c)) / 1000));
       const h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60, ss = s % 60;
@@ -2016,8 +2077,54 @@
     atualizarStatusTelao();
     atualizarRelogioGrupo();
     verificarAuto();
+    tempoEsgotado();
+    musicaAutomatica();
   }
   setInterval(relogio, 500);
+
+  /* ---------- O tempo acabou: ainda dá para responder; a professora escolhe ---------- */
+  function tempoEsgotado() {
+    const p = painel, b = $('pSeguir');
+    if (!b) return;
+    const a = p && p.fase === 'atividade' && p.atividade;
+    const acabou = !!a && a.tipo !== 'quiz' && a.tempo > 0 && agoraServidor() >= Date.parse(a.iniciada_em) + a.tempo * 1000;
+    b.classList.toggle('oculto', !acabou);
+    if (acabou && !p.tela_preta) {
+      $('pDica').textContent = '⏰ O tempo acabou, mas quem ainda não terminou continua conseguindo responder. Dê +1 min, ' +
+        (a.tipo === 'grupo' ? 'veja as respostas dos grupos' : a.tipo === 'ferramenta' ? 'encerre a ferramenta' : 'mostre o resultado') + ' ou siga para o próximo slide.';
+    }
+  }
+  $('pSeguir').onclick = () => {
+    const L = itens(), i = posBase();
+    if (L[i + 1]) irPara(i + 1); else proximoPasso().fn();
+  };
+
+  /* ---------- Música da sala de espera ---------- */
+  let musicaDesligada = false, musicaAuto = false;
+  function desenharMusica() {
+    const b = $('pMusica'), M = window.MusicaEspera;
+    if (!b || !M) return;
+    b.textContent = M.tocando ? '🔇 Parar a música' : '🎵 Música';
+    b.classList.toggle('ligado', M.tocando);
+    b.classList.toggle('chamando', !M.tocando && !musicaDesligada && emBoasVindas(painel));
+  }
+  function musicaAutomatica() {
+    const M = window.MusicaEspera;
+    if (!M || !painel || $('vistaPainel').classList.contains('oculto')) return;
+    if (emBoasVindas(painel)) {
+      if (!M.tocando && !musicaDesligada && M.liberada) { musicaAuto = true; M.tocar(); }
+    } else if (M.tocando && musicaAuto) { musicaAuto = false; M.parar(); }
+    desenharMusica();
+  }
+  function alternarMusica() {
+    const M = window.MusicaEspera;
+    if (!M) return;
+    if (M.tocando) { musicaDesligada = true; musicaAuto = false; M.parar(true); }
+    else { musicaDesligada = false; musicaAuto = emBoasVindas(painel); M.preparar(); M.tocar().then(ok => { if (!ok) toast('Clique de novo em "Música" para o navegador liberar o som.', true); }); }
+    desenharMusica();
+  }
+  if (window.MusicaEspera) MusicaEspera.aoMudar(desenharMusica);
+  $('pMusica').onclick = alternarMusica;
 
   /* =========================================================
      Início

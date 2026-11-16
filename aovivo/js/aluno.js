@@ -1,6 +1,6 @@
 /* Mentorei Ao Vivo · tela do aluno (celular) */
 (function () {
-  const { sb, rpc, agoraServidor, esc, corEquipe, ALTERNATIVAS, formaSVG, confete, ordinal, mmss } = window.AoVivo;
+  const { sb, rpc, agoraServidor, esc, corEquipe, ALTERNATIVAS, formaSVG, confete, ordinal, mmss, quandoComeca } = window.AoVivo;
   const $ = id => document.getElementById(id);
   const CHAVE = 'aovivo_aluno_v1';
 
@@ -19,6 +19,7 @@
   let fimAvisado = '';
   let avaliacaoAvisada = '';
   let emailCobrado = '';
+  let grupoDoTexto = null;        // {atividade, grupo, titulo} da resposta do grupo que está sendo escrita
   let textoGrupo = '';           // o que o aluno está escrevendo na resposta do grupo (não some quando a tela redesenha)
 
   /* ---------- Aviso de atividade: vibração, som e flash ---------- */
@@ -295,7 +296,8 @@
 
     const longo = a && (a.tipo === 'grupo' || a.tipo === 'ferramenta');
     const chave = [e.fase, a && a.id, a && a.iniciada_em, longo ? '' : a && a.tempo, me.respostas, e.extra && e.extra.em, dicaVisivel(),
-      a && a.tipo === 'grupo' ? assinaturaGrupo() : '', e.fase === 'encerrada' ? e.avaliacao : '', me.email, me.email_enviado, me.identificado].join('|');
+      a && a.tipo === 'grupo' ? assinaturaGrupo() : '', e.fase === 'encerrada' ? e.avaliacao : '', me.email, me.email_enviado, me.identificado,
+      (me.pendentes || []).map(x => x.id).join(','), grupoAtrasado() ? 'g' : ''].join('|');
     if (chave === ultimaChave) { atualizarRelogio(); return; }
     ultimaChave = chave;
 
@@ -329,7 +331,7 @@
       sorteio: telaSorteio,
       encerrada: telaFinal
     }[e.fase];
-    tela.innerHTML = (dicaVisivel() ? dicaHTML() : '') + (html ? html() : '');
+    tela.innerHTML = (dicaVisivel() ? dicaHTML() : '') + pendenciasHTML() + (html ? html() : '');
     ligarEventos();
     const cg = $('campoGrupo');
     if (cg) { cg.value = textoGrupo; if (focoGrupo) cg.focus(); }
@@ -431,6 +433,27 @@
       (terminou ? '<div class="feedback certo" style="padding:18px"><div class="emoji">✅</div><h2>Valeu!</h2><p>Você terminou a ferramenta. O seu resultado fica com você.</p></div>'
         : '<a class="btn btn-principal btn-bloco" id="btnAbrirFerr" href="' + esc(c.url) + '" target="_blank" rel="noopener">' + (abriu ? 'Abrir de novo' : 'Abrir a ferramenta') + '</a>' +
           (abriu ? '<button class="btn btn-secundario btn-bloco" id="btnTerminei" type="button" style="margin-top:10px">Terminei ✓</button>' : '')) + '</div>';
+  }
+
+  // A aula seguiu, mas quem estava no meio termina (pedido da Juliana, 16/11/2026)
+  function grupoAtrasado() {
+    if (!grupoDoTexto || !textoGrupo.trim() || !estado) return null;
+    const a = estado.atividade;
+    if (a && a.id === grupoDoTexto.atividade && estado.fase === 'atividade') return null;
+    return grupoDoTexto;
+  }
+  function pendenciasHTML() {
+    const me = estado.eu || {}, lista = me.pendentes || [], g = grupoAtrasado();
+    let h = '';
+    if (g) h += '<div class="pendente"><span class="ic">✍️</span><div><b>Você estava escrevendo a resposta do grupo' + (g.titulo ? ' de "' + esc(g.titulo) + '"' : '') + '.</b>' +
+      '<p>A aula seguiu, mas ainda dá para mandar.</p><div class="acoes-pendente"><button class="btn btn-principal" id="btnEnviarGrupoAtrasado" type="button">Enviar a resposta do grupo</button>' +
+      '<button class="btn btn-secundario" id="btnDescartarGrupo" type="button">Descartar</button></div></div></div>';
+    lista.forEach(x => {
+      h += '<div class="pendente"><span class="ic">🧭</span><div><b>Ainda na ferramenta "' + esc(x.pergunta) + '"?</b><p>Termine com calma e depois toque em "Terminei".</p>' +
+        '<div class="acoes-pendente"><button class="btn btn-principal" type="button" data-terminei="' + esc(x.id) + '">Terminei ✓</button>' +
+        (x.url ? '<a class="btn btn-secundario" href="' + esc(x.url) + '" target="_blank" rel="noopener">Abrir de novo</a>' : '') + '</div></div></div>';
+    });
+    return h;
   }
 
   function telaSlide() {
@@ -535,7 +558,9 @@
   function telaEspera() {
     return '<div class="espera"><div class="pulso"><span>👀</span></div>' +
       '<h2>Você está dentro, ' + esc(primeiroNome(estado.eu.nome)) + '!</h2>' +
-      '<p>Olhe para a tela da aula.<br>A próxima atividade aparece aqui sozinha.</p></div>' + caixaEmail(false);
+      (!estado.comecou_em && estado.inicio ? '<p class="hora-aula">🕑 A aula começa ' + esc(quandoComeca(estado.inicio)) + '</p>' : '') +
+      '<p>' + (estado.comecou_em ? 'Olhe para a tela da aula.<br>' : 'Fique por aqui: quando a aula começar, os slides e as atividades aparecem sozinhos.<br>') +
+      (estado.comecou_em ? 'A próxima atividade aparece aqui sozinha.' : '') + '</p></div>' + caixaEmail(false);
   }
 
   /* ---------- Materiais da aula por e-mail (para quem não entrou pela plataforma) ---------- */
@@ -607,7 +632,8 @@
   function cabecalho(tipoTxt) {
     const a = estado.atividade;
     return '<div class="cabecalho-atividade"><span class="etiqueta">' + tipoTxt + ' · ' + a.numero + ' de ' + a.total + '</span>' +
-      (a.tempo > 0 ? '<span class="relogio-aluno" id="relogio"></span>' : '') + '</div>' +
+      (a.tempo > 0 ? '<span class="relogio-aluno' + (a.tempo >= 100 ? ' longo' : '') + '" id="relogio"></span>' : '') + '</div>' +
+      (a.tempo > 0 && a.tipo !== 'quiz' ? '<div class="aviso-tempo oculto" id="avisoTempo">⏰ O tempo acabou, mas ainda dá para responder. Responda agora!</div>' : '') +
       '<p class="pergunta-aluno">' + esc(a.pergunta) + '</p>';
   }
 
@@ -635,7 +661,6 @@
         const v = me.valores[0];
         return aguardando('🗳️', 'Voto registrado!', 'Você votou em <b>' + esc(a.opcoes[v]) + '</b>. Aguarde o resultado.');
       }
-      if (acabou) return aguardando('⏰', 'A votação encerrou', 'Fique de olho na tela da aula.');
       const entreEquipes = a.config && a.config.entre_equipes;
       return cabecalho('Votação') + '<div class="lista-opcoes">' + a.opcoes.map((o, i) => {
         const propria = entreEquipes && o === me.equipe;
@@ -646,7 +671,6 @@
     }
     if (a.tipo === 'escala') {
       if (me.respostas > 0) return aguardando('✅', 'Resposta enviada!', 'Você marcou <b>' + esc(me.valores[0]) + '</b>. Aguarde o resultado.');
-      if (acabou) return aguardando('⏰', 'O tempo acabou', 'Fique de olho na tela da aula.');
       const c = a.config || {}, max = c.max || 10;
       let b = '';
       for (let n = 0; n <= max; n++) b += '<button class="btn-nota" data-v="' + n + '">' + n + '</button>';
@@ -657,7 +681,6 @@
     const max = (a.config && a.config.max_respostas) || 3;
     const minhas = (me.valores || []).map(v => '<span>' + esc(v) + '</span>').join('');
     if (me.respostas >= max) return aguardando('☁️', 'Palavras enviadas!', '<div class="minhas-palavras" style="justify-content:center;margin-top:12px">' + minhas + '</div>');
-    if (acabou) return aguardando('⏰', 'O tempo acabou', 'Veja a nuvem na tela da aula.');
     const faltam = max - me.respostas;
     return cabecalho('Nuvem de palavras') +
       '<form class="envio-nuvem" id="formNuvem"><input class="entrada" id="campoPalavra" maxlength="30" autocomplete="off" placeholder="Sua palavra" enterkeyhint="send">' +
@@ -781,7 +804,11 @@
       ultimaChave = ''; desenhar();
     });
     const cg = $('campoGrupo');
-    if (cg) cg.addEventListener('input', () => { textoGrupo = cg.value; });
+    if (cg) cg.addEventListener('input', () => {
+      textoGrupo = cg.value;
+      const g = meuGrupo(estado.atividade);
+      grupoDoTexto = g ? { atividade: estado.atividade.id, grupo: g.n, titulo: estado.atividade.pergunta } : null;
+    });
     const fg = $('formGrupo');
     if (fg) fg.addEventListener('submit', ev => {
       ev.preventDefault();
@@ -789,12 +816,25 @@
       const g = meuGrupo(estado.atividade);
       if (!t) return toast('Escreva a resposta do grupo.', true);
       if (!g) return toast('Escolha o seu grupo primeiro.', true);
-      responder({ grupo: g.n, texto: t }).then(ok => { if (ok) { textoGrupo = ''; toast('Resposta do grupo enviada!'); } });
+      responder({ grupo: g.n, texto: t }).then(ok => { if (ok) { textoGrupo = ''; grupoDoTexto = null; toast('Resposta do grupo enviada!'); } });
     });
     const af = $('btnAbrirFerr');
     if (af) af.addEventListener('click', () => { if (!(estado.eu.valores || []).map(String).includes('abriu')) responder('abriu'); });
     const tm = $('btnTerminei');
     if (tm) tm.addEventListener('click', () => responder('terminou'));
+    // a aula seguiu, mas dá para terminar
+    tela.querySelectorAll('[data-terminei]').forEach(b => b.addEventListener('click', () =>
+      responder('terminou', b.dataset.terminei).then(ok => { if (ok) toast('Pronto! Ferramenta marcada como terminada.'); })));
+    const eg = $('btnEnviarGrupoAtrasado');
+    if (eg) eg.addEventListener('click', () => {
+      const pend = grupoAtrasado();
+      if (!pend) return;
+      responder({ grupo: pend.grupo, texto: textoGrupo.trim() }, pend.atividade).then(ok => {
+        if (ok) { textoGrupo = ''; grupoDoTexto = null; toast('Resposta do grupo enviada!'); }
+      });
+    });
+    const dg = $('btnDescartarGrupo');
+    if (dg) dg.addEventListener('click', () => { textoGrupo = ''; grupoDoTexto = null; ultimaChave = ''; desenhar(); });
     const s = $('btnSair');
     if (s) s.addEventListener('click', sair);
     const sl = $('btnSlide');
@@ -809,12 +849,12 @@
     });
   }
 
-  async function responder(valor) {
-    if (enviando || !estado || !estado.atividade) return false;
+  async function responder(valor, atividadeId) {
+    if (enviando || !estado || (!estado.atividade && !atividadeId)) return false;
     enviando = true;
     document.querySelectorAll('#telaJogo button').forEach(b => b.disabled = true);
     try {
-      await rpc('aovivo_responder', { p_participante: eu.participante_id, p_token: eu.token, p_atividade: estado.atividade.id, p_valor: valor });
+      await rpc('aovivo_responder', { p_participante: eu.participante_id, p_token: eu.token, p_atividade: atividadeId || estado.atividade.id, p_valor: valor });
       if (navigator.vibrate) try { navigator.vibrate(30); } catch (x) {}
       return true;
     } catch (err) {
@@ -841,6 +881,14 @@
       if (av) av.classList.toggle('oculto', s > 0);
       const k = a.id + a.iniciada_em + a.tempo;
       if (s === 0 && fimAvisado !== k) { fimAvisado = k; if (a.tipo === 'grupo') alertaAtividade(); }
+      return;
+    }
+    if (a.tipo !== 'quiz') {   // nuvem, votação e escala: o tempo acaba, mas dá para responder até a professora seguir
+      r.textContent = a.tempo >= 100 ? mmss(s) : s + 's';
+      r.classList.toggle('acabando', s > 0 && s <= 10);
+      r.classList.toggle('acabou', s === 0);
+      const av = $('avisoTempo');
+      if (av) av.classList.toggle('oculto', s > 0);
       return;
     }
     r.textContent = s + 's';
