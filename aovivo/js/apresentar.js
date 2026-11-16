@@ -972,7 +972,7 @@
   function faltandoNasQuatro(tipos) { return QUATRO.filter(t => !tipos.includes(t)); }
   function listaE(nomes) { return nomes.length <= 1 ? nomes.join('') : nomes.slice(0, -1).join(', ') + ' e ' + nomes[nomes.length - 1]; }
   function avisoChatoHTML(faltam, extra) {
-    return '<div class="aviso-chato"><span class="ac-icone">⚠️</span><div><b>Seu módulo está na zona de risco de ser bem chato!</b>' +
+    return '<div class="aviso-chato"><span class="ac-icone">⚠️</span><div><b>Sua mentoria em grupo está em risco de ser bem chata e sem participação! Que tal gerar mais engajamento?</b>' +
       '<p>Falta' + (faltam.length > 1 ? 'm' : '') + ' ' + listaE(faltam.map(t => NOME_CURTO[t])) + '. Numa aula de 3 horas, use as quatro funções (nuvem, quiz, votação e escala) pelo menos uma vez cada.' + (extra || '') + '</p></div></div>';
   }
   function desenharAvisoChato() {

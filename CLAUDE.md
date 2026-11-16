@@ -1155,7 +1155,7 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   azul "🎥 Entrar na sala do Teams/Zoom/Meet" no editor e no painel (pisca até ela abrir; dois pop-ups no mesmo clique o
   navegador bloqueia, por isso são dois botões). IA: botão "✨ Deixar do jeito Mentorei!" (pedido dela); cada sugestão tem
   "✎ Ajustar" (pergunta, posição, alternativas, tempo, passos) e "Quer que a IA ajuste?" manda `anterior` + `ajuste` para
-  `/api/aovivo-sugerir` (refaz a lista inteira mantendo o resto); aviso "Seu módulo está na zona de risco de ser bem chato!"
+  `/api/aovivo-sugerir` (refaz a lista inteira mantendo o resto); aviso "Sua mentoria em grupo está em risco de ser bem chata e sem participação! Que tal gerar mais engajamento?" (texto dela, 16/11)
   quando faltam nuvem, quiz, votação ou escala (na janela da IA, pelo que está marcado, e no alto do roteiro). A IA nunca
   manda procurar material no chat. SLIDES NO CELULAR: o aviso do tempo real (`aovivo_avisar`) já leva a `atividade` do slide
   (o celular troca na hora, sem esperar a consulta; resposta mais velha que a versão atual é ignorada); cada slide traz
