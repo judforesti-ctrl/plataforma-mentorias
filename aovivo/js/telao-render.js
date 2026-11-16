@@ -43,13 +43,17 @@
       selo.classList.toggle('oculto', e.fase === 'lobby');
       q('.tt-preta').classList.toggle('oculto', !e.tela_preta);
 
-      const ehSlide = e.fase === 'slide' && e.atividade && e.atividade.imagem;
+      // antes de começar, com o QR code no roteiro: o telão mostra a capa (o 1º slide do mentor), não o QR
+      const capa = e.fase === 'lobby' && !e.atividade && !e.comecou_em && !(e.extra && e.extra.qr) && e.capa && e.entrada_ordem != null ? e.capa : null;
+      const ehSlide = capa || (e.fase === 'slide' && e.atividade && e.atividade.imagem);
+      // a faixinha com o código só aparece depois do QR code do roteiro (antes, o mentor ainda está explicando)
+      const antesDoQR = !!capa || (e.entrada_ordem != null && e.atividade && e.atividade.ordem != null && e.atividade.ordem < e.entrada_ordem);
       raiz.classList.toggle('modo-slide', !!ehSlide);
       q('.tt-slide').classList.toggle('oculto', !ehSlide);
-      q('.tt-cod').classList.toggle('oculto', !ehSlide);
+      q('.tt-cod').classList.toggle('oculto', !ehSlide || antesDoQR);
       if (ehSlide) {
-        trocarImagem(e.atividade.imagem);
-        chave = 'slide|' + e.atividade.id;
+        trocarImagem(capa || e.atividade.imagem);
+        chave = 'slide|' + (capa ? 'capa' : e.atividade.id);
         palco.innerHTML = '';
         return;
       }
@@ -87,7 +91,7 @@
     function montarLobby() {
       const p = e;
       palco.innerHTML = '<div class="lobby"><div class="qr-grande">' + A.qrSVG(A.enderecoAluno(p.codigo)) + '</div>' +
-        '<div style="min-width:0"><h1>Pegue o celular e entre na aula!</h1>' +
+        '<div style="min-width:0"><h1>' + esc((p.atividade && p.atividade.tipo === 'entrada' && p.atividade.pergunta) || 'Pegue o celular e entre na aula!') + '</h1>' +
         '<p class="passos">Aponte a câmera para o QR code<br>ou acesse <b>' + esc(dominio()) + '</b> e digite o código:</p>' +
         '<div class="codigo-gigante">' + A.formatarCodigo(p.codigo) + '</div>' +
         (p.modo_equipes ? '<div class="equipes-lobby" style="grid-template-columns:repeat(' + Math.min(p.equipes.length, 4) + ',1fr)">' +
@@ -430,6 +434,7 @@
       id: p.id, codigo: p.codigo, titulo: p.titulo, modo_equipes: p.modo_equipes, equipes: p.equipes,
       fase: p.fase, atividade: p.atividade, extra: p.extra, versao: p.versao, tela_preta: p.tela_preta,
       comecou_em: p.comecou_em, agora: p.agora, ao_vivo: ao, avaliacao: p.avaliacao, modulo: p.modulo,
+      capa: p.capa, entrada_ordem: p.entrada_ordem,
       participantes: (p.participantes || []).map(x => ({ id: x.id, nome: x.nome, equipe: x.equipe }))
     };
   }

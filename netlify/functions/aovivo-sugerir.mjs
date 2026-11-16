@@ -65,7 +65,8 @@ Regras:
 8. Tempo: quiz de 20 a 45 segundos; nuvem, votação e escala de 60 a 90 segundos; exercício em grupo de 5 a 20 minutos (informe em segundos).
 9. depois_do_slide vai de 0 (antes do primeiro slide) até o número do último slide.
 10. Baseie tudo no conteúdo dos slides: o quiz testa o que foi ensinado, a nuvem e a votação conversam com o tema do slide.
-11. Quando o exercício em grupo usa um material para ler (caso, carta, texto, roteiro), diga nos passos que ele está no celular, no Ao Vivo (por exemplo "Abram no celular o material do grupo e leiam juntos"). Nunca mande procurar o material no chat: a mentora anexa o PDF no exercício e ele abre no celular de cada um.`;
+11. Quando o exercício em grupo usa um material para ler (caso, carta, texto, roteiro), diga nos passos que ele está no celular, no Ao Vivo (por exemplo "Abram no celular o material do grupo e leiam juntos"). Nunca mande procurar o material no chat: a mentora anexa o PDF no exercício e ele abre no celular de cada um.
+12. Se o roteiro tiver um item do tipo "entrada" (o QR code para os alunos entrarem pelo celular), ninguém está no celular antes dele: coloque todas as interações com depois_do_slide igual ou maior que o depois_do_slide desse item.`;
 
 // corta no fim de uma palavra (nunca no meio dela) quando passa do tamanho
 const limpo = (t, n) => {

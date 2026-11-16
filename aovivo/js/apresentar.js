@@ -151,6 +151,7 @@
       equipes: painel.equipes && painel.equipes.length ? painel.equipes.slice() : NOMES_EQUIPE.slice(0, 3),
       itens: painel.atividades.map(paraRascunho)
     };
+    const ganhouQR = garantirQR();
     const idAtual = painel.atividade && painel.atividade.id;
     const sel = rascunho.itens.find(i => i.id === idAtual) || rascunho.itens[0];
     selK = sel ? sel._k : null;
@@ -169,6 +170,23 @@
     if (nova) setTimeout(() => $('campoTitulo').focus(), 100);
     if (doModulo && !moduloTrazido && !rascunho.itens.some(i => i.tipo === 'slide')) setTimeout(trazerSlidesDoModulo, 300);
     if (sel && idAtual) setTimeout(() => { const el = document.querySelector('.ed-item.selecionado'); if (el) el.scrollIntoView({ block: 'center' }); }, 50);
+    if (ganhouQR) { mudou(); toast('Coloquei o "📱 QR code para entrar" logo depois da capa. Arraste para depois da sua explicação, se quiser.'); }
+  }
+
+  // QR code para entrar = item do roteiro (pedido da Juliana, 16/11/2026). Aula com slides e ainda sem ele ganha um logo
+  // depois do 1º slide (a capa); o mentor arrasta para onde quiser. Aula que já começou não muda sozinha.
+  function lembrarSemQR(sim) {   // o mentor tirou o QR code de propósito: não volta sozinho
+    try { if (sim) localStorage.setItem('aovivo_semqr_' + atual.id, '1'); else localStorage.removeItem('aovivo_semqr_' + atual.id); } catch (e) {}
+  }
+  function garantirQR() {
+    if (!rascunho || (painel && painel.comecou_em)) return false;
+    try { if (localStorage.getItem('aovivo_semqr_' + atual.id)) return false; } catch (e) {}
+    const L = rascunho.itens;
+    if (L.some(i => i.tipo === 'entrada')) return false;
+    const pos = L.findIndex(i => i.tipo === 'slide');
+    if (pos < 0) return false;
+    L.splice(pos + 1, 0, novoItem('entrada'));
+    return true;
   }
 
   function padOpcoes(o, n) { const r = (o || []).slice(); while (r.length < n) r.push(''); return r; }
@@ -211,6 +229,14 @@
   }
 
   function inserirItem(tipo, depoisDe) {
+    if (tipo === 'entrada') lembrarSemQR(false);
+    const ja = tipo === 'entrada' && rascunho.itens.find(i => i.tipo === 'entrada');
+    if (ja) {   // um QR code por aula: mostra o que já está no roteiro
+      selK = ja._k; desenharLista(); desenharItem();
+      const el = document.querySelector('.ed-item.selecionado');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return toast('A aula já tem o QR code para entrar. Arraste ou use ↑ ↓ para mudar o lugar dele.');
+    }
     const novo = novoItem(tipo);
     if (depoisDe) rascunho.itens.splice(rascunho.itens.indexOf(depoisDe) + 1, 0, novo);
     else rascunho.itens.push(novo);
@@ -594,6 +620,9 @@
   function colocarSugestoes(lista) {
     const slides = rascunho.itens.filter(i => i.tipo === 'slide');
     const ultimoDe = new Map();   // slide → último item colocado depois dele (para manter a ordem das sugestões)
+    // antes do QR code ninguém está no celular: nenhuma atividade entra antes dele
+    const qr = rascunho.itens.find(i => i.tipo === 'entrada');
+    const antesDoQR = qr ? rascunho.itens.slice(0, rascunho.itens.indexOf(qr)).filter(i => i.tipo === 'slide').length : 0;
     let primeiro = null;
     lista.slice().sort((a, b) => a.depois_do_slide - b.depois_do_slide).forEach(x => {
       const it = novoItem(x.tipo);
@@ -607,7 +636,8 @@
       it.tempo = x.tempo;
       it.config = Object.assign(it.config, JSON.parse(JSON.stringify(x.config || {})));
       it.notas = 'Sugestão da IA' + (x.motivo ? ': ' + x.motivo : '.');
-      const ref = x.depois_do_slide > 0 ? slides[x.depois_do_slide - 1] : null;
+      const d = Math.max(Number(x.depois_do_slide) || 0, antesDoQR);
+      const ref = qr && d === antesDoQR ? qr : (d > 0 ? slides[d - 1] : null);
       const ancora = ultimoDe.get(ref || 'inicio') || ref;
       if (ancora) rascunho.itens.splice(rascunho.itens.indexOf(ancora) + 1, 0, it);
       else rascunho.itens.unshift(it);
@@ -746,6 +776,7 @@
     }
     if (primeiraVez) rascunho.itens = novos.concat(rascunho.itens);
     else rascunho.itens = rascunho.itens.concat(novos);
+    garantirQR();
     if (!selK || !itemSel()) selK = rascunho.itens[0] && rascunho.itens[0]._k;
     lembrarAula({ id: atual.id, arquivo: arquivo.name, notasPptx: !!(notas && notas.some(x => x.notas)) || (!primeiraVez && infoAula().notasPptx) });
     desenharLista(); desenharItem();
@@ -906,6 +937,7 @@
     if (it.tipo === 'slide') {
       return '<b>Slide ' + nSlide + (it.pergunta ? ' · ' + esc(it.pergunta) : '') + '</b><span>' + (it.notas ? esc(it.notas.slice(0, 140)) : '<i>Sem notas</i>') + '</span>';
     }
+    if (it.tipo === 'entrada') return '<b>QR code para entrar</b><span>' + esc(it.pergunta.trim() || 'Pegue o celular e entre na aula!') + ' · o telão mostra o QR code e o código</span>';
     return '<b>' + TIPOS[it.tipo].nome + ' · ' + resumoTempo(it) + '</b><span>' + (it.pergunta.trim() ? esc(it.pergunta) : '<i>Sem pergunta ainda</i>') + '</span>';
   }
 
@@ -924,11 +956,46 @@
     const temSlides = rascunho.itens.some(i => i.tipo === 'slide');
     const faltam = faltandoNasQuatro(rascunho.itens.map(i => i.tipo));
     if (!temSlides || !rascunho.itens.length) { box.innerHTML = ''; return; }
-    box.innerHTML = faltam.length
-      ? avisoChatoHTML(faltam, ' <button class="btn btn-ia btn-mini" type="button" id="btnIA2">✨ Deixar do jeito Mentorei!</button>')
-      : '<div class="aviso-mentorei">✓ Do jeito Mentorei: a aula tem nuvem, quiz, votação e escala.</div>';
+    const semQR = !rascunho.itens.some(i => i.tipo === 'entrada');
+    // aula já encerrada (ensaio ou aula anterior): zerar para usar de novo, com a capa e o QR code no lugar certo
+    const usada = painel && painel.fase === 'encerrada';
+    const nPessoas = usada ? (painel.participantes || []).length : 0;
+    box.innerHTML = (usada ? '<div class="aviso-qr"><span class="ac-icone">🔄</span><div><b>Esta aula já foi encerrada (ensaio ou aula anterior).</b>' +
+        '<p>Para usar de novo do zero, clique em "Zerar para a próxima aula". Saem ' + (nPessoas === 1 ? 'a pessoa que entrou' : 'as ' + nPessoas + ' pessoas que entraram') +
+        ', as respostas e os pontos. Os slides e as atividades ficam. Aí o telão começa pela capa dos slides.</p>' +
+        '<button class="btn btn-secundario btn-mini" type="button" id="btnZerar">Zerar para a próxima aula</button></div></div>' : '') +
+      (semQR ? '<div class="aviso-qr"><span class="ac-icone">📱</span><div><b>Falta o QR code para os alunos entrarem.</b>' +
+        '<p>Coloque o "QR code para entrar" no roteiro, depois dos slides em que você explica a aula. Sem ele, o QR code só aparece pelo botão "QR code" do painel.</p>' +
+        '<button class="btn btn-secundario btn-mini" type="button" id="btnPorQR">Pôr depois da capa</button></div></div>' : '') +
+      (faltam.length
+        ? avisoChatoHTML(faltam, ' <button class="btn btn-ia btn-mini" type="button" id="btnIA2">✨ Deixar do jeito Mentorei!</button>')
+        : '<div class="aviso-mentorei">✓ Do jeito Mentorei: a aula tem nuvem, quiz, votação e escala.</div>');
     const b = $('btnIA2');
     if (b) b.onclick = sugerirComIA;
+    const z = $('btnZerar');
+    if (z) z.onclick = ev => popover(ev, 'Zerar a aula? Saem as pessoas, as respostas e os pontos (não dá para desfazer). Os slides e as atividades ficam.', 'Zerar', zerarAula);
+    const q = $('btnPorQR');
+    if (q) q.onclick = () => {
+      const pos = rascunho.itens.findIndex(i => i.tipo === 'slide');
+      const novo = novoItem('entrada');
+      lembrarSemQR(false);
+      rascunho.itens.splice(pos + 1, 0, novo);
+      selK = novo._k; desenharLista(); desenharItem(); mudou();
+    };
+  }
+
+  async function zerarAula() {
+    try {
+      if (sujo && !(await salvar(false))) return;
+      painel = await rpc('aovivo_reiniciar', { p_sessao: atual.id, p_chave: atual.chave, p_remover_participantes: true });
+      ultVersao = -1; ultimaPos = -1;
+      try { localStorage.removeItem('aovivo_pos_' + atual.id); } catch (e) {}
+      const ganhou = garantirQR();
+      desenharLista(); desenharItem();
+      if (ganhou) mudou();
+      if (typeof atualizarBotaoAoVivo === 'function') atualizarBotaoAoVivo();
+      toast('Pronto: a aula está zerada' + (painel.codigo ? ' (código ' + A.formatarCodigo(painel.codigo) + ')' : '') + '. O telão começa pela capa dos slides.');
+    } catch (e) { toast(e.message, true); }
   }
 
   function desenharLista() {
@@ -1058,7 +1125,14 @@
       '<p class="dica">No celular, o aluno toca em "Abrir a ferramenta" e, quando termina, em "Terminei". O telão mostra o QR code da ferramenta para quem não está no Ao Vivo. Você vê no painel quantos já terminaram.</p>';
   }
 
+  function corpoEntrada(a) {
+    return '<div class="campo"><label>Frase no telão (opcional)</label><input class="entrada" data-campo="pergunta" maxlength="120" value="' + esc(a.pergunta) + '" placeholder="Pegue o celular e entre na aula!"></div>' +
+      '<p class="dica">Quando você chega neste item, o telão mostra o QR code e o código da aula, e o nome de cada aluno aparece assim que ele entra. ' +
+      'Antes dele, o telão começa pela capa dos seus slides. Arraste este item para logo depois da sua explicação. Depois dele, o código continua num cantinho dos slides para quem chegar atrasado.</p>';
+  }
+
   function corpoAtividade(a) {
+    if (a.tipo === 'entrada') return corpoEntrada(a);
     if (a.tipo === 'grupo') return corpoGrupo(a);
     if (a.tipo === 'ferramenta') return corpoFerramenta(a);
     let corpo = '<div class="campo"><label>Pergunta</label><input class="entrada" data-campo="pergunta" maxlength="200" value="' + esc(a.pergunta) + '" placeholder="' + placeholderPergunta(a.tipo) + '"></div>';
@@ -1116,7 +1190,7 @@
     let html = '<div class="ed-item-cab"><span class="etiqueta">' + titulo + '</span><span class="dica">item ' + (i + 1) + ' de ' + total + '</span><span class="espaco"></span>' +
       '<button class="btn btn-secundario btn-icone" data-mover="-1" title="Subir"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
       '<button class="btn btn-secundario btn-icone" data-mover="1" title="Descer"' + (i === total - 1 ? ' disabled' : '') + '>↓</button>' +
-      '<button class="btn btn-secundario btn-icone" data-copiar title="Duplicar">⧉</button>' +
+      (it.tipo === 'entrada' ? '' : '<button class="btn btn-secundario btn-icone" data-copiar title="Duplicar">⧉</button>') +
       '<button class="btn btn-secundario btn-icone" data-apagar title="Tirar do roteiro">🗑</button></div>';
     if (it.tipo === 'slide') {
       html += '<img class="ed-grande" src="' + esc(it.config.imagem) + '" alt="Slide ' + numeroSlideRascunho(it) + '">' +
@@ -1131,7 +1205,7 @@
         blocoMateriais(it);
     }
     html += '<div class="ed-inserir"><span class="dica">Inserir logo depois deste item:</span><div class="linha">' +
-      ['nuvem', 'quiz', 'votacao', 'escala', 'grupo', 'ferramenta'].map(t => '<button class="btn btn-secundario btn-pequeno" data-inserir="' + t + '">' + TIPOS[t].icone + ' ' + TIPOS[t].curto + '</button>').join('') + '</div></div>';
+      ['nuvem', 'quiz', 'votacao', 'escala', 'grupo', 'ferramenta'].concat(rascunho.itens.some(x => x.tipo === 'entrada') ? [] : ['entrada']).map(t => '<button class="btn btn-secundario btn-pequeno" data-inserir="' + t + '">' + TIPOS[t].icone + ' ' + TIPOS[t].curto + '</button>').join('') + '</div></div>';
     box.innerHTML = html;
     ligarItem(box, it);
   }
@@ -1190,13 +1264,15 @@
       desenharLista(); desenharItem(); mudou();
       const el = document.querySelector('.ed-item.selecionado'); if (el) el.scrollIntoView({ block: 'nearest' });
     });
-    c.querySelector('[data-copiar]').onclick = () => {
+    const btnCopiar = c.querySelector('[data-copiar]');
+    if (btnCopiar) btnCopiar.onclick = () => {
       const copia = JSON.parse(JSON.stringify(a)); copia._k = ++contadorK; delete copia.id;
       rascunho.itens.splice(rascunho.itens.indexOf(a) + 1, 0, copia);
       selK = copia._k;
       desenharLista(); desenharItem(); mudou();
     };
-    c.querySelector('[data-apagar]').onclick = ev => popover(ev, a.tipo === 'slide' ? 'Tirar este slide do roteiro?' : 'Tirar esta atividade do roteiro?', 'Tirar', () => {
+    c.querySelector('[data-apagar]').onclick = ev => popover(ev, a.tipo === 'slide' ? 'Tirar este slide do roteiro?' : a.tipo === 'entrada' ? 'Tirar o QR code do roteiro? Aí o QR code só aparece pelo botão "QR code" do painel.' : 'Tirar esta atividade do roteiro?', 'Tirar', () => {
+      if (a.tipo === 'entrada') lembrarSemQR(true);
       const i = rascunho.itens.indexOf(a);
       rascunho.itens.splice(i, 1);
       const viz = rascunho.itens[i] || rascunho.itens[i - 1];
@@ -1222,7 +1298,7 @@
   function validar() {
     for (let i = 0; i < rascunho.itens.length; i++) {
       const a = rascunho.itens[i], n = 'O item ' + (i + 1) + ' (' + TIPOS[a.tipo].nome.toLowerCase() + ')';
-      if (a.tipo === 'slide') continue;
+      if (a.tipo === 'slide' || a.tipo === 'entrada') continue;
       if (a.tipo === 'grupo') {
         if (!a.pergunta.trim()) return n + ' está sem título.';
         if (!(a.config.passos || []).some(x => x.trim())) return n + ' está sem o passo a passo.';
@@ -1253,6 +1329,8 @@
       } else if (a.tipo === 'grupo') {
         o.opcoes = [];
         o.config = Object.assign({}, a.config, { passos: (a.config.passos || []).map(x => x.trim()).filter(Boolean) });
+      } else if (a.tipo === 'entrada') {
+        o.opcoes = []; o.config = {}; o.tempo = 0;
       } else if (a.tipo === 'ferramenta') {
         o.opcoes = []; o.config = { url: (a.config.url || '').trim(), codigo: a.config.codigo || '', instrucao: a.config.instrucao || '' };
       } else if (a.tipo === 'quiz') {
@@ -1451,9 +1529,11 @@
 
   function itens() { return painel.atividades; }
   function idxAtual() {
-    if (!painel.atividade || painel.fase === 'lobby') return -1;
+    if (!painel.atividade) return -1;   // QR code pelo botão (sem item) = fora do roteiro
     return itens().findIndex(a => a.id === painel.atividade.id);
   }
+  // antes de começar, com o QR code no roteiro, o telão mostra a capa (o 1º slide); o botão "QR code" mostra o QR mesmo assim
+  function emCapa(p) { return p.fase === 'lobby' && !p.atividade && !p.comecou_em && !(p.extra && p.extra.qr) && !!p.capa && p.entrada_ordem != null; }
   function posBase() { const i = idxAtual(); return i >= 0 ? i : ultimaPos; }
   function numeroSlide(k) { let n = 0; const L = itens(); for (let j = 0; j <= k && j < L.length; j++) if (L[j].tipo === 'slide') n++; return n; }
   function totalSlides() { return itens().filter(x => x.tipo === 'slide').length; }
@@ -1516,13 +1596,14 @@
   function proximoPasso() {
     const p = painel, L = itens(), tipo = p.atividade && p.atividade.tipo;
     const i = posBase();
-    const temAtividades = L.some(x => x.tipo !== 'slide');
+    const temAtividades = L.some(x => x.tipo !== 'slide' && x.tipo !== 'entrada');
     const irK = k => ({ rotulo: 'Próximo: ' + rotuloItem(k), fn: () => irPara(k), k });
     const fim = () => temAtividades && p.fase !== 'ranking'
       ? { rotulo: 'Ranking final 🏆', fn: () => acao('aovivo_mostrar_ranking') }
       : { rotulo: 'Encerrar a aula', fn: encerrar };
     switch (p.fase) {
       case 'lobby':
+        if (tipo === 'entrada' && i >= 0) return L[i + 1] ? irK(i + 1) : fim();
         if (!L.length) return { rotulo: 'Montar a aula', fn: voltarEditor };
         if (i < 0) return { rotulo: 'Começar a aula ▶', fn: () => irPara(0), k: 0 };
         return { rotulo: 'Voltar para: ' + rotuloItem(i), fn: () => irPara(i), k: i };
@@ -1657,6 +1738,7 @@
     else if (p.fase === 'slide' && it) rot += ' · Slide ' + numeroSlide(i) + ' de ' + totalSlides();
     else if (p.fase === 'atividade' && it) rot += ' · ' + TIPOS[it.tipo].nome + ' ao vivo';
     else if (p.fase === 'resultado' && it) rot += ' · resultado ' + ({ quiz: 'do quiz', nuvem: 'da nuvem de palavras', votacao: 'da votação', escala: 'da escala', grupo: 'dos grupos', ferramenta: 'da ferramenta' }[it.tipo] || '');
+    else if (emCapa(p)) rot += ' · capa (o 1º slide), antes de começar';
     else rot += ' · ' + ({ lobby: 'QR code para entrar', ranking: 'ranking', sorteio: 'sorteio', encerrada: 'aula encerrada' }[p.fase] || '');
     $('pAgoraRotulo').textContent = rot;
     $('pAgoraPos').textContent = i >= 0 ? 'Item ' + (i + 1) + ' de ' + L.length : '';
@@ -1680,7 +1762,12 @@
     const p = painel;
     if (p.tela_preta) return 'A tela preta está ligada. Os alunos só veem preto até você clicar em "Voltar a mostrar" (ou apertar B).';
     switch (p.fase) {
-      case 'lobby': return (p.sala && !p.comecou_em ? 'Para começar: clique em "🎥 Entrar na sala" e, na sala, compartilhe a janela "Telão". ' : '') + 'O telão mostra o QR code e o código. Cole o convite no chat para quem está só no celular.';
+      case 'lobby': {
+        const antes = p.sala && !p.comecou_em ? 'Para começar: clique em "🎥 Entrar na sala" e, na sala, compartilhe a janela "Telão". ' : '';
+        if (emCapa(p))
+          return antes + 'O telão mostra a capa dos seus slides. Clique em "Começar a aula" quando quiser. O QR code para os alunos entrarem aparece quando você chegar no item "📱 QR code para entrar" do roteiro.';
+        return antes + 'O telão mostra o QR code e o código, e o nome de cada aluno aparece quando ele entra. Cole o convite no chat para quem está só no celular.';
+      }
       case 'slide': return 'Avance com a seta do teclado, com o passador de slides ou com as setas que aparecem nas laterais do telão quando o mouse chega perto. Quando chega numa atividade, o celular dos alunos vibra e apita sozinho.';
       case 'atividade':
         if (p.atividade.tipo === 'grupo') return 'O telão e o celular mostram as instruções e o cronômetro. Quando o tempo acaba, o celular de todos vibra para voltar. Dê +1 min se precisar e clique em "Ver as respostas dos grupos" quando todos voltarem.';
@@ -1703,6 +1790,7 @@
     if (it.tipo === 'slide') {
       return '<div class="pn-seguir-slide"><img src="' + esc(it.config.imagem) + '" alt=""><span>Slide ' + numeroSlide(k) + (it.pergunta ? ' · ' + esc(it.pergunta) : '') + '</span></div>';
     }
+    if (it.tipo === 'entrada') return '<div class="pn-seguir-ativ"><span class="tipo-selo tipo-entrada">📱 QR code para entrar</span><p>' + esc(it.pergunta || 'Pegue o celular e entre na aula!') + '</p><span class="dica">o telão mostra o QR code e o código</span></div>';
     return '<div class="pn-seguir-ativ"><span class="tipo-selo tipo-' + it.tipo + '">' + TIPOS[it.tipo].icone + ' ' + TIPOS[it.tipo].nome + '</span><p>' + esc(it.pergunta) + '</p>' +
       '<span class="dica">' + resumoTempo(it) + (it.tipo === 'nuvem' ? ' · até ' + (it.config.max_respostas || 3) + ' palavras por pessoa' : '') +
       (it.tipo === 'grupo' ? ' · ' + (it.config.passos || []).length + ' passos' : '') + '</span></div>';
@@ -1715,7 +1803,7 @@
     if (p.fase === 'lobby') html += cardSala();
     if ((p.fase === 'atividade' || p.fase === 'resultado') && it && it.tipo !== 'slide') html += cardRespostas(it);
     if (p.fase === 'sorteio') html += cardSorteado();
-    if (it && p.fase !== 'lobby') {
+    if (it && (p.fase !== 'lobby' || it.tipo === 'entrada')) {
       const nome = it.tipo === 'slide' ? 'Slide ' + numeroSlide(i) : TIPOS[it.tipo].nome;
       html += '<div class="pn-card pn-notas"><div class="pn-card-cab"><span class="etiqueta">Suas notas · ' + nome + '</span><span class="espaco"></span>' +
         '<button class="btn btn-secundario btn-mini" data-tam="-2" title="Diminuir letra">A−</button><button class="btn btn-secundario btn-mini" data-tam="2" title="Aumentar letra">A+</button></div>' +
@@ -1763,7 +1851,7 @@
     return '<div class="pn-card"><div class="pn-card-cab"><span class="etiqueta">Na sala agora · ' + gente.length + '</span></div>' +
       (gente.length ? '<div class="pn-nomes">' + gente.slice().reverse().map(x =>
         '<button class="pn-nome" data-remover="' + x.id + '" title="Clique para tirar da aula">' + (x.equipe ? '<i style="background:' + corEquipe(painel.equipes, x.equipe) + '"></i>' : '') + esc(x.nome) + '</button>').join('') + '</div>'
-        : '<p class="dica">Ninguém entrou ainda. O QR code está no telão.</p>') +
+        : '<p class="dica">' + (emCapa(painel) ? 'Ninguém entrou ainda. O telão está na capa: o QR code aparece no item "📱 QR code para entrar".' : 'Ninguém entrou ainda. O QR code está no telão.') + '</p>') +
       '<button class="btn btn-secundario btn-pequeno btn-bloco" data-convite style="margin-top:12px">Copiar convite para o chat</button></div>';
   }
 

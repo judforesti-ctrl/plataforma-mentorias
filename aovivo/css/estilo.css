@@ -616,6 +616,11 @@ button.pn-nome:hover { background: rgba(255,138,128,.18); text-decoration: line-
 .tipo-grupo { background: rgba(183,156,255,.16); color: #D5C7FF; }
 .tipo-ferramenta { background: rgba(94,214,232,.15); color: #A6ECF6; }
 .ed-mini-ativ.tipo-grupo, .ed-mini-ativ.tipo-ferramenta { font-size: 24px; }
+.tipo-entrada { background: rgba(255,214,102,.16); color: #FFE08A; }
+.ed-mini-ativ.tipo-entrada { font-size: 26px; }
+.aviso-qr { display: flex; gap: 12px; align-items: flex-start; background: rgba(255,214,102,.10); border: 1px solid rgba(255,214,102,.35); border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 14px; line-height: 1.5; }
+.aviso-qr .ac-icone { font-size: 22px; line-height: 1; }
+.aviso-qr p { margin: 2px 0 8px; color: var(--texto-2); }
 .btn-ia { background: linear-gradient(135deg, #B79CFF, #6FE3B8); color: #071F1A; min-height: 38px; }
 .btn-ia:hover { filter: brightness(1.06); }
 .entrada-mini { display: inline-block; width: auto; min-height: 34px; padding: 2px 10px; font-size: 14px; margin-left: 4px; }

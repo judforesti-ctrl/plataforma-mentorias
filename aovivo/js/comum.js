@@ -197,7 +197,8 @@
     votacao: { nome: 'Votação', icone: '🗳️', curto: 'Votação' },
     escala: { nome: 'Escala', icone: '📊', curto: 'Escala' },
     grupo: { nome: 'Exercício em grupo', icone: '👥', curto: 'Grupo' },
-    ferramenta: { nome: 'Ferramenta', icone: '🧭', curto: 'Ferramenta' }
+    ferramenta: { nome: 'Ferramenta', icone: '🧭', curto: 'Ferramenta' },
+    entrada: { nome: 'QR code para entrar', icone: '📱', curto: 'QR code' }
   };
 
   /* Ferramentas on-line da plataforma Mentorei que abrem no celular do aluno */

@@ -1194,6 +1194,18 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   ("Escrever as percepções agora" abre `app.html#/modulo/<id>/percepcoes`, que rola até o cartão e põe o cursor na caixa; com
   percepções já feitas, "Quer completar as percepções?"). aovivo_painel devolve modulo_id e percepcoes_em. Testes (fora do git):
   /home/claude/teste-aav/t.py (tela da Gestão com Supabase de mentira) e /home/claude/aovivo/teste/gestao_aovivo.py.
+  (12) QR CODE NO ROTEIRO E CAPA NO TELÃO (16/11/2026, script 78 rodado pelo conector; pedido dela: "não quero que o primeiro
+  slide seja sempre o do celular; o mentor explica e aí projeta o código" e "a capa do telão pode ser sempre a capa dos slides").
+  Item novo do roteiro tipo 'entrada' = "📱 QR code para entrar" (frase opcional no telão, um por aula, sem duplicar). Aula com
+  slides e ainda não começada ganha o item sozinha logo depois do 1º slide (`garantirQR`, ao abrir o editor e ao importar; o mentor
+  arrasta; se ele TIRAR o item, não volta sozinho: localStorage "aovivo_semqr_<aula>"; aviso "Falta o QR code" com "Pôr depois da
+  capa"). Antes de começar (lobby, sem atividade, comecou_em vazio, sem extra.qr), com o QR code depois de algum slide, o telão mostra
+  a CAPA (1º slide; aovivo_publico devolve `capa` e `entrada_ordem`, e `estadoParaTelao` passa os dois). Chegar no item = fase lobby
+  com a atividade 'entrada' (telão com QR, código e nomes; celular na espera). A faixinha do código nos slides só aparece DEPOIS do
+  QR code. O botão "QR code" e a tecla Q gravam extra {qr: true} e mostram o QR mesmo antes de começar. A IA não põe atividade antes
+  do QR code (regra 12 do prompt e `colocarSugestoes`). Aula ENCERRADA (ensaio) abre no editor com "Zerar para a próxima aula"
+  (aovivo_reiniciar com p_remover_participantes: tira pessoas, respostas e pontos; comecou_em volta a vazio). Testes (fora do git):
+  /home/claude/aovivo/teste/qr_roteiro.py e qr_zerar.py.
   Testes (fora do git): /home/claude/aovivo/teste/grupo.py, apresentacao.py e conv.py (Chrome sem janela, servidor de mentira);
   /home/claude/teste-conv/t.mjs (função com Google e Supabase de mentira).
 
