@@ -1044,3 +1044,46 @@ body.lendo { overflow: hidden; }
 .rl-corpo.revela .alt-telao .forma { width: 4.4cqh; height: 4.4cqh; flex: none; }
 .rl-corpo.revela .alt-telao .check { width: 4.6cqh; height: 4.6cqh; font-size: 2.8cqh; flex: none; }
 .rl-corpo.revela .alt-telao .qtd { font-size: 3.6cqh; }
+
+/* =========================================================
+   TUTORIAL GUIADO (16/11/2026, no estilo do HeyGen)
+   ========================================================= */
+.tour-bloqueio { position: fixed; inset: 0; z-index: 1000; }
+.tour-furo { position: fixed; z-index: 1001; border-radius: 14px; pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(3, 14, 11, .66), 0 0 0 3px var(--menta), 0 0 24px 4px rgba(111,227,184,.35);
+  transition: left .28s ease, top .28s ease, width .28s ease, height .28s ease; }
+.tour-balao { position: fixed; z-index: 1002; background: #fff; color: #0B1F1A; border-radius: 18px; padding: 16px 18px 12px;
+  box-shadow: 0 18px 50px rgba(0,0,0,.35); font-family: var(--corpo); transition: left .28s ease, top .28s ease; }
+.tour-balao.sem-alvo { box-shadow: 0 24px 70px rgba(0,0,0,.5); }
+.tour-seta { position: absolute; width: 16px; height: 16px; background: #fff; transform: rotate(45deg); }
+.tour-seta.baixo { top: -7px; margin-left: -8px; }
+.tour-seta.cima { bottom: -7px; margin-left: -8px; }
+.tour-seta.direita { left: -7px; margin-top: -8px; }
+.tour-seta.esquerda { right: -7px; margin-top: -8px; }
+.tour-cab { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; position: relative; }
+.tour-num { display: inline-flex; align-items: center; gap: 8px; font-family: var(--titulo); font-weight: 800; font-size: 12.5px; letter-spacing: .1em; color: #33463F; }
+.tour-num i { width: 9px; height: 9px; border-radius: 50%; background: var(--coral); display: inline-block; }
+.tour-esp { flex: 1; }
+.tour-icone { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-size: 15px; color: #33463F; }
+.tour-icone:hover { background: #EEF4F1; }
+.tour-icone.ligado { background: #E3F7EF; }
+.tour-tit { font-family: var(--titulo); font-size: 17px; line-height: 1.25; margin-bottom: 4px; color: #0B1F1A; }
+.tour-txt { font-size: 15px; line-height: 1.5; color: #22332E; }
+.tour-txt b { color: #0B1F1A; }
+.tour-fim:empty { display: none; }
+.tour-fim { margin-top: 10px; }
+.tour-sempre { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #33463F; cursor: pointer; }
+.tour-sempre input { width: 17px; height: 17px; accent-color: var(--menta-forte); }
+.tour-rodape { display: flex; align-items: center; gap: 8px; margin-top: 14px; }
+.tour-pontos { display: inline-flex; gap: 5px; align-items: center; }
+.tour-pontos i { width: 7px; height: 7px; border-radius: 50%; background: #D3DDD9; cursor: pointer; transition: width .2s, background .2s; }
+.tour-pontos i.feito { background: #9DB3AB; }
+.tour-pontos i.atual { background: #0B1F1A; width: 16px; border-radius: 4px; }
+.tour-btn { min-height: 38px; padding: 0 18px; border-radius: 999px; border: 1.5px solid #CBD7D2; font-family: var(--titulo); font-weight: 800; font-size: 14.5px; color: #0B1F1A; background: #fff; }
+.tour-btn:hover { background: #F1F6F4; }
+.tour-btn:focus-visible { outline: 3px solid var(--menta); outline-offset: 2px; }
+.tour-btn:not(.tour-btn-leve) { background: #0B1F1A; color: #fff; border-color: #0B1F1A; }
+.tour-btn:not(.tour-btn-leve):hover { background: #163A31; }
+.tour-btn-leve { border-color: transparent; color: #4A5E57; padding: 0 10px; }
+.tour-sozinho { display: block; margin: 10px auto 0; font-size: 13px; color: #5B6F68; text-decoration: underline; text-underline-offset: 3px; }
+.tour-sozinho:hover { color: #0B1F1A; }

@@ -1252,6 +1252,19 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   estão no roteiro, e pelo menos 3 slides entre uma e outra; o prompt diz isso e `escolherNaMedida` (aovivo-sugerir.mjs) confere
   depois da IA (prioridade: exercício em grupo, uma de cada uma das quatro funções, depois o resto; empurra 1 ou 2 slides se colar
   em outra). Testes (fora do git): /home/claude/aovivo/teste/novas17.py (telas) e /home/claude/teste-email/t2.mjs (e-mail).
+  (15) TUTORIAL GUIADO (16/11/2026, noite, sem script; pedido dela com print do HeyGen: "a pessoa pode usar o tutorial toda vez que
+  entrar ou dizer posso fazer sozinha"). `aovivo/js/tour.js` (`window.Tutorial`: abrir(nome, passos, opcoes) / automatico(...)):
+  fundo escurecido com o "furo" iluminando a parte da tela, balão branco com "N DE M", 🔊 (lê o passo pela voz do navegador em
+  pt-BR; desligada no começo, a escolha fica guardada), ✕ (fecha; abre de novo na próxima entrada), bolinhas, Voltar/Próximo, link
+  "Já sei, posso fazer sozinho(a)" (desliga o automático e avisa que fica no botão ❓) e, no último passo, a caixinha "Mostrar este
+  tutorial sempre que eu entrar". Passos em `PASSOS` de apresentar.js: editor (10: boas-vindas, nome, slides, roteiro, atividades,
+  IA, item escolhido, sala, Projetar, botão ❓) e painel (8: telão, janela do telão + "Compartilhar som", conduzir, ferramentas,
+  coluna da direita, roteiro, encerrar, botão ❓). O do editor abre sozinho ao entrar; o do painel só antes de a aula começar
+  (`comecou_em` vazio). Botões "❓ Tutorial" (#btnTutorial no editor, #pTutorial no painel). Com o balão aberto as setas e o Enter
+  mexem no tutorial, não na aula. Passo cujo alvo não está na tela fica fora da conta. Escolha guardada NESTE NAVEGADOR (o Ao Vivo
+  não tem login): localStorage "aovivo_tutorial_v1" = {editor:'sozinho', painel:'sozinho', narracao}. Para os testes de tela que não
+  são do tutorial, pôr esse valor antes de abrir. Os textos evitam o nome "Ao Vivo" (o módulo vai mudar de nome).
+  Teste (fora do git): /home/claude/aovivo/teste/tutorial18.py.
   Testes (fora do git): /home/claude/aovivo/teste/grupo.py, apresentacao.py e conv.py (Chrome sem janela, servidor de mentira);
   /home/claude/teste-conv/t.mjs (função com Google e Supabase de mentira).
 

@@ -174,6 +174,8 @@
     if (doModulo && !moduloTrazido && !rascunho.itens.some(i => i.tipo === 'slide')) setTimeout(trazerSlidesDoModulo, 300);
     if (sel && idAtual) setTimeout(() => { const el = document.querySelector('.ed-item.selecionado'); if (el) el.scrollIntoView({ block: 'center' }); }, 50);
     if (tirouQR) mudou();
+    // tutorial guiado: abre sozinho uma vez por entrada, até a pessoa dizer que pode fazer sozinha
+    if (!tutorialVisto.editor) { tutorialVisto.editor = true; setTimeout(() => { if (!document.querySelector('.fundo-modal')) tutorial('editor', false); }, 900); }
   }
 
   // 16/11/2026 (de manhã) o QR code entrou como item logo depois da capa; à tarde, depois da aula, a Juliana pediu de volta o
@@ -1697,6 +1699,8 @@
     timerPainel = setInterval(atualizarPainel, 1200);
     atualizarStatusTelao();
     history.replaceState(null, '', '#s=' + atual.id + '&k=' + atual.chave);
+    // o tutorial do painel abre sozinho só antes de a aula começar (no meio da aula, só pelo botão ❓)
+    if (!tutorialVisto.painel && painel && !painel.comecou_em) { tutorialVisto.painel = true; setTimeout(() => tutorial('painel', false), 900); }
   }
 
   // aceita o estado só se for mais novo que o que já está na tela
@@ -2404,6 +2408,44 @@
   }
   if (window.MusicaEspera) MusicaEspera.aoMudar(desenharMusica);
   $('pMusica').onclick = alternarMusica;
+
+  /* =========================================================
+     TUTORIAL GUIADO (pedido da Juliana, 16/11/2026, no estilo do HeyGen): abre sozinho toda vez que a pessoa entra,
+     até ela clicar em "Já sei, posso fazer sozinho(a)"; o botão "❓ Tutorial" abre de novo quando quiser.
+     ========================================================= */
+  const tutorialVisto = { editor: false, painel: false };
+  const PASSOS = {
+    editor: [
+      { titulo: 'Bem-vindo(a)! 👋', texto: 'Em poucos passos eu mostro como montar a sua aula ao vivo: os slides, as atividades e a hora de projetar. Leva 1 minuto.' },
+      { alvo: '#campoTitulo', titulo: 'O nome da aula', texto: 'Esse nome aparece no telão e no celular dos alunos.' },
+      { alvo: '#caixaArquivo', titulo: 'Os seus slides', texto: 'Envie aqui o PowerPoint ou o PDF da aula. Pode mandar o PowerPoint do jeito que está: a plataforma transforma em slides e guarda as suas anotações.' },
+      { alvo: '.ed-lista-cab', titulo: 'O roteiro da aula', texto: 'Logo abaixo ficam os slides e as atividades, na ordem em que vão acontecer. <b>Arraste</b> para mudar a ordem e <b>clique</b> num item para editar.' },
+      { alvo: '#botoesAdicionar', titulo: 'As atividades', texto: 'Nuvem de palavras, quiz, votação, mural de ideias, rodada relâmpago e outras. Embaixo de cada botão tem a dica de quando usar. A medida certa é <b>uma interação a cada 3 ou 4 slides</b>.' },
+      { alvo: '#btnIA', titulo: 'Deixar do jeito Mentorei', texto: 'Sem tempo? A IA lê os seus slides e sugere as interações na medida certa, já com as perguntas prontas. Você só marca o que quer.' },
+      { alvo: '#editorItem', titulo: 'Editar o item escolhido', texto: 'Aqui você ajusta a pergunta, o tempo, o PDF para os grupos e as suas notas, que só você vê durante a aula. Tudo é salvo sozinho.' },
+      { alvo: '#blocoSala', titulo: 'A sala da aula', texto: 'Cole aqui o link do Zoom, do Teams ou do Meet. Na hora da aula, um botão abre a sala para você.' },
+      { alvo: '#btnAoVivo', titulo: 'Hora da aula!', texto: 'Clique aqui para abrir o <b>telão</b> e o <b>painel</b>. O telão é a janela que você compartilha no Zoom ou no Teams; o painel fica só com você.' },
+      { alvo: '#btnTutorial', titulo: 'Pronto!', texto: 'Quando quiser ver este tutorial de novo, é só clicar aqui.' }
+    ],
+    painel: [
+      { alvo: '.pn-previa-caixa', titulo: 'Agora no telão', texto: 'Isso é exatamente o que a turma está vendo. Antes de começar, o telão mostra as boas-vindas com o QR code, o horário e a música.' },
+      { alvo: '#pStatusTelao', titulo: 'A janela do telão', texto: 'O telão abre numa janela separada. No Zoom ou no Teams, compartilhe <b>só essa janela</b> e marque <b>"Compartilhar som"</b> para a música chegar na turma.' },
+      { alvo: '#pProximo', titulo: 'Conduzir a aula', texto: 'Avance por aqui, pela seta do teclado ou pelo passador de slides. Quando chega numa atividade, o celular dos alunos vibra e apita sozinho.' },
+      { alvo: '.pn-ferramentas', titulo: 'Na manga', texto: 'Ranking, sorteio, QR code de novo, tela preta, música e intervalo. Use a qualquer momento da aula.' },
+      { alvo: '#pLateral', titulo: 'Ao seu lado', texto: 'Aqui aparecem quem está na sala, as respostas chegando, quem ainda não respondeu, o que vem a seguir e as suas notas.' },
+      { alvo: '#pTrilha', titulo: 'O roteiro', texto: 'Clique em qualquer item para pular direto para ele.' },
+      { alvo: '#pEncerrar', titulo: 'No fim', texto: 'Encerre a aula aqui: o telão mostra o pódio, os alunos avaliam a aula e quem pediu recebe os materiais por e-mail.' },
+      { alvo: '#pTutorial', titulo: 'Boa aula! 🎉', texto: 'Quando quiser ver este tutorial de novo, é só clicar aqui.' }
+    ]
+  };
+  function tutorial(nome, forcar) {
+    if (!window.Tutorial) return;
+    const op = { aoDesligar: () => toast('Combinado! O tutorial não abre mais sozinho. Se precisar, ele fica no botão "❓ Tutorial", lá em cima.') };
+    if (forcar) Tutorial.abrir(nome, PASSOS[nome], op);
+    else Tutorial.automatico(nome, PASSOS[nome], op);
+  }
+  $('btnTutorial').onclick = () => tutorial('editor', true);
+  $('pTutorial').onclick = () => tutorial('painel', true);
 
   /* =========================================================
      Início
