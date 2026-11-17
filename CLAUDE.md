@@ -390,7 +390,13 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   DINAMIQUEI (17/11, decisão dela): o Mentorei Ao Vivo passou a se chamar Dinamiquei ("Interação para encontros ao vivo", by Mentorei;
   slogan "Slides que puxam conversa."). Logo para fundo claro em `public/assets/dinamiquei-escura.png` (tinta #0A0A0A + ponto #A8DB0A,
   1000×268, sem o slogan). Na plataforma, o cartão do módulo virou "Rodar mentoria no" + logo (`.av-titulo` em app.css) e o botão do
-  cartão e o do alto do módulo viraram "▶ Deixar a aula mais dinâmica". O site do Ao Vivo (aovivo/) ainda não foi renomeado.
+  cartão e o do alto do módulo viraram "▶ Deixar a aula mais dinâmica". No site do Ao Vivo (aovivo/, 17/11): logo para fundo escuro
+  `aovivo/img/dinamiquei-clara.png` (letras creme #EEE7DE + ponto verde) no lugar do logo Mentorei + "Ao Vivo" (entrada do aluno 34 px,
+  editor 36 px, painel 32 px, telão 6cqh, cartão de compartilhar 112 px); títulos das abas "Dinamiquei"; textos "Mentorei Ao Vivo" →
+  "Dinamiquei". O endereço continua mentorei-aovivo.netlify.app. DEPLOY DO AO VIVO (o shell não alcança a Netlify): push no GitHub
+  (repo público) → no navegador do Claude, em mentorei-aovivo.netlify.app, JSZip de /js/vendor/jszip.min.js monta o zip com os
+  arquivos de aovivo/ lidos de raw.githubusercontent.com/<commit> + js/vendor do próprio site (sem sql/) e manda POST multipart
+  (campo "zip", mode no-cors) para <proxy-path do deploy-site do conector>/api/v1/sites/<site>/builds; conferir no conector.
 - MENU (2026-10-09, pedido dela com as Propostas 3 e 4): 3 grupos (Mentoria, Gestão, Negócio) em DOIS formatos que cada pessoa escolhe
   (topo com menus suspensos ou barra lateral de 264 px; abaixo de 900 px vira barra + gaveta). UMA lista `GRUPOS` em `app.js`
   (item: nome, ícone Lucide, rota, `pode` = mesmas permissões do menu antigo; grupo vazio some; mentorado tem Minha mentoria,

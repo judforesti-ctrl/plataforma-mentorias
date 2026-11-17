@@ -15,7 +15,7 @@
     raiz.classList.add('tela-telao');
     if (op.previa) raiz.classList.add('previa');
     raiz.innerHTML =
-      '<header class="tt-topo"><img src="img/logo-branco.png" alt="Mentorei"><span class="tt-titulo"></span><span class="espaco"></span>' +
+      '<header class="tt-topo"><img src="img/dinamiquei-clara.png" alt="Dinamiquei, by Mentorei"><span class="tt-titulo"></span><span class="espaco"></span>' +
       '<div class="selo-entrada"></div><div class="contador-pessoas" title="Pessoas na aula">' + SVG_PESSOA + '<span class="tt-pessoas">0</span></div></header>' +
       '<section class="tt-palco"></section>' +
       '<div class="tt-slide oculto"><img alt="" draggable="false"></div>' +
@@ -208,7 +208,7 @@
     function montarFerramenta() {
       const a = e.atividade, c = a.config || {};
       palco.innerHTML = cabecalho(a, false) + '<div class="ferr-telao"><div class="qr-grande">' + A.qrSVG(c.url || '') + '</div>' +
-        '<div class="ferr-texto"><h2>Abra no seu celular</h2><p>No Mentorei Ao Vivo, toque em <b>Abrir a ferramenta</b>. Quem não está no Ao Vivo aponta a câmera para o QR code.</p>' +
+        '<div class="ferr-texto"><h2>Abra no seu celular</h2><p>No Dinamiquei, toque em <b>Abrir a ferramenta</b>. Quem não está no Dinamiquei aponta a câmera para o QR code.</p>' +
         (c.instrucao ? '<p class="ferr-recado">' + esc(c.instrucao) + '</p>' : '') +
         '<div class="ferr-numeros"><div><b data-r="abriram">0</b><span>abriram</span></div><div><b data-r="terminaram">0</b><span>terminaram</span></div></div></div></div>';
       tique();

@@ -101,7 +101,7 @@ select.entrada option { background: var(--fundo-2); }
    ========================================================= */
 .aluno { position: relative; z-index: 1; min-height: 100%; display: flex; flex-direction: column; max-width: 560px; margin: 0 auto; padding: 18px 18px 28px; }
 .aluno-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; }
-.aluno-topo img { height: 15px; opacity: .95; }
+.aluno-topo img { height: 34px; width: auto; }
 .chip-pontos {
   display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px;
   background: rgba(111, 227, 184, .14); color: var(--menta); font-family: var(--titulo); font-weight: 800; font-size: 14px;
@@ -195,7 +195,7 @@ select.entrada option { background: var(--fundo-2); }
   position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 16px;
   padding: 14px 28px; background: rgba(7, 31, 26, .85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--borda);
 }
-.barra-topo img { height: 16px; }
+.barra-topo img { height: 36px; width: auto; }
 .barra-topo .nome-app { font-family: var(--titulo); font-weight: 800; color: var(--menta); font-size: 15px; padding-left: 14px; border-left: 1px solid var(--borda); }
 .barra-topo .espaco { flex: 1; }
 .conteudo { max-width: 1040px; margin: 0 auto; padding: 32px 24px 120px; }
@@ -276,7 +276,7 @@ select.entrada option { background: var(--fundo-2); }
     radial-gradient(60cqmax 60cqmax at 0% 100%, rgba(63, 211, 156, .09), transparent 60%);
 }
 .tt-topo { position: relative; display: flex; align-items: center; gap: 2cqw; padding: 2.4cqh 3cqw 1.6cqh; z-index: 2; }
-.tt-topo img { height: 2.3cqh; }
+.tt-topo img { height: 6cqh; width: auto; }
 .tt-titulo { color: var(--texto-2); font-weight: 600; font-size: 1.9cqh; padding-left: 2cqw; border-left: 1px solid var(--borda); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42cqw; }
 .tt-topo .espaco { flex: 1; }
 .tela-telao .selo-entrada { display: flex; align-items: center; gap: 1.2cqw; background: rgba(255,255,255,.06); border: 1px solid var(--borda); border-radius: 1.6cqh; padding: .8cqh 1cqw .8cqh 1.2cqw; }
@@ -484,7 +484,7 @@ select.entrada option { background: var(--fundo-2); }
 body.modo-painel { overflow: hidden; }
 .pn { position: fixed; inset: 0; z-index: 1; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--fundo); }
 .pn-topo { display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-bottom: 1px solid var(--borda); background: rgba(7,31,26,.92); min-width: 0; flex-wrap: wrap; row-gap: 8px; }
-.pn-topo img { height: 15px; }
+.pn-topo img { height: 32px; width: auto; margin-right: 6px; }
 .pn-topo .nome-app { font-family: var(--titulo); font-weight: 800; color: var(--menta); font-size: 15px; padding-left: 12px; border-left: 1px solid var(--borda); white-space: nowrap; }
 .pn-titulo { color: var(--texto-2); font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 40px; max-width: 260px; }
 .pn-topo .espaco { flex: 1; }

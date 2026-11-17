@@ -1111,9 +1111,8 @@
     g.fillStyle = brilho; g.fillRect(0, 0, W, H);
     const brilho2 = g.createRadialGradient(0, H, 0, 0, H, 700); brilho2.addColorStop(0, 'rgba(63,211,156,.16)'); brilho2.addColorStop(1, 'rgba(63,211,156,0)');
     g.fillStyle = brilho2; g.fillRect(0, 0, W, H);
-    const logo = await carregarImg('img/logo-branco.png');
-    if (logo) { const h = 48, w = logo.width * h / logo.height; g.drawImage(logo, 90, 96, w, h); }
-    g.fillStyle = '#6FE3B8'; g.font = '800 26px Manrope, sans-serif'; g.textAlign = 'right'; g.fillText('AO VIVO', W - 90, 132); g.textAlign = 'left';
+    const logo = await carregarImg('img/dinamiquei-clara.png');
+    if (logo) { const h = 112, w = logo.width * h / logo.height; g.drawImage(logo, 90, 72, w, h); }
     let y = 290;
     g.fillStyle = '#A9C9BE'; g.font = '600 34px Inter, sans-serif'; g.fillText('Eu participei da aula', 90, y);
     g.fillStyle = '#F2FBF7'; g.font = '800 62px Manrope, sans-serif';
@@ -1145,8 +1144,8 @@
   }
   function textoDoCartao() {
     const med = (estado.eu.medalhas || []).map(m => m.icone + ' ' + m.nome);
-    return 'Hoje participei da aula "' + (estado.titulo || 'Aula Mentorei') + '" no Mentorei Ao Vivo' + (med.length ? ' e conquistei: ' + med.join(', ') : '') +
-      '. Aprender junto é outra coisa! #Mentorei #Liderança';
+    return 'Hoje participei da aula "' + (estado.titulo || 'Aula Mentorei') + '" no Dinamiquei, da Mentorei' + (med.length ? ' e conquistei: ' + med.join(', ') : '') +
+      '. Aprender junto é outra coisa! #Dinamiquei #Mentorei #Liderança';
   }
   async function abrirCartao() {
     const b = $('btnCartao');
@@ -1155,7 +1154,7 @@
     try { blob = await gerarCartao(); } catch (e) {}
     if (b) { b.disabled = false; b.textContent = '📸 Criar o meu cartão para compartilhar'; }
     if (!blob) return toast('Não consegui criar o cartão agora. Tente de novo.', true);
-    const url = URL.createObjectURL(blob), nomeArq = 'mentorei-ao-vivo.png';
+    const url = URL.createObjectURL(blob), nomeArq = 'dinamiquei.png';
     const arq = new File([blob], nomeArq, { type: 'image/png' });
     const podeCompartilhar = !!(navigator.canShare && navigator.canShare({ files: [arq] }));
     const o = document.createElement('div');
