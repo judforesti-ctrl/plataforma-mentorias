@@ -69,12 +69,12 @@ export async function ligarAoVivo(ctx, el, m, pode) {
   const { pdf, pptx } = escolherSlides(m.arquivos, ctx.perfil.id);
   const slides = pdf || pptx
     ? `Leva os slides ${[pdf && esc(pdf.nome), pptx && pptx !== pdf && esc(pptx.nome)].filter(Boolean).join(' e ')}.`
-    : 'Ainda não há slides deste módulo aqui: dá para enviar a apresentação (PowerPoint ou PDF) direto no Ao Vivo.';
+    : 'Ainda não há slides deste módulo aqui: dá para enviar a apresentação (PowerPoint ou PDF) direto no Dinamiquei.';
   box.innerHTML = `
-    <div class="linha"><h3 style="flex:1">Aula ao vivo</h3>${s ? `<span class="selo${s.fase === 'encerrada' ? ' neutro' : ''}">${FASE[s.fase] || ''}</span>` : ''}</div>
-    <p class="peq">Os slides, o quiz, a nuvem de palavras, a votação, os exercícios em grupo e a avaliação no fim, tudo no celular dos alunos (Mentorei Ao Vivo). Quando a aula termina, a presença volta para este módulo.</p>
+    <div class="linha av-cab"><h3 class="av-titulo"><span>Rodar mentoria no</span><img src="/assets/dinamiquei-escura.png" width="1000" height="268" alt="Dinamiquei, interação para encontros ao vivo, by Mentorei"></h3>${s ? `<span class="selo${s.fase === 'encerrada' ? ' neutro' : ''}">${FASE[s.fase] || ''}</span>` : ''}</div>
+    <p class="peq">Os slides, o quiz, a nuvem de palavras, a votação, os exercícios em grupo e a avaliação no fim, tudo no celular dos alunos. Quando a aula termina, a presença volta para este módulo.</p>
     ${error && !/aovivo_situacao_modulo|schema cache|PGRST20/.test(error.message || '') ? `<p class="peq">${esc(explicarErro(error))}</p>` : ''}
-    <div class="linha mt" style="gap:6px"><button class="btn pri" type="button" id="av-abrir">${s && s.roteiro ? '▶ Abrir a aula ao vivo' : '▶ Montar a aula ao vivo'}</button>
+    <div class="linha mt" style="gap:6px"><button class="btn pri" type="button" id="av-abrir">▶ Deixar a aula mais dinâmica</button>
       ${s ? `<button class="btn peq" type="button" id="av-link">Copiar o convite para os alunos</button>` : ''}</div>
     <p class="peq apagado mt">${slides}</p>
     ${s ? `<p class="peq mt">Código da sala: <b>${esc(String(s.codigo).replace(/^(\d{3})/, '$1 '))}</b>${s.participantes ? ` · ${s.participantes} pessoa${s.participantes === 1 ? '' : 's'} participaram` : ''}${s.comecou_em ? ` · começou em ${dataHoraBR(s.comecou_em)}` : ''}</p>

@@ -565,7 +565,7 @@ async function paginaModulo(ctx, el, id, parte) {
       </div>
       <div class="linha">
         ${ehUrl ? `<a class="btn escuro" href="${esc(linkSala)}" target="_blank" rel="noopener">Link para entrar na aula</a>` : ''}
-        ${adm || souMentor ? '<button class="btn pri" type="button" id="abrir-aovivo" title="Slides, quiz, nuvem, exercícios em grupo e avaliação no celular dos alunos">▶ Abrir aula ao vivo</button>' : ''}
+        ${adm || souMentor ? '<button class="btn pri" type="button" id="abrir-aovivo" title="Rodar mentoria no Dinamiquei: slides, quiz, nuvem, exercícios em grupo e avaliação no celular dos alunos">▶ Deixar a aula mais dinâmica</button>' : ''}
         <button class="btn" id="cintia">Falar com a Cintia</button>
         <span class="salvo" id="indicador"></span>
       </div>

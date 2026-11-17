@@ -909,3 +909,9 @@ select.bs-escondido { position: absolute !important; opacity: 0 !important; poin
 .fn-pend-linhas li { display: flex; gap: 10px; align-items: center; justify-content: space-between; padding: 6px 10px; border-radius: 8px; background: var(--fundo, #f3f5f4); }
 .fn-feliz { margin: 10px 0 0 44px; padding: 8px 12px; border-radius: 10px; background: var(--faixa); border-left: 4px solid var(--bege); color: var(--bege-texto); font-size: 14px; }
 @media (max-width: 640px) { .fn-pend-linhas, .fn-feliz { margin-left: 0; } .fn-pend-cab { flex-wrap: wrap; } }
+
+/* Cartão do Dinamiquei no módulo da turma (17/11/2026): "Rodar mentoria no" + logo do Dinamiquei */
+.av-cab { align-items: center; margin-bottom: 6px; }
+.av-titulo { flex: 1; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; font-size: 18px; }
+.av-titulo img { height: 50px; width: auto; display: block; }
+@media (max-width: 520px) { .av-titulo img { height: 42px; } }

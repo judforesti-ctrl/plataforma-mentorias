@@ -1,7 +1,7 @@
 // Gestão › Aulas ao vivo (pedido da Juliana, 15/11/2026; script 77). Só a administração (sócias e Cintia).
 // Todas as aulas do Mentorei Ao Vivo num lugar só, com pesquisa por mentor, cliente, turma ou nome da aula. Daqui dá para abrir
 // qualquer aula, criar uma aula avulsa a qualquer momento (sem módulo), fazer uma cópia, ligar a aula a um módulo (ou trocar,
-// ou desligar) e esconder da lista. O mentor não vê esta tela: ele entra só pelo módulo dele ("▶ Abrir aula ao vivo"), e o
+// ou desligar) e esconder da lista. O mentor não vê esta tela: ele entra só pelo módulo dele ("▶ Deixar a aula mais dinâmica"), e o
 // próprio Ao Vivo não cria mais aula sozinho. Tudo vem das rpc aovivo_gestao_* (security definer, só administração).
 import { sb, esc, avisar, explicarErro, dataHoraBR, dataBR } from '../base.js';
 import { janela } from './agenda-dados.js';
@@ -53,7 +53,7 @@ export function filtrar(lista, f) {
 
 export async function render(ctx, el) {
   if (!ctx.ehAdmin) {
-    el.innerHTML = '<div class="vazio">Esta lista é só da coordenação. Para dar a sua aula ao vivo, abra o módulo da sua turma e clique em <b>▶ Abrir aula ao vivo</b>.</div>';
+    el.innerHTML = '<div class="vazio">Esta lista é só da coordenação. Para dar a sua aula ao vivo, abra o módulo da sua turma e clique em <b>▶ Deixar a aula mais dinâmica</b>.</div>';
     return;
   }
   el.innerHTML = `

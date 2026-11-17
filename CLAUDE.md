@@ -387,6 +387,10 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   SLOGAN "Menos planilha. Mais mentoria.": título do login e pé da tela de criar senha. Continua MENTOREI de propósito: o que sai
   para o cliente em nome da empresa (relatórios, propostas, certificados, e-mails dos funis), avaliar.html, ferramentas on-line,
   planejamento.html, sair/ler.html; privacidade.html e os e-mails de convite ainda não foram trocados. Favicon continua o M.
+  DINAMIQUEI (17/11, decisão dela): o Mentorei Ao Vivo passou a se chamar Dinamiquei ("Interação para encontros ao vivo", by Mentorei;
+  slogan "Slides que puxam conversa."). Logo para fundo claro em `public/assets/dinamiquei-escura.png` (tinta #0A0A0A + ponto #A8DB0A,
+  1000×268, sem o slogan). Na plataforma, o cartão do módulo virou "Rodar mentoria no" + logo (`.av-titulo` em app.css) e o botão do
+  cartão e o do alto do módulo viraram "▶ Deixar a aula mais dinâmica". O site do Ao Vivo (aovivo/) ainda não foi renomeado.
 - MENU (2026-10-09, pedido dela com as Propostas 3 e 4): 3 grupos (Mentoria, Gestão, Negócio) em DOIS formatos que cada pessoa escolhe
   (topo com menus suspensos ou barra lateral de 264 px; abaixo de 900 px vira barra + gaveta). UMA lista `GRUPOS` em `app.js`
   (item: nome, ícone Lucide, rota, `pode` = mesmas permissões do menu antigo; grupo vazio some; mentorado tem Minha mentoria,
