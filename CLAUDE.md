@@ -185,6 +185,22 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (barras de líderes e de sessões, tabela dos medos) e "Como esta leitura foi feita". Nenhum nome de mentorado no PDF.
   Testes: /home/claude/teste-jornada (teste-empresa.mjs, seed-empresa.mjs, teste-telas-empresa.py com Inter/Manrope do npm em
   /home/claude/fontes), fora do git.
+- RANKING DE HORAS DOS MENTORES (2026-11-17, pedido da Juliana: "ranking de horas de todos os mentores, sessões individuais, módulos
+  online e presenciais; quero dentro da plataforma, na parte de relatórios, e poder escolher o filtro do período"). Sem script novo.
+  Relatórios → "Ranking de horas dos mentores" (`#/horas-mentores`, `telas/horas-mentores.js`, só administração). Contas em
+  `public/assets/horas-regras.js` (testadas no Node com os dados reais: bateram com o ranking feito à mão pelo SQL no mesmo dia).
+  Filtros (guardados em localStorage "mentorei.horasMentores"): Período (últimos 2 meses = padrão, 30 dias, 3 meses, este mês, mês
+  passado, dos últimos 2 meses até o fim do ano, de hoje até o fim do ano, este ano, escolher as datas), O que contar (tudo, só
+  individuais, só módulos, só online, só presenciais), "Contar também o que ainda está agendado" e "Contar como feitas as sessões que
+  já passaram e continuam como agendada" (as duas já marcadas: decisão dela). REGRAS: sessão realizada conta; agendada/remarcada que já
+  passou conta como feita (com a caixinha) e aparece no aviso "já passaram e continuam como agendada" com link; falta e cancelada não
+  contam; mentorado "modelo"/"teste" fora; duração = a da sessão, senão a do programa, senão 60 min. Módulo conta a partir da hora de
+  início; sem duração = estimativa (presencial de manhã 8 h, à tarde/noite 2 h, online 3 h) com aviso; sem mentor em modulo_mentores
+  = fora do ranking com aviso e link. Sessão em dupla (script 83) e módulo com 2+ mentores: horas inteiras para cada um. Posição de
+  competição (empate = mesma posição). Tela: 4 números, tabela (horas e quantidade por tipo, total com barra feito/agendado), clique no
+  nome abre cada sessão e módulo que entrou (com "junto com…"), avisos e "Como a conta é feita". "Baixar em Excel": abas Ranking (horas
+  em [h]:mm, com total), Detalhe e Avisos. Teste (fora do git): /home/claude/teste-horas (t.mjs regras com dados.json real; t.py tela
+  no Chrome sem janela com base.js de mentira e SheetJS local).
 - Google Agenda (script 17, `netlify/lib/google-sync.mjs`): a conta conectada no Painel cria um evento por compromisso com os
   envolvidos como convidados; a chave de cada um fica em `google_eventos` (id fixo `mnt`+sha1, nunca duplica). Liga e desliga em
   Agenda → Google, celular e e-mail (equipe e mentorados separados; começam DESLIGADOS). Sincroniza depois de cada mudança nas telas
