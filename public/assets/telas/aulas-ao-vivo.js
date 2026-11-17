@@ -57,7 +57,7 @@ export async function render(ctx, el) {
     return;
   }
   el.innerHTML = `
-    <div class="cab"><div><h1>Aulas ao vivo</h1><p class="sub">Todas as aulas do Mentorei Ao Vivo: as dos módulos das turmas e as avulsas. Os mentores entram só pelo módulo deles; esta lista é só das sócias e da coordenação.</p></div>
+    <div class="cab"><div><h1>Aulas ao vivo</h1><p class="sub">Todas as aulas do Dinamiquei: as dos módulos das turmas e as avulsas. Os mentores entram só pelo módulo deles; esta lista é só das sócias e da coordenação.</p></div>
       <div class="acoes"><button class="btn pri" type="button" id="aav-nova">+ Nova aula avulsa</button></div></div>
     <p class="carregando">Carregando as aulas…</p>`;
   el.querySelector('#aav-nova').addEventListener('click', () => novaAvulsa(ctx, () => render(ctx, el)));
@@ -178,7 +178,7 @@ function novaAvulsa(ctx, depois) {
       se precisar, dá para ligar esta aula a um módulo depois, em <b>Mais…</b>.</p>
     <div class="campo mt"><label for="aav-nova-titulo">Nome da aula</label><input id="aav-nova-titulo" maxlength="80" placeholder="Ex.: Palestra Comunicação que expande possibilidades"></div>
     <div class="campo mt"><label for="aav-nova-empresa">Cliente (opcional)</label><select id="aav-nova-empresa"><option value="">Sem cliente</option></select></div>
-    <div class="linha mt" style="justify-content:flex-end;gap:8px"><button class="btn" type="button" data-fechar>Cancelar</button><button class="btn pri" type="button" id="aav-criar">Criar e abrir no Ao Vivo</button></div>`, { largura: 560 });
+    <div class="linha mt" style="justify-content:flex-end;gap:8px"><button class="btn" type="button" data-fechar>Cancelar</button><button class="btn pri" type="button" id="aav-criar">Criar e abrir no Dinamiquei</button></div>`, { largura: 560 });
   sb.from('empresas').select('id, nome').order('nome').then(({ data }) => {
     const sel = j.corpo.querySelector('#aav-nova-empresa');
     (data || []).forEach((e) => sel.insertAdjacentHTML('beforeend', `<option value="${e.id}">${esc(e.nome)}</option>`));

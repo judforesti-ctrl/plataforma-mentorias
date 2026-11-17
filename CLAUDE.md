@@ -393,7 +393,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   cartão e o do alto do módulo viraram "▶ Deixar a aula mais dinâmica". No site do Ao Vivo (aovivo/, 17/11): logo para fundo escuro
   `aovivo/img/dinamiquei-clara.png` (letras creme #EEE7DE + ponto verde) no lugar do logo Mentorei + "Ao Vivo" (entrada do aluno 34 px,
   editor 36 px, painel 32 px, telão 6cqh, cartão de compartilhar 112 px); títulos das abas "Dinamiquei"; textos "Mentorei Ao Vivo" →
-  "Dinamiquei". O endereço continua mentorei-aovivo.netlify.app. DEPLOY DO AO VIVO (o shell não alcança a Netlify): push no GitHub
+  "Dinamiquei" (também na plataforma, 17/11: Gestão › Aulas ao vivo, aviso da presença, rodapé do e-mail de materiais, prompt da IA;
+  contatos novos em Pessoa física e no funil entram como "Dinamiquei · <aula>", os antigos ficam "Ao Vivo · <aula>"). O endereço continua mentorei-aovivo.netlify.app. DEPLOY DO AO VIVO (o shell não alcança a Netlify): push no GitHub
   (repo público) → no navegador do Claude, em mentorei-aovivo.netlify.app, JSZip de /js/vendor/jszip.min.js monta o zip com os
   arquivos de aovivo/ lidos de raw.githubusercontent.com/<commit> + js/vendor do próprio site (sem sql/) e manda POST multipart
   (campo "zip", mode no-cors) para <proxy-path do deploy-site do conector>/api/v1/sites/<site>/builds; conferir no conector.

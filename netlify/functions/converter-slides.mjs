@@ -64,7 +64,7 @@ export default async (req) => {
     const ini = await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id`, {
       method: 'POST',
       headers: { ...auth, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': TIPO[ext.toLowerCase()], 'X-Upload-Content-Length': String(bytes.length) },
-      body: JSON.stringify({ name: `Mentorei Ao Vivo · conversão temporária ${id}`, mimeType: 'application/vnd.google-apps.presentation' }),
+      body: JSON.stringify({ name: `Dinamiquei · conversão temporária ${id}`, mimeType: 'application/vnd.google-apps.presentation' }),
     });
     const local = ini.ok && ini.headers.get('location');
     if (!local) {

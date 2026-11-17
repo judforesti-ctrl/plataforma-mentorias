@@ -144,8 +144,8 @@ export default async (req) => {
     if (outras.length) blocos.push({ titulo: paraDepois.length ? 'Outras ferramentas da aula' : 'Ferramentas que você usou' }, { links: outras });
     if (!materiais.length && !feitas.length && !ferramentas.length) blocos.push({ p: 'Desta vez a aula não teve materiais em PDF nem atividades respondidas por você. Na próxima, participe pelo celular: tudo o que você fizer chega por aqui.' });
     blocos.push({ nota: p.quer_conteudos
-      ? 'Você pediu os materiais da aula no Mentorei Ao Vivo e marcou que quer receber conteúdos da Mentorei. Em todo e-mail tem um link para sair da lista, quando quiser.'
-      : 'Você recebeu este e-mail porque pediu os materiais da aula no Mentorei Ao Vivo. Não vamos mandar outros e-mails sem você pedir.' });
+      ? 'Você pediu os materiais da aula no Dinamiquei, da Mentorei, e marcou que quer receber conteúdos da Mentorei. Em todo e-mail tem um link para sair da lista, quando quiser.'
+      : 'Você recebeu este e-mail porque pediu os materiais da aula no Dinamiquei, da Mentorei. Não vamos mandar outros e-mails sem você pedir.' });
     const m = modeloEmail({ assunto: `Os materiais da aula: ${corta(s.titulo, 80)}`, titulo: corta(s.titulo, 120), blocos,
       rodape: 'Mentorei · educação corporativa e mentoria para líderes.' });
     const r = await enviarEmail({ para: [{ email: p.email, name: p.nome }], assunto: m.assunto, html: m.html, texto: m.texto });
@@ -156,14 +156,14 @@ export default async (req) => {
       continue;
     }
     // contato para Vendas › Pessoa física (origem: a aula) e, se quis, o funil das aulas
-    const contato = { p_nome: corta(p.nome, 120), p_email: p.email, p_whatsapp: '', p_cargo: '', p_ferramenta: `Ao Vivo · ${corta(s.titulo, 90)}` };
+    const contato = { p_nome: corta(p.nome, 120), p_email: p.email, p_whatsapp: '', p_cargo: '', p_ferramenta: `Dinamiquei · ${corta(s.titulo, 90)}` };
     const rc = await supa('/rest/v1/rpc/registrar_pessoa_fisica', { metodo: 'POST', corpo: { ...contato, p_conteudos: !!p.quer_conteudos } });
     if (!rc.ok) await supa('/rest/v1/rpc/registrar_pessoa_fisica', { metodo: 'POST', corpo: contato });
     if (p.quer_conteudos && funilId) {
       const desc = lista(await supa(`/rest/v1/descadastros?email=eq.${encodeURIComponent(p.email)}&select=email`));
       if (!desc.length) {
         await supa('/rest/v1/funil_membros?on_conflict=funil_id,email', { metodo: 'POST', prefer: 'resolution=ignore-duplicates,return=minimal',
-          corpo: { funil_id: funilId, email: p.email, nome: corta(p.nome, 120), origem: `Ao Vivo · ${corta(s.titulo, 90)}`, status: 'ativo' } });
+          corpo: { funil_id: funilId, email: p.email, nome: corta(p.nome, 120), origem: `Dinamiquei · ${corta(s.titulo, 90)}`, status: 'ativo' } });
       }
     }
   }

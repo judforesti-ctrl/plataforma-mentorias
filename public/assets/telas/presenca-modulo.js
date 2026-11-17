@@ -24,7 +24,7 @@ export async function ligarPresenca(ctx, el, m, pode) {
     sb.from('presencas').select('*').eq('modulo_id', m.id),
     pode ? sb.rpc('aovivo_situacao_modulo', { p_modulo: m.id }) : Promise.resolve({ data: null }),
   ]);
-  const aoVivo = av && !av.error && av.data && av.data.participantes > 0 ? av.data : null;   // aula no Mentorei Ao Vivo com gente
+  const aoVivo = av && !av.error && av.data && av.data.participantes > 0 ? av.data : null;   // aula no Dinamiquei (ex-Mentorei Ao Vivo) com gente
   if (al.error || pr.error) {
     const e = al.error || pr.error;
     box.innerHTML = `<h3>Presença dos alunos</h3>${faltaScript(e) ? `<div class="aviso mt peq">${ctx.ehAdmin ? 'Para a lista de chamada, falta rodar o script <b>49-presenca-rh-envios-lembretes.sql</b> no Supabase.' : 'A lista de chamada ainda não foi liberada na plataforma. Avise a Cintia.'}</div>`
@@ -96,7 +96,7 @@ export async function ligarPresenca(ctx, el, m, pode) {
       const lista = (data.participantes || []).map((p) => ({ nome: p.nome, email: p.email || '', minutos: p.minutos }));
       if (!lista.length) { msg.textContent = 'Ninguém entrou na aula ao vivo deste módulo ainda.'; return; }
       msg.textContent = '';
-      conferir(juntarParticipantes(lista), 'aovivo', `${lista.length} pessoa${lista.length > 1 ? 's' : ''} entr${lista.length > 1 ? 'aram' : 'ou'} pelo celular no Mentorei Ao Vivo. O tempo é do momento em que entrou até a última vez que o celular falou com a aula.`);
+      conferir(juntarParticipantes(lista), 'aovivo', `${lista.length} pessoa${lista.length > 1 ? 's' : ''} entr${lista.length > 1 ? 'aram' : 'ou'} pelo celular no Dinamiquei. O tempo é do momento em que entrou até a última vez que o celular falou com a aula.`);
       return;
     }
     if (ev.target.id === 'pr-zoom') {
