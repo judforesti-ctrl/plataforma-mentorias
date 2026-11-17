@@ -283,6 +283,7 @@
 
   function desenhar() {
     const e = estado, me = e.eu, a = e.atividade;
+    conferirFerramenta();
     if (a && a.proximas) setTimeout(() => precarregar(a.proximas), 50);
     // slide novo ainda carregando: segura a tela anterior por até 1,5 s (sem tela em branco)
     if (e.fase === 'slide' && a && a.imagem && a.celular !== false && imagens.get(a.imagem) !== 'ok') {
@@ -306,7 +307,7 @@
     const semContar = a && ['reacao', 'perguntas', 'mural', 'relampago'].includes(a.tipo);   // essas atualizam só um pedaço da tela
     const chave = [e.fase, a && a.id, a && a.iniciada_em, longo ? '' : a && a.tempo, semContar ? chaveExtra() : me.respostas, e.extra && e.extra.em, dicaVisivel(),
       a && a.tipo === 'grupo' ? assinaturaGrupo() : '', e.fase === 'encerrada' ? e.avaliacao : '', me.email, me.email_enviado, me.identificado,
-      (me.pendentes || []).map(x => x.id).join(','), grupoAtrasado() ? 'g' : ''].join('|');
+      (me.pendentes || []).map(x => x.id + (x.depois ? 'd' : '')).join(','), grupoAtrasado() ? 'g' : '', ferr ? ferr.id + (ferr.visivel ? 'v' : '') : ''].join('|');
     if (chave === ultimaChave) { atualizarRelogio(); atualizarListaTextos(); return; }
     ultimaChave = chave;
 
@@ -574,15 +575,153 @@
   function telaFerramenta() {
     const a = estado.atividade, c = a.config || {}, me = estado.eu;
     const vals = (me.valores || []).map(String);
-    const abriu = vals.includes('abriu'), terminou = vals.includes('terminou');
+    const abriu = vals.includes('abriu'), terminou = vals.includes('terminou'), depois = vals.includes('depois');
+    const aqui = !!(ferr && ferr.id === a.id);
+    let corpo;
+    if (terminou) {
+      corpo = '<div class="feedback certo" style="padding:18px"><div class="emoji">✅</div><h2>Valeu!</h2><p>Você terminou a ferramenta. O seu resultado fica com você.</p></div>' +
+        (aqui ? '<button class="btn btn-secundario btn-bloco" type="button" data-abrir-atual>Ver a ferramenta de novo</button>' : '');
+    } else if (depois && !aqui) {
+      corpo = '<div class="feedback neutro" style="padding:18px"><div class="emoji">🔖</div><h2>Combinado! Ficou para depois.</h2>' +
+        '<p>Ela fica guardada aqui no celular' + (me.email || me.identificado ? ' e o link vai no e-mail dos materiais' : '') + '. Enquanto isso, acompanhe a aula por aqui.</p></div>' +
+        '<button class="btn btn-principal btn-bloco" type="button" data-abrir-atual>Fazer agora</button>';
+    } else {
+      corpo = '<button class="btn btn-principal btn-bloco" type="button" data-abrir-atual>' + (aqui ? 'Continuar a ferramenta' : abriu ? 'Abrir de novo' : 'Abrir a ferramenta') + '</button>' +
+        (abriu ? '<button class="btn btn-secundario btn-bloco" id="btnTerminei" type="button">Terminei ✓</button>' : '') +
+        (depois ? '' : '<button class="btn btn-secundario btn-bloco" id="btnDepois" type="button">Fazer depois</button>') +
+        '<p class="dica centro">' + (abreAqui(c.url) ? 'A ferramenta abre aqui mesmo, por cima da aula. Para voltar, toque em "‹ Voltar para a aula".'
+          : 'Esta ferramenta é de outro site e abre numa nova aba. Quando terminar, volte para esta aba.') + '</p>';
+    }
     return '<div class="cabecalho-atividade"><span class="etiqueta">🧭 Ferramenta · ' + a.numero + ' de ' + a.total + '</span>' +
       (a.tempo > 0 ? '<span class="relogio-aluno longo" id="relogio"></span>' : '') + '</div>' +
-      '<div class="aviso-tempo oculto" id="avisoTempo">⏰ O tempo acabou. Se ainda não terminou, termine com calma e toque em "Terminei".</div>' +
+      '<div class="aviso-tempo oculto" id="avisoTempo">⏰ O tempo acabou. Se ainda não terminou, toque em "Fazer depois" e termine com calma.</div>' +
       '<div class="ferr-aluno"><div class="ferr-icone">🧭</div><h2>' + esc(a.pergunta) + '</h2>' +
-      '<p>' + (c.instrucao ? esc(c.instrucao) : 'Toque no botão para abrir a ferramenta. Quando terminar, volte para esta página e toque em "Terminei".') + '</p>' +
-      (terminou ? '<div class="feedback certo" style="padding:18px"><div class="emoji">✅</div><h2>Valeu!</h2><p>Você terminou a ferramenta. O seu resultado fica com você.</p></div>'
-        : '<a class="btn btn-principal btn-bloco" id="btnAbrirFerr" href="' + esc(c.url) + '" target="_blank" rel="noopener">' + (abriu ? 'Abrir de novo' : 'Abrir a ferramenta') + '</a>' +
-          (abriu ? '<button class="btn btn-secundario btn-bloco" id="btnTerminei" type="button" style="margin-top:10px">Terminei ✓</button>' : '')) + '</div>';
+      (terminou || (depois && !aqui) ? '' : '<p>' + (c.instrucao ? esc(c.instrucao) : 'Toque em "Abrir a ferramenta" e faça com calma. Se não der agora, toque em "Fazer depois": ela fica guardada para você.') + '</p>') +
+      corpo + '</div>';
+  }
+
+  /* ---------- Ferramenta DENTRO da aula (pedido da Juliana, 16/11/2026: "não pode abrir em outra aba") ----------
+     Abre numa camada por cima da aula, na mesma tela. "‹ Voltar para a aula" esconde a camada e guarda a ferramenta do jeito que
+     estava (continua de onde parou enquanto esta página estiver aberta). Quando a aula segue, aparece o aviso e, em 10 segundos,
+     o celular volta sozinho para a aula ("Continuar aqui" fica). "Fazer depois" guarda para mais tarde (aparece no alto da tela
+     e o link vai no e-mail dos materiais). Só as ferramentas da plataforma abrem aqui: outros sites não deixam abrir dentro. */
+  const NA_MESMA_TELA = /^https:\/\/plataforma\.mentorei\.com\.br\/ferramentas\//i;
+  let ferr = null;   // { id, url, titulo, el, visivel, base, avisado, timer, resta }
+  function abreAqui(url) { return NA_MESMA_TELA.test(String(url || '')); }
+  function urlNaAula(url) { return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'aovivo=1'; }
+  function chaveDaAula() {
+    if (!estado) return '';
+    const a = estado.atividade;
+    return estado.fase + '|' + (estado.fase === 'atividade' && a ? a.id + a.iniciada_em : '');
+  }
+  function valoresDe(id) {
+    const me = (estado && estado.eu) || {};
+    return estado && estado.atividade && estado.atividade.id === id ? (me.valores || []).map(String) : [];
+  }
+  function abrirFerramenta(id, url, titulo) {
+    if (!url) return;
+    if (estado && estado.fase === 'atividade' && estado.atividade && estado.atividade.id === id && !valoresDe(id).includes('abriu')) responder('abriu');
+    else if (!(ferr && ferr.id === id)) responder('abriu', id);
+    if (!abreAqui(url)) { window.open(url, '_blank', 'noopener'); return; }
+    if (ferr && ferr.id !== id) { ferr.el.remove(); ferr = null; }
+    if (!ferr) {
+      const el = document.createElement('div');
+      el.className = 'ferr-camada';
+      el.setAttribute('role', 'dialog');
+      el.innerHTML = '<div class="ferr-barra"><button type="button" class="ferr-voltar" data-f="voltar">‹ Voltar para a aula</button><span class="ferr-nome"></span></div>' +
+        '<div class="ferr-aviso oculto" role="alert"><p><b class="ferr-aviso-tit"></b><span class="ferr-aviso-txt"></span></p>' +
+        '<div class="ferr-aviso-botoes"><button type="button" class="btn btn-principal" data-f="voltar">Voltar para a aula</button>' +
+        '<button type="button" class="btn btn-secundario" data-f="ficar">Continuar aqui</button></div></div>' +
+        '<div class="ferr-moldura"><div class="ferr-carregando"><span class="girando"></span>Abrindo a ferramenta…</div><iframe allow="clipboard-write"></iframe></div>' +
+        '<div class="ferr-rodape"><button type="button" class="btn btn-secundario" data-f="depois">Fazer depois</button>' +
+        '<button type="button" class="btn btn-principal" data-f="terminei">Terminei ✓</button></div>';
+      el.querySelector('.ferr-nome').textContent = titulo || 'Ferramenta';
+      const fr = el.querySelector('iframe');
+      fr.title = titulo || 'Ferramenta';
+      fr.addEventListener('load', () => { const c = el.querySelector('.ferr-carregando'); if (c) c.remove(); });
+      fr.src = urlNaAula(url);
+      el.addEventListener('click', ev => { const b = ev.target.closest('[data-f]'); if (b) acaoFerramenta(b.dataset.f); });
+      document.body.appendChild(el);
+      ferr = { id, url, titulo, el, visivel: false };
+    }
+    mostrarFerramenta();
+  }
+  function mostrarFerramenta() {
+    ferr.visivel = true;
+    ferr.base = chaveDaAula();
+    ferr.avisado = '';
+    fecharAvisoFerramenta();
+    ferr.el.classList.add('aberta');
+    document.documentElement.classList.add('com-ferramenta');
+    try { if (!(history.state && history.state.ferr)) history.pushState({ ferr: 1 }, ''); } catch (x) {}
+  }
+  function esconderFerramenta() {
+    if (!ferr || !ferr.visivel) return;
+    ferr.visivel = false;
+    fecharAvisoFerramenta();
+    ferr.el.classList.remove('aberta');
+    document.documentElement.classList.remove('com-ferramenta');
+    try { if (history.state && history.state.ferr) history.back(); } catch (x) {}
+    ultimaChave = '';
+    if (estado) desenhar();
+  }
+  // o botão "voltar" do celular fecha a ferramenta (e não sai da aula)
+  window.addEventListener('popstate', () => { if (ferr && ferr.visivel) esconderFerramenta(); });
+  function acaoFerramenta(f) {
+    if (!ferr) return;
+    const id = ferr.id;
+    if (f === 'voltar') {
+      esconderFerramenta();
+      toast('A ferramenta ficou guardada do jeito que você deixou. Para continuar, toque em "Continuar a ferramenta".');
+    } else if (f === 'ficar') {
+      fecharAvisoFerramenta();
+      ferr.base = chaveDaAula();
+    } else if (f === 'depois') {
+      responder('depois', id).then(ok => {
+        if (!ok) return;
+        esconderFerramenta();
+        toast('Combinado! Ficou guardada para depois, aqui no alto da tela.');
+      });
+    } else if (f === 'terminei') {
+      responder('terminou', id).then(ok => {
+        if (!ok) return;
+        esconderFerramenta();
+        toast('Valeu! Ferramenta terminada.');
+      });
+    }
+  }
+  function fecharAvisoFerramenta() {
+    if (!ferr) return;
+    clearInterval(ferr.timer); ferr.timer = null;
+    const av = ferr.el.querySelector('.ferr-aviso');
+    if (av) av.classList.add('oculto');
+  }
+  // a aula seguiu enquanto a pessoa está na ferramenta: avisa e volta sozinho para a aula em 10 s
+  function conferirFerramenta() {
+    if (!ferr || !ferr.visivel || !estado) return;
+    const k = chaveDaAula();
+    if (k === ferr.base || k === ferr.avisado) return;
+    ferr.avisado = k;
+    const nova = estado.fase === 'atividade' && estado.atividade && estado.atividade.id !== ferr.id;
+    const pausa = estado.fase === 'intervalo';
+    const tit = nova ? 'Começou uma atividade nova na aula!' : pausa ? 'A aula entrou no intervalo.' : estado.fase === 'encerrada' ? 'A aula terminou.' : 'A aula seguiu.';
+    const av = ferr.el.querySelector('.ferr-aviso');
+    av.querySelector('.ferr-aviso-tit').textContent = tit + ' ';
+    const txt = av.querySelector('.ferr-aviso-txt');
+    av.classList.remove('oculto');
+    clearInterval(ferr.timer); ferr.timer = null;
+    if (nova) alertaAtividade(); else avisoLeve();
+    if (pausa) { txt.textContent = 'Aproveite para terminar com calma.'; return; }
+    ferr.resta = 10;
+    const escrever = () => { txt.textContent = 'Voltando para a aula em ' + ferr.resta + ' s. A ferramenta fica guardada.'; };
+    escrever();
+    ferr.timer = setInterval(() => {
+      if (!ferr) return;
+      ferr.resta -= 1;
+      if (ferr.resta > 0) return escrever();
+      esconderFerramenta();
+      toast('Você voltou para a aula. A ferramenta ficou guardada: toque em "Continuar a ferramenta" quando quiser.');
+    }, 1000);
   }
 
   // A aula seguiu, mas quem estava no meio termina (pedido da Juliana, 16/11/2026)
@@ -599,9 +738,12 @@
       '<p>A aula seguiu, mas ainda dá para mandar.</p><div class="acoes-pendente"><button class="btn btn-principal" id="btnEnviarGrupoAtrasado" type="button">Enviar a resposta do grupo</button>' +
       '<button class="btn btn-secundario" id="btnDescartarGrupo" type="button">Descartar</button></div></div></div>';
     lista.forEach(x => {
-      h += '<div class="pendente"><span class="ic">🧭</span><div><b>Ainda na ferramenta "' + esc(x.pergunta) + '"?</b><p>Termine com calma e depois toque em "Terminei".</p>' +
-        '<div class="acoes-pendente"><button class="btn btn-principal" type="button" data-terminei="' + esc(x.id) + '">Terminei ✓</button>' +
-        (x.url ? '<a class="btn btn-secundario" href="' + esc(x.url) + '" target="_blank" rel="noopener">Abrir de novo</a>' : '') + '</div></div></div>';
+      const aqui = !!(ferr && ferr.id === x.id);
+      const tit = x.depois && !aqui ? 'Para fazer depois: "' + esc(x.pergunta) + '"' : 'Ferramenta "' + esc(x.pergunta) + '" em aberto';
+      const sub = aqui ? 'Está guardada do jeito que você deixou.' : x.depois ? 'Faça quando quiser, com calma.' : 'Termine com calma e depois toque em "Terminei".';
+      h += '<div class="pendente' + (x.depois && !aqui ? ' leve' : '') + '"><span class="ic">' + (x.depois && !aqui ? '🔖' : '🧭') + '</span><div><b>' + tit + '</b><p>' + sub + '</p>' +
+        '<div class="acoes-pendente">' + (x.url ? '<button class="btn btn-principal" type="button" data-abrir-ferr="' + esc(x.id) + '">' + (aqui ? 'Continuar a ferramenta' : x.depois ? 'Fazer agora' : 'Abrir de novo') + '</button>' : '') +
+        '<button class="btn btn-secundario" type="button" data-terminei="' + esc(x.id) + '">Terminei ✓</button></div></div></div>';
     });
     return h;
   }
@@ -859,7 +1001,8 @@
     if (a.tipo === 'ferramenta') {
       const terminou = (me.valores || []).map(String).includes('terminou');
       return terminou ? feedback('certo', '✅', 'Valeu por fazer a ferramenta!', 'O seu resultado fica com você.', me.ganhou ? '+' + me.ganhou : null, '')
-        : feedback('neutro', '🧭', 'A ferramenta foi encerrada', 'Se não deu tempo, faça depois com calma: <a href="' + esc((a.config || {}).url) + '" target="_blank" rel="noopener">abrir a ferramenta</a>.', null, '');
+        : feedback('neutro', '🧭', 'A ferramenta foi encerrada', 'Se não deu tempo, faça depois com calma.', null,
+            (me.pendentes || []).some(x => x.id === a.id) ? '' : '<button class="btn btn-secundario" type="button" data-abrir-atual style="margin-top:14px">Abrir a ferramenta</button>');
     }
     if (a.tipo === 'mural') {
       const top = (estado.textos || [])[0];
@@ -1085,10 +1228,18 @@
       if (!g) return toast('Escolha o seu grupo primeiro.', true);
       responder({ grupo: g.n, texto: t }).then(ok => { if (ok) { textoGrupo = ''; grupoDoTexto = null; toast('Resposta do grupo enviada!'); } });
     });
-    const af = $('btnAbrirFerr');
-    if (af) af.addEventListener('click', () => { if (!(estado.eu.valores || []).map(String).includes('abriu')) responder('abriu'); });
+    tela.querySelectorAll('[data-abrir-atual]').forEach(b => b.addEventListener('click', () => {
+      const at = estado.atividade;
+      if (at) abrirFerramenta(at.id, (at.config || {}).url, at.pergunta);
+    }));
+    tela.querySelectorAll('[data-abrir-ferr]').forEach(b => b.addEventListener('click', () => {
+      const x = ((estado.eu || {}).pendentes || []).find(p => p.id === b.dataset.abrirFerr);
+      if (x) abrirFerramenta(x.id, x.url, x.pergunta);
+    }));
     const tm = $('btnTerminei');
-    if (tm) tm.addEventListener('click', () => responder('terminou'));
+    if (tm) tm.addEventListener('click', () => responder('terminou').then(ok => { if (ok && ferr && ferr.id === estado.atividade.id) esconderFerramenta(); }));
+    const dp = $('btnDepois');
+    if (dp) dp.addEventListener('click', () => responder('depois').then(ok => { if (ok) toast('Combinado! Ficou guardada para depois.'); }));
     // a aula seguiu, mas dá para terminar
     tela.querySelectorAll('[data-terminei]').forEach(b => b.addEventListener('click', () =>
       responder('terminou', b.dataset.terminei).then(ok => { if (ok) toast('Pronto! Ferramenta marcada como terminada.'); })));

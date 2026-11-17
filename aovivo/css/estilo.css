@@ -1087,3 +1087,29 @@ body.lendo { overflow: hidden; }
 .tour-btn-leve { border-color: transparent; color: #4A5E57; padding: 0 10px; }
 .tour-sozinho { display: block; margin: 10px auto 0; font-size: 13px; color: #5B6F68; text-decoration: underline; text-underline-offset: 3px; }
 .tour-sozinho:hover { color: #0B1F1A; }
+
+/* =========================================================
+   FERRAMENTA DENTRO DA AULA (16/11/2026): abre por cima da aula, na mesma aba
+   ========================================================= */
+html.com-ferramenta, html.com-ferramenta body { overflow: hidden; }
+.ferr-camada { position: fixed; inset: 0; z-index: 900; display: none; flex-direction: column; background: var(--fundo); }
+.ferr-camada.aberta { display: flex; }
+.ferr-barra { display: flex; align-items: center; gap: 10px; padding: calc(8px + env(safe-area-inset-top, 0px)) 10px 8px; background: var(--fundo-2); border-bottom: 1px solid var(--borda); }
+.ferr-voltar { flex: none; min-height: 40px; padding: 0 14px; border-radius: 12px; background: var(--menta); color: var(--fundo); font-family: var(--titulo); font-weight: 800; font-size: 15px; box-shadow: 0 6px 18px rgba(111,227,184,.25); }
+.ferr-nome { flex: 1; min-width: 0; font-family: var(--titulo); font-weight: 700; font-size: 15px; color: var(--texto-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ferr-aviso { margin: 8px 10px 0; padding: 12px 14px; border-radius: 16px; background: rgba(242,193,78,.14); border: 1px solid rgba(242,193,78,.6); animation: ferrAviso .35s ease; }
+.ferr-aviso p { font-size: 15px; line-height: 1.4; margin-bottom: 10px; }
+.ferr-aviso b { font-family: var(--titulo); }
+.ferr-aviso-botoes { display: flex; gap: 8px; flex-wrap: wrap; }
+.ferr-aviso-botoes .btn { flex: 1 1 140px; min-height: 42px; }
+@keyframes ferrAviso { from { transform: translateY(-8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.ferr-moldura { position: relative; flex: 1; min-height: 0; margin: 8px 8px 0; border-radius: 14px; overflow: hidden; background: #fff; }
+.ferr-moldura iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+.ferr-carregando { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #33463F; font-weight: 600; background: #fff; z-index: 1; pointer-events: none; }
+.ferr-carregando .girando { width: 34px; height: 34px; border-radius: 50%; border: 4px solid #D3E5DE; border-top-color: #1C7A5B; animation: ferrGira .8s linear infinite; }
+@keyframes ferrGira { to { transform: rotate(360deg); } }
+.ferr-rodape { display: flex; gap: 8px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
+.ferr-rodape .btn { flex: 1; min-height: 46px; }
+.pendente.leve { background: rgba(207,247,232,.06); border-color: var(--borda); padding: 10px 14px; }
+.pendente.leve b { font-size: 15px; }
+.pendente.leve p { margin-bottom: 8px; }

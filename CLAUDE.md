@@ -1265,6 +1265,24 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   não tem login): localStorage "aovivo_tutorial_v1" = {editor:'sozinho', painel:'sozinho', narracao}. Para os testes de tela que não
   são do tutorial, pôr esse valor antes de abrir. Os textos evitam o nome "Ao Vivo" (o módulo vai mudar de nome).
   Teste (fora do git): /home/claude/aovivo/teste/tutorial18.py.
+  (16) FERRAMENTA DENTRO DA AULA E "FAZER DEPOIS" (16/11/2026, noite, script 81 rodado pelo conector; pedido dela: "a ferramenta
+  está abrindo em outra guia pro aluno e isso não pode acontecer; precisa seguir uma jornada no mesmo ambiente" e "uma opção de
+  preencher depois"). No celular (aluno.js), "Abrir a ferramenta" abre a ferramenta da plataforma numa CAMADA por cima da aula
+  (`.ferr-camada` com iframe de `<url>?aovivo=1`; `abrirFerramenta`), na mesma aba: barra "‹ Voltar para a aula" (esconde e guarda
+  a ferramenta do jeito que estava: o iframe fica vivo e "Continuar a ferramenta" volta ao mesmo ponto), rodapé "Fazer depois" e
+  "Terminei ✓"; o botão voltar do celular fecha a camada (pushState/popstate). Quando a aula segue (`chaveDaAula`: fase + atividade;
+  troca de slide não conta) aparece o aviso "Começou uma atividade nova na aula!"/"A aula seguiu" e, em 10 s, o celular volta
+  sozinho para a aula ("Continuar aqui" fica; no intervalo não volta sozinho). "Fazer depois" = resposta 'depois' (0 ponto) em
+  aovivo_responder; aovivo_estado.pendentes traz as abertas ou guardadas (com `depois`), que viram o cartão no alto da tela
+  ("Para fazer depois" / "Continuar a ferramenta" / "Terminei ✓") até o fim da aula; aovivo_resultado devolve `depois` (o painel
+  mostra "N guardaram para fazer depois") e "abriram" conta só quem abriu. E-mail dos materiais: bloco "Para fazer com calma" com
+  as ferramentas não terminadas, antes das outras. PLATAFORMA: `public/ferramentas/*/index.html` ganharam no <head> o
+  `window.NA_AULA_AO_VIVO` (?aovivo=1): a ferramenta se comporta como a versão aberta ao público (pede o contato, não manda
+  resultado para a plataforma) e só links de fora (WhatsApp, agenda) abrem em outra aba; `naPlataforma`/`EMBUTIDO` passaram a ser
+  "num quadro E não na aula ao vivo". netlify.toml: `/ferramentas/*` com `Content-Security-Policy: frame-ancestors 'self'
+  https://mentorei-aovivo.netlify.app` (manda mais que o X-Frame-Options SAMEORIGIN do "/*"; SE O AO VIVO MUDAR DE ENDEREÇO,
+  ACRESCENTAR O NOVO AQUI). O Radar da Liderança (outro site, com pagamento, `frame-ancestors 'none'`) e links de fora ainda
+  abrem em outra aba (a tela avisa). Teste (fora do git): /home/claude/aovivo/teste/ferr19.py (ferramentas servidas de public/).
   Testes (fora do git): /home/claude/aovivo/teste/grupo.py, apresentacao.py e conv.py (Chrome sem janela, servidor de mentira);
   /home/claude/teste-conv/t.mjs (função com Google e Supabase de mentira).
 

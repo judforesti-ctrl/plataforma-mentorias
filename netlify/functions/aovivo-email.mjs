@@ -103,8 +103,8 @@ export default async (req) => {
       materiais.push({ texto: corta(m.nome || 'Material', 80), link: m.pdf, detalhe: m.grupo ? `(do Grupo ${m.grupo})` : '' });
     });
   });
-  const ferramentas = atividades.filter((a) => a.tipo === 'ferramenta' && a.config && /^https:\/\/[^\s"<>]+$/i.test(String(a.config.url || '')))
-    .map((a) => ({ texto: corta(a.pergunta, 80), link: a.config.url, detalhe: '(abra de novo quando quiser)' }));
+  const ferramentasDaAula = atividades.filter((a) => a.tipo === 'ferramenta' && a.config && /^https:\/\/[^\s"<>]+$/i.test(String(a.config.url || '')));
+  const ferramentas = ferramentasDaAula.map((a) => ({ texto: corta(a.pergunta, 80), link: a.config.url, detalhe: '(abra de novo quando quiser)' }));
   // a última resposta de cada grupo em cada exercício
   const respostasGrupo = new Map();
   respostas.forEach((r) => { if (r.valor && typeof r.valor === 'object' && r.valor.grupo) respostasGrupo.set(`${r.atividade_id}:${r.valor.grupo}`, r.valor.texto); });
@@ -135,7 +135,13 @@ export default async (req) => {
     if (feitas.length) blocos.push({ titulo: 'O que você fez na aula' }, { lista: feitas });
     if ((p.pontos || 0) > 0) blocos.push({ p: `Você fez ${Number(p.pontos).toLocaleString('pt-BR')} pontos e terminou em ${ordinal(pos)} lugar entre ${participantes.length} pessoas.` });
     if (medalhas.length) blocos.push({ titulo: 'Suas medalhas' }, { lista: medalhas.map((m) => `${m.icone} ${m.nome}: ${m.texto}`) });
-    if (ferramentas.length) blocos.push({ titulo: 'Ferramentas que você usou' }, { links: ferramentas });
+    // ferramentas que a pessoa abriu e não terminou, ou guardou com "Fazer depois" (16/11/2026): vêm primeiro, com destaque
+    const valorDe = (a) => minhas.filter((r) => r.atividade_id === a.id).map((r) => (typeof r.valor === 'string' ? r.valor : ''));
+    const paraDepois = ferramentasDaAula.filter((a) => { const v = valorDe(a); return !v.includes('terminou') && (v.includes('depois') || v.includes('abriu')); });
+    if (paraDepois.length) blocos.push({ titulo: 'Para fazer com calma' },
+      { links: paraDepois.map((a) => ({ texto: corta(a.pergunta, 80), link: a.config.url, detalhe: valorDe(a).includes('depois') ? '(você guardou para fazer depois)' : '(você começou e não terminou)' })) });
+    const outras = ferramentas.filter((f, i) => !paraDepois.includes(ferramentasDaAula[i]));
+    if (outras.length) blocos.push({ titulo: paraDepois.length ? 'Outras ferramentas da aula' : 'Ferramentas que você usou' }, { links: outras });
     if (!materiais.length && !feitas.length && !ferramentas.length) blocos.push({ p: 'Desta vez a aula não teve materiais em PDF nem atividades respondidas por você. Na próxima, participe pelo celular: tudo o que você fizer chega por aqui.' });
     blocos.push({ nota: p.quer_conteudos
       ? 'Você pediu os materiais da aula no Mentorei Ao Vivo e marcou que quer receber conteúdos da Mentorei. Em todo e-mail tem um link para sair da lista, quando quiser.'

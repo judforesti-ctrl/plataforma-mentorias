@@ -1,6 +1,9 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
+<script>/* Aberta dentro da aula ao vivo (?aovivo=1, pedido da Juliana, 16/11/2026): a ferramenta roda na mesma tela da aula, como a versão aberta ao público, e só os links de fora (WhatsApp, agenda) abrem em outra aba */
+window.NA_AULA_AO_VIVO = /[?&]aovivo=1(&|$)/.test(location.search);
+if (window.NA_AULA_AO_VIVO) document.addEventListener('click', function (e) { var a = e.target && e.target.closest ? e.target.closest('a[href]') : null; if (a && a.origin && a.origin !== location.origin) a.setAttribute('target', '_blank'); }, true);</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Qual é o seu canal? · Mentorei</title>
@@ -236,7 +239,7 @@ let S = carregar() || novoEstado();
 const pedidoLink = lerCodigo(new URLSearchParams(location.search).get('r'));
 
 // Dentro da plataforma de mentorias (num quadro): recebe os dados do mentorado e devolve o resultado para a ficha dele.
-const naPlataforma = window.parent !== window;
+const naPlataforma = window.parent !== window && !window.NA_AULA_AO_VIVO;
 if (naPlataforma) {
   window.addEventListener('message', (e) => {
     if (e.origin !== location.origin || !e.data || e.data.tipo !== 'mentorei-dados') return;

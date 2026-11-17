@@ -36,6 +36,14 @@
   to = "/verificar.html"
   status = 200
 
+# As ferramentas abrem DENTRO da aula ao vivo (mentorei-aovivo.netlify.app), sem trocar de aba (pedido da Juliana, 16/11/2026).
+# O frame-ancestors manda mais que o X-Frame-Options do "/*" (os navegadores ignoram o X-Frame-Options quando ele existe).
+# Se o Ao Vivo mudar de endereço, acrescentar o endereço novo aqui.
+[[headers]]
+  for = "/ferramentas/*"
+  [headers.values]
+    Content-Security-Policy = "frame-ancestors 'self' https://mentorei-aovivo.netlify.app"
+
 [[headers]]
   for = "/verificar.html"
   [headers.values]

@@ -2156,7 +2156,7 @@
     const faltam = p.participantes.filter(x => !ja.has(x.id));
     return '<div class="pn-card"><div class="pn-card-cab"><span class="etiqueta">' + esc(it.pergunta) + '</span></div>' +
       (aoVivo && p.atividade.tempo > 0 ? '<p class="pn-grande"><b id="pnRelogioGrupo">…</b> <span id="pnRelogioTxt"></span></p>' : '') +
-      '<p class="pn-grande"><b>' + (r.total || 0) + '</b> de ' + n + ' terminaram</p><p class="dica">' + (r.abriram || 0) + (r.abriram === 1 ? ' pessoa abriu' : ' pessoas abriram') + ' a ferramenta.</p>' +
+      '<p class="pn-grande"><b>' + (r.total || 0) + '</b> de ' + n + ' terminaram</p><p class="dica">' + (r.abriram || 0) + (r.abriram === 1 ? ' pessoa abriu' : ' pessoas abriram') + ' a ferramenta' + (r.depois ? ' · ' + r.depois + (r.depois === 1 ? ' guardou' : ' guardaram') + ' para fazer depois' : '') + '.</p>' +
       (aoVivo && faltam.length && (r.abriram || 0) > 0 ? '<div class="pn-faltam"><span class="dica">Ainda não abriram</span><div class="pn-nomes">' + faltam.slice(0, 40).map(x => '<span class="pn-nome">' + esc(x.nome) + '</span>').join('') + '</div></div>' : '') + '</div>';
   }
 
