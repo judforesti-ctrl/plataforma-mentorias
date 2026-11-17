@@ -123,12 +123,13 @@ tr.clicavel { cursor: pointer; } tr.clicavel:hover td { background: var(--bege-c
 /* Tela de entrada */
 .entrada { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 .entrada .lado { background: var(--petroleo); color: #fff; padding: 48px; display: flex; flex-direction: column; justify-content: space-between; }
-.entrada .lado > img { align-self: flex-start; height: 22px; width: auto; max-width: 100%; object-fit: contain; }
+.entrada .lado > img { align-self: flex-start; height: auto; width: 380px; max-width: 100%; object-fit: contain; }
+.entrada .lado .slogan { color: var(--bege); font: 700 15px var(--f-titulo); letter-spacing: .01em; margin: 0; }
 .entrada .lado h1 { color: #fff; font-size: 38px; margin-top: 40px; } .entrada .lado h1 em { font-style: normal; color: var(--bege); }
 .entrada .lado p { color: rgba(255,255,255,.72); margin-top: 14px; max-width: 30em; }
 .entrada .form { display: grid; place-items: center; padding: 40px 20px; }
 .entrada .caixa { width: 100%; max-width: 380px; display: grid; gap: 14px; }
-@media (max-width: 820px) { .entrada { grid-template-columns: 1fr; } .entrada .lado { padding: 28px 20px; } .entrada .lado h1 { font-size: 28px; margin-top: 20px; } }
+@media (max-width: 820px) { .entrada { grid-template-columns: 1fr; } .entrada .lado { padding: 28px 20px; } .entrada .lado > img { width: 260px; } .entrada .lado h1 { font-size: 28px; margin-top: 20px; } }
 @media (max-width: 640px) { .pagina { padding: 18px 16px 48px; } .item { grid-template-columns: auto 1fr; } .item > :last-child { grid-column: 2; } .quem span { display: none; } }
 
 /* arsenal */
@@ -142,7 +143,7 @@ tr.clicavel { cursor: pointer; } tr.clicavel:hover td { background: var(--bege-c
 .sessao-grade { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 18px; align-items: start; }
 .sessao-col { display: grid; gap: 14px; min-width: 0; }
 .sessao-col > .cartao { margin-top: 0; }
-.sessao-grade > .sessao-col:first-child { position: sticky; top: 84px; max-height: calc(100vh - 100px); overflow: auto; }
+.sessao-grade > .sessao-col:first-child { position: sticky; top: 92px; max-height: calc(100vh - 108px); overflow: auto; }
 @media (max-width: 960px) { .sessao-grade { grid-template-columns: 1fr; } .sessao-grade > .sessao-col:first-child { position: static; max-height: none; } }
 .delicado { background: var(--erro-claro); border-left: 4px solid var(--erro); border-radius: 0 10px 10px 0; padding: 10px 14px; font-size: 14px; }
 .delicado-cartao { border: 2px solid var(--erro); background: linear-gradient(var(--erro-claro), var(--papel) 90px); }

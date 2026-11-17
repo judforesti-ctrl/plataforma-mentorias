@@ -66,7 +66,8 @@ export function montarMenu(raiz, { grupos, usuario, aoSair }) {
   const grupoLateral = (g) => `<div class="mn-lat-grupo" data-grupo="${g.id}"><div class="mn-lat-rotulo">${svg(g.icone, 14)}<span>${esc(g.nome)}</span></div>${g.itens.map(itemLateral).join('')}</div>`;
   const rodapeLateral = () => `<div class="mn-lat-rodape">${seletor()}<div class="mn-lat-usuario">${quem()}
       <button type="button" class="mn-sair-ic" data-sair aria-label="Sair" title="Sair">${svg('log-out', 18)}</button></div></div>`;
-  const logo = (alt = 'Mentorei · início') => `<a class="mn-logo" href="#/" aria-label="${alt}"><img src="/assets/logo-clara.png" alt="Mentorei"></a>`;
+  // Marca da plataforma (decisão dela, 17/11/2026): Mentorizar, "Gestão de programas de mentoria", by Mentorei. O slogan fica no login.
+  const logo = (alt = 'Mentorizar · início') => `<a class="mn-logo" href="#/" aria-label="${alt}"><img src="/assets/mentorizar-clara.png" width="1100" height="241" alt="Mentorizar, gestão de programas de mentoria, by Mentorei"></a>`;
 
   raiz.innerHTML = `
     <header class="mn-topo">
