@@ -1276,9 +1276,9 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   (16) FERRAMENTA DENTRO DA AULA E "FAZER DEPOIS" (16/11/2026, noite, script 81 rodado pelo conector; pedido dela: "a ferramenta
   está abrindo em outra guia pro aluno e isso não pode acontecer; precisa seguir uma jornada no mesmo ambiente" e "uma opção de
   preencher depois"). No celular (aluno.js), "Abrir a ferramenta" abre a ferramenta da plataforma numa CAMADA por cima da aula
-  (`.ferr-camada` com iframe de `<url>?aovivo=1`; `abrirFerramenta`), na mesma aba: barra "‹ Voltar para a aula" (esconde e guarda
-  a ferramenta do jeito que estava: o iframe fica vivo e "Continuar a ferramenta" volta ao mesmo ponto), rodapé "Fazer depois" e
-  "Terminei ✓"; o botão voltar do celular fecha a camada (pushState/popstate). Quando a aula segue (`chaveDaAula`: fase + atividade;
+  (`.ferr-camada` com iframe de `<url>?aovivo=1`; `abrirFerramenta`), na mesma aba: barra "‹ Voltar para a aula e terminar depois"
+  (texto dela; esconde, marca 'depois' e guarda a ferramenta do jeito que estava: o iframe fica vivo e "Continuar a ferramenta" volta
+  ao mesmo ponto; no celular estreito o nome da ferramenta some da barra) e rodapé só com "Terminei ✓"; o botão voltar do celular fecha a camada (pushState/popstate). Quando a aula segue (`chaveDaAula`: fase + atividade;
   troca de slide não conta) aparece o aviso "Começou uma atividade nova na aula!"/"A aula seguiu" e, em 10 s, o celular volta
   sozinho para a aula ("Continuar aqui" fica; no intervalo não volta sozinho). "Fazer depois" = resposta 'depois' (0 ponto) em
   aovivo_responder; aovivo_estado.pendentes traz as abertas ou guardadas (com `depois`), que viram o cartão no alto da tela

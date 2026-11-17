@@ -1110,6 +1110,7 @@ html.com-ferramenta, html.com-ferramenta body { overflow: hidden; }
 @keyframes ferrGira { to { transform: rotate(360deg); } }
 .ferr-rodape { display: flex; gap: 8px; padding: 8px 8px calc(8px + env(safe-area-inset-bottom, 0px)); }
 .ferr-rodape .btn { flex: 1; min-height: 46px; }
+@media (max-width: 520px) { .ferr-nome { display: none; } .ferr-voltar { flex: 1; font-size: 14.5px; } }
 .pendente.leve { background: rgba(207,247,232,.06); border-color: var(--borda); padding: 10px 14px; }
 .pendente.leve b { font-size: 15px; }
 .pendente.leve p { margin-bottom: 8px; }

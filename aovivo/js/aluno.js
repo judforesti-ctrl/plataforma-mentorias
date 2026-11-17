@@ -589,7 +589,7 @@
       corpo = '<button class="btn btn-principal btn-bloco" type="button" data-abrir-atual>' + (aqui ? 'Continuar a ferramenta' : abriu ? 'Abrir de novo' : 'Abrir a ferramenta') + '</button>' +
         (abriu ? '<button class="btn btn-secundario btn-bloco" id="btnTerminei" type="button">Terminei ✓</button>' : '') +
         (depois ? '' : '<button class="btn btn-secundario btn-bloco" id="btnDepois" type="button">Fazer depois</button>') +
-        '<p class="dica centro">' + (abreAqui(c.url) ? 'A ferramenta abre aqui mesmo, por cima da aula. Para voltar, toque em "‹ Voltar para a aula".'
+        '<p class="dica centro">' + (abreAqui(c.url) ? 'A ferramenta abre aqui mesmo, por cima da aula. Dá para voltar para a aula e terminar depois, sem perder nada.'
           : 'Esta ferramenta é de outro site e abre numa nova aba. Quando terminar, volte para esta aba.') + '</p>';
     }
     return '<div class="cabecalho-atividade"><span class="etiqueta">🧭 Ferramenta · ' + a.numero + ' de ' + a.total + '</span>' +
@@ -601,7 +601,8 @@
   }
 
   /* ---------- Ferramenta DENTRO da aula (pedido da Juliana, 16/11/2026: "não pode abrir em outra aba") ----------
-     Abre numa camada por cima da aula, na mesma tela. "‹ Voltar para a aula" esconde a camada e guarda a ferramenta do jeito que
+     Abre numa camada por cima da aula, na mesma tela. "‹ Voltar para a aula e terminar depois" (texto dela, 16/11) esconde a camada,
+     marca 'depois' (o link vai no e-mail dos materiais) e guarda a ferramenta do jeito que
      estava (continua de onde parou enquanto esta página estiver aberta). Quando a aula segue, aparece o aviso e, em 10 segundos,
      o celular volta sozinho para a aula ("Continuar aqui" fica). "Fazer depois" guarda para mais tarde (aparece no alto da tela
      e o link vai no e-mail dos materiais). Só as ferramentas da plataforma abrem aqui: outros sites não deixam abrir dentro. */
@@ -628,12 +629,12 @@
       const el = document.createElement('div');
       el.className = 'ferr-camada';
       el.setAttribute('role', 'dialog');
-      el.innerHTML = '<div class="ferr-barra"><button type="button" class="ferr-voltar" data-f="voltar">‹ Voltar para a aula</button><span class="ferr-nome"></span></div>' +
+      el.innerHTML = '<div class="ferr-barra"><button type="button" class="ferr-voltar" data-f="voltar">‹ Voltar para a aula e terminar depois</button><span class="ferr-nome"></span></div>' +
         '<div class="ferr-aviso oculto" role="alert"><p><b class="ferr-aviso-tit"></b><span class="ferr-aviso-txt"></span></p>' +
         '<div class="ferr-aviso-botoes"><button type="button" class="btn btn-principal" data-f="voltar">Voltar para a aula</button>' +
         '<button type="button" class="btn btn-secundario" data-f="ficar">Continuar aqui</button></div></div>' +
         '<div class="ferr-moldura"><div class="ferr-carregando"><span class="girando"></span>Abrindo a ferramenta…</div><iframe allow="clipboard-write"></iframe></div>' +
-        '<div class="ferr-rodape"><button type="button" class="btn btn-secundario" data-f="depois">Fazer depois</button>' +
+        '<div class="ferr-rodape">' +
         '<button type="button" class="btn btn-principal" data-f="terminei">Terminei ✓</button></div>';
       el.querySelector('.ferr-nome').textContent = titulo || 'Ferramenta';
       const fr = el.querySelector('iframe');
@@ -671,17 +672,13 @@
     if (!ferr) return;
     const id = ferr.id;
     if (f === 'voltar') {
+      // voltar = guardar para terminar depois (o que já fez fica do jeito que estava)
       esconderFerramenta();
-      toast('A ferramenta ficou guardada do jeito que você deixou. Para continuar, toque em "Continuar a ferramenta".');
+      responder('depois', id);
+      toast('Combinado! Nada se perdeu. Termine depois em "Continuar a ferramenta", no alto da tela.');
     } else if (f === 'ficar') {
       fecharAvisoFerramenta();
       ferr.base = chaveDaAula();
-    } else if (f === 'depois') {
-      responder('depois', id).then(ok => {
-        if (!ok) return;
-        esconderFerramenta();
-        toast('Combinado! Ficou guardada para depois, aqui no alto da tela.');
-      });
     } else if (f === 'terminei') {
       responder('terminou', id).then(ok => {
         if (!ok) return;
