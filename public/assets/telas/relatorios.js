@@ -3,12 +3,19 @@
 // Nenhuma versão leva anotações do mentor nem informações delicadas.
 import { sb, esc, dataBR, hojeISO, avisar, explicarErro } from '../base.js';
 import { juntarTarefas, atrasada } from '../tarefas.js';
+import { mentoresDaSessao, juntarNomes } from '../agenda-regras.js';
 
 const SIT = { agendada: 'Agendada', realizada: 'Realizada', falta_avisada: 'Falta avisada', falta_sem_aviso: 'Falta sem aviso', remarcada: 'Remarcada', cancelada: 'Cancelada' };
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : null);
 const media = (xs) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10) / 10 : null);
 const fmtPct = (x) => (x == null ? '—' : `${x}%`);
 const fmtNum = (x) => (x == null ? '—' : String(x).replace('.', ','));
+// quem atendeu a sessão: o mentor principal e quem atendeu junto (script 83)
+const quemAtende = (m, s) => {
+  const nomes = new Map((m.vinculos || []).filter((v) => v.mentor).map((v) => [v.mentor.id, v.mentor.nome]));
+  if (s.mentor) nomes.set(s.mentor.id, s.mentor.nome);
+  return juntarNomes(mentoresDaSessao(s).map((id) => nomes.get(id)).filter(Boolean));
+};
 
 function indicadores(m) {
   const sess = (m.sessoes || []).slice().sort((a, b) => a.numero - b.numero);
@@ -39,9 +46,9 @@ export async function render(ctx, el) {
     sb.from('empresas').select('id, nome').order('nome'),
     sb.from('programas').select('id, nome, empresa_id, sessoes_por_mentorado, inicio, fim_previsto').order('criado_em', { ascending: false }),
     sb.from('mentorados').select(`id, nome, cargo, status, programa_id, pontos_desenvolver,
-      vinculos:mentor_mentorado(ordem, mentor:perfis(nome)),
+      vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome)),
       sessoes(id, numero, data_hora, tema, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em, resumo_mentorado,
-        mentor:perfis!sessoes_mentor_id_fkey(nome), interno:sessoes_interno(notas_evolucao), avaliacao:avaliacoes_sessao(nota))`).order('nome'),
+        mentor_id, outros_mentores, mentor:perfis!sessoes_mentor_id_fkey(id, nome), interno:sessoes_interno(notas_evolucao), avaliacao:avaliacoes_sessao(nota))`).order('nome'),
   ]);
   for (const r of [emp, prog, ment]) if (r.error) throw r.error;
   await juntarTarefas((ment.data || []).flatMap((m) => m.sessoes || []));
@@ -147,7 +154,7 @@ export async function render(ctx, el) {
 
     if (interno) {
       const linhasSess = [['Mentorado', 'Nº', 'Data', 'Mentor', 'Tema', 'Situação', 'Tarefas', 'Prazos', 'Tarefas entregues em', 'Nota do mentorado', 'Resumo enviado ao mentorado']];
-      linhas.forEach(({ m, k }) => k.sess.forEach((s) => linhasSess.push([m.nome, s.numero, s.data_hora ? dataBR(s.data_hora) : '', s.mentor ? s.mentor.nome : '',
+      linhas.forEach(({ m, k }) => k.sess.forEach((s) => linhasSess.push([m.nome, s.numero, s.data_hora ? dataBR(s.data_hora) : '', quemAtende(m, s),
         s.tema || '', SIT[s.situacao] || s.situacao, (s.tarefas || []).map((t) => t.texto).join('\n'),
         (s.tarefas || []).map((t) => (t.prazo ? dataBR(`${t.prazo}T12:00:00-03:00`) : '—')).join('\n'),
         (s.tarefas || []).map((t) => (t.feita_em ? dataBR(t.feita_em) : '—')).join('\n'), s.avaliacao ? s.avaliacao.nota : '', s.concluida_em ? (s.resumo_mentorado || '') : ''])));

@@ -45,9 +45,10 @@ export function montarDadosEmpresa({ empresa, programas = [], mentorados, sessoe
       if (s.nota != null) notas.push(s.nota);
       if (s.data) datas.push(s.data);
       sessoes.push({ codigo: `${codigo}.S${s.numero}`, lider: codigo, numero: s.numero, data: s.data, tema: s.tema });
-      if (s.mentor_id) {
-        const x = mentores.get(s.mentor_id) || { nome: s.mentor, foto_url: null, sessoes: 0 };
-        x.sessoes += 1; mentores.set(s.mentor_id, x);
+      // cada mentor que atendeu (o principal e quem atendeu junto, script 83)
+      for (const p of (s.mentores && s.mentores.length ? s.mentores : (s.mentor_id ? [{ id: s.mentor_id, nome: s.mentor }] : []))) {
+        const x = mentores.get(p.id) || { nome: p.nome, foto_url: null, sessoes: 0 };
+        x.sessoes += 1; mentores.set(p.id, x);
       }
     }
     for (const v of m.vinculos || []) {

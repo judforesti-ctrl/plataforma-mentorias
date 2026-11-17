@@ -658,7 +658,31 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   no Plano de sessões, "Trocar mentor" na tela da sessão. Quem atende + quais sessões (só a de hoje/clicada, essa e as seguintes,
   escolher, nenhuma = só acesso) + quem já acompanha continua (padrão) ou sai (bloqueado se ficar com sessão em aberto). Concluída
   ou cancelada nunca muda de mentor. Depois: avisarGoogle() e WhatsApp pronto para quem entra (com link de senha se ainda não
-  entrou), para o mentorado e para quem atendia antes.
+  entrou), para o mentorado e para quem atendia antes. (Desde 17/11 o ✎ por sessão do Plano abre as caixinhas abaixo; "Trocar
+  mentor" continua no alto do Plano, da ficha e na tela da sessão.) Quem sai do mentorado também sai de `outros_mentores` das
+  sessões em aberto.
+- DOIS OU MAIS MENTORES NA MESMA SESSÃO INDIVIDUAL (2026-11-17, script 83 rodado pelo conector no mesmo dia; pedido da Juliana:
+  "às vezes atendemos dois mentores na mesma sessão com o mentorado; faça como nas turmas, que dá para flegar os mentores").
+  `sessoes.mentor_id` continua o PRINCIPAL; quem atende junto fica em `sessoes.outros_mentores uuid[]` (padrão '{}'). Gatilho
+  `sessoes_outros_mentores` (antes de inserir/mudar): tira repetido, vazio e o principal da lista; só a administração muda a lista
+  (login que não é admin = erro "Só a administração escolhe os mentores da sessão."; servidor sem login pode); e LIGA cada um ao
+  mentorado em `mentor_mentorado` (é o vínculo que libera a sessão pela RLS). Regras em agenda-regras.js: `mentoresDaSessao(s)`
+  (principal + outros, sem repetir) e `juntarNomes` ("Cláudia e Isaac"). TELAS: `telas/mentores-sessao.js` (equipeDaSessao,
+  escolhaDasCaixas, htmlMentoresSessao, ligarMentoresSessao, abrirMentoresSessao): caixinhas como "Mentor(es) do módulo"; cada
+  clique grava na hora; o principal continua se seguir marcado, senão vira o primeiro marcado; desmarcar o último não deixa; confere
+  choques na agenda de todos (verificarChoques); para quem entrou: "Pronto!" + "Avisar <nome> pelo WhatsApp" (link de senha se ainda
+  não entrou; nada sai sozinho; quem se marca não recebe aviso). Onde: cartão "Quem atende esta sessão" na tela da sessão (só
+  administração; sessão concluída também, para registrar quem atendeu) e ✎ de cada sessão no Plano de sessões da ficha (janela).
+  A SESSÃO EM DUPLA ENTRA para cada mentor marcado em: agenda (montarEventos: `mentores` = todos; Minha agenda do mentor lê
+  `mentor_id.eq.X,outros_mentores.cs.{X}`; planilha = uma linha por pessoa), choques, convite automático do Google (google-sync) e o
+  "Criar convite novo" de /api/agenda, "hoje" de Meus mentorados, Painel (mentores em atividade), Gestão → Mentores (sessões feitas
+  e próxima), pendências, remarcar e remarcar várias (choques de todos; cada mentor recebe as sessões dele), área do mentorado ("com
+  Cláudia e Isaac"), Relatórios (Excel), relatório da jornada e o da empresa (`mentoresDe` em lib/jornada.mjs: cada mentor conta a
+  sessão; `sessoes[].mentores`), resumo com IA ("Mentores (atenderam juntos)"), FINANCEIRO: pagamento do mês dos parceiros
+  (`atende()` em financeiro-mentores.js), previsão, margem (hora de cada mentor) e o extrato do mentor (rpc `meu_extrato_mentor`
+  do 83, com `em_dupla`). Ou seja: cada mentor marcado recebe pela sessão como se tivesse atendido sozinho.
+  Testes (fora do git): /home/claude/teste-dupla (regras.mjs; t.py e t2.py no Chrome sem janela com Supabase de mentira em
+  web/assets/supabase-falso.js, banco em window.__DB).
 - SUSPENDER PROGRAMA (2026-10-27, mentorado desligado da empresa; script 45, `telas/suspender.js`): botão vermelho "Suspender
   programa" no alto da ficha, só administração. Janela com o que vai acontecer, motivo obrigatório e caixa "Confirmo" (o botão só
   liga com os dois). Tudo de uma vez no banco (rpc `suspender_programa`): cancela as sessões em aberto agendadas/remarcadas de hoje

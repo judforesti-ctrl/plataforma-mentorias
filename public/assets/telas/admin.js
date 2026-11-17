@@ -27,7 +27,7 @@ async function carregarTudo() {
     sb.from('empresas').select('*').order('nome'),
     sb.from('programas').select('*').order('criado_em', { ascending: false }),
     sb.from('mentorados').select('id, nome, programa_id, status'),
-    sb.from('sessoes').select('id, mentorado_id, mentor_id, data_hora, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em'),
+    sb.from('sessoes').select('id, mentorado_id, mentor_id, outros_mentores, data_hora, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em'),
     sb.from('perfis').select('id, nome, papel, tambem_mentor, ativo').or('papel.eq.mentor,tambem_mentor.eq.true').eq('ativo', true).order('nome'),
     sb.from('turmas').select('id, nome, empresa_id, status'),
     sb.from('modulos').select('id, turma_id, data_hora, percepcoes_em, mentores:modulo_mentores(mentor_id)'),
@@ -109,7 +109,7 @@ async function visaoGeral(ctx, el) {
     // Mentor em atividade = tem sessão individual agendada ou módulo de turma ainda por acontecer.
     const agoraMs = Date.now(), limite = agoraMs - 2 * 3600 * 1000;
     const mentoresAtivos = new Set();
-    sessFiltro.forEach((s) => { if (s.mentor_id && s.situacao === 'agendada' && s.data_hora && new Date(s.data_hora).getTime() >= agoraMs) mentoresAtivos.add(s.mentor_id); });
+    sessFiltro.forEach((s) => { if (s.situacao === 'agendada' && s.data_hora && new Date(s.data_hora).getTime() >= agoraMs) [s.mentor_id, ...(s.outros_mentores || [])].forEach((id) => id && mentoresAtivos.add(id)); });
     modulos.forEach((m) => { if (!(m.data_hora && new Date(m.data_hora).getTime() < limite)) (m.mentores || []).forEach((x) => x.mentor_id && mentoresAtivos.add(x.mentor_id)); });
     el.querySelector('#numeros').innerHTML = `<div class="grade g4">
       <div class="cartao numero"><b>${ments.filter((m) => m.status === 'ativo').length}</b><span>mentorados ativos</span></div>

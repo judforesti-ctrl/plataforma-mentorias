@@ -43,7 +43,9 @@ export function calcularMargens(d, mentores) {
     }
     if (plano.programa_id && m) for (const s of m.sessoes) {
       const mt = m.mentorado(s.mentorado_id);
-      if (mt && mt.programa_id === plano.programa_id) itens.push({ pessoa: s.mentor_id, dia: F.diaDe(s.data_hora), minutos: s.duracao_min || 60 });
+      // sessão em dupla (script 83): conta a hora de cada mentor marcado
+      if (mt && mt.programa_id === plano.programa_id) [s.mentor_id, ...(s.outros_mentores || [])].filter(Boolean)
+        .forEach((pessoa) => itens.push({ pessoa, dia: F.diaDe(s.data_hora), minutos: s.duracao_min || 60 }));
     }
     // mentores parceiros ainda não pagos
     let parceiros = 0;

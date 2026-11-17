@@ -128,7 +128,11 @@ function montar(r) {
   html += `<section class="folha quebra">${topo(nome)}<div class="sobre">Sessão a sessão</div><h2>O que vocês conversaram</h2>
     ${feitas.map((s) => {
       const x = (t.sessoes || {})[s.id] || {};
-      const quando = [s.data ? dataCurta(s.data) : '', s.mentor ? `com ${primeiro(s.mentor)}` : ''].filter(Boolean).join(' · ');
+      // sessão com mais de um mentor (script 83): "com Cláudia e Isaac"
+      const comQuem = Array.isArray(s.mentores) && s.mentores.length > 1
+        ? s.mentores.map((x) => primeiro(x.nome)).reduce((acc, n, i, l) => (i === 0 ? n : i === l.length - 1 ? `${acc} e ${n}` : `${acc}, ${n}`), '')
+        : s.mentor ? primeiro(s.mentor) : '';
+      const quando = [s.data ? dataCurta(s.data) : '', comQuem ? `com ${comQuem}` : ''].filter(Boolean).join(' · ');
       return `<div class="sessao"><div class="n">${s.numero}</div><div><h4>${esc(s.tema || `Sessão ${s.numero}`)}</h4>
         <div class="quando">Sessão ${s.numero}${quando ? ` · ${esc(quando)}` : ''}</div>
         ${etiquetas(x.temas)}${paragrafos(x.resumo)}</div></div>`;

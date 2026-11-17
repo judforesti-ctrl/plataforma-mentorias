@@ -2,6 +2,7 @@
 // e prepara as mensagens de WhatsApp para o mentorado e para o mentor.
 // Várias sessões do mesmo mentorado de uma vez: remarcar-varias.js.
 import { sb, esc, avisar, explicarErro, isoParaLocal, localParaISO } from '../base.js';
+import { mentoresDaSessao } from '../agenda-regras.js';
 
 const quando = (iso) => {
   const d = new Date(iso);
@@ -11,7 +12,7 @@ const quando = (iso) => {
 };
 
 export async function abrirRemarcar(ctx, sessaoId, aoSalvar = () => {}) {
-  const { data: s, error } = await sb.from('sessoes').select(`id, numero, data_hora, duracao_min, concluida_em,
+  const { data: s, error } = await sb.from('sessoes').select(`id, numero, data_hora, duracao_min, concluida_em, mentor_id, outros_mentores,
     mentor:perfis!sessoes_mentor_id_fkey(id, nome, whatsapp),
     mentorado:mentorados(*, programa:programas(duracao_min), perfil:perfis!mentorados_perfil_id_fkey(whatsapp),
       vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome, whatsapp)))`).eq('id', sessaoId).maybeSingle();
@@ -50,10 +51,10 @@ export async function abrirRemarcar(ctx, sessaoId, aoSalvar = () => {}) {
     const novo = localParaISO(`${dia}T${hora}`);
     if (s.data_hora && new Date(novo).getTime() === new Date(s.data_hora).getTime()) { avisar('O dia e o horário são os mesmos de antes.', true); return; }
     btn.disabled = true;
-    if (!aceitouChoques && s.mentor) {
+    if (!aceitouChoques && mentoresDaSessao(s).length) {
       btn.textContent = 'Conferindo a agenda…';
       const { verificarChoques } = await import('./agenda-dados.js');
-      const lista = await verificarChoques(ctx, { mentorIds: [s.mentor.id], inicio: novo, duracaoMin: s.duracao_min || (m.programa && m.programa.duracao_min) || 50, ignorar: s.id });
+      const lista = await verificarChoques(ctx, { mentorIds: mentoresDaSessao(s), inicio: novo, duracaoMin: s.duracao_min || (m.programa && m.programa.duracao_min) || 50, ignorar: s.id });
       if (lista.length) {
         fundo.querySelector('#r-choques').innerHTML = `<div class="aviso"><b>Atenção na agenda:</b><ul class="peq">${lista.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
         aceitouChoques = true; btn.disabled = false; btn.textContent = 'Remarcar mesmo assim';

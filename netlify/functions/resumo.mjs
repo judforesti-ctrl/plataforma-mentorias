@@ -60,7 +60,7 @@ export default async (req) => {
   if (!UUID.test(id)) return resposta({ mensagem: 'Sessão inválida.' }, 400);
 
   // 2. A sessão, e se esta pessoa é mentora deste mentorado (ou administração)
-  const [s] = (await ler(`/rest/v1/sessoes?id=eq.${id}&select=numero,tema,roteiro,tarefa,tarefa_prazo,situacao,mentorado_id,`
+  const [s] = (await ler(`/rest/v1/sessoes?id=eq.${id}&select=numero,tema,roteiro,tarefa,tarefa_prazo,situacao,mentorado_id,outros_mentores,`
     + 'mentorado:mentorados(nome),mentor:perfis!sessoes_mentor_id_fkey(nome),interno:sessoes_interno(resumo_mentor)', secreta)) || [];
   if (!s) return resposta({ mensagem: 'Sessão não encontrada.' }, 404);
   const [perfil] = (await ler(`/rest/v1/perfis?id=eq.${eu.id}&select=papel,ativo,nome`, secreta)) || [];
@@ -73,6 +73,13 @@ export default async (req) => {
   if (notas.length < 40) return resposta({ mensagem: 'Escreva um pouco mais nas anotações da sessão antes de gerar o resumo.' }, 400);
 
   const primeiroNome = String((s.mentorado && s.mentorado.nome) || '').split(' ')[0];
+  // sessão com mais de um mentor (script 83): o resumo fala dos dois
+  const idsOutros = (Array.isArray(s.outros_mentores) ? s.outros_mentores : []).filter((x) => UUID.test(x));
+  const outros = idsOutros.length ? ((await ler(`/rest/v1/perfis?id=in.(${idsOutros.join(',')})&select=nome`, secreta)) || []).map((x) => x.nome).filter(Boolean) : [];
+  const nomesMentores = [(s.mentor && s.mentor.nome) || perfil.nome, ...outros];
+  const linhaMentores = nomesMentores.length > 1
+    ? `Mentores (atenderam juntos): ${nomesMentores.slice(0, -1).join(', ')} e ${nomesMentores[nomesMentores.length - 1]}`
+    : `Mentor(a): ${nomesMentores[0]}`;
   // Tarefas: várias por sessão (tabela tarefas, script 33); sem a tabela, a tarefa única antiga da sessão.
   const dataBR = (d) => (d ? new Date(`${d}T12:00:00`).toLocaleDateString('pt-BR') : '');
   const novas = await ler(`/rest/v1/tarefas?sessao_id=eq.${id}&select=texto,prazo&order=ordem,criado_em`, secreta);
@@ -84,7 +91,7 @@ export default async (req) => {
   const t = tamanho(notas.split(/\s+/).filter(Boolean).length);
   const pedido = [
     `Mentorado: ${primeiroNome}`,
-    `Mentor(a): ${(s.mentor && s.mentor.nome) || perfil.nome}`,
+    linhaMentores,
     `Sessão número ${s.numero}${s.tema ? `, tema: ${s.tema}` : ''}`,
     roteiro ? `Roteiro planejado para a sessão (só contexto; o que vale é o que aconteceu, nas anotações):\n${roteiro.slice(0, 3000)}` : '',
     nomesFerr.length ? `Ferramentas enviadas ao mentorado nesta sessão: ${nomesFerr.join(', ')}` : '',

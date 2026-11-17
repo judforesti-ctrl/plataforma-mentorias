@@ -22,6 +22,17 @@ export function tarefasDaSessao(s, porSessao) {
 
 // m: mentorado (com programa e vínculos); sessoes: com mentor, interno {resumo_mentor, notas_evolucao}, avaliacao {nota};
 // porSessao: Map sessao_id → tarefas (null = sem a tabela nova); ferramentas: Map sessao_id → nomes; escala10: notas já de 0 a 10.
+// Quem atendeu a sessão: o mentor principal e quem atendeu junto (outros_mentores, script 83), com nome e foto
+// (os nomes de quem atende junto vêm dos vínculos do mentorado: o banco liga a pessoa ao mentorado quando ela é marcada).
+export function mentoresDe(s, m) {
+  const pessoas = new Map((m.vinculos || []).filter((v) => v.mentor).map((v) => [v.mentor.id, v.mentor]));
+  if (s.mentor && s.mentor.id) pessoas.set(s.mentor.id, s.mentor);
+  const ids = [s.mentor_id || (s.mentor && s.mentor.id), ...(Array.isArray(s.outros_mentores) ? s.outros_mentores : [])].filter(Boolean);
+  return [...new Set(ids)].map((id) => pessoas.get(id)).filter(Boolean)
+    .map((p) => ({ id: p.id, nome: p.nome, foto_url: p.foto_url || null }));
+}
+const juntar = (l) => (l.length <= 1 ? (l[0] || '') : `${l.slice(0, -1).join(', ')} e ${l[l.length - 1]}`);
+
 export function montarDados({ m, sessoes, porSessao = null, ferramentas = new Map(), escala10 = true, agora = Date.now() }) {
   const prog = m.programa || {};
   const sess = (sessoes || []).slice().sort((a, b) => a.numero - b.numero);
@@ -29,9 +40,11 @@ export function montarDados({ m, sessoes, porSessao = null, ferramentas = new Ma
   const lista = sess.map((s) => {
     const ts = tarefasDaSessao(s, porSessao);
     const nota = s.avaliacao && Number.isFinite(s.avaliacao.nota) ? (escala10 ? s.avaliacao.nota : s.avaliacao.nota * 2) : null;
+    const quem = mentoresDe(s, m);
     return {
       id: s.id, numero: s.numero, extra: !!s.extra, data: s.data_hora || null,
-      mentor: s.mentor ? s.mentor.nome : null, mentor_id: s.mentor ? s.mentor.id : null,
+      mentor: quem.length ? juntar(quem.map((x) => x.nome)) : (s.mentor ? s.mentor.nome : null),
+      mentor_id: s.mentor ? s.mentor.id : (s.mentor_id || null), mentores: quem,
       tema: limpo(s.tema) || null, situacao: s.situacao, realizada: s.situacao === 'realizada',
       duracao_min: Number.isFinite(s.duracao_min) && s.duracao_min > 0 ? s.duracao_min : null,
       nota,
@@ -50,9 +63,11 @@ export function montarDados({ m, sessoes, porSessao = null, ferramentas = new Ma
 
   // mentores: quem atendeu as sessões realizadas (com quantas) e quem acompanha hoje
   const mentores = new Map();
-  for (const s of sess.filter((x) => x.situacao === 'realizada' && x.mentor)) {
-    const x = mentores.get(s.mentor.id) || { nome: s.mentor.nome, foto_url: s.mentor.foto_url || null, sessoes: 0 };
-    x.sessoes += 1; mentores.set(s.mentor.id, x);
+  for (const s of sess.filter((x) => x.situacao === 'realizada')) {
+    for (const p of mentoresDe(s, m)) {
+      const x = mentores.get(p.id) || { nome: p.nome, foto_url: p.foto_url, sessoes: 0 };
+      x.sessoes += 1; mentores.set(p.id, x);
+    }
   }
   for (const v of (m.vinculos || []).slice().sort((a, b) => a.ordem - b.ordem)) {
     if (v.mentor && !mentores.has(v.mentor.id)) mentores.set(v.mentor.id, { nome: v.mentor.nome, foto_url: v.mentor.foto_url || null, sessoes: 0 });
@@ -96,7 +111,7 @@ export function entradaParaIA({ m, sessoes, porSessao = null, ferramentas = new 
     pontos_a_desenvolver: pontosDe(m),
     sessoes_realizadas: sess.map((s) => ({
       sessao_id: s.id, numero: s.numero, data: s.data_hora ? dataCurta(s.data_hora) : 'sem data',
-      mentor: s.mentor ? primeiro(s.mentor.nome) : '', tema: limpo(s.tema),
+      mentor: juntar(mentoresDe(s, m).map((x) => primeiro(x.nome))) || (s.mentor ? primeiro(s.mentor.nome) : ''), tema: limpo(s.tema),
       roteiro_planejado: limpo(s.roteiro).slice(0, 1500),
       anotacoes_do_mentor: limpo(s.interno && s.interno.resumo_mentor).slice(0, 6000) || '(sem anotações)',
       resumo_enviado_ao_mentorado: s.concluida_em ? limpo(s.resumo_mentorado).slice(0, 3000) : '',

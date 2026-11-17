@@ -36,9 +36,10 @@ export async function carregarAgenda(ctx) {
     mentores = [ctx.perfil];
   }
 
-  let qs = sb.from('sessoes').select('id, numero, data_hora, duracao_min, situacao, mentor_id, mentorado:mentorados(id, nome, status, programa:programas(id, nome, duracao_min, empresa:empresas(id, nome)))')
+  let qs = sb.from('sessoes').select('id, numero, data_hora, duracao_min, situacao, mentor_id, outros_mentores, mentorado:mentorados(id, nome, status, programa:programas(id, nome, duracao_min, empresa:empresas(id, nome)))')
     .not('data_hora', 'is', null);
-  if (!ctx.ehAdmin) qs = qs.eq('mentor_id', eu);
+  // o mentor vê as sessões que conduz e as que atende junto (script 83)
+  if (!ctx.ehAdmin) qs = qs.or(`mentor_id.eq.${eu},outros_mentores.cs.{${eu}}`);
   // reuniões (script 18): sem a tabela, a agenda segue sem elas
   const lerReunioes = async () => { const r = await sb.from('agenda_reunioes').select('*'); return r.error ? null : (r.data || []); };
   // próximos contatos de venda (script 19; só a administração enxerga)

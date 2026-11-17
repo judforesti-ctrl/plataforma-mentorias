@@ -20,7 +20,7 @@ async function carregar(d) {
   const [cad, vals, pags, mm, sess, ments, vinc] = await Promise.all([
     sb.from('fin_mentores').select('*'), sb.from('fin_mentor_valores').select('*'), sb.from('fin_pagamentos').select('*'),
     sb.from('modulo_mentores').select('mentor_id, modulo_id, com_deslocamento, viagem'),
-    sb.from('sessoes').select('id, mentor_id, mentorado_id, data_hora, duracao_min, situacao').in('situacao', ['realizada', 'agendada', 'remarcada']),
+    sb.from('sessoes').select('id, mentor_id, outros_mentores, mentorado_id, data_hora, duracao_min, situacao').in('situacao', ['realizada', 'agendada', 'remarcada']),
     sb.from('mentorados').select('id, nome, programa_id'), sb.from('mentor_mentorado').select('mentor_id, mentorado_id'),
   ]);
   const falta = [cad, vals, pags].some((r) => r.error && faltaScript(r.error));
@@ -53,6 +53,9 @@ async function carregar(d) {
   return m;
 }
 
+// sessão que a pessoa conduz ou atende junto com outro mentor (script 83): conta para cada mentor marcado
+const atende = (s, perfilId) => s.mentor_id === perfilId || (s.outros_mentores || []).includes(perfilId);
+
 const rotuloTurma = (d, id) => { const t = d.turmas.find((x) => x.id === id); return t ? `${d.empresa(t.empresa_id).nome} · ${t.nome}` : 'Turma'; };
 const rotuloPrograma = (d, id) => { const p = d.programas.find((x) => x.id === id); return p ? `${d.empresa(p.empresa_id).nome} · ${p.nome}` : 'Mentoria individual'; };
 
@@ -60,7 +63,7 @@ const rotuloPrograma = (d, id) => { const p = d.programas.find((x) => x.id === i
 function alocacoes(d, m, perfilId) {
   const turmas = new Set(), programas = new Set();
   for (const x of m.modMentores.filter((y) => y.mentor_id === perfilId)) { const mod = d.modulo(x.modulo_id); if (mod) turmas.add(mod.turma_id); }
-  for (const s of m.sessoes.filter((y) => y.mentor_id === perfilId)) { const mt = m.mentorado(s.mentorado_id); if (mt && mt.programa_id) programas.add(mt.programa_id); }
+  for (const s of m.sessoes.filter((y) => atende(y, perfilId))) { const mt = m.mentorado(s.mentorado_id); if (mt && mt.programa_id) programas.add(mt.programa_id); }
   for (const v of m.vinculos.filter((y) => y.mentor_id === perfilId)) { const mt = m.mentorado(v.mentorado_id); if (mt && mt.programa_id) programas.add(mt.programa_id); }
   return [...[...turmas].map((id) => ({ chave: `t:${id}`, turma_id: id, rotulo: rotuloTurma(d, id) })), ...[...programas].map((id) => ({ chave: `p:${id}`, programa_id: id, rotulo: rotuloPrograma(d, id) }))]
     .sort((a, b) => a.rotulo.localeCompare(b.rotulo));
@@ -77,7 +80,7 @@ function itensDoMes(d, m, perfilId, mes, previsto = false) {
     if (!dia || F.mesDe(dia) !== mes || (dia > hoje && !previsto)) continue;
     itens.push({ chave: `t:${mod.turma_id}`, rotulo: rotuloTurma(d, mod.turma_id), tipo: 'modulo', data: dia, minutos: mod.duracao_min || 0 });
   }
-  for (const s of m.sessoes.filter((y) => y.mentor_id === perfilId)) {
+  for (const s of m.sessoes.filter((y) => atende(y, perfilId))) {
     const dia = F.diaDe(s.data_hora); const mt = m.mentorado(s.mentorado_id);
     if (!dia || F.mesDe(dia) !== mes || !mt || (s.situacao !== 'realizada' && !(previsto && dia >= hoje))) continue;
     // sessão sem duração anotada = 1 hora (a base do Isaac era por atendimento: uma sessão = uma hora); o mesmo no extrato do mentor

@@ -12,7 +12,7 @@ export const config = { path: '/api/relatorio-mentorado-gerar', background: true
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Sessões SEM informacoes_delicadas (de propósito: nem chegam aqui).
-const SEL_SESSOES = 'id,numero,extra,data_hora,tema,roteiro,situacao,duracao_min,resumo_mentorado,concluida_em,tarefa,tarefa_prazo,tarefa_feita_em,'
+const SEL_SESSOES = 'id,numero,extra,data_hora,tema,roteiro,situacao,duracao_min,resumo_mentorado,concluida_em,tarefa,tarefa_prazo,tarefa_feita_em,mentor_id,outros_mentores,'
   + 'mentor:perfis!sessoes_mentor_id_fkey(id,nome,foto_url),interno:sessoes_interno(resumo_mentor,notas_evolucao),avaliacao:avaliacoes_sessao(nota)';
 
 export default async (req) => {

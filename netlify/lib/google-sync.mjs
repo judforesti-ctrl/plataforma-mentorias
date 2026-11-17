@@ -8,7 +8,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { env, supa, acessoGoogle, agenda, FUSO, SITE } from './google.mjs';
 import { dadosAgenda } from './agenda.mjs';
 import { emailReal } from './email.mjs';
-import { PERIODOS, somarDias, hoje, diaDe, diaCurto, diaDaSemana, rotuloBloqueio, moduloPresencial } from '../../public/assets/agenda-regras.js';
+import { PERIODOS, somarDias, hoje, diaDe, diaCurto, diaDaSemana, rotuloBloqueio, moduloPresencial, mentoresDaSessao } from '../../public/assets/agenda-regras.js';
 
 const FAIXA = { manha: ['08:00', '12:00'], tarde: ['13:00', '18:00'], noite: ['18:00', '22:00'] };
 const BYDAY = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
@@ -85,7 +85,7 @@ function desejados(d, cfg) {
       corpo: { status: 'confirmed', ...corpo, colorId: COR[tipo], guestsCanInviteOthers: false, guestsCanModify: false, reminders: { useDefault: true } } });
   };
 
-  // sessões individuais: quem conduz e o mentorado
+  // sessões individuais: quem conduz, quem atende junto (script 83) e o mentorado
   if (cfg.equipe || cfg.mentorados) {
     for (const s of d.sessoes) {
       if (!s.data_hora || s.situacao === 'cancelada') continue;
@@ -95,7 +95,7 @@ function desejados(d, cfg) {
       const dur = s.duracao_min || prog.duracao_min || 50;
       const ini = Date.parse(s.data_hora);
       const lista = [];
-      if (cfg.equipe) lista.push(email(s.mentor_id));
+      if (cfg.equipe) mentoresDaSessao(s).forEach((id) => lista.push(email(id)));
       const emailM = ((m.perfil && m.perfil.email) || m.email || '').toLowerCase();
       if (cfg.mentorados) {
         const autorizou = !(m.perfil && m.perfil.autorizacoes && m.perfil.autorizacoes.email === false);

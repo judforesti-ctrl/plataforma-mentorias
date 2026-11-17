@@ -14,7 +14,7 @@ export const config = { path: '/api/relatorio-empresa-gerar', background: true }
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Sessões SEM informacoes_delicadas (de propósito: nem chegam aqui).
-const SEL_SESSOES = 'id,mentorado_id,numero,extra,data_hora,tema,situacao,duracao_min,resumo_mentorado,concluida_em,tarefa,tarefa_prazo,tarefa_feita_em,'
+const SEL_SESSOES = 'id,mentorado_id,numero,extra,data_hora,tema,situacao,duracao_min,resumo_mentorado,concluida_em,tarefa,tarefa_prazo,tarefa_feita_em,mentor_id,outros_mentores,'
   + 'mentor:perfis!sessoes_mentor_id_fkey(id,nome,foto_url),interno:sessoes_interno(resumo_mentor,notas_evolucao),avaliacao:avaliacoes_sessao(nota)';
 const lote = (l, n) => Array.from({ length: Math.ceil(l.length / n) }, (_, i) => l.slice(i * n, i * n + n));
 

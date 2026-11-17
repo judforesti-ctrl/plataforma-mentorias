@@ -2,12 +2,13 @@
 import { pendencias } from './pendencias.js';
 import { sb, esc, avatar, diaMes, horaBR, hojeISO, mesmoDia } from '../base.js';
 import { juntarTarefas, atrasada as tarefaAtrasada } from '../tarefas.js';
+import { mentoresDaSessao } from '../agenda-regras.js';
 
 const SELECT = `id, nome, cargo, status, sala_meet,
   programa:programas(id, nome, sessoes_por_mentorado, empresa:empresas(id, nome)),
   perfil:perfis!mentorados_perfil_id_fkey(foto_url, whatsapp),
   vinculos:mentor_mentorado(ordem, mentor_id, mentor:perfis(nome)),
-  sessoes(id, numero, data_hora, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em, mentor_id)`;
+  sessoes(id, numero, data_hora, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em, mentor_id, outros_mentores)`;
 
 export async function render(ctx, el) {
   const meus = ctx.rota === 'meus';
@@ -33,7 +34,8 @@ export async function render(ctx, el) {
     const sess = (m.sessoes || []).slice().sort((a, b) => a.numero - b.numero);
     const feitas = sess.filter((s) => s.situacao === 'realizada').length;
     const proxima = sess.find((s) => !s.concluida_em && s.data_hora && new Date(s.data_hora).getTime() > agora - 3 * 3600 * 1000);
-    const deHoje = sess.find((s) => mesmoDia(s.data_hora, hoje) && (!meus || s.mentor_id === ctx.perfil.id));
+    // "hoje" do mentor: as sessões que ele conduz e as que atende junto com outro mentor (script 83)
+    const deHoje = sess.find((s) => mesmoDia(s.data_hora, hoje) && (!meus || mentoresDaSessao(s).includes(ctx.perfil.id)));
     const atrasada = sess.some((s) => s.concluida_em && s.tarefas.some(tarefaAtrasada));
     const mentores = (m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((x) => x.mentor && x.mentor.nome).filter(Boolean);
     return { m, sess, feitas, proxima, deHoje, atrasada, mentores };

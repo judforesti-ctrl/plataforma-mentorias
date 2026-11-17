@@ -9,6 +9,7 @@
 // tabelas (admin_tudo), e as mudanças ficam no histórico pelos gatilhos que já existem.
 import { sb, esc, avisar, explicarErro, hojeISO, mesmoDia } from '../base.js';
 import { janela, limparCache, avisarGoogle } from './agenda-dados.js';
+import { mentoresDaSessao, juntarNomes } from '../agenda-regras.js';
 
 const quando = (iso) => {
   const d = new Date(iso);
@@ -26,7 +27,7 @@ export async function abrirTrocarMentor(ctx, mentoradoId, { sessaoId = null, aoS
     sb.from('mentorados').select(`*, programa:programas(nome, empresa:empresas(nome)),
       perfil:perfis!mentorados_perfil_id_fkey(whatsapp),
       vinculos:mentor_mentorado(ordem, mentor_id, mentor:perfis(id, nome, email, whatsapp, papel, tambem_mentor, termo_aceito_em)),
-      sessoes(id, numero, data_hora, situacao, concluida_em, mentor_id, mentor:perfis!sessoes_mentor_id_fkey(id, nome))`)
+      sessoes(id, numero, data_hora, situacao, concluida_em, mentor_id, outros_mentores, mentor:perfis!sessoes_mentor_id_fkey(id, nome))`)
       .eq('id', mentoradoId).maybeSingle(),
     sb.from('perfis').select('id, nome, email, whatsapp, papel, tambem_mentor, termo_aceito_em')
       .or('papel.eq.mentor,tambem_mentor.eq.true').eq('ativo', true).order('nome'),
@@ -74,7 +75,7 @@ export async function abrirTrocarMentor(ctx, mentoradoId, { sessaoId = null, aoS
       </div>
       <div id="tm-lista" hidden><div style="display:grid;gap:6px;margin:10px 0 0 28px">
         ${abertas.map((s) => `<label class="check"><input type="checkbox" data-sessao="${s.id}"${alvo && s.id === alvo.id ? ' checked' : ''}>
-          <span>Sessão ${s.numero} · ${esc(quandoTxt(s))} <span class="apagado">· hoje com ${esc(nomeDe(s.mentor_id))}</span></span></label>`).join('')}
+          <span>Sessão ${s.numero} · ${esc(quandoTxt(s))} <span class="apagado">· hoje com ${esc(juntarNomes(mentoresDaSessao(s).map(nomeDe)) || 'sem mentor')}</span></span></label>`).join('')}
       </div></div></div>
     <div id="tm-antes" class="campo mt"></div>
     <p id="tm-nota" class="peq apagado mt"></p>
@@ -154,8 +155,12 @@ export async function abrirTrocarMentor(ctx, mentoradoId, { sessaoId = null, aoS
         mudou = true;
         if ((feitas || []).length !== muda.length) throw new Error(`Só ${(feitas || []).length} de ${muda.length} sessões mudaram. Atualize a página e confira o plano de sessões.`);
       }
-      // 3. tira quem a administração desmarcou
+      // 3. tira quem a administração desmarcou (e das sessões em aberto que atendia junto com outro mentor, script 83)
       for (const x of saem) {
+        for (const s of abertas.filter((y) => (y.outros_mentores || []).includes(x))) {
+          const { error: e } = await sb.from('sessoes').update({ outros_mentores: s.outros_mentores.filter((y) => y !== x) }).eq('id', s.id);
+          if (e) throw e;
+        }
         const { error: e } = await sb.from('mentor_mentorado').delete().eq('mentorado_id', m.id).eq('mentor_id', x);
         if (e) throw e;
         mudou = true;

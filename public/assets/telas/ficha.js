@@ -7,6 +7,7 @@ import { redes, linkRede, gravarComRedes } from './perfil-comum.js';
 import { juntarTarefas, seloResumo } from '../tarefas.js';
 import { carregarEntregas, htmlEntregas, ligarEntregas } from '../entregas.js';
 import { carregarArquivosMentorado, htmlArquivosEquipe, ligarArquivosEquipe } from '../arquivos-mentorado.js';
+import { mentoresDaSessao, juntarNomes } from '../agenda-regras.js';
 
 // programa suspenso (script 45): sessões futuras canceladas, mentores liberados, dados guardados
 const SUSP = (m) => m.suspensao || {};
@@ -19,7 +20,7 @@ export async function render(ctx, el, [id]) {
     programa:programas(id, nome, empresa:empresas(nome)),
     perfil:perfis!mentorados_perfil_id_fkey(*),
     vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome, foto_url)),
-    sessoes(id, numero, extra, data_hora, tema, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em, mentor:perfis!sessoes_mentor_id_fkey(nome))`)
+    sessoes(id, numero, extra, data_hora, tema, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em, mentor_id, outros_mentores, mentor:perfis!sessoes_mentor_id_fkey(id, nome))`)
     .eq('id', id).maybeSingle();
   if (error) throw error;
   if (!m) { el.innerHTML = '<div class="vazio">Mentorado não encontrado, ou você não tem acesso a esta ficha.</div>'; return; }
@@ -30,6 +31,10 @@ export async function render(ctx, el, [id]) {
   const sess = (m.sessoes || []).sort((a, b) => a.numero - b.numero);
   await juntarTarefas(sess, (q) => q.eq('mentorado_id', id));
   const mentores = (m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor).filter(Boolean);
+  // quem atende cada sessão: o principal e quem atende junto (script 83)
+  const nomesMentores = new Map(mentores.map((x) => [x.id, x.nome]));
+  sess.forEach((s) => { if (s.mentor) nomesMentores.set(s.mentor.id, s.mentor.nome); });
+  const quemAtende = (s) => juntarNomes(mentoresDaSessao(s).map((id) => nomesMentores.get(id)).filter(Boolean)) || '—';
   // documentos que o mentorado mandou (script 37); "novo" até um mentor dele abrir
   const { existe: temEntregas, lista: entregas } = await carregarEntregas((q) => q.eq('mentorado_id', id));
   // arquivos que o mentor mandou (PowerPoint, PDF…; script 66)
@@ -128,8 +133,8 @@ export async function render(ctx, el, [id]) {
             const [rot, cls] = SITUACAO[s.situacao] || [s.situacao, 'neutro'];
             const tarefa = seloResumo(s.tarefas);
             return `<tr><td>${s.numero}${s.extra ? ' <span class="selo neutro">extra</span>' : ''}</td><td>${dataHoraBR(s.data_hora)}</td>
-              <td>${esc(s.mentor ? s.mentor.nome : '—')}${mexe && !s.concluida_em && s.situacao !== 'cancelada'
-                ? ` <button class="btn peq" data-trocar-mentor="${s.id}" title="Trocar quem atende esta sessão" aria-label="Trocar quem atende a sessão ${s.numero}">✎</button>` : ''}</td>
+              <td>${esc(quemAtende(s))}${mexe && s.situacao !== 'cancelada'
+                ? ` <button class="btn peq" data-mentores-sessao="${s.id}" title="Escolher quem atende esta sessão (pode ser mais de um mentor)" aria-label="Escolher quem atende a sessão ${s.numero}">✎</button>` : ''}</td>
               <td>${esc(s.tema || '—')}</td><td>${tarefa}</td>
               <td><span class="selo ${cls}">${rot}</span>${s.concluida_em ? ' <span class="selo neutro">🔒</span>' : ''}</td>
               <td><div class="linha" style="gap:6px;flex-wrap:nowrap"><a class="btn peq${s === proxima ? ' pri' : ''}" href="#/sessao/${s.id}">${s.concluida_em ? 'Ver' : 'Abrir'}</a>
@@ -260,6 +265,12 @@ export async function render(ctx, el, [id]) {
     if (ev.target.id === 'reativar') {   // desfaz a suspensão (com confirmação)
       const { abrirReativar } = await import('./suspender.js');
       abrirReativar(ctx, m, { sessoes: sess, aoSalvar: () => ctx.irPara(`#/mentorado/${m.id}`) });
+      return;
+    }
+    const ms = ev.target.closest('[data-mentores-sessao]');   // quem atende esta sessão: um ou mais mentores (script 83)
+    if (ms) {
+      const { abrirMentoresSessao } = await import('./mentores-sessao.js');
+      abrirMentoresSessao(ctx, ms.dataset.mentoresSessao, { aoSalvar: () => ctx.irPara(`#/mentorado/${m.id}`) });
       return;
     }
     const tm = ev.target.closest('[data-trocar-mentor]');   // outro mentor atende (no meio do processo)

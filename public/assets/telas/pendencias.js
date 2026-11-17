@@ -5,20 +5,29 @@
 import { sb, esc, diaMes, horaBR, hojeISO, mesmoDia } from '../base.js';
 import { juntarTarefas, atrasada } from '../tarefas.js';
 import { carregarEntregas } from '../entregas.js';
+import { mentoresDaSessao, juntarNomes } from '../agenda-regras.js';
 
 const MAX = 8;
 const lista = (itens) => `${itens.slice(0, MAX).join('')}${itens.length > MAX ? `<p class="peq apagado">e mais ${itens.length - MAX}.</p>` : ''}`;
 
 export async function pendencias(el, { mentoradoIds = null, mostrarMentor = true } = {}) {
   let q = sb.from('sessoes').select(`id, numero, data_hora, situacao, concluida_em, tarefa, tarefa_prazo, tarefa_feita_em,
-    mentorado:mentorados(id, nome, status), mentor:perfis!sessoes_mentor_id_fkey(nome)`);
+    mentor_id, outros_mentores, mentorado:mentorados(id, nome, status), mentor:perfis!sessoes_mentor_id_fkey(id, nome)`);
   if (mentoradoIds) q = q.in('mentorado_id', mentoradoIds);
   const { data, error } = await q;
   if (error) { el.innerHTML = ''; return; }
   const sess = (data || []).filter((s) => s.mentorado && s.mentorado.status === 'ativo');
   await juntarTarefas(sess, (q) => (mentoradoIds ? q.in('mentorado_id', mentoradoIds) : q));
   const agora = Date.now(), hoje = hojeISO();
-  const quem = (s) => `${esc(s.mentorado.nome)} · sessão ${s.numero}${mostrarMentor && s.mentor ? ` · ${esc(s.mentor.nome)}` : ''}`;
+  // sessão com mais de um mentor (script 83): os nomes de quem atende junto
+  const nomesMentor = new Map(sess.filter((s) => s.mentor).map((s) => [s.mentor.id, s.mentor.nome]));
+  const faltamNomes = [...new Set(sess.flatMap((s) => s.outros_mentores || []))].filter((id) => !nomesMentor.has(id));
+  if (mostrarMentor && faltamNomes.length) {
+    const r = await sb.from('perfis').select('id, nome').in('id', faltamNomes);
+    (r.data || []).forEach((x) => nomesMentor.set(x.id, x.nome));
+  }
+  const quemAtende = (s) => juntarNomes(mentoresDaSessao(s).map((id) => nomesMentor.get(id)).filter(Boolean));
+  const quem = (s) => `${esc(s.mentorado.nome)} · sessão ${s.numero}${mostrarMentor && quemAtende(s) ? ` · ${esc(quemAtende(s))}` : ''}`;
 
   const deHoje = sess.filter((s) => !s.concluida_em && mesmoDia(s.data_hora, hoje))
     .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))

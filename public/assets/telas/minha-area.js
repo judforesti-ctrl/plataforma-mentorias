@@ -7,13 +7,14 @@ import { juntarTarefas, prazoBR, atrasada } from '../tarefas.js';
 import { carregarEntregas, htmlEntregas, ligarEntregas, abrirEnvio } from '../entregas.js';
 import { carregarArquivosMentorado, htmlArquivosParaMim, ligarArquivosParaMim } from '../arquivos-mentorado.js';
 import { saudacao, faltam, anel, numero, blocoData, jornada, icone, grade, legendaGrade } from './area-aluno.js';
+import { mentoresDaSessao, juntarNomes } from '../agenda-regras.js';
 
 export async function render(ctx, el) {
   const { data: m, error } = await sb.from('mentorados').select(`id, nome, sala_meet,
     programa:programas(nome, empresa:empresas(nome)),
     vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome, foto_url, whatsapp, rede_social, resumo_apresentacao, resumo_aprovado_em, trajetoria)),
     sessoes(id, numero, data_hora, tema, situacao, concluida_em, resumo_mentorado, tarefa, tarefa_prazo, tarefa_feita_em, tarefa_comentario,
-      mentor:perfis!sessoes_mentor_id_fkey(nome), avaliacao:avaliacoes_sessao(nota))`)
+      mentor_id, outros_mentores, mentor:perfis!sessoes_mentor_id_fkey(id, nome), avaliacao:avaliacoes_sessao(nota))`)
     .eq('perfil_id', ctx.perfil.id).maybeSingle();
   if (error) throw error;
   // ferramentas recebidas: nome, resumo e PDF vêm do catálogo (a ficha técnica é só da equipe)
@@ -36,6 +37,10 @@ export async function render(ctx, el) {
     .sort((a, b) => (!!a.feita_em - !!b.feita_em) || String(a.prazo || '9999').localeCompare(String(b.prazo || '9999')) || b.numero - a.numero);
   const resumos = sess.filter((s) => s.concluida_em && s.resumo_mentorado).reverse();
   const mentores = (m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor).filter(Boolean);
+  // sessão com mais de um mentor (script 83): "com Cláudia e Isaac"
+  const nomesM = new Map(mentores.map((x) => [x.id, x.nome]));
+  sess.forEach((s) => { if (s.mentor) nomesM.set(s.mentor.id, s.mentor.nome); });
+  const comQuem = (s) => juntarNomes(mentoresDaSessao(s).map((id) => nomesM.get(id)).filter(Boolean));
   // envios aos mentores (sem o script 37 os botões não aparecem)
   const { existe: podeEnviar, lista: entregas } = await carregarEntregas((q) => q.eq('mentorado_id', m.id));
   // arquivos que o mentor mandou (PowerPoint, PDF…; script 66)
@@ -88,7 +93,7 @@ export async function render(ctx, el) {
         <div class="aa-heroi-texto">
           <p class="aa-kicker">${empresa ? `${esc(empresa)} · ` : ''}Seu programa de mentoria</p>
           <h2 id="aa-programa">${esc(m.programa ? m.programa.nome : 'Sua mentoria')}</h2>
-          <p class="aa-sub">Você já fez ${feitas} de ${sess.length} sess${sess.length === 1 ? 'ão' : 'ões'}.${proxima ? ` A próxima é ${diaMes(proxima.data_hora)} às ${hora(proxima.data_hora)}${proxima.mentor ? ` com ${esc(proxima.mentor.nome)}` : ''}.` : ''}</p>
+          <p class="aa-sub">Você já fez ${feitas} de ${sess.length} sess${sess.length === 1 ? 'ão' : 'ões'}.${proxima ? ` A próxima é ${diaMes(proxima.data_hora)} às ${hora(proxima.data_hora)}${comQuem(proxima) ? ` com ${esc(comQuem(proxima))}` : ''}.` : ''}</p>
           <div class="linha" style="margin-top:6px">
             ${sala ? `<a class="btn pri" href="${esc(sala)}" target="_blank" rel="noopener">Entrar na sala ${icone('seta', 17)}</a>` : ''}
             ${tarefas.length ? `<button class="btn${sala ? '' : ' pri'}" type="button" data-ir="aa-tarefas">Ver suas tarefas</button>` : ''}
@@ -115,7 +120,7 @@ export async function render(ctx, el) {
         ${proxima ? `
           <div class="aa-prox-cab">${blocoData(proxima.data_hora)}
             <div><b>Sessão ${proxima.numero}${proxima.tema ? ` · ${esc(proxima.tema)}` : ''}</b>
-              <span class="peq apagado">${esc(diaLongo(proxima.data_hora))} · ${hora(proxima.data_hora)}${proxima.mentor ? ` · com ${esc(proxima.mentor.nome)}` : ''}</span></div></div>
+              <span class="peq apagado">${esc(diaLongo(proxima.data_hora))} · ${hora(proxima.data_hora)}${comQuem(proxima) ? ` · com ${esc(comQuem(proxima))}` : ''}</span></div></div>
           ${sala ? `<div class="linha"><a class="btn escuro" href="${esc(sala)}" target="_blank" rel="noopener">Entrar na sala do Meet</a></div>` : ''}`
           : '<p class="apagado">Nenhuma sessão marcada por enquanto. Quando a próxima for agendada, ela aparece aqui.</p>'}
       </section>
@@ -174,7 +179,7 @@ export async function render(ctx, el) {
     <section class="aa-cartao" aria-labelledby="aa-resumos"><h3 id="aa-resumos">Resumo das suas sessões</h3>
       ${resumos.length ? `<div class="lista">${resumos.map((s) => `<div class="item" style="grid-template-columns:80px 1fr">
         <div><b>${diaMes(s.data_hora)}</b><br><span class="peq apagado">Sessão ${s.numero}</span></div>
-        <div><p class="peq apagado">${esc(s.tema || '')}${s.mentor ? ` · ${esc(s.mentor.nome)}` : ''}</p><p style="white-space:pre-wrap">${esc(s.resumo_mentorado)}</p>
+        <div><p class="peq apagado">${esc(s.tema || '')}${comQuem(s) ? ` · ${esc(comQuem(s))}` : ''}</p><p style="white-space:pre-wrap">${esc(s.resumo_mentorado)}</p>
           <div class="mt" style="display:grid;gap:6px"><span class="peq apagado">Como foi esta sessão para você? De 0 a 10</span>
             <span class="nota-sessao" data-avaliar="${s.id}">${[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => `<button type="button" data-nota="${n}" class="${s.avaliacao && s.avaliacao.nota === n ? 'on' : ''}" aria-label="Nota ${n} de 10" aria-pressed="${!!(s.avaliacao && s.avaliacao.nota === n)}">${n}</button>`).join('')}</span></div></div></div>`).join('')}</div>`
         : '<p class="apagado">Os resumos aparecem aqui depois de cada sessão concluída.</p>'}

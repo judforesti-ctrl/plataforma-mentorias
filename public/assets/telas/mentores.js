@@ -36,7 +36,7 @@ export async function render(ctx, el) {
   await Promise.all([
     sb.from('perfis').select('*').or('papel.eq.mentor,tambem_mentor.eq.true').order('nome'),
     sb.from('mentor_mentorado').select('mentor_id, mentorado:mentorados(id, nome, status, programa:programas(id, nome, status, empresa:empresas(nome)))'),
-    sb.from('sessoes').select('mentor_id, data_hora, situacao, concluida_em, mentorado:mentorados(nome)').not('mentor_id', 'is', null),
+    sb.from('sessoes').select('mentor_id, outros_mentores, data_hora, situacao, concluida_em, mentorado:mentorados(nome)').not('mentor_id', 'is', null),
     sb.from('modulo_mentores').select('mentor_id, modulo:modulos(id, numero, titulo, data_hora, turma:turmas(id, nome, status, empresa:empresas(nome)))'),
     sb.from('modulos').select('id, recomendacoes').ilike('recomendacoes', '%Quem conduz%'),
     sb.from('modulos').select('id, recomendacoes').ilike('recomendacoes', '%Progredire%'),
@@ -53,7 +53,8 @@ export async function render(ctx, el) {
       if (!trilhas.has(pr.id)) trilhas.set(pr.id, { empresa: pr.empresa ? pr.empresa.nome : '', nome: pr.nome, status: pr.status, mentorados: [] });
       trilhas.get(pr.id).mentorados.push(mt);
     });
-    const sess = (rs.data || []).filter((s) => s.mentor_id === p.id);
+    // sessões que conduz e as que atende junto com outro mentor (script 83)
+    const sess = (rs.data || []).filter((s) => s.mentor_id === p.id || (s.outros_mentores || []).includes(p.id));
     const feitas = sess.filter((s) => s.situacao === 'realizada').length;
     const proxima = sess.filter((s) => !s.concluida_em && s.situacao === 'agendada' && s.data_hora && new Date(s.data_hora).getTime() > agora)
       .sort((a, b) => new Date(a.data_hora) - new Date(b.data_hora))[0];

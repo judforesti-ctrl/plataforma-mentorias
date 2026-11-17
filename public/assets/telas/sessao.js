@@ -7,6 +7,7 @@ import { juntarTarefas, htmlTarefas, seloTarefa, textoTarefas } from '../tarefas
 import { htmlResultado } from '../ferramentas-online.js';
 import { carregarEntregas, htmlEntregas, ligarEntregas } from '../entregas.js';
 import { carregarArquivosMentorado, htmlArquivosEquipe, ligarArquivosEquipe } from '../arquivos-mentorado.js';
+import { mentoresDaSessao, juntarNomes } from '../agenda-regras.js';
 
 // Janela flutuante (fica por cima de tudo, até do Meet): Google Chrome e Edge no computador.
 const FLUTUANTE = 'documentPictureInPicture' in window;
@@ -19,7 +20,7 @@ const NOTAS = ['', 'Começando', 'Em construção', 'Praticando', 'Consistente',
 const umaLinha = (s) => String(s || '').trim();
 
 const SEL_SESSAO = `id, numero, extra, data_hora, tema, roteiro, situacao, motivo_falta, duracao_min, resumo_mentorado,
-  tarefa, tarefa_prazo, tarefa_feita_em, tarefa_comentario, concluida_em, mentorado_id,
+  tarefa, tarefa_prazo, tarefa_feita_em, tarefa_comentario, concluida_em, mentorado_id, mentor_id, outros_mentores,
   mentor:perfis!sessoes_mentor_id_fkey(id, nome),
   interno:sessoes_interno(resumo_mentor, informacoes_delicadas, notas_evolucao),
   avaliacao:avaliacoes_sessao(nota, comentario)`;
@@ -42,10 +43,14 @@ export async function render(ctx, el, [id]) {
     sb.from('ferramentas_enviadas').select('id, ferramenta:ferramentas(nome)').eq('sessao_id', s.id),
     sb.from('testes').select('*').eq('mentorado_id', m.id).order('criado_em', { ascending: false }),
     carregarEntregas((q) => q.eq('mentorado_id', m.id)),
-    sb.from('mentor_mentorado').select('mentor_id').eq('mentorado_id', m.id),
+    sb.from('mentor_mentorado').select('mentor_id, mentor:perfis(id, nome)').eq('mentorado_id', m.id),
     carregarArquivosMentorado(m.id),
   ]);
   const souMentor = (vinculos || []).some((v) => v.mentor_id === ctx.perfil.id);
+  // quem atende cada sessão: o mentor principal e quem atende junto (script 83); os nomes vêm de quem acompanha o mentorado
+  const nomes = new Map((vinculos || []).filter((v) => v.mentor).map((v) => [v.mentor_id, v.mentor.nome]));
+  [s, ...(todas || [])].forEach((x) => { if (x.mentor) nomes.set(x.mentor.id, x.mentor.nome); });
+  const quemAtende = (x) => juntarNomes(mentoresDaSessao(x).map((id) => nomes.get(id)).filter(Boolean));
   // várias tarefas por sessão (script 33); sem a tabela, a tarefa única antiga
   const multiplas = await juntarTarefas([s, ...(todas || [])], (q) => q.eq('mentorado_id', m.id));
   const interno = s.interno || {};
@@ -99,7 +104,7 @@ export async function render(ctx, el, [id]) {
     <div class="cartao">
       <h3>Antes de começar</h3>
       ${delicados.length ? `<div class="delicado mt"><b>🔒 Pontos delicados já registrados</b>
-        ${delicados.map((x) => `<p class="mt"><span class="peq apagado">Sessão ${x.numero} · ${diaMes(x.data_hora)}${x.mentor ? ` · ${esc(x.mentor.nome)}` : ''}</span><br>${esc(x.interno.informacoes_delicadas)}</p>`).join('')}</div>` : ''}
+        ${delicados.map((x) => `<p class="mt"><span class="peq apagado">Sessão ${x.numero} · ${diaMes(x.data_hora)}${quemAtende(x) ? ` · ${esc(quemAtende(x))}` : ''}</span><br>${esc(x.interno.informacoes_delicadas)}</p>`).join('')}</div>` : ''}
       <div class="grade g2 mt">
         <div><h4>${ultimaComTarefa && ultimaComTarefa.tarefas.length > 1 ? 'Tarefas' : 'Tarefa'} da sessão anterior</h4>
           ${ultimaComTarefa ? `<p class="peq apagado mt">Sessão ${ultimaComTarefa.numero}</p>${htmlTarefas(ultimaComTarefa.tarefas)}`
@@ -112,7 +117,7 @@ export async function render(ctx, el, [id]) {
       <div class="lista mt">${anteriores.slice().reverse().map((x, i) => {
         const it = x.interno || {};
         return `<details class="sessao-ant"${i === 0 ? ' open' : ''}>
-          <summary><b>Sessão ${x.numero}</b> · ${diaMes(x.data_hora)}${x.mentor ? ` · ${esc(x.mentor.nome)}` : ''}
+          <summary><b>Sessão ${x.numero}</b> · ${diaMes(x.data_hora)}${quemAtende(x) ? ` · ${esc(quemAtende(x))}` : ''}
             <span class="selo ${COR_SIT[x.situacao] ?? 'neutro'}">${ROT_SIT[x.situacao] || x.situacao}</span>
             ${it.informacoes_delicadas ? '<span class="selo erro">🔒 ponto delicado</span>' : ''}
             ${x.avaliacao ? `<span class="selo neutro">nota do mentorado: ${x.avaliacao.nota}/10</span>` : ''}</summary>
@@ -166,7 +171,7 @@ export async function render(ctx, el, [id]) {
       <div style="flex:1;min-width:220px">
         <p class="peq apagado"><a href="#/mentorado/${m.id}">← Ficha de ${esc(m.nome)}</a></p>
         <h1>Sessão ${s.numero}${total ? ` de ${total}` : ''}${s.extra ? ' <span class="selo neutro">extra</span>' : ''}</h1>
-        <p class="apagado">${esc(m.nome)} · ${dataHoraBR(s.data_hora)}${s.mentor ? ` · ${esc(s.mentor.nome)}` : ''}</p>
+        <p class="apagado">${esc(m.nome)} · ${dataHoraBR(s.data_hora)}<span id="quem-atende">${quemAtende(s) ? ` · ${esc(quemAtende(s))}` : ''}</span></p>
       </div>
       <div class="linha">
         ${!concluida ? '<button class="btn" id="remarcar">Remarcar</button>' : ''}
@@ -191,6 +196,9 @@ export async function render(ctx, el, [id]) {
       </div>
 
       <div class="sessao-col">
+        ${ctx.ehAdmin ? `<div class="cartao" id="mentores-sessao"><h3>Quem atende esta sessão</h3>
+          <p class="peq apagado">Quando dois mentores atendem juntos, marque os dois: a sessão entra na agenda e no convite do Google de cada um${s.situacao === 'realizada' || concluida ? ' e conta no extrato de cada um' : ''}.</p>
+          <div data-ms-lugar><p class="peq apagado mt">Carregando a equipe…</p></div></div>` : ''}
         <div class="cartao">
           <h3>Roteiro desta sessão</h3>
           <div class="campo mt"><label>Tema</label><input type="text" data-s="tema" value="${esc(s.tema || (plano && plano.tema) || '')}"${dis}></div>
@@ -587,6 +595,21 @@ export async function render(ctx, el, [id]) {
     const { abrirRemarcar } = await import('./remarcar.js');
     abrirRemarcar(ctx, s.id, () => ctx.irPara(`#/sessao/${s.id}`));
   });
+  // quem atende: as caixinhas dos mentores, como no módulo da turma (só a administração; script 83)
+  const cartaoMentores = el.querySelector('#mentores-sessao');
+  if (cartaoMentores) {
+    import('./mentores-sessao.js').then(async ({ equipeDaSessao, htmlMentoresSessao, ligarMentoresSessao }) => {
+      const equipe = await equipeDaSessao(s);
+      if (!cartaoMentores.isConnected) return;
+      cartaoMentores.querySelector('[data-ms-lugar]').innerHTML = htmlMentoresSessao(equipe, s);
+      equipe.forEach((x) => nomes.set(x.id, x.nome));
+      ligarMentoresSessao(ctx, cartaoMentores, s, m, equipe, { aoMudar: () => {
+        const q = el.querySelector('#quem-atende');
+        if (q) q.textContent = quemAtende(s) ? ` · ${quemAtende(s)}` : '';
+      } });
+    }).catch((e) => { cartaoMentores.querySelector('[data-ms-lugar]').innerHTML = `<p class="peq" style="color:var(--erro)">${esc(explicarErro(e))}</p>`; });
+  }
+
   el.querySelector('#trocar-mentor')?.addEventListener('click', async () => {
     await salvador.agora();
     const { abrirTrocarMentor } = await import('./trocar-mentor.js');

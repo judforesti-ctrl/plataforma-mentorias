@@ -6,6 +6,7 @@
 // Com os convites automáticos ligados (Agenda → Celular e e-mail), quem cuida é a sincronização.
 import { json, supa, quemPede, acessoGoogle, agenda, FUSO, SITE } from '../lib/google.mjs';
 import { lerConfig, sincronizar, procurarConvite, eventoGuardado, guardarEvento } from '../lib/google-sync.mjs';
+import { emailReal } from '../lib/email.mjs';
 
 export const config = { path: '/api/agenda', method: 'POST' };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -16,7 +17,7 @@ export default async (req) => {
   let b; try { b = await req.json(); } catch (_) { return json({ mensagem: 'Pedido inválido.' }, 400); }
   if (!UUID.test(String(b.sessao_id || ''))) return json({ mensagem: 'Sessão inválida.' }, 400);
 
-  const r = await supa(`/rest/v1/sessoes?id=eq.${b.sessao_id}&select=id,numero,data_hora,duracao_min,mentorado_id,concluida_em,`
+  const r = await supa(`/rest/v1/sessoes?id=eq.${b.sessao_id}&select=id,numero,data_hora,duracao_min,mentorado_id,concluida_em,outros_mentores,`
     + 'mentor:perfis!sessoes_mentor_id_fkey(nome,email),'
     + 'mentorado:mentorados(nome,email,sala_meet,perfil:perfis!mentorados_perfil_id_fkey(email),programa:programas(nome,duracao_min,empresa:empresas(nome)))');
   const s = r.ok && r.dados && r.dados[0];
@@ -75,7 +76,11 @@ export default async (req) => {
 
   // 3. não achou: só cria quando a pessoa pedir
   if (!b.criar) return json({ agenda: 'nao_achou', conta: acesso.email });
-  const convidados = [...new Set([...emailsMentorado, s.mentor && s.mentor.email && s.mentor.email.toLowerCase()].filter(Boolean))]
+  // quem atende junto também é convidado (script 83)
+  const outros = Array.isArray(s.outros_mentores) && s.outros_mentores.filter((x) => UUID.test(x)).length
+    ? await supa(`/rest/v1/perfis?id=in.(${s.outros_mentores.filter((x) => UUID.test(x)).join(',')})&select=email`) : null;
+  const emailsOutros = ((outros && outros.ok && outros.dados) || []).map((x) => String(x.email || '').toLowerCase()).filter((e) => emailReal(e));
+  const convidados = [...new Set([...emailsMentorado, s.mentor && s.mentor.email && s.mentor.email.toLowerCase(), ...emailsOutros].filter(Boolean))]
     .filter((e) => e !== conta).map((email) => ({ email }));
   const novo = await agenda(acesso.token, '/calendars/primary/events?sendUpdates=all', {
     metodo: 'POST',

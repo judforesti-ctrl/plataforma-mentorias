@@ -156,19 +156,32 @@ export function descreverPessoal(p) {
     .filter(Boolean).join(' · ') || 'Agenda pessoal';
 }
 
+// Mentores de uma sessão individual: o principal (mentor_id) e quem atende JUNTO (outros_mentores, script 83, 17/11/2026).
+export function mentoresDaSessao(s) {
+  if (!s) return [];
+  const ids = [s.mentor_id || (s.mentor && s.mentor.id), ...(Array.isArray(s.outros_mentores) ? s.outros_mentores : [])].filter(Boolean);
+  return [...new Set(ids)];
+}
+// "Cláudia", "Cláudia e Isaac", "Cláudia, Isaac e Lorena"
+export function juntarNomes(nomes) {
+  const l = (nomes || []).filter(Boolean);
+  return l.length <= 1 ? (l[0] || '') : `${l.slice(0, -1).join(', ')} e ${l[l.length - 1]}`;
+}
+
 export function montarEventos({ sessoes = [], modulos = [], bloqueios = [], reservas = [], reunioes = [], contatos = [], pessoais = [], atividades = [] } = {}, { de, ate } = {}) {
   de = de || somarDias(hoje(), -400);
   ate = ate || somarDias(hoje(), 400);
   const out = [];
   const comHorario = (iso, min) => { const ini = new Date(iso).getTime(); return { ini, fim: ini + min * 60000, dia: diaDe(iso), periodos: periodosDoIntervalo(horaDe(iso), Math.min(24, horaDe(iso) + min / 60)) }; };
 
-  // sessões individuais (quem conduz)
+  // sessões individuais (quem conduz e quem atende junto)
   for (const s of sessoes) {
-    if (!s.data_hora || !s.mentor_id || s.situacao === 'cancelada') continue;
+    const quem = mentoresDaSessao(s);
+    if (!s.data_hora || !quem.length || s.situacao === 'cancelada') continue;
     const m = s.mentorado || {}, prog = m.programa || {};
     const min = s.duracao_min || prog.duracao_min || 50;
     const h = comHorario(s.data_hora, min);
-    out.push({ id: `sessao-${s.id}`, tipo: 'individual', origem: s, mentores: [s.mentor_id], todos: false, ...h,
+    out.push({ id: `sessao-${s.id}`, tipo: 'individual', origem: s, mentores: quem, todos: false, ...h,
       titulo: `Mentoria · ${m.nome || 'mentorado'}`, sub: `Sessão ${s.numero}${nomeEmpresa(prog.empresa) ? ` · ${nomeEmpresa(prog.empresa)}` : ''}`,
       empresa: nomeEmpresa(prog.empresa), empresaId: prog.empresa && prog.empresa.id, formato: 'online', link: `#/sessao/${s.id}`, horas: min / 60 });
   }

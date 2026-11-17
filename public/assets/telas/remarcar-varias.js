@@ -5,7 +5,7 @@
 // próprias sessões que estão mudando), grava, acerta a Google Agenda sessão por sessão (o mesmo caminho do remarcar de uma,
 // /api/agenda, sem duplicar) e prepara UMA mensagem de WhatsApp para o mentorado e uma para cada mentor, com todas as datas novas.
 import { sb, esc, avisar, explicarErro, isoParaLocal, localParaISO } from '../base.js';
-import { somarDias, diaDaSemana } from '../agenda-regras.js';
+import { somarDias, diaDaSemana, mentoresDaSessao, juntarNomes } from '../agenda-regras.js';
 
 const DIAS_SEMANA = [[1, 'segunda'], [2, 'terça'], [3, 'quarta'], [4, 'quinta'], [5, 'sexta'], [6, 'sábado']];
 const MOVER = [[0, 'Não mover'], [1, '1 semana para frente'], [2, '2 semanas para frente'], [3, '3 semanas para frente'], [4, '4 semanas para frente'],
@@ -35,8 +35,12 @@ async function pedirAgendaSessao(sessaoId, antes, extra = {}) {
 export async function abrirRemarcarVarias(ctx, mentoradoId, aoSalvar = () => {}) {
   const { data: m, error } = await sb.from('mentorados').select(`id, nome, whatsapp, sala_meet, programa:programas(duracao_min),
     perfil:perfis!mentorados_perfil_id_fkey(whatsapp), vinculos:mentor_mentorado(ordem, mentor:perfis(id, nome, whatsapp)),
-    sessoes(id, numero, data_hora, duracao_min, concluida_em, situacao, mentor:perfis!sessoes_mentor_id_fkey(id, nome, whatsapp))`).eq('id', mentoradoId).maybeSingle();
+    sessoes(id, numero, data_hora, duracao_min, concluida_em, situacao, mentor_id, outros_mentores, mentor:perfis!sessoes_mentor_id_fkey(id, nome, whatsapp))`).eq('id', mentoradoId).maybeSingle();
   if (error || !m) { avisar(error ? explicarErro(error) : 'Mentorado não encontrado.', true); return; }
+  // quem atende cada sessão: o principal e quem atende junto (script 83)
+  const nomesM = new Map((m.vinculos || []).filter((v) => v.mentor).map((v) => [v.mentor.id, v.mentor.nome]));
+  (m.sessoes || []).forEach((s) => { if (s.mentor) nomesM.set(s.mentor.id, s.mentor.nome); });
+  const quemAtende = (s) => juntarNomes(mentoresDaSessao(s).map((id) => nomesM.get(id)).filter(Boolean));
   const agora = Date.now();
   // em aberto; já vêm marcadas as que ainda vão acontecer (as que já passaram sem registro ficam desmarcadas)
   const linhas = (m.sessoes || []).filter((s) => !s.concluida_em && s.situacao !== 'cancelada').sort((a, b) => a.numero - b.numero)
@@ -73,7 +77,7 @@ export async function abrirRemarcarVarias(ctx, mentoradoId, aoSalvar = () => {})
         <td class="peq">${l.s.data_hora ? esc(curto(l.s.data_hora)) : '<span class="apagado">sem data</span>'}</td>
         <td><div class="linha rv-novo"><input type="date" data-dia="${i}" aria-label="Novo dia da sessão ${l.s.numero}"><input type="time" data-hora="${i}" aria-label="Novo horário da sessão ${l.s.numero}"></div>
           <div class="peq rv-obs" data-obs="${i}"></div></td>
-        <td class="peq">${esc(l.s.mentor ? l.s.mentor.nome : '—')}</td></tr>`).join('')}</tbody></table></div>
+        <td class="peq">${esc(quemAtende(l.s) || '—')}</td></tr>`).join('')}</tbody></table></div>
     <div id="rv-choques" class="mt"></div>
     <div class="linha mt"><button class="btn pri" type="button" id="rv-salvar">Remarcar</button></div>
     <div id="rv-depois" class="mt"></div>`, { largura: 880, aoFechar: () => { if (mudou) aoSalvar(); } });
@@ -135,8 +139,8 @@ export async function abrirRemarcarVarias(ctx, mentoradoId, aoSalvar = () => {})
       for (const l of lista) {
         const iguais = lista.filter((x) => x !== l && x.novo === l.novo);
         if (iguais.length) avisos.push(`Sessão ${l.s.numero}: fica no mesmo dia e horário da sessão ${iguais.map((x) => x.s.numero).join(', ')}.`);
-        if (!l.s.mentor) continue;
-        const ch = await verificarChoques(ctx, { mentorIds: [l.s.mentor.id], inicio: localParaISO(l.novo), duracaoMin: duracao(l.s), ignorar: ids });
+        if (!mentoresDaSessao(l.s).length) continue;
+        const ch = await verificarChoques(ctx, { mentorIds: mentoresDaSessao(l.s), inicio: localParaISO(l.novo), duracaoMin: duracao(l.s), ignorar: ids });
         ch.forEach((x) => avisos.push(`Sessão ${l.s.numero}: ${x}`));
       }
       if (avisos.length) {
@@ -197,10 +201,10 @@ export async function abrirRemarcarVarias(ctx, mentoradoId, aoSalvar = () => {})
     const umaOuVarias = (n) => (n === 1 ? ['Uma sessão', 'mudou'] : ['Algumas sessões', 'mudaram']);
     const [qm, vm] = umaOuVarias(feitas.length);
     const txtMentorado = `Olá, ${String(m.nome || '').split(' ')[0]}! Aqui é ${eu}, da Mentorei. ${qm} da sua mentoria ${vm} de dia ou horário:\n\n${itens(feitas)}${meet}${convite ? '\n\nOs convites da agenda com os novos horários foram enviados para o seu e-mail.' : ''}\n\nQualquer dúvida, é só responder aqui.`;
-    // os mentores do mentorado (dupla) e quem conduz cada sessão, sem repetir; cada um recebe as sessões que conduz
+    // os mentores do mentorado (dupla) e quem conduz cada sessão, sem repetir; cada um recebe as sessões que conduz ou atende junto (script 83)
     const mentores = [...(m.vinculos || []).sort((a, b) => a.ordem - b.ordem).map((v) => v.mentor), ...feitas.map((f) => f.l.s.mentor)]
       .filter((x, k, arr) => x && arr.findIndex((y) => y && y.id === x.id) === k)
-      .map((x) => ({ ...x, delas: feitas.filter((f) => f.l.s.mentor && f.l.s.mentor.id === x.id) }))
+      .map((x) => ({ ...x, delas: feitas.filter((f) => mentoresDaSessao(f.l.s).includes(x.id)) }))
       .filter((x) => x.delas.length);
     const txtMentor = (x) => { const [q, v] = umaOuVarias(x.delas.length); return `Olá, ${x.nome.split(' ')[0]}! Aqui é ${eu}, da Mentorei. ${q} com ${m.nome} ${v} de dia ou horário:\n\n${itens(x.delas)}${meet}${convite ? '\n\nO convite da agenda já foi atualizado.' : ''}`; };
     depois.innerHTML = `<div id="rv-google">${textoGoogle()}</div>
