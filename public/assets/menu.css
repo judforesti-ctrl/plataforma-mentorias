@@ -39,9 +39,9 @@ body { background: var(--mn-conteudo); overflow-x: clip; }
 
 /* ---------- formato 1: cabeçalho no topo com menus suspensos ---------- */
 .mn-topo { position: sticky; top: 0; z-index: 30; background: var(--mn-fundo); font-family: var(--mn-fonte); }
-.mn-topo-in { max-width: 1440px; margin: 0 auto; padding: 0 48px; height: 84px; display: flex; align-items: center; }
-/* logo Mentorizar (com "Gestão de programas de mentoria" e "by Mentorei"): alto o bastante para a frase de cima ser lida */
-.mn-topo .mn-logo img { height: 60px; }
+.mn-topo-in { max-width: 1440px; margin: 0 auto; padding: 0 48px; height: 76px; display: flex; align-items: center; }
+/* logo Mentorizar (com "Gestão de programas de mentoria" e "by Mentorei"); ela pediu menor em 17/11 */
+.mn-topo .mn-logo img { height: 44px; }
 .mn-grupos { display: flex; gap: 6px; margin-left: 40px; }
 .mn-grupo { position: relative; }
 .mn-grupo-btn { position: relative; height: 44px; padding: 0 14px; border: 0; border-radius: 12px; background: transparent; color: var(--mn-inativo);
@@ -51,7 +51,7 @@ body { background: var(--mn-conteudo); overflow-x: clip; }
 .mn-seta { transition: transform .15s; opacity: .8; }
 .mn-grupo-btn[aria-expanded="true"] .mn-seta { transform: rotate(180deg); }
 .mn-grupo.atual .mn-grupo-btn { color: #fff; }
-.mn-grupo.atual .mn-grupo-btn::after { content: ''; position: absolute; left: 14px; right: 14px; bottom: -20px; height: 3px; border-radius: 3px 3px 0 0; background: var(--mn-destaque); }
+.mn-grupo.atual .mn-grupo-btn::after { content: ''; position: absolute; left: 14px; right: 14px; bottom: -16px; height: 3px; border-radius: 3px 3px 0 0; background: var(--mn-destaque); }
 /* menu aberto */
 .mn-menu { position: absolute; top: calc(100% + 12px); left: 0; width: 300px; z-index: 40; background: #fff; border: 1px solid var(--mn-borda);
   border-radius: 18px; box-shadow: 0 24px 48px rgba(9, 18, 22, .18); padding: 8px 10px 10px; }
@@ -70,7 +70,7 @@ body { background: var(--mn-conteudo); overflow-x: clip; }
 /* computador de tela menor (900 a 1240 px): logo e espaços um pouco menores, para o nome de quem entrou continuar aparecendo */
 @media (min-width: 900px) and (max-width: 1240px) {
   .mn-topo-in { padding: 0 24px; }
-  .mn-topo .mn-logo img { height: 48px; }
+  .mn-topo .mn-logo img { height: 40px; }
   .mn-grupos { margin-left: 20px; gap: 2px; }
   .mn-grupo-btn { padding: 0 11px; }
   .mn-usuario { gap: 10px; }
@@ -79,9 +79,9 @@ body { background: var(--mn-conteudo); overflow-x: clip; }
 /* ---------- formato 2: barra lateral ---------- */
 .mn-lateral, .mn-gaveta { background: var(--mn-fundo); font-family: var(--mn-fonte); display: flex; flex-direction: column; overflow: hidden; }
 .mn-lateral { position: fixed; top: 0; bottom: 0; left: 0; width: 264px; z-index: 30; padding: 26px 16px 16px; }
-.mn-lateral > .mn-logo { padding: 0 4px; }
-.mn-lateral .mn-logo img { width: 100%; height: auto; max-width: 100%; }
-.mn-gaveta .mn-logo img, .mn-celular .mn-logo img { height: 40px; }
+.mn-lateral > .mn-logo { padding: 0 14px; }
+.mn-lateral .mn-logo img { width: 180px; height: auto; max-width: 100%; }
+.mn-gaveta .mn-logo img, .mn-celular .mn-logo img { height: 34px; }
 /* as páginas rolam dentro da coluna; o rodapé (formato e usuário) fica sempre visível embaixo */
 .mn-lat-grupos { display: grid; gap: 26px; margin-top: 28px; align-content: start; flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 12px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .2) transparent; }
 .mn-lat-grupo { display: grid; gap: 2px; }

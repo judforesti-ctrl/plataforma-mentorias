@@ -382,8 +382,8 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
 - MARCA DA PLATAFORMA: MENTORIZAR (2026-11-17, decisão dela: nome oficial da plataforma). Logo "Gestão de programas de mentoria ·
   MENTORIZAR · by Mentorei" (o ponto verde é o pingo do i) em `public/assets/mentorizar-clara.png` (letras creme #EEE7DE + ponto
   #B3DA10, fundo transparente, 1100×241; tirado da imagem que ela mandou, cores chapadas, só a borda no alfa; o slogan NÃO vai no
-  logo). Usado no menu (topo 84 px de altura com logo de 60 px, 48 px entre 900 e 1240 px de largura; lateral na largura da barra;
-  celular e gaveta 40 px), no login, em criar senha, nos vídeos de boas-vindas e no pré-bloqueio do mentor; abas "… · Mentorizar".
+  logo). Usado no menu (17/11 ela pediu MENOR: topo volta a 76 px de altura com logo de 44 px, 40 px entre 900 e 1240 px de largura;
+  lateral 180 px de largura; celular e gaveta 34 px), no login, em criar senha, nos vídeos de boas-vindas e no pré-bloqueio do mentor; abas "… · Mentorizar".
   SLOGAN "Menos planilha. Mais mentoria.": título do login e pé da tela de criar senha. Continua MENTOREI de propósito: o que sai
   para o cliente em nome da empresa (relatórios, propostas, certificados, e-mails dos funis), avaliar.html, ferramentas on-line,
   planejamento.html, sair/ler.html; privacidade.html e os e-mails de convite ainda não foram trocados. Favicon continua o M.
