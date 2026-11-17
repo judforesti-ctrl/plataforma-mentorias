@@ -3,7 +3,7 @@
 // Embaixo, o resultado do encontro: o mentor vê as notas do módulo e só a PRÓPRIA nota de mentor (regra do banco);
 // a administração vê a de cada mentor. O NPS só a administração vê (decisão da Juliana, 06/11/2026). Tudo anônimo.
 import { sb, esc, avisar } from '../base.js';
-import { linkAvaliacao, janelaAvaliacao, resumir, num1, APRENDEU, TEMPO, HORAS_ATE_EMAIL, DIAS_ABERTA, HORAS_ANTES } from '../avaliacao-regras.js';
+import { linkAvaliacao, janelaAvaliacao, resumir, num1, APLICAR, APRENDEU, TEMPO, HORAS_ATE_EMAIL, DIAS_ABERTA, HORAS_ANTES } from '../avaliacao-regras.js';
 
 const nomeArquivo = (t) => t.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim();
 
@@ -94,7 +94,7 @@ export function ligarAvaliacao(ctx, el, m, souMentor) {
 }
 
 async function mostrarResultado(ctx, alvo, m, souMentor) {
-  const { data, error } = await sb.from('avaliacoes').select(`id, geral, aula, conteudo, ferramentas, aprendeu, tempo, ${ctx.ehAdmin ? 'nps, ' : ''}marcas, comentario, temas, criado_em, notas:avaliacao_mentores(mentor_id, nota)`)
+  const { data, error } = await sb.from('avaliacoes').select(`id, geral, aula, conteudo, ferramentas, aplicar, aprendeu, tempo, ${ctx.ehAdmin ? 'nps, ' : ''}marcas, comentario, temas, criado_em, notas:avaliacao_mentores(mentor_id, nota)`)
     .eq('modulo_id', m.id).order('criado_em', { ascending: false });
   if (error) {
     alvo.innerHTML = /avaliacoes|42P01|PGRST20|schema cache/i.test(`${error.code} ${error.message}`)
@@ -122,7 +122,8 @@ async function mostrarResultado(ctx, alvo, m, souMentor) {
       ${caixa(num1(r.aula), 'aula (0 a 10)')}${caixa(num1(r.conteudo), 'conteúdo (0 a 10)')}${caixa(num1(r.ferramentas), 'ferramentas (0 a 10)')}
       ${ctx.ehAdmin && r.nps ? caixa(r.nps.valor, 'NPS (−100 a 100)') : ''}
     </div>
-    ${lista2(r.aprendeu, APRENDEU) ? `<p class="peq mt"><b>Aprenderam:</b> ${lista2(r.aprendeu, APRENDEU)}</p>` : ''}
+    ${lista2(r.aplicar, APLICAR) ? `<p class="peq mt"><b>Vão usar no trabalho:</b> ${lista2(r.aplicar, APLICAR)}</p>` : ''}
+    ${lista2(r.aprendeu, APRENDEU) ? `<p class="peq"><b>Aprenderam</b> <span class="apagado">(pergunta antiga)</span>: ${lista2(r.aprendeu, APRENDEU)}</p>` : ''}
     ${lista2(r.tempo, TEMPO) ? `<p class="peq"><b>Tempo:</b> ${lista2(r.tempo, TEMPO)}</p>` : ''}
     ${r.marcas.length ? `<p class="peq"><b>Marcaram:</b> ${lista2(r.marcas)}</p>` : ''}
     ${r.comentarios.length ? `<p class="peq mt"><b>Comentários</b> <span class="apagado">(anônimos)</span></p>

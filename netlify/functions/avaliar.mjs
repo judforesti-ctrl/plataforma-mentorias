@@ -1,11 +1,12 @@
 // Avaliação das turmas, pela página pública avaliar.html (QR code do último slide ou link no chat da aula). Sem login.
 // GET  /api/avaliar?m=<módulo> → dados do encontro para a página (empresa, turma, módulo, mentores) e se aceita respostas
-// POST /api/avaliar {m, geral, aula, conteudo, ferramentas, mentores: {id: nota}, aprendeu, tempo, nps, marcas, comentario, temas}
+// POST /api/avaliar {m, geral, aula, conteudo, ferramentas, mentores: {id: nota}, aplicar, tempo, nps, marcas, comentario, temas}
+//      (aplicar = "Quanto do encontro de hoje você vai usar no trabalho?", desde 16/11/2026; substituiu aprendeu, script 82)
 //      → grava a resposta e devolve só { ok } (nenhuma nota volta para o aluno: decisão da Juliana, 06/11/2026)
 // ANÔNIMO: não se grava nada de quem respondeu (nem endereço de internet, nem aparelho).
 // QR antigo: se o módulo já passou e a mesma turma tem aula hoje, a resposta vai para o módulo de hoje.
 import { json, supa, FUSO } from '../lib/google.mjs';
-import { janelaAvaliacao, APRENDEU, TEMPO, POSITIVOS, MELHORAR, TEMAS } from '../../public/assets/avaliacao-regras.js';
+import { janelaAvaliacao, APLICAR, TEMPO, POSITIVOS, MELHORAR, TEMAS } from '../../public/assets/avaliacao-regras.js';
 
 export const config = { path: '/api/avaliar', method: ['GET', 'POST'] };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -60,7 +61,7 @@ export default async (req) => {
   const resposta = {
     modulo_id: m.id, turma_id: m.turma_id, empresa_id: (m.turma && m.turma.empresa_id) || null, origem: 'plataforma',
     geral: nota(corpo.geral, 0, 10), aula: nota(corpo.aula, 0, 10), conteudo: nota(corpo.conteudo, 0, 10), ferramentas: nota(corpo.ferramentas, 0, 10),
-    aprendeu: APRENDEU[corpo.aprendeu] ? corpo.aprendeu : null, tempo: TEMPO[corpo.tempo] ? corpo.tempo : null,
+    aplicar: APLICAR[corpo.aplicar] ? corpo.aplicar : null, tempo: TEMPO[corpo.tempo] ? corpo.tempo : null,
     nps: nota(corpo.nps, 0, 10),
     marcas: escolhas(corpo.marcas, [...POSITIVOS, ...MELHORAR], 12),
     comentario: String(corpo.comentario || '').trim().slice(0, 3000) || null,
@@ -68,6 +69,11 @@ export default async (req) => {
   };
   if (resposta.geral === null && resposta.nps === null) return json({ mensagem: 'Dê pelo menos a nota do encontro.' }, 400);
   let g = await supa('/rest/v1/avaliacoes?select=id', { metodo: 'POST', corpo: resposta, prefer: 'return=representation' });
+  // Banco sem o script 82 (coluna aplicar): grava o resto em vez de perder a avaliação.
+  if (!g.ok && /aplicar/i.test(JSON.stringify(g.dados || '')) && /PGRST204|42703|column/i.test(JSON.stringify(g.dados || ''))) {
+    delete resposta.aplicar;
+    g = await supa('/rest/v1/avaliacoes?select=id', { metodo: 'POST', corpo: resposta, prefer: 'return=representation' });
+  }
   if (!g.ok && VIOLOU.test(JSON.stringify(g.dados || ''))) {
     g = await supa('/rest/v1/avaliacoes?select=id', { metodo: 'POST', prefer: 'return=representation',
       corpo: { ...resposta, aula: metade(resposta.aula), conteudo: metade(resposta.conteudo), ferramentas: metade(resposta.ferramentas) } });

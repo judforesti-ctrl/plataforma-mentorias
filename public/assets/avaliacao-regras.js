@@ -12,6 +12,11 @@ export const POSITIVOS = ['Exemplos práticos', 'Dinâmicas', 'Mentor(a) perto d
 export const MELHORAR = ['Mais tempo para praticar', 'Menos teoria', 'Exemplos do meu dia a dia', 'Material antes da aula'];
 export const TEMAS = ['Gestão do tempo', 'Feedback', 'Conversas difíceis', 'Delegação', 'Comunicação', 'Inteligência emocional',
   'Gestão de conflitos', 'Liderar a antiga equipe', 'Tomada de decisão', 'Gestão de mudanças'];
+// Desde 16/11/2026 (pedido da Juliana, script 82) a pergunta é "Quanto do encontro de hoje você vai usar no trabalho?", coluna
+// `aplicar`. A antiga "Quanto você aprendeu de novo hoje?" (coluna `aprendeu`) saiu porque Bastante e Muito quase não se
+// distinguiam: APRENDEU fica só para mostrar o histórico.
+export const PERGUNTA_APLICAR = 'Quanto do encontro de hoje você vai usar no trabalho?';
+export const APLICAR = { nada: 'Nada', uma_ou_outra: 'Uma ou outra coisa', boa_parte: 'Boa parte', quase_tudo: 'Quase tudo' };
 export const APRENDEU = { quase_nada: 'Quase nada', um_pouco: 'Um pouco', bastante: 'Bastante', muito: 'Muito' };
 export const TEMPO = { curto: 'Curto', na_medida: 'Na medida', longo: 'Longo' };
 export const PARTES = { aula: 'Aula', conteudo: 'Conteúdo', ferramentas: 'Ferramentas e materiais' };
@@ -68,6 +73,7 @@ export function resumir(respostas) {
     mentores: [...porMentor.entries()].map(([id, v]) => ({ id, media: media(v), total: v.length,
       satisfeitos: Math.round((v.filter((x) => x >= SATISFEITO).length / v.length) * 100) })),
     nps: nps(num('nps')),
+    aplicar: contagem('aplicar', APLICAR),
     aprendeu: contagem('aprendeu', APRENDEU),
     tempo: contagem('tempo', TEMPO),
     marcas: contar(respostas.map((r) => r.marcas)),

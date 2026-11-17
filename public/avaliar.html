@@ -81,7 +81,7 @@
   </div>
 </main>
 <script type="module">
-import { POSITIVOS, MELHORAR, TEMAS, APRENDEU, TEMPO } from '/assets/avaliacao-regras.js';
+import { POSITIVOS, MELHORAR, TEMAS, APLICAR, PERGUNTA_APLICAR, TEMPO } from '/assets/avaliacao-regras.js';
 
 const corpo = document.getElementById('corpo'), barra = document.getElementById('barra'), conta = document.getElementById('conta');
 const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -90,7 +90,7 @@ const guardar = (k, v) => { try { localStorage.setItem(k, v); } catch (_) { /* a
 const ler = (k) => { try { return localStorage.getItem(k); } catch (_) { return null; } };
 const TOTAL = 6;   // telas de perguntas
 let mod = null, passo = 0, enviando = false;
-const s = { geral: null, partes: {}, mentores: {}, aprendeu: null, tempo: null, nps: null, marcas: [], comentario: '', temas: [], outro: '' };
+const s = { geral: null, partes: {}, mentores: {}, aplicar: null, tempo: null, nps: null, marcas: [], comentario: '', temas: [], outro: '' };
 
 const rosto = (m, p) => `<span class="rosto${p ? ' p' : ''}">${m.foto ? `<img src="${esc(m.foto)}" alt="">` : esc((m.nome || '?')[0])}</span>`;
 const dataBR = (iso) => new Date(iso).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit' });
@@ -137,8 +137,8 @@ function desenhar() {
       ${ms.map((m) => linhaNota('mentores', m.id, `${rosto(m, true)}${esc(m.nome)}`, 'mentor(a)')).join('')}
       ${linhaNota('partes', 'conteudo', 'O conteúdo', 'dá para usar no dia a dia?')}${linhaNota('partes', 'ferramentas', 'Ferramentas e materiais')}</div>${botoes(ok)}`;
   } else if (passo === 3) {
-    h = `<h1>Duas perguntinhas de um toque</h1><span class="subtit">Quanto você aprendeu de novo hoje?</span>${opcoes(APRENDEU, s.aprendeu, 'aprendeu')}
-      <span class="subtit">O tempo do encontro foi…</span>${opcoes(TEMPO, s.tempo, 'tempo')}${botoes(s.aprendeu && s.tempo)}`;
+    h = `<h1>Duas perguntinhas de um toque</h1><span class="subtit">${PERGUNTA_APLICAR}</span>${opcoes(APLICAR, s.aplicar, 'aplicar')}
+      <span class="subtit">O tempo do encontro foi…</span>${opcoes(TEMPO, s.tempo, 'tempo')}${botoes(s.aplicar && s.tempo)}`;
   } else if (passo === 4) {
     h = `<h1>De 0 a 10, quanto você indicaria a Mentorei para um amigo ou colega?</h1>${grade(s.nps, 'nps')}${botoes(s.nps !== null)}`;
   } else if (passo === 5) {
@@ -170,7 +170,7 @@ async function enviar() {
   try {
     const r = await fetch('/api/avaliar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
       m: idPedido, geral: s.geral, aula: s.partes.aula, conteudo: s.partes.conteudo, ferramentas: s.partes.ferramentas, mentores: s.mentores,
-      aprendeu: s.aprendeu, tempo: s.tempo, nps: s.nps, marcas: s.marcas, comentario: s.comentario, temas }) });
+      aplicar: s.aplicar, tempo: s.tempo, nps: s.nps, marcas: s.marcas, comentario: s.comentario, temas }) });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.mensagem || 'Não conseguimos enviar agora. Tente de novo em instantes.');
     guardar(`mentorei.avaliado.${mod.id}`, '1');

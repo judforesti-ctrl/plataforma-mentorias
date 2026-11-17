@@ -4,7 +4,7 @@
 // Recebe quem já usa a plataforma (termo aceito), como os outros e-mails da equipe.
 import { supa, SITE } from '../lib/google.mjs';
 import { enviarEmail, modeloEmail, emailReal } from '../lib/email.mjs';
-import { janelaAvaliacao, resumir, num1, APRENDEU, TEMPO, HORAS_ATE_EMAIL } from '../../public/assets/avaliacao-regras.js';
+import { janelaAvaliacao, resumir, num1, APLICAR, APRENDEU, TEMPO, HORAS_ATE_EMAIL } from '../../public/assets/avaliacao-regras.js';
 
 export const config = { schedule: '20 * * * *' };
 
@@ -24,7 +24,7 @@ export default async () => {
   for (const m of r.dados || []) {
     const j = janelaAvaliacao(m, agora);
     if (j.fim && agora < j.fim + HORAS_ATE_EMAIL * 3600000) continue;
-    const a = await supa(`/rest/v1/avaliacoes?modulo_id=eq.${m.id}&select=geral,aula,conteudo,ferramentas,aprendeu,tempo,nps,marcas,comentario,temas,notas:avaliacao_mentores(mentor_id,nota)`);
+    const a = await supa(`/rest/v1/avaliacoes?modulo_id=eq.${m.id}&select=geral,aula,conteudo,ferramentas,aplicar,aprendeu,tempo,nps,marcas,comentario,temas,notas:avaliacao_mentores(mentor_id,nota)`);
     if (!a.ok) continue;
     const respostas = a.dados || [];
     if (respostas.length) {
@@ -46,6 +46,7 @@ export default async () => {
           ] },
         ];
         const extras = [
+          pares(res.aplicar, APLICAR) && `Quanto vão usar no trabalho: ${pares(res.aplicar, APLICAR)}`,
           pares(res.aprendeu, APRENDEU) && `Quanto aprenderam: ${pares(res.aprendeu, APRENDEU)}`,
           pares(res.tempo, TEMPO) && `Tempo do encontro: ${pares(res.tempo, TEMPO)}`,
           res.marcas.length && `O que marcaram: ${pares(res.marcas)}`,

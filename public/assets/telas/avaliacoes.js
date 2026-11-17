@@ -4,7 +4,7 @@
 // "google_forms" (sem módulo; o nome da formação que o aluno escreveu fica em "formacao"); as fichas de papel tabuladas,
 // com origem "papel" e ligadas ao módulo (script 50).
 import { sb, esc, dataBR, avisar, explicarErro } from '../base.js';
-import { resumir, nps, num1, APRENDEU, TEMPO, MELHORAR, SATISFEITO } from '../avaliacao-regras.js';
+import { resumir, nps, num1, APLICAR, APRENDEU, TEMPO, MELHORAR, SATISFEITO } from '../avaliacao-regras.js';
 
 const ABAS = [['geral', 'Visão geral'], ['modulos', 'Por módulo'], ['mentores', 'Por mentor'], ['comentarios', 'Comentários'], ['temas', 'Temas pedidos']];
 const PERIODOS = [['30', 'Últimos 30 dias'], ['90', 'Últimos 3 meses'], ['365', 'Últimos 12 meses'], ['tudo', 'Desde o começo']];
@@ -71,7 +71,7 @@ const media = (xs) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : n
 async function carregar() {
   const todas = [];
   for (let de = 0; ; de += 1000) {
-    const { data, error } = await sb.from('avaliacoes').select(`id, origem, formacao, extras, geral, aula, conteudo, ferramentas, aprendeu, tempo, nps, marcas, comentario, temas, criado_em,
+    const { data, error } = await sb.from('avaliacoes').select(`id, origem, formacao, extras, geral, aula, conteudo, ferramentas, aplicar, aprendeu, tempo, nps, marcas, comentario, temas, criado_em,
       notas:avaliacao_mentores(mentor_id, nota), modulo:modulos(id, numero, titulo, data_hora, participantes_presentes, mentores:modulo_mentores(mentor_id)),
       turma:turmas(id, nome), empresa:empresas(id, nome)`).order('criado_em', { ascending: false }).range(de, de + 999);
     if (error) return { erro: error };
@@ -201,7 +201,7 @@ function abaGeral(alvo, lista) {
     <b>${v == null ? 'sem respostas' : `${num1(v)} <small>/ ${escala}</small>`}</b><span class="base">${v == null ? '' : `${extra}${extra ? ' · ' : ''}${fmt(base)}`}</span></div>`;
   const barras = (pares, total, cls = () => '') => `<div class="av-barras">${pares.slice(0, 8).map(([k, q]) => `<div class="av-barra"><span>${esc(k)}</span>
     <span class="t"><i class="${cls(k)}" style="width:${pct(q, total)}%"></i></span><b>${pct(q, total)}%</b></div>`).join('')}</div>`;
-  const respAprendeu = quantas('aprendeu'), respTempo = quantas('tempo'), respMarcas = lista.filter((a) => (a.marcas || []).length).length;
+  const respAplicar = quantas('aplicar'), respAprendeu = quantas('aprendeu'), respTempo = quantas('tempo'), respMarcas = lista.filter((a) => (a.marcas || []).length).length;
   alvo.innerHTML = `
     <div class="av-topo">
       <div class="av-destaque">
@@ -230,7 +230,8 @@ function abaGeral(alvo, lista) {
       <div class="cartao"><h3>O que a turma disse</h3>
         <p class="av-aviso-novo mt">Perguntas novas: ${novas ? `${fmt(novas)} pelo QR code da plataforma` : 'ainda sem respostas pelo QR code da plataforma'}.</p>
         ${respMarcas ? `<p class="rotulo mt2">O que mais marcaram</p>${barras(r.marcas, respMarcas, (k) => (MELHORAR.includes(k) ? 'melhorar' : ''))}` : ''}
-        ${respAprendeu ? `<p class="rotulo mt2">Quanto aprenderam</p>${barras(r.aprendeu.map(([k, q]) => [APRENDEU[k], q]), respAprendeu)}` : ''}
+        ${respAplicar ? `<p class="rotulo mt2">Quanto vão usar no trabalho</p>${barras(r.aplicar.map(([k, q]) => [APLICAR[k], q]), respAplicar)}` : ''}
+        ${respAprendeu ? `<p class="rotulo mt2">Quanto aprenderam (pergunta antiga, até 16/11/2026)</p>${barras(r.aprendeu.map(([k, q]) => [APRENDEU[k], q]), respAprendeu)}` : ''}
         ${respTempo ? `<p class="rotulo mt2">Tempo do encontro</p>${barras(r.tempo.map(([k, q]) => [TEMPO[k], q]), respTempo)}` : ''}
       </div>
     </div>`;
@@ -349,11 +350,11 @@ async function baixarExcel(lista, nomes) {
   let XLSX;
   try { XLSX = await import('https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs'); } catch (e) { avisar(explicarErro(e), true); return; }
   const respostas = [['Data', 'Empresa', 'Turma', 'Encontro', 'Mentor(es)', 'Nota geral (0-10)', 'Aula (0-10)', 'Nota do mentor (0-10)', 'Conteúdo (0-10)',
-    'Ferramentas e materiais (0-10)', 'Aprendeu', 'Tempo', 'Recomendação (0-10)', 'Marcou', 'Comentário', 'Temas pedidos', 'Origem']];
+    'Ferramentas e materiais (0-10)', 'Vai usar no trabalho', 'Aprendeu (pergunta antiga)', 'Tempo', 'Recomendação (0-10)', 'Marcou', 'Comentário', 'Temas pedidos', 'Origem']];
   lista.forEach((a) => respostas.push([dataBR(quando(a)), a.empresa ? a.empresa.nome : '', a.turma ? a.turma.nome : '',
     a.modulo ? `Módulo ${a.modulo.numero} · ${a.modulo.titulo}` : (a.formacao || ''), mentoresDe(a).map((id) => nomes.get(id) || '').join(', '),
     a.geral, a.aula, (a.notas || []).length ? a.notas.map((n) => `${String(nomes.get(n.mentor_id) || '').split(' ')[0]}: ${n.nota}`).join(', ') : notasDe(a).join(''), a.conteudo, a.ferramentas,
-    APRENDEU[a.aprendeu] || '', TEMPO[a.tempo] || '', a.nps, (a.marcas || []).join(', '), a.comentario || '', (a.temas || []).join(', '),
+    APLICAR[a.aplicar] || '', APRENDEU[a.aprendeu] || '', TEMPO[a.tempo] || '', a.nps, (a.marcas || []).join(', '), a.comentario || '', (a.temas || []).join(', '),
     a.origem === 'google_forms' ? 'Google Forms' : a.origem === 'papel' ? 'Ficha de papel' : 'Plataforma']));
   const porModulo = [['Encontro', 'Data', 'Respostas', 'Presentes', 'Nota geral', 'Aula', 'Mentor', 'Conteúdo', 'Ferramentas', 'NPS']];
   grupos(lista).forEach((g) => {

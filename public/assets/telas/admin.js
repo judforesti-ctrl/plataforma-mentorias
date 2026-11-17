@@ -184,7 +184,8 @@ async function numerosTrilhas(box, empresaId) {
     <div class="grade g4 mt">
       ${card(n.nota == null ? '—' : String(n.nota).replace('.', ','), `nota média dos encontros, de 0 a 10 (${n.avaliacoes} avaliações)`)}
       ${card(nps == null ? '—' : nps, 'NPS (−100 a +100)')}
-      ${card(n.aprendeu_n ? pct(n.aprendeu_bastante, n.aprendeu_n) : '—', 'disseram que aprenderam bastante ou muito')}
+      ${n.aplicar_n || !n.aprendeu_n ? card(n.aplicar_n ? pct(n.aplicar_boa_parte, n.aplicar_n) : '—', `vão usar boa parte ou quase tudo no trabalho${n.aplicar_n ? ` (${n.aplicar_n} ${n.aplicar_n === 1 ? 'resposta' : 'respostas'})` : ''}`)
+        : card(pct(n.aprendeu_bastante, n.aprendeu_n), 'disseram que aprenderam bastante ou muito (pergunta antiga, até 16/11/2026)')}
       ${card(n.certificados, 'certificados emitidos')}</div>
     <p class="peq apagado mt">${n.turmas_andamento} turma${n.turmas_andamento === 1 ? '' : 's'} em andamento e ${n.turmas_concluidas} concluída${n.turmas_concluidas === 1 ? '' : 's'}
       · ${n.envios} envio${n.envios === 1 ? '' : 's'} dos alunos (${n.envios_respondidos} respondido${n.envios_respondidos === 1 ? '' : 's'}${n.envios_sem_abrir ? `, ${n.envios_sem_abrir} ainda sem abrir` : ''})

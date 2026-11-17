@@ -537,7 +537,7 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   presentes e avaliações, nota/NPS só com 3+ respostas, certificados) e mentorias individuais (sessões feitas, faltas, tarefas);
   nunca percepções, anotações, envios ou respostas. "Baixar em Excel". O TERMO_ALUNO agora diz que o RH vê presença e conclusão.
   PAINEL: bloco de números das trilhas em "Mentoria em grupo" (rpc `numeros_trilhas(empresa)`, só admin, segue o filtro de empresa):
-  alunos e quantos entraram, frequência, conclusão (75%), encontros com chamada, nota, NPS, "aprenderam bastante", certificados,
+  alunos e quantos entraram, frequência, conclusão (75%), encontros com chamada, nota, NPS, "vão usar boa parte ou quase tudo no trabalho" (antes do script 82, "aprenderam bastante"), certificados,
   envios e gravações.
   LEMBRETES AOS MENTORES (`netlify/functions/mentor-lembretes.mjs`, todo dia 8h): por módulo e mentor, só se falta algo: 3 dias
   antes = slides do mentor; 2 dias antes = ferramentas (arquivos "tarefa" + "Materiais necessários" de ferramenta) e slides com o QR
@@ -554,7 +554,7 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   ler antes). Ela vai mandar a planilha das respostas antigas do Forms: importar em `avaliacoes` com origem 'google_forms', `formacao`
   = nome que o aluno escreveu, escalas antigas em `extras` (o NPS antigo ia de 1 a 10, sem o 0).
   Página pública `public/avaliar.html?m=<módulo>` (sem login; 6 telas: nota geral 0–10, régua 0–10 para aula, cada mentor, conteúdo e
-  ferramentas (eram carinhas 1–5 até 03/11/2026), aprendeu + tempo, NPS 0–10, comentário com pergunta que muda pela nota + atalhos, temas). Grava pela função `/api/avaliar`
+  ferramentas (eram carinhas 1–5 até 03/11/2026), vai usar no trabalho + tempo, NPS 0–10, comentário com pergunta que muda pela nota + atalhos, temas). Grava pela função `/api/avaliar`
   (`netlify/functions/avaliar.mjs`): aceita de 24 h antes do início até as 23h59 do 10º dia depois da data do treinamento (decisão dela, 12/10; `janelaAvaliacao`); QR de um módulo de dia anterior cai no
   módulo da mesma turma que acontece hoje. Textos e contas compartilhados em `public/assets/avaliacao-regras.js`.
   QR code: desenhado no navegador a partir do link do módulo (`public/assets/vendor/qrcode.js`, qrcode-generator MIT), nada guardado;
@@ -579,6 +579,14 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   troca as regras do banco e grava `configuracoes.avaliacoes_escala = {escala: 10}`. Antes do 64: avaliar.mjs e minha-area.js gravam
   a metade se o banco recusar (23514), Gestão › Avaliações avisa e o e-mail ao mentor (avaliacoes-email) espera. "Satisfeito" =
   `SATISFEITO` (8) em avaliacao-regras.js. A "evolução nos pontos a desenvolver" (1 a 5, do mentor) não é avaliação: não mudou.
+  VAI USAR NO TRABALHO (2026-11-16, script 82 rodado pelo conector no mesmo dia; pedido dela: "muito e bastante são bem parecidos";
+  267 das 294 respostas caíram nos dois). No passo 3 do avaliar.html, "Quanto você aprendeu de novo hoje?" (Quase nada, Um pouco,
+  Bastante, Muito; coluna `aprendeu`) virou "Quanto do encontro de hoje você vai usar no trabalho?" (`PERGUNTA_APLICAR`; Nada, Uma ou
+  outra coisa, Boa parte, Quase tudo = `APLICAR`; coluna nova `aplicar` com check). Ela escolheu esta entre 4 opções (as outras:
+  "quanto era novo" por metade, "já sabia × novidade", 3 botões) porque mede o que o RH quer ver. `aprendeu` ficou como HISTÓRICO
+  (nada convertido): o módulo, Gestão › Avaliações, o Excel e o e-mail ao mentor mostram as duas, a antiga marcada "pergunta antiga";
+  o Painel (numeros_trilhas: aplicar_n, aplicar_boa_parte) mostra a nova e só cai na antiga enquanto não houver resposta nova.
+  painel_rh NÃO mudou (o RH não vê essa pergunta; mostrar a ele é decisão dela). avaliar.mjs grava sem `aplicar` se a coluna faltar.
   FICHAS DE PAPEL (2026-10-28, script 50): quando a turma não consegue usar o QR, a equipe tabula as fichas numa planilha e elas entram
   com origem 'papel' ligadas ao módulo (1º lote: Cresol Amazônia, Formação Ativa Idade, 26/10, Viviane, 11 fichas, `extras.lote`
   = 'papel-ativa-idade-2026-10-26'). Conversão (Muito satisfeito 5 … Insatisfeito 1, marcação dupla não conta, média arredondada):
