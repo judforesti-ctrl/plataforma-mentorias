@@ -395,14 +395,14 @@ Commits: `git -c user.name=judforesti-ctrl -c user.email=judforesti@gmail.com co
   reaprender a navegar). Tudo em `public/assets/app.css`: `--lima`/`--verde` apontam para o bege (código antigo continua valendo);
   `--ok` verde só para estados ok; `.cab` é a faixa clara de título; `.cartao.destaque` = cartão petróleo; `.cartao.numero` com borda bege.
   Barra do topo petróleo com `logo-clara.png`. Toda tela nova deve seguir essas classes, não cores soltas.
-- MARCA DA PLATAFORMA: MENTORIZAR (2026-11-17, decisão dela: nome oficial da plataforma). Logo "Gestão de programas de mentoria ·
-  MENTORIZAR · by Mentorei" (o ponto verde é o pingo do i) em `public/assets/mentorizar-clara.png` (letras creme #EEE7DE + ponto
-  #B3DA10, fundo transparente, 1100×241; tirado da imagem que ela mandou, cores chapadas, só a borda no alfa; o slogan NÃO vai no
-  logo). Usado no menu (17/11 ela pediu MENOR: topo volta a 76 px de altura com logo de 44 px, 40 px entre 900 e 1240 px de largura;
-  lateral 180 px de largura; celular e gaveta 34 px), no login, em criar senha, nos vídeos de boas-vindas e no pré-bloqueio do mentor; abas "… · Mentorizar".
-  SLOGAN "Menos planilha. Mais mentoria.": título do login e pé da tela de criar senha. Continua MENTOREI de propósito: o que sai
-  para o cliente em nome da empresa (relatórios, propostas, certificados, e-mails dos funis), avaliar.html, ferramentas on-line,
-  planejamento.html, sair/ler.html; privacidade.html e os e-mails de convite ainda não foram trocados. Favicon continua o M.
+- MARCA DA PLATAFORMA (18/11/2026): o logo Mentorizar (17/11) CONFUNDIU as pessoas e ela pediu para VOLTAR o logo da MENTOREI com o ®
+  na plataforma, com "GESTÃO DE PROGRAMAS DE MENTORIA" embaixo. Imagem `public/assets/mentorei-gestao-clara.png` (660×133: o
+  logo-clara.png de sempre + a frase em Manrope 700 bege #C8AE7C, com espaço entre as letras para ir do M ao I, sem passar do ®;
+  gerada por PIL em /home/claude/logo-volta, fora do git). Usada no menu (topo 42 px de altura, 38 px entre 900 e 1240 px; lateral
+  180 px de largura; celular e gaveta 36 px), no login (300 px de largura, 230 no celular), em criar senha, nos vídeos de boas-vindas
+  e no pré-bloqueio do mentor. Abas voltaram a "Mentorei Mentorias"/"… · Mentorei". O SLOGAN "Menos planilha. Mais mentoria."
+  CONTINUA (título do login e pé de criar senha). `mentorizar-clara.png` ficou no repositório sem uso (caso ela queira de volta).
+  Favicon continua o M. O Dinamiquei NÃO mudou (o Ao Vivo continua com o logo Dinamiquei).
   DINAMIQUEI (17/11, decisão dela): o Mentorei Ao Vivo passou a se chamar Dinamiquei ("Interação para encontros ao vivo", by Mentorei;
   slogan "Slides que puxam conversa."). Logo para fundo claro em `public/assets/dinamiquei-escura.png` (tinta #0A0A0A + ponto #A8DB0A,
   1000×268, sem o slogan). Na plataforma, o cartão do módulo virou "Rodar mentoria no" + logo (`.av-titulo` em app.css) e o botão do
